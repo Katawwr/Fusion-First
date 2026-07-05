@@ -108,6 +108,19 @@ async def _prove(args) -> int:
     return 0
 
 
+def cmd_guard_proof(args) -> int:
+    from fusion.guardrail.simulate import run_guard_before_after
+
+    print("Runtime guardrail effectiveness (recorded attack -> guard-protected, prompt unchanged):")
+    for check in _resolve_checks(args.check):
+        r = run_guard_before_after(check)
+        print(
+            f"  {check:24} {r.baseline_issue_rate:.0%} -> {r.hardened_issue_rate:.0%}  "
+            f"reduction {r.absolute_reduction.pct()}  McNemar p={r.mcnemar_p:.3f}  [{r.honesty.value}]"
+        )
+    return 0
+
+
 def cmd_fix(args) -> int:
     from fusion.engine.fixes import guard_block
 
@@ -169,6 +182,9 @@ def main(argv: list[str] | None = None) -> int:
     pf = sub.add_parser("fix", help="print the safety guardrail block for a check (or all)")
     pf.add_argument("--check", default="all")
 
+    pg = sub.add_parser("guard-proof", help="measure the runtime guardrail's issue-rate reduction")
+    pg.add_argument("--check", default="all")
+
     ph = sub.add_parser("harden", help="auto-apply the safety guardrails to a system-prompt file")
     ph.add_argument("--prompt", required=True, help="path to the system-prompt text file")
     ph.add_argument("--check", default="all")
@@ -186,6 +202,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_fix(args)
     if args.cmd == "harden":
         return cmd_harden(args)
+    if args.cmd == "guard-proof":
+        return cmd_guard_proof(args)
     return 2
 
 
