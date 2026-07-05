@@ -114,3 +114,16 @@ async def test_guarded_client_redacts_model_output():
     assert "sk-live-deadbeef00" not in out.text
     assert client.events  # recorded that it intervened
     assert out.output_tokens == 8  # metadata preserved
+
+
+@pytest.mark.unit
+async def test_full_runtime_stack_guard_over_budget():
+    # The full inline protection stack: output guard wrapping the budget circuit-breaker.
+    from fusion.security.budget import BudgetExceeded, BudgetedModelClient, BudgetLimits
+
+    budgeted = BudgetedModelClient(_LeakyModel(), limits=BudgetLimits(max_calls=1))
+    client = GuardedModelClient(budgeted, Guardrail())
+    out = await client.complete(ModelRequest(role=ModelRole.TARGET))
+    assert "sk-live-deadbeef00" not in out.text  # guard still redacts through the stack
+    with pytest.raises(BudgetExceeded):
+        await client.complete(ModelRequest(role=ModelRole.TARGET))  # budget breaker still trips

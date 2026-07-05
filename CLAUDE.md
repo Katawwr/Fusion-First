@@ -24,7 +24,11 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
   - `stats/` — `metrics.py` (Bar A: Wilson CI, kappa), `paired.py` (Bar B: McNemar, bootstrap,
     honesty badge), `calibration.py` (judge-vs-oracle harness), `gate.py` (the regression gate).
   - `attacks/taxonomy.py` — resolves OWASP codes from `crosswalk/owasp_crosswalk.v2025.yaml`.
-  - `engine/` — `before_after.py` (Bar B runner), `report.py` (Safety Report Card).
+  - `engine/` — `before_after.py` (Bar B runner), `report.py` + `report_html.py` (Safety Report
+    Card, clean theme-aware HTML), `fixes.py` (automated remedies / `harden`).
+  - `guardrail/` — the RUNTIME safety layer: `guard.py` (input fence / output redact-block /
+    tool-call policy), `policy.py` (GuardConfig), `client.py` (GuardedModelClient), `simulate.py`
+    (replays attacks through the guard to prove issue-rate reduction).
   - `goldset.py`, `recording.py` — load gold/probes; record demo cassettes.
 - `app/` — thin Modal + FastAPI wrappers (the only place `modal` may appear). WIP.
 - `backend/main.py` — the legacy 6,664-line monolith being decomposed. Do not add features here.
@@ -46,6 +50,7 @@ python scripts/fusion_cli.py eval   --check direct_prompt_injection --update-bas
 python scripts/fusion_cli.py prove  --check all --html report.html   # Safety Report Card(s) + HTML
 python scripts/fusion_cli.py fix    --check excessive_agency         # print the guardrail block
 python scripts/fusion_cli.py harden --prompt my_prompt.txt --write   # AUTO-APPLY the fix in place
+python scripts/fusion_cli.py guard-proof --check all                 # runtime guardrail reduction
 ```
 
 Checks: `direct_prompt_injection`, `excessive_agency`, `data_exfiltration`, `system_prompt_leakage`
