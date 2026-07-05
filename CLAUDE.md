@@ -40,11 +40,18 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
 python -m pytest -q                      # full offline suite (must stay green)
 python -m pytest -m unit -q              # fast unit subset
 python -m ruff check fusion tests scripts
-python scripts/fusion_cli.py record --check direct_prompt_injection   # rebuild demo cassette
-python scripts/fusion_cli.py eval   --check direct_prompt_injection   # run the accuracy gate
+python scripts/fusion_cli.py record --check all      # rebuild demo cassettes (all 4 checks)
+python scripts/fusion_cli.py eval   --check all      # run the accuracy gate for every check
 python scripts/fusion_cli.py eval   --check direct_prompt_injection --update-baseline
-python scripts/fusion_cli.py prove  --check direct_prompt_injection   # print a Safety Report Card
+python scripts/fusion_cli.py prove  --check all --html report.html   # Safety Report Card(s) + HTML
+python scripts/fusion_cli.py fix    --check excessive_agency         # print the guardrail block
+python scripts/fusion_cli.py harden --prompt my_prompt.txt --write   # AUTO-APPLY the fix in place
 ```
+
+Checks: `direct_prompt_injection`, `excessive_agency`, `data_exfiltration`, `system_prompt_leakage`
+(use `--check all` to run every one). Each ships a remedy in `fusion/engine/fixes.py`; `harden`
+appends idempotent guardrails to a system prompt. The branded, theme-aware HTML card lives in
+`fusion/engine/report_html.py` (no gradient; clean/professional; copy-paste fix block).
 
 ## How "proof" works (and stays honest)
 

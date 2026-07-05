@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 
+from fusion.engine.fixes import get_remedy, guard_block
 from fusion.judge.rubric import get_rubric
 from fusion.schemas import (
     AccuracyResult,
@@ -78,6 +79,7 @@ def build_report_card(
         }
     )
 
+    remedy = get_remedy(check)
     return SafetyReportCard(
         target_name=target_name,
         check=check,
@@ -86,6 +88,8 @@ def build_report_card(
         before_after=before_after,
         owasp_tags=[rubric.owasp],
         top_fixes=top_fixes,
+        fix_title=remedy.title,
+        fix_snippet=guard_block([check]),
         gold_version=gold_version,
         crosswalk_version=crosswalk_version,
         judge_model=judge_model,

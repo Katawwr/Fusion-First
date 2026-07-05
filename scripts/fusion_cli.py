@@ -108,6 +108,34 @@ async def _prove(args) -> int:
     return 0
 
 
+def cmd_fix(args) -> int:
+    from fusion.engine.fixes import guard_block
+
+    print(guard_block(_resolve_checks(args.check)))
+    return 0
+
+
+def cmd_harden(args) -> int:
+    """Auto-apply the safety guardrails to a user's system-prompt file."""
+    from fusion.engine.fixes import apply_fix
+
+    src = pathlib.Path(args.prompt)
+    if not src.exists():
+        print(f"prompt file not found: {src}")
+        return 2
+    original = src.read_text(encoding="utf-8")
+    hardened = apply_fix(original, _resolve_checks(args.check))
+    if args.write:
+        src.write_text(hardened, encoding="utf-8")
+        print(f"hardened in place -> {src}")
+    elif args.out:
+        pathlib.Path(args.out).write_text(hardened, encoding="utf-8")
+        print(f"wrote hardened prompt -> {args.out}")
+    else:
+        print(hardened)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     # Windows consoles default to cp1252; force UTF-8 so hook output never mojibakes.
     for stream in (sys.stdout, sys.stderr):
@@ -138,6 +166,15 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--json", default=None)
     pp.add_argument("--html", default=None, help="write a branded HTML report dashboard to this path")
 
+    pf = sub.add_parser("fix", help="print the safety guardrail block for a check (or all)")
+    pf.add_argument("--check", default="all")
+
+    ph = sub.add_parser("harden", help="auto-apply the safety guardrails to a system-prompt file")
+    ph.add_argument("--prompt", required=True, help="path to the system-prompt text file")
+    ph.add_argument("--check", default="all")
+    ph.add_argument("--out", default=None, help="write hardened prompt here (default: stdout)")
+    ph.add_argument("--write", action="store_true", help="edit the prompt file in place")
+
     args = p.parse_args(argv)
     if args.cmd == "record":
         return cmd_record(args)
@@ -145,6 +182,10 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_eval(args))
     if args.cmd == "prove":
         return asyncio.run(_prove(args))
+    if args.cmd == "fix":
+        return cmd_fix(args)
+    if args.cmd == "harden":
+        return cmd_harden(args)
     return 2
 
 

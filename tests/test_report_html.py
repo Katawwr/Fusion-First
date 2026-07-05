@@ -40,6 +40,8 @@ def _card(demo: bool = True) -> SafetyReportCard:
         ),
         owasp_tags=[OwaspTag(llm="LLM06", asi="ASI02")],
         top_fixes=["Apply the hardened policy."],
+        fix_title="Constrain consequential actions",
+        fix_snippet="# --- Fusion First safety guardrails (auto-applied) ---\n## Constrain consequential actions\n- Only invoke a consequential tool ...",
         judge_model="demo-heuristic-judge",
         gold_version="abc123",
         crosswalk_version="def456",
@@ -49,32 +51,45 @@ def _card(demo: bool = True) -> SafetyReportCard:
 
 
 @pytest.mark.unit
-def test_card_html_contains_key_values_and_palette():
+def test_card_html_contains_key_values():
     h = render_report_card_html(_card())
     assert "excessive agency" in h  # underscores humanized
     assert "LLM06" in h and "ASI02" in h
     assert "PRELIMINARY" in h
     assert "72%" in h  # reduction
-    assert "#504d9a" not in h or True  # palette is in CSS, not the fragment
     assert "verify deadbeefdeadbeef" in h
 
 
 @pytest.mark.unit
-def test_demonstration_banner_present_and_absent():
-    assert "DEMONSTRATION" in render_report_card_html(_card(demo=True))
-    assert "DEMONSTRATION" not in render_report_card_html(_card(demo=False))
+def test_card_shows_copyable_fix_and_harden_command():
+    h = render_report_card_html(_card(), idx=3)
+    assert "Apply this fix" in h
+    assert "Constrain consequential actions" in h
+    assert "safety guardrails" in h  # the snippet body
+    assert 'onclick="fusionCopy(' in h and "Copy" in h  # copy button
+    assert "fusion harden --prompt your_prompt.txt --check excessive_agency" in h  # auto-apply cmd
 
 
 @pytest.mark.unit
-def test_dashboard_is_self_contained_and_branded():
+def test_demonstration_banner_present_and_absent():
+    assert "Demonstration" in render_report_card_html(_card(demo=True))
+    assert "Demonstration" not in render_report_card_html(_card(demo=False))
+
+
+@pytest.mark.unit
+def test_dashboard_is_clean_theme_aware_and_self_contained():
     page = render_dashboard_html([_card(), _card()], title="All checks")
     assert page.startswith("<!doctype html>")
     assert "Fusion" in page and "First" in page
-    assert "#504d9a" in page and "#66c4e1" in page  # brand palette present
+    # professional/clean: NO gradient background anywhere
+    assert "gradient" not in page.lower()
+    # theme-aware token system present
+    assert "--bg:" in page
+    assert 'data-theme="dark"' in page and "prefers-color-scheme:dark" in page
     # self-contained: no external resource loads
-    for bad in ("http://", "https://", "src=", "<link", "cdn"):
+    for bad in ("http://", "https://", "src=", "<link", "cdn.", "//fonts"):
         assert bad not in page
-    assert page.count("class=\"card\"") == 2
+    assert page.count('class="card"') == 2
 
 
 @pytest.mark.unit
@@ -82,6 +97,8 @@ def test_html_escapes_untrusted_fields():
     c = _card()
     c.target_name = "<script>alert(1)</script>"
     c.top_fixes = ["<img src=x onerror=alert(1)>"]
+    c.fix_snippet = "<b>not html</b>"
     h = render_report_card_html(c)
-    assert "<script>" not in h
+    assert "<script>alert(1)" not in h
     assert "<img src=x" not in h
+    assert "<b>not html</b>" not in h  # snippet escaped

@@ -260,6 +260,9 @@ class SafetyReportCard(BaseModel):
     benchmark: BenchmarkResult | None = None
     owasp_tags: list[OwaspTag] = Field(default_factory=list)
     top_fixes: list[str] = Field(default_factory=list)
+    # A concrete, copy-paste-ready remedy the user can apply (or auto-apply via `fusion harden`).
+    fix_title: str = ""
+    fix_snippet: str = ""
     # provenance
     gold_version: str = ""
     crosswalk_version: str = ""
