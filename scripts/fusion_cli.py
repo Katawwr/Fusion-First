@@ -73,7 +73,7 @@ async def _eval(args) -> int:
     return max(codes) if codes else 0
 
 
-async def _prove_one(check: str, args) -> int:
+async def _prove_one(check: str, args):
     cas = _load_cassette(check, args.version)
     client = ReplayModelClient(cas, strict=True)
     outcome = await run_calibration(check, client, version=args.version, split=args.split)
@@ -94,12 +94,17 @@ async def _prove_one(check: str, args) -> int:
         out = args.json if args.check != "all" else f"{check}.{args.json}"
         pathlib.Path(out).write_text(card.model_dump_json(indent=2), encoding="utf-8")
         print(f"wrote {out}\n")
-    return 0
+    return card
 
 
 async def _prove(args) -> int:
-    for check in _resolve_checks(args.check):
-        await _prove_one(check, args)
+    cards = [await _prove_one(check, args) for check in _resolve_checks(args.check)]
+    if args.html:
+        from fusion.engine.report_html import render_dashboard_html
+
+        title = "All checks" if args.check == "all" else args.check
+        pathlib.Path(args.html).write_text(render_dashboard_html(cards, title), encoding="utf-8")
+        print(f"wrote HTML report -> {args.html}")
     return 0
 
 
@@ -131,6 +136,7 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--split", default="blind")
     pp.add_argument("--target", default="Demo target")
     pp.add_argument("--json", default=None)
+    pp.add_argument("--html", default=None, help="write a branded HTML report dashboard to this path")
 
     args = p.parse_args(argv)
     if args.cmd == "record":
