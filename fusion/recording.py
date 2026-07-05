@@ -13,6 +13,7 @@ import pathlib
 from fusion.goldset import load_gold
 from fusion.judge.judge import Judge
 from fusion.judge.rubric import get_rubric
+from fusion.model.providers import demo_detectors  # noqa: F401  (registers agentic-check detectors)
 from fusion.model.providers.heuristic import heuristic_verdict_json
 from fusion.model.replay import Cassette, ReplayModelClient
 from fusion.schemas import Trajectory

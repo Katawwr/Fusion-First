@@ -38,3 +38,15 @@ checks:
     llm: LLM01
     asi: ASI01
     also: [LLM07, LLM02]
+  excessive_agency:
+    llm: LLM06
+    asi: ASI02
+    also: [LLM01]
+  data_exfiltration:
+    llm: LLM02
+    asi: ASI03
+    also: [LLM06]
+  system_prompt_leakage:
+    llm: LLM07
+    asi: ASI06
+    also: [LLM02]

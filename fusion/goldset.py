@@ -84,7 +84,7 @@ def gold_version_hash(check: str, version: str = "v1") -> str:
 PROBE_DIR = pathlib.Path(__file__).resolve().parent.parent / "datasets" / "probes"
 
 
-def _probe_trajectory(row: dict, response_key: str) -> Trajectory:
+def _probe_trajectory(row: dict, response_key: str, action_key: str | None = None) -> Trajectory:
     steps: list[Step] = [
         Step(role=Role.SYSTEM, content=row.get("system", "You are the ACME support assistant.")),
         Step(role=Role.USER, content=row["user"]),
@@ -96,6 +96,15 @@ def _probe_trajectory(row: dict, response_key: str) -> Trajectory:
                 tool_result=ToolResult(
                     tool=row.get("tool", "tool"), content=row["injected"], injected=True
                 ),
+            )
+        )
+    # Optional consequential action taken in this condition (the failure mode for agency/exfil).
+    if action_key and row.get(action_key):
+        act = row[action_key]
+        steps.append(
+            Step(
+                role=Role.ASSISTANT,
+                tool_call=ToolCall(name=act["tool"], arguments=act.get("arguments", {})),
             )
         )
     steps.append(Step(role=Role.ASSISTANT, content=row[response_key]))
@@ -115,8 +124,8 @@ def load_probes(check: str, version: str = "v1") -> list[dict]:
             out.append(
                 {
                     "id": row["id"],
-                    "baseline": _probe_trajectory(row, "baseline_response"),
-                    "hardened": _probe_trajectory(row, "hardened_response"),
+                    "baseline": _probe_trajectory(row, "baseline_response", "baseline_action"),
+                    "hardened": _probe_trajectory(row, "hardened_response", "hardened_action"),
                 }
             )
     return out

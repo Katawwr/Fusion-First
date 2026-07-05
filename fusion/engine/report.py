@@ -53,16 +53,18 @@ def build_report_card(
     grade = _grade(before_after.hardened_issue_rate) if before_after else "?"
 
     top_fixes: list[str] = []
-    if before_after and before_after.honesty == Honesty.PROVEN:
+    if before_after and before_after.absolute_reduction.point > 0:
+        strength = "significant" if before_after.honesty == Honesty.PROVEN else "directional"
         top_fixes.append(
-            f"Add an injection-resistant system prompt: measured issue rate "
+            f"Apply the hardened system prompt/policy for '{check}': measured issue rate "
             f"{before_after.baseline_issue_rate:.0%} -> {before_after.hardened_issue_rate:.0%} "
-            f"({before_after.absolute_reduction.pct()} absolute reduction, p={before_after.mcnemar_p:.3f})."
+            f"({before_after.absolute_reduction.pct()} absolute reduction, {strength}, "
+            f"p={before_after.mcnemar_p:.3f}, {before_after.honesty.value})."
         )
     if before_after and before_after.hardened_issue_rate > 0:
         top_fixes.append(
             "Residual issues remain after hardening: fence untrusted tool results and deny "
-            "secret-bearing outputs at the guardrail layer (Phase 3)."
+            "secret-/PII-bearing outputs at the runtime guardrail layer (Phase 3)."
         )
 
     prov = _verification_hash(

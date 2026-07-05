@@ -40,35 +40,47 @@ def _load_cassette(check: str, version: str) -> Cassette:
     return Cassette.load(path)
 
 
+def _resolve_checks(check: str) -> list[str]:
+    if check == "all":
+        from fusion.judge.rubric import REGISTRY
+
+        return sorted(REGISTRY)
+    return [check]
+
+
 def cmd_record(args) -> int:
-    path = write_full_cassette(args.check, args.version)
-    cas = Cassette.load(path)
-    print(f"recorded {len(cas)} entries -> {path}")
+    for check in _resolve_checks(args.check):
+        path = write_full_cassette(check, args.version)
+        cas = Cassette.load(path)
+        print(f"recorded {len(cas)} entries -> {path}")
     return 0
+
+
+async def _eval_one(check: str, args) -> int:
+    cas = _load_cassette(check, args.version)
+    client = ReplayModelClient(cas, strict=True)
+    gate, result = await run_eval_gate(check, client, version=args.version, split=args.split)
+    print(gate.summary())
+    if args.update_baseline:
+        p = save_baseline(check, result, gold_version_hash(check, args.version), args.split)
+        print(f"baseline updated -> {p}")
+        return 0
+    return 0 if (gate.passed or gate.advisory) else 1
 
 
 async def _eval(args) -> int:
-    cas = _load_cassette(args.check, args.version)
-    client = ReplayModelClient(cas, strict=True)
-    gate, result = await run_eval_gate(args.check, client, version=args.version, split=args.split)
-    print(gate.summary())
-    if args.update_baseline:
-        p = save_baseline(args.check, result, gold_version_hash(args.check, args.version), args.split)
-        print(f"baseline updated -> {p}")
-        return 0
-    if not gate.passed and not gate.advisory:
-        return 1
-    return 0
+    codes = [await _eval_one(c, args) for c in _resolve_checks(args.check)]
+    return max(codes) if codes else 0
 
 
-async def _prove(args) -> int:
-    cas = _load_cassette(args.check, args.version)
+async def _prove_one(check: str, args) -> int:
+    cas = _load_cassette(check, args.version)
     client = ReplayModelClient(cas, strict=True)
-    outcome = await run_calibration(args.check, client, version=args.version, split=args.split)
-    ba = await run_before_after(args.check, client, version=args.version)
+    outcome = await run_calibration(check, client, version=args.version, split=args.split)
+    ba = await run_before_after(check, client, version=args.version)
     card = build_report_card(
         target_name=args.target,
-        check=args.check,
+        check=check,
         judge_accuracy=outcome.result,
         before_after=ba,
         judge_model="demo-heuristic-judge",
@@ -77,9 +89,17 @@ async def _prove(args) -> int:
         demonstration=True,
     )
     print(render_report_card_text(card))
+    print("")
     if args.json:
-        pathlib.Path(args.json).write_text(card.model_dump_json(indent=2), encoding="utf-8")
-        print(f"\nwrote {args.json}")
+        out = args.json if args.check != "all" else f"{check}.{args.json}"
+        pathlib.Path(out).write_text(card.model_dump_json(indent=2), encoding="utf-8")
+        print(f"wrote {out}\n")
+    return 0
+
+
+async def _prove(args) -> int:
+    for check in _resolve_checks(args.check):
+        await _prove_one(check, args)
     return 0
 
 
