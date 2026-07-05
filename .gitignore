@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vercel/
+*.log
+npm-debug.log*
+
+# Secrets & env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Model-call cassettes are committed by default (deterministic replay),
+# but live-recorded scratch cassettes go here:
+cassettes/scratch/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Windows redirect artifacts
+nul
+**/nul
+
+# Build/eval scratch
+evals/scratch/
+*.tmp

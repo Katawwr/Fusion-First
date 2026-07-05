@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/* Custom theme for Fusion */
+@theme {
+  /* Fusion colors */
+  --color-fusion-purple: #504d9a;
+  --color-fusion-purple-light: rgba(80, 77, 154, 0.25);
+  --color-fusion-purple-medium: rgba(80, 77, 154, 0.4);
+  --color-fusion-cyan: #66c4e1;
+  --color-fusion-cyan-light: rgba(102, 196, 225, 0.2);
+  --color-fusion-cyan-medium: rgba(102, 196, 225, 0.4);
+  --color-fusion-pink: #f38f95;
+  --color-fusion-dark-pink: #db418b;
+
+  /* Severity colors */
+  --color-severity-critical: #ef4444;
+  --color-severity-high: #fb923c;
+  --color-severity-medium: #facc15;
+  --color-severity-low: #22c55e;
+
+  /* Background gradients */
+  --background-image-fusion-gradient: linear-gradient(135deg, #504d9a 0%, #66c4e1 50%, #504d9a 100%);
+  --background-image-fusion-pink-gradient: linear-gradient(to right, #f38f95, #db418b);
+  --background-image-fusion-cyan-pink: linear-gradient(to right, #66c4e1, #f38f95);
+}
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Dark mode is the default theme - prevent browsers from auto-inverting */
+:root {
+  color-scheme: dark;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.8);
+  --text-muted: rgba(255, 255, 255, 0.6);
+  --bg-primary: #504d9a;
+  --bg-secondary: rgba(80, 77, 154, 0.25);
+  --bg-tertiary: rgba(80, 77, 154, 0.4);
+}
+
+/* Light mode override for users who prefer it */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light dark;
+    /* Keep dark theme as the brand identity, but ensure readability */
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.85);
+    --text-muted: rgba(255, 255, 255, 0.7);
+  }
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+pre {
+  font-family: 'Courier New', monospace;
+}
+
+.quality-testing-list li::marker {
+  color: #66c4e1;
+}
+
+/* Responsive container behavior */
+@media screen and (max-width: 1200px) {
+  main {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  main {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .header-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    grid-template-columns: none !important;
+  }
+
+  .use-cases-arrow {
+    display: none !important;
+  }
+
+}
+
+/* Custom scrollbar - dark blue theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2d2a5e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #66c4e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #66c4e1, #f38f95);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #66c4e1 #2d2a5e;
+}
+
+/* Animation for loading spinner */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

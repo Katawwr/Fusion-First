@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(python -c:*)",
+      "Bash(npm run build:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(modal deploy:*)",
+      "Bash(set PYTHONIOENCODING=utf-8:*)",
+      "Bash(python -m modal:*)",
+      "Bash(modal app:*)",
+      "Bash(python:*)",
+      "Bash($env:PYTHONIOENCODING=\"utf-8\")",
+      "Bash(curl:*)",
+      "Bash(cmd /c \"cd backend && modal deploy main.py\")",
+      "Bash(iconv:*)",
+      "Bash(cmd /c \"set PYTHONIOENCODING=utf-8 && modal deploy main.py\")",
+      "Bash(cmd /c \"set PYTHONIOENCODING=utf-8 && cd backend && modal deploy main.py\")",
+      "Bash(export PYTHONIOENCODING=utf-8)",
+      "Bash(modal secret list:*)",
+      "Bash(chcp 65001)",
+      "Bash(export PYTHONUTF8=1:*)",
+      "Bash(cat:*)",
+      "Bash(modal secret create:*)",
+      "Bash(PYTHONIOENCODING=utf-8 modal deploy:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd /c \"cd /d c:\\\\Users\\\\Katri\\\\Fusion\\\\frontend && npm run build 2>&1\")",
+      "Bash(cmd /c \"cd c:\\\\Users\\\\Katri\\\\Fusion\\\\frontend && npm run build\")",
+      "Bash(npm install:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(PYTHONUTF8=1 modal deploy:*)",
+      "Bash(del \"c:\\\\Users\\\\Katri\\\\Fusion\\\\frontend\\\\src\\\\components\\\\auth\\\\GoogleSignInButton.jsx\")",
+      "WebFetch(domain:redacted-legacy-project.supabase.co)",
+      "Bash(powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\")",
+      "Bash(powershell -c:*)",
+      "Bash(C:UsersKatri.localbinuv.exe --version)",
+      "Bash(npx vite build:*)"
+    ]
+  }
+}
