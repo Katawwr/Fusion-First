@@ -119,7 +119,7 @@ async def test_guarded_client_redacts_model_output():
 @pytest.mark.unit
 async def test_full_runtime_stack_guard_over_budget():
     # The full inline protection stack: output guard wrapping the budget circuit-breaker.
-    from fusion.security.budget import BudgetExceeded, BudgetedModelClient, BudgetLimits
+    from fusion.security.budget import BudgetedModelClient, BudgetExceeded, BudgetLimits
 
     budgeted = BudgetedModelClient(_LeakyModel(), limits=BudgetLimits(max_calls=1))
     client = GuardedModelClient(budgeted, Guardrail())
