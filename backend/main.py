@@ -396,12 +396,19 @@ def get_lemon_squeezy_api_key():
 
 
 def verify_webhook_signature(payload: bytes, signature: str) -> bool:
-    """Verify Lemon Squeezy webhook signature."""
+    """Verify Lemon Squeezy webhook signature. FAILS CLOSED.
+
+    Previously returned True when no secret was configured ("dev mode"), which meant a missing
+    prod secret let anyone forge subscription/credit-granting webhooks. We now reject unless the
+    secret is present AND the signature matches.
+    """
     import hmac
     secret = get_lemon_squeezy_secret()
     if not secret:
-        print("[WEBHOOK] No webhook secret configured - skipping verification")
-        return True  # Allow in dev mode, but log warning
+        print("[WEBHOOK] No webhook secret configured - REJECTING (fail closed)")
+        return False
+    if not signature:
+        return False
 
     expected = hmac.new(
         secret.encode(),
@@ -409,7 +416,11 @@ def verify_webhook_signature(payload: bytes, signature: str) -> bool:
         hashlib.sha256
     ).hexdigest()
 
-    return hmac.compare_digest(expected, signature)
+    provided = signature.strip()
+    if provided.lower().startswith("sha256="):
+        provided = provided.split("=", 1)[1]
+
+    return hmac.compare_digest(expected, provided)
 
 
 def get_subscription_by_email(email: str) -> dict:
@@ -3758,7 +3769,7 @@ def compile_fixes(issues: list) -> str:
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 import asyncio
 
 web_app = FastAPI()
@@ -3912,11 +3923,20 @@ async def safe_api_call(client, messages, model="gpt-4o-mini", max_tokens=500, t
 
 
 class TestRequest(BaseModel):
-    system_prompt: str
+    # Bounds prevent cost-abuse: an unbounded num_tests drove (num_tests+5) LLM generation calls,
+    # and an unbounded system_prompt let a caller run up arbitrary token spend on our key.
+    system_prompt: str = Field(min_length=1, max_length=20_000)
     model: str = "gpt-4o-mini"  # Model to test (we use our own API key)
-    num_tests: int = 20
-    license_key: str = ""  # Optional: license key for subscriber credit tracking
-    # Note: We use our own API key for all testing - simpler, more secure
+    num_tests: int = Field(default=20, ge=1, le=50)
+    license_key: str = Field(default="", max_length=200)  # Optional: subscriber credit tracking
+
+    @field_validator("system_prompt")
+    @classmethod
+    def _strip_and_require(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("system_prompt must not be blank")
+        return v
 
 
 class TestResult(BaseModel):
@@ -4962,37 +4982,11 @@ async def get_credits(req: Request):
     }
 
 
-@web_app.get("/api/debug/fingerprint")
-async def debug_fingerprint(req: Request):
-    """Debug endpoint to see your fingerprint."""
-    client_ip = req.client.host if req.client else "unknown"
-    headers = dict(req.headers)
-    fingerprint = get_client_fingerprint(headers, client_ip)
-
-    return {
-        "fingerprint": fingerprint,
-        "is_greenlisted": fingerprint in get_greenlist_fingerprints(),
-        "greenlist_count": len(get_greenlist_fingerprints()),
-        "ip": client_ip,
-        "user_agent": headers.get("user-agent", "")[:100]
-    }
-
-
-@web_app.get("/api/debug/secrets")
-async def debug_secrets():
-    """Debug endpoint to check what secrets/env vars are configured."""
-    return {
-        "has_openai_key": bool(os.environ.get("OPENAI_API_KEY")),
-        "has_supabase_jwt": bool(os.environ.get("SUPABASE_JWT_SECRET")),
-        "supabase_jwt_length": len(os.environ.get("SUPABASE_JWT_SECRET", "")),
-        "has_greenlist_fingerprints": bool(os.environ.get("GREENLIST_FINGERPRINTS")),
-        "has_greenlist_emails": bool(os.environ.get("GREENLIST_EMAILS")),
-        "has_greenlist_uids": bool(os.environ.get("GREENLIST_UIDS")),
-        "greenlist_uids_count": len(get_greenlist_uids()),
-        "greenlist_emails_count": len(get_greenlist_emails()),
-        "greenlist_fingerprints_count": len(get_greenlist_fingerprints()),
-        "has_lemonsqueezy_secret": bool(os.environ.get("LEMONSQUEEZY_WEBHOOK_SECRET")),
-    }
+# NOTE: /api/debug/fingerprint and /api/debug/secrets were REMOVED (2026-07).
+# They were unauthenticated and disclosed which secrets were configured, the exact length of the
+# Supabase JWT secret, client IP/UA, and greenlist counts — an information-disclosure hole. Do not
+# reintroduce debug endpoints that leak configuration; if you need diagnostics, gate them behind
+# admin auth and never echo secret metadata.
 
 
 # ============================================================================
