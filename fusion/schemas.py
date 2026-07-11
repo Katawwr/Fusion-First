@@ -270,3 +270,68 @@ class SafetyReportCard(BaseModel):
     verification_hash: str = ""
     # A demonstration card (synthetic cassettes / self-test) must never read as a real claim.
     demonstration: bool = False
+
+
+# --------------------------------------------------------------------------------------
+# User-prompt scan (the web-app flow: paste a system prompt, attack it, grade it)
+# --------------------------------------------------------------------------------------
+
+
+class ScanTier(str, Enum):
+    """How thorough a scan is. QUICK is the cheap interactive default; FULL is the 'prove it'
+    tier (every attack template, the primary judge). Concrete knobs live in engine/user_scan.py."""
+
+    QUICK = "quick"
+    FULL = "full"
+
+
+class ProbeOutcome(BaseModel):
+    """One attack template's result across both arms of a user-prompt scan (baseline vs hardened)."""
+
+    check: str
+    probe_id: str
+    attack_label: str  # human-readable ("Posed as a developer: 'ignore previous instructions'")
+    owasp: OwaspTag = Field(default_factory=OwaspTag)
+    baseline_issue: bool
+    hardened_issue: bool
+    baseline_severity: Severity = Severity.NONE
+    hardened_severity: Severity = Severity.NONE
+
+
+class ScanResult(BaseModel):
+    """The finished scan: one report card per check, the flat per-probe outcomes, overall grade."""
+
+    target_name: str
+    checks: list[str] = Field(default_factory=list)
+    tier: ScanTier = ScanTier.QUICK
+    demonstration: bool = True
+    overall_grade: str = "?"
+    cards: list[SafetyReportCard] = Field(default_factory=list)
+    outcomes: list[ProbeOutcome] = Field(default_factory=list)
+
+
+class ScanEventType(str, Enum):
+    SCAN_STARTED = "scan_started"
+    CHECK_STARTED = "check_started"
+    PROBE_RESULT = "probe_result"
+    CHECK_COMPLETED = "check_completed"
+    SCAN_COMPLETED = "scan_completed"
+    ERROR = "error"
+
+
+class ScanEvent(BaseModel):
+    """A streamed progress event from a running scan — the envelope the SSE layer serializes.
+
+    The engine yields these so the HTTP layer can stream progress without the engine knowing
+    anything about HTTP. Only the fields relevant to a given `type` are populated.
+    """
+
+    type: ScanEventType
+    check: str | None = None
+    message: str = ""
+    completed: int = 0
+    total: int = 0
+    demonstration: bool = True
+    probe: ProbeOutcome | None = None
+    card: SafetyReportCard | None = None
+    result: ScanResult | None = None

@@ -108,6 +108,81 @@ async def _prove(args) -> int:
     return 0
 
 
+async def _scan(args) -> int:
+    """Scan a user-supplied system prompt (the web-app flow, from the terminal)."""
+    import os
+
+    from fusion.engine.report import render_report_card_text
+    from fusion.engine.user_scan import run_user_scan
+    from fusion.schemas import ScanEventType, ScanTier
+
+    src = pathlib.Path(args.prompt)
+    if not src.exists():
+        print(f"prompt file not found: {src}")
+        return 2
+    system_prompt = src.read_text(encoding="utf-8")
+    checks = _resolve_checks(args.check)
+    tier = ScanTier.FULL if args.tier == "full" else ScanTier.QUICK
+
+    demonstration = not args.live
+    judge_client = target_client = None
+    judge_model = None
+    target_model_id = None
+    if args.live:
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not anthropic_key:
+            print("--live requires ANTHROPIC_API_KEY in the environment")
+            return 2
+        from fusion.model.providers.anthropic import AnthropicModelClient
+        from fusion.security.budget import BudgetedModelClient, BudgetLimits
+
+        target_model_id = args.target_model
+        target_client = BudgetedModelClient(
+            AnthropicModelClient(anthropic_key), BudgetLimits(max_calls=400)
+        )
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if openai_key:
+            from fusion.model.providers.openai import OpenAIModelClient
+
+            judge_client = BudgetedModelClient(
+                OpenAIModelClient(openai_key), BudgetLimits(max_calls=400)
+            )
+            judge_model = "gpt-4o"
+        else:
+            judge_client = BudgetedModelClient(
+                AnthropicModelClient(anthropic_key), BudgetLimits(max_calls=400)
+            )
+            judge_model = "claude-sonnet-5"
+
+    cards = []
+    async for ev in run_user_scan(
+        system_prompt=system_prompt,
+        checks=checks,
+        tier=tier,
+        demonstration=demonstration,
+        judge_client=judge_client,
+        target_client=target_client,
+        target_model_id=target_model_id,
+        target_name=args.target,
+        judge_model=judge_model,
+    ):
+        if ev.type == ScanEventType.CHECK_COMPLETED and ev.card is not None:
+            cards.append(ev.card)
+        elif ev.type == ScanEventType.SCAN_COMPLETED and ev.result is not None:
+            print(f"\n=== Overall grade: {ev.result.overall_grade} "
+                  f"({'DEMO' if ev.result.demonstration else 'REAL'}) ===\n")
+    for card in cards:
+        print(render_report_card_text(card))
+        print("")
+    if args.html:
+        from fusion.engine.report_html import render_dashboard_html
+
+        title = "All checks" if args.check == "all" else args.check
+        pathlib.Path(args.html).write_text(render_dashboard_html(cards, title), encoding="utf-8")
+        print(f"wrote HTML report -> {args.html}")
+    return 0
+
+
 def cmd_guard_proof(args) -> int:
     from fusion.guardrail.simulate import run_guard_before_after
 
@@ -179,6 +254,15 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--json", default=None)
     pp.add_argument("--html", default=None, help="write a branded HTML report dashboard to this path")
 
+    ps = sub.add_parser("scan", help="scan a user system-prompt file (paste-a-prompt web flow)")
+    ps.add_argument("--prompt", required=True, help="path to the system-prompt text file")
+    ps.add_argument("--check", default="all")
+    ps.add_argument("--tier", default="quick", choices=["quick", "full"])
+    ps.add_argument("--live", action="store_true", help="run against real models (needs API keys)")
+    ps.add_argument("--target", default="Your prompt", help="display name for the scan target")
+    ps.add_argument("--target-model", default="claude-haiku-4-5", help="target model id for --live")
+    ps.add_argument("--html", default=None, help="write a branded HTML report to this path")
+
     pf = sub.add_parser("fix", help="print the safety guardrail block for a check (or all)")
     pf.add_argument("--check", default="all")
 
@@ -198,6 +282,8 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_eval(args))
     if args.cmd == "prove":
         return asyncio.run(_prove(args))
+    if args.cmd == "scan":
+        return asyncio.run(_scan(args))
     if args.cmd == "fix":
         return cmd_fix(args)
     if args.cmd == "harden":
