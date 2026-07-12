@@ -13,42 +13,37 @@ export default function Landing({
   return (
     <>
       <Helmet>
-        <title>Fusion First Testing</title>
+        <title>Fusion First — Prove your AI agent is safe</title>
         <meta
           name="description"
-          content="Automatically detect hallucinations, boundary violations, and instruction failures in your LLM system prompts. Get AI-powered recommendations to fix issues in minutes. Free trial available."
+          content="Fusion First is a test-and-prove engine for agentic AI safety. Paste your bot's system prompt, run an OWASP-mapped attack suite, and get a Safety Report Card with a one-click fix — every number backed by a confidence interval or an honesty badge."
         />
-        <meta name="keywords" content="LLM testing, chatbot testing, AI hallucination detection, system prompt testing, LLM quality assurance, chatbot QA, AI safety testing, prompt engineering, AI quality control" />
-        <meta property="og:title" content="Fusion First - LLM Quality Testing Platform" />
+        <meta name="keywords" content="AI agent safety, prompt injection testing, OWASP LLM Top 10, agentic AI security, excessive agency, data exfiltration, system prompt leakage, LLM red teaming, AI guardrails, safety report card" />
+        <meta property="og:title" content="Fusion First — Prove your AI agent is safe" />
         <meta
           property="og:description"
-          content="Test your LLM for quality issues before they reach production. 20+ targeted tests, AI-powered fixes. Try free."
+          content="Paste your bot's prompt, run an OWASP-mapped attack suite, and get a graded before/after Safety Report Card with a one-click fix. Free demo, no signup."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://fusion-first-testing.com" />
         <meta property="og:image" content="https://fusion-first-testing.com/og-image.png" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Fusion First - LLM Quality Testing Platform" />
-        <meta name="twitter:description" content="Detect hallucinations, boundary violations, and instruction failures in your AI chatbots." />
+        <meta name="twitter:title" content="Fusion First — Prove your AI agent is safe" />
+        <meta name="twitter:description" content="An OWASP-mapped test-and-prove engine for agentic AI safety, with one-click hardening." />
         <link rel="canonical" href="https://fusion-first-testing.com" />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "SoftwareApplication",
             "name": "Fusion First",
-            "description": "LLM Quality Testing Platform - Detect hallucinations, boundary violations, and instruction failures in AI chatbots",
-            "applicationCategory": "DeveloperApplication",
+            "description": "A test-and-prove engine for agentic AI safety. Runs an OWASP-mapped attack suite against your bot's system prompt, grades baseline vs hardened, and ships a one-click fix.",
+            "applicationCategory": "SecurityApplication",
             "operatingSystem": "Web",
             "offers": {
               "@type": "Offer",
               "price": "0",
               "priceCurrency": "USD",
-              "description": "Free trial available"
-            },
-            "aggregateRating": {
-              "@type": "AggregateRating",
-              "ratingValue": "4.8",
-              "ratingCount": "124"
+              "description": "Free demo scan; real scans on paid plans"
             }
           })}
         </script>

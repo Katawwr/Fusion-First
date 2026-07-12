@@ -45,7 +45,7 @@ export default function CTASection() {
             background: 'linear-gradient(to right, #f38f95, #db418b)',
             border: 'none',
             borderRadius: '0.5rem',
-            color: 'white',
+            color: '#fff',
             fontWeight: 'bold',
             fontSize: '1.125rem',
             textDecoration: 'none',

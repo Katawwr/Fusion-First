@@ -2,7 +2,7 @@ import React from 'react';
 
 const variants = {
   primary: 'bg-fusion-pink-gradient text-white shadow-lg hover:shadow-xl hover:opacity-90',
-  secondary: 'bg-fusion-purple-light border border-fusion-cyan-medium text-white hover:bg-fusion-purple-medium',
+  secondary: 'bg-surface border border-app-border text-app-text hover:bg-surface-2',
   ghost: 'bg-transparent text-fusion-cyan hover:bg-fusion-purple-light',
   outline: 'bg-transparent border border-fusion-cyan text-fusion-cyan hover:bg-fusion-cyan hover:text-fusion-purple',
 };

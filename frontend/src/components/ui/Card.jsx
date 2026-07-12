@@ -1,9 +1,9 @@
 import React from 'react';
 
 const variants = {
-  default: 'bg-fusion-purple-light border-fusion-cyan-light',
-  elevated: 'bg-fusion-purple-medium border-fusion-cyan-medium shadow-xl',
-  outline: 'bg-transparent border-fusion-cyan',
+  default: 'bg-surface border-app-border shadow-soft',
+  elevated: 'bg-surface border-app-border shadow-card',
+  outline: 'bg-transparent border-app-border',
 };
 
 export default function Card({
@@ -18,7 +18,6 @@ export default function Card({
       className={`
         ${variants[variant]}
         ${padding}
-        backdrop-blur-lg
         border
         rounded-xl
         ${className}
@@ -40,7 +39,7 @@ export function CardHeader({ children, className = '' }) {
 
 export function CardTitle({ children, className = '' }) {
   return (
-    <h3 className={`text-xl font-semibold text-white ${className}`}>
+    <h3 className={`text-xl font-semibold text-app-text ${className}`}>
       {children}
     </h3>
   );
@@ -48,7 +47,7 @@ export function CardTitle({ children, className = '' }) {
 
 export function CardDescription({ children, className = '' }) {
   return (
-    <p className={`text-gray-300 mt-1 ${className}`}>
+    <p className={`text-app-muted mt-1 ${className}`}>
       {children}
     </p>
   );
@@ -64,7 +63,7 @@ export function CardContent({ children, className = '' }) {
 
 export function CardFooter({ children, className = '' }) {
   return (
-    <div className={`mt-4 pt-4 border-t border-fusion-cyan-light ${className}`}>
+    <div className={`mt-4 pt-4 border-t border-app-border ${className}`}>
       {children}
     </div>
   );

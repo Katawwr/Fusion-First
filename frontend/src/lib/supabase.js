@@ -1,8 +1,43 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './constants';
 
-// Create a single supabase client for interacting with your database
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Fusion is demo-first: the whole scan → report → fix → prove flow is anonymous and needs no
+// account. Auth (magic-link sign-in, saved history) is a progressive enhancement that only turns
+// on when Supabase credentials are present. When they are missing we MUST NOT call createClient
+// with an empty key — supabase-js throws "supabaseKey is required" at module load, which would
+// crash the entire app to a blank page. Instead we export a harmless stub and a config flag.
+
+export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+const AUTH_DISABLED = new Error('Sign-in is not configured for this deployment.');
+
+// A no-op client shaped just enough to satisfy the calls in useAuth/useCredits without throwing.
+function createStubClient() {
+  return {
+    auth: {
+      async getSession() {
+        return { data: { session: null }, error: null };
+      },
+      async getUser() {
+        return { data: { user: null }, error: null };
+      },
+      onAuthStateChange() {
+        return { data: { subscription: { unsubscribe() {} } } };
+      },
+      async signInWithOtp() {
+        return { data: null, error: AUTH_DISABLED };
+      },
+      async signOut() {
+        return { error: null };
+      },
+    },
+  };
+}
+
+// A single supabase client (real when configured, stub otherwise) for interacting with auth.
+export const supabase = isSupabaseConfigured
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : createStubClient();
 
 // Helper to get the current session
 export async function getSession() {
@@ -26,10 +61,13 @@ export async function getCurrentUser() {
 
 // Send magic link email for sign-in
 export async function sendMagicLink(email) {
+  if (!isSupabaseConfigured) {
+    throw AUTH_DISABLED;
+  }
   const { data, error } = await supabase.auth.signInWithOtp({
     email: email,
     options: {
-      emailRedirectTo: `${window.location.origin}/test`,
+      emailRedirectTo: `${window.location.origin}/scan`,
     },
   });
 

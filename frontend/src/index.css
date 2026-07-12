@@ -1,27 +1,165 @@
 @import "tailwindcss";
 
-/* Custom theme for Fusion */
-@theme {
-  /* Fusion colors */
-  --color-fusion-purple: #504d9a;
-  --color-fusion-purple-light: rgba(80, 77, 154, 0.25);
-  --color-fusion-purple-medium: rgba(80, 77, 154, 0.4);
-  --color-fusion-cyan: #66c4e1;
-  --color-fusion-cyan-light: rgba(102, 196, 225, 0.2);
-  --color-fusion-cyan-medium: rgba(102, 196, 225, 0.4);
-  --color-fusion-pink: #f38f95;
-  --color-fusion-dark-pink: #db418b;
+/* ------------------------------------------------------------------ *
+ * Fusion First — semantic design tokens.
+ *
+ * The brand hues (purple #504d9a, cyan #66c4e1, pink #f38f95/#db418b) are
+ * fixed, but here they are demoted from big saturated fills to precise
+ * accents. Everything is driven by semantic CSS variables so the whole UI
+ * re-themes from one place and supports a calm dark AND a soft light mode.
+ * Dark is the default; `[data-theme="light"]` (set by the theme toggle) or a
+ * light OS preference switches it. Neither theme is harsh: no pure black, no
+ * pure white.
+ * ------------------------------------------------------------------ */
 
-  /* Severity colors */
-  --color-severity-critical: #ef4444;
-  --color-severity-high: #fb923c;
-  --color-severity-medium: #facc15;
-  --color-severity-low: #22c55e;
+:root {
+  color-scheme: dark;
 
-  /* Background gradients */
-  --background-image-fusion-gradient: linear-gradient(135deg, #504d9a 0%, #66c4e1 50%, #504d9a 100%);
-  --background-image-fusion-pink-gradient: linear-gradient(to right, #f38f95, #db418b);
-  --background-image-fusion-cyan-pink: linear-gradient(to right, #66c4e1, #f38f95);
+  /* surfaces — deep desaturated indigo, not black */
+  --bg: #161520;
+  --bg-elev: #1b1a27;
+  --surface: #201e2e;
+  --surface-2: #29273b;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  /* text — soft off-white, not #fff */
+  --text: #eceaf3;
+  --muted: #aba7c4;
+  --subtle: #807c98;
+
+  /* brand, as accents */
+  --accent: #66c4e1;      /* cyan — fills, focus, active */
+  --accent-ink: #8ad4ec;  /* cyan — legible text/links on dark */
+  --brand: #8b86d6;       /* purple — legible on dark */
+  --pink: #e98aa6;
+  --pink-ink: #f0a7bd;
+
+  /* status — gentle, desaturated */
+  --ok: #6cc79a;
+  --warn: #e2b45f;
+  --orange: #e79a63;
+  --danger: #e88a8a;
+
+  --ring: rgba(102, 196, 225, 0.55);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.30);
+
+  /* the one reserved brand-gradient moment (wordmark, hero hairline) */
+  --brand-gradient: linear-gradient(90deg, #66c4e1, #f38f95);
+  --brand-gradient-soft: linear-gradient(135deg, rgba(102,196,225,0.14), rgba(243,143,149,0.12));
+}
+
+/* explicit light choice, or light OS preference when the user hasn't chosen */
+:root[data-theme="light"],
+:root:not([data-theme="dark"]) {
+  /* placeholder to keep specificity parity; real values below */
+}
+
+.light-tokens,
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f4f4f9;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #edecf4;
+  --border: rgba(30, 27, 60, 0.12);
+  --border-strong: rgba(30, 27, 60, 0.20);
+
+  --text: #201d2b;
+  --muted: #57536e;
+  --subtle: #837f99;
+
+  --accent: #2f93b6;      /* deeper cyan holds contrast on light fills */
+  --accent-ink: #1f7ea6;
+  --brand: #504d9a;
+  --pink: #cf2f7d;
+  --pink-ink: #b81f6a;
+
+  --ok: #1f9d63;
+  --warn: #a9761b;
+  --orange: #c26a2a;
+  --danger: #cf4b4b;
+
+  --ring: rgba(47, 147, 182, 0.5);
+  --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
+  --shadow: 0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.10);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f4f4f9;
+    --bg-elev: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #edecf4;
+    --border: rgba(30, 27, 60, 0.12);
+    --border-strong: rgba(30, 27, 60, 0.20);
+    --text: #201d2b;
+    --muted: #57536e;
+    --subtle: #837f99;
+    --accent: #2f93b6;
+    --accent-ink: #1f7ea6;
+    --brand: #504d9a;
+    --pink: #cf2f7d;
+    --pink-ink: #b81f6a;
+    --ok: #1f9d63;
+    --warn: #a9761b;
+    --orange: #c26a2a;
+    --danger: #cf4b4b;
+    --ring: rgba(47, 147, 182, 0.5);
+    --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
+    --shadow: 0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.10);
+  }
+}
+
+/* Map semantic + legacy brand tokens onto Tailwind utilities. `inline` so the
+ * generated classes emit the raw var() and stay live when the theme flips. */
+@theme inline {
+  --color-app-bg: var(--bg);
+  --color-app-elev: var(--bg-elev);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-app-border: var(--border);
+  --color-app-border-strong: var(--border-strong);
+  --color-app-text: var(--text);
+  --color-app-muted: var(--muted);
+  --color-app-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-brand: var(--brand);
+  --color-pink: var(--pink);
+  --color-pink-ink: var(--pink-ink);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-orange: var(--orange);
+  --color-danger: var(--danger);
+
+  /* legacy fusion-* utilities kept working, now theme-aware */
+  --color-fusion-purple: var(--brand);
+  --color-fusion-purple-light: var(--surface);
+  --color-fusion-purple-medium: var(--surface-2);
+  --color-fusion-cyan: var(--accent);
+  --color-fusion-cyan-light: var(--border);
+  --color-fusion-cyan-medium: var(--border-strong);
+  --color-fusion-pink: var(--pink);
+  --color-fusion-dark-pink: var(--pink-ink);
+
+  --color-severity-critical: var(--danger);
+  --color-severity-high: var(--orange);
+  --color-severity-medium: var(--warn);
+  --color-severity-low: var(--ok);
+
+  --background-image-fusion-gradient: var(--brand-gradient);
+  --background-image-fusion-pink-gradient: linear-gradient(to right, var(--pink), var(--pink-ink));
+  --background-image-fusion-cyan-pink: var(--brand-gradient);
+
+  /* soft, layered depth (theme-aware via the vars) */
+  --shadow-soft: var(--shadow-sm);
+  --shadow-card: var(--shadow);
+
+  --radius-xl: 0.9rem;
 }
 
 *, *::before, *::after {
@@ -30,45 +168,26 @@
   box-sizing: border-box;
 }
 
-/* Dark mode is the default theme - prevent browsers from auto-inverting */
-:root {
-  color-scheme: dark;
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.8);
-  --text-muted: rgba(255, 255, 255, 0.6);
-  --bg-primary: #504d9a;
-  --bg-secondary: rgba(80, 77, 154, 0.25);
-  --bg-tertiary: rgba(80, 77, 154, 0.4);
-}
-
-/* Light mode override for users who prefer it */
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light dark;
-    /* Keep dark theme as the brand identity, but ensure readability */
-    --text-primary: #ffffff;
-    --text-secondary: rgba(255, 255, 255, 0.85);
-    --text-muted: rgba(255, 255, 255, 0.7);
-  }
-}
-
 html {
   width: 100%;
   height: 100%;
   overflow-x: hidden;
   scroll-behavior: smooth;
-  color-scheme: dark;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   width: 100%;
   min-height: 100vh;
   overflow-x: hidden;
-  color: var(--text-primary);
-  background-color: var(--bg-primary);
+  color: var(--text);
+  background-color: var(--bg);
+  /* calm, near-solid backdrop with the faintest brand wash — not the old loud gradient */
+  background-image: radial-gradient(1200px 600px at 50% -10%, var(--brand-gradient-soft), transparent 70%);
+  background-repeat: no-repeat;
+  letter-spacing: -0.006em;
 }
 
 #root {
@@ -78,76 +197,79 @@ body {
   flex-direction: column;
 }
 
-pre {
-  font-family: 'Courier New', monospace;
+body {
+  font-size: 1rem;
+  line-height: 1.62;               /* comfortable reading rhythm */
+  text-rendering: optimizeLegibility;
 }
 
-.quality-testing-list li::marker {
-  color: #66c4e1;
+h1, h2, h3 {
+  letter-spacing: -0.021em;
+  line-height: 1.15;
+  text-wrap: balance;              /* avoid lonely words in headings */
+}
+
+p {
+  text-wrap: pretty;
+}
+
+pre, code, .font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Courier New', monospace;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+/* One calm, accessible focus ring everywhere — comfort + keyboard access. */
+:where(a, button, input, textarea, select, summary, [role="button"], [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+  border-radius: 0.5rem;
+}
+
+/* Gentle default transitions so hovers feel soft, not abrupt. */
+a, button {
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease,
+    box-shadow 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
 }
 
 /* Responsive container behavior */
 @media screen and (max-width: 1200px) {
-  main {
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
+  main { padding-left: 1rem !important; padding-right: 1rem !important; }
 }
-
 @media screen and (max-width: 768px) {
-  main {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-  }
-
+  main { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
   .header-row {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
     grid-template-columns: none !important;
   }
-
-  .use-cases-arrow {
-    display: none !important;
-  }
-
+  .use-cases-arrow { display: none !important; }
 }
 
-/* Custom scrollbar - dark blue theme */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #2d2a5e;
-}
-
+/* Calm, theme-aware scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #66c4e1;
-  border-radius: 4px;
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, #66c4e1, #f38f95);
-}
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.animate-spin { animation: spin 1s linear infinite; }
 
-/* Firefox scrollbar */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #66c4e1 #2d2a5e;
-}
-
-/* Animation for loading spinner */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
+/* Respect reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
 }

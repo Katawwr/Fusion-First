@@ -1,7 +1,7 @@
 import React from 'react';
 
 const variants = {
-  default: 'bg-fusion-purple-medium text-white',
+  default: 'bg-surface-2 text-app-text',
   critical: 'bg-severity-critical text-white',
   high: 'bg-severity-high text-black',
   medium: 'bg-severity-medium text-black',

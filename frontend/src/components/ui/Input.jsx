@@ -20,11 +20,11 @@ export default function Input({
       className={`
         w-full
         px-4 py-3
-        bg-black/30
+        bg-surface-2
         border ${error ? 'border-fusion-pink' : 'border-fusion-cyan-medium'}
         rounded-lg
-        text-white
-        placeholder-white/50
+        text-app-text
+        placeholder:text-app-subtle
         font-mono
         focus:outline-none focus:border-fusion-cyan
         disabled:opacity-50 disabled:cursor-not-allowed
@@ -55,11 +55,11 @@ export function Textarea({
       className={`
         w-full
         px-4 py-3
-        bg-black/30
+        bg-surface-2
         border border-fusion-cyan-medium
         rounded-lg
-        text-white
-        placeholder-white/50
+        text-app-text
+        placeholder:text-app-subtle
         font-mono
         resize-none
         focus:outline-none focus:border-fusion-cyan

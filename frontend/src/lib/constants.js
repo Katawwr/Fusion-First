@@ -14,10 +14,10 @@ export const PRICING_PLANS = [
     price: 19,
     credits: 25,
     features: [
-      '25 credits per month',
-      '20 test prompts per scan',
-      'AI-powered response analysis',
-      'Fix recommendations'
+      '25 real scans per month',
+      'All 4 OWASP safety checks',
+      'Before/after proof with confidence intervals',
+      'One-click hardened prompt + guardrail SDK'
     ],
     checkoutUrl: 'https://fusion-first.lemonsqueezy.com/checkout/buy/ec839731-7209-43b5-ad87-a8699de5190b',
     popular: false,
@@ -27,10 +27,9 @@ export const PRICING_PLANS = [
     price: 49,
     credits: 75,
     features: [
-      '75 credits per month',
-      '20 test prompts per scan',
-      'AI-powered response analysis',
-      'Fix recommendations',
+      '75 real scans per month',
+      'Everything in Starter',
+      'Shareable & exportable HTML report cards',
       'Priority support'
     ],
     checkoutUrl: 'https://fusion-first.lemonsqueezy.com/checkout/buy/4c8eda2e-b327-423f-aa81-984b1c2eac30',
@@ -41,12 +40,10 @@ export const PRICING_PLANS = [
     price: 149,
     credits: 250,
     features: [
-      '250 credits per month',
-      '20 test prompts per scan',
-      'AI-powered response analysis',
-      'Fix recommendations',
-      'Priority support',
-      'Early access to new features'
+      '250 real scans per month',
+      'Everything in Pro',
+      'Full attack tiers (more probes per check)',
+      'Early access to new safety checks'
     ],
     checkoutUrl: 'https://fusion-first.lemonsqueezy.com/checkout/buy/a0572e97-6921-4c97-9cc6-1ee5efa919a6',
     popular: false,

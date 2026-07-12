@@ -3,34 +3,34 @@ import { Cpu, Target, Layers, GitBranch, BarChart3, RefreshCw } from 'lucide-rea
 
 const features = [
   {
-    icon: Cpu,
-    title: 'Dynamic Prompt Generation',
-    description: 'Our AI analyzes your system prompt to generate 20 custom attack vectors tailored specifically to your use case, not generic tests.'
-  },
-  {
     icon: Target,
-    title: 'Multi-Dimensional Analysis',
-    description: 'Each test probes different failure modes: factual accuracy, boundary adherence, context retention, and instruction following simultaneously.'
-  },
-  {
-    icon: Layers,
-    title: 'Severity Classification',
-    description: 'Issues are automatically categorized by severity (critical, high, medium, low) so you can prioritize fixes that matter most.'
+    title: 'OWASP-mapped attack suite',
+    description: 'Every check maps to the OWASP Top 10 for LLMs (2025) and Agentic AI (2026) — prompt injection, excessive agency, data exfiltration, secret leakage. You test the risks the industry actually tracks, not a made-up list.'
   },
   {
     icon: GitBranch,
-    title: 'Root Cause Identification',
-    description: 'Beyond detecting issues, we identify the specific prompt patterns causing failures so you know exactly what to fix.'
+    title: 'Baseline vs hardened, side by side',
+    description: 'We run the same attacks against your prompt as-is and against a hardened version, then report the exact lift — an apples-to-apples before/after, not a one-shot score.'
   },
   {
     icon: BarChart3,
-    title: 'Quality Scoring',
-    description: 'Get an overall quality score with breakdown by category, enabling you to track improvements across iterations.'
+    title: 'Numbers you can defend',
+    description: 'Every result carries a 95% confidence interval and a PROVEN / PRELIMINARY / INCONCLUSIVE badge. Fusion refuses to claim an improvement the evidence cannot back.'
+  },
+  {
+    icon: Cpu,
+    title: 'A calibrated AI examiner',
+    description: 'An AI judge scores each response against a written rubric — and we measure the judge itself against known-answer cases, so you know exactly how far to trust the grade.'
   },
   {
     icon: RefreshCw,
-    title: 'AI-Generated Fixes',
-    description: 'Receive specific, actionable prompt modifications for each identified issue, ready to copy and implement.'
+    title: 'One-click fix, two layers',
+    description: 'Get a hardened system prompt plus a runtime guardrail SDK that blocks leaked secrets and unauthorized actions even when the model slips. Copy, paste, done.'
+  },
+  {
+    icon: Layers,
+    title: 'A report card anyone can read',
+    description: 'Every OWASP term and statistic is translated into a plain question a founder can answer — with the real term one hover away. Share the card or export it as HTML.'
   }
 ];
 
@@ -71,19 +71,20 @@ export default function FeaturesSection() {
           <h2 style={{
             fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
             fontWeight: 'bold',
-            color: 'white',
+            color: 'var(--text)',
             marginBottom: '1rem'
           }}>
-            How It Works
+            Proof, not vibes
           </h2>
           <p style={{
             fontSize: '1.125rem',
-            color: 'white',
+            color: 'var(--text)',
             maxWidth: '700px',
             margin: '0 auto',
             lineHeight: 1.6
           }}>
-            Our quality testing engine goes beyond surface-level checks to find the issues that actually affect your users.
+            Anyone can say your bot is "safer." Fusion measures it — against a real threat taxonomy,
+            with statistics that admit their own uncertainty.
           </p>
         </div>
 
@@ -100,8 +101,8 @@ export default function FeaturesSection() {
                 key={index}
                 className="feature-card"
                 style={{
-                  background: 'rgba(80, 77, 154, 0.25)',
-                  border: '1px solid rgba(102, 196, 225, 0.2)',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
                   borderRadius: '1rem',
                   padding: '1.5rem',
                   backdropFilter: 'blur(10px)',
@@ -114,14 +115,14 @@ export default function FeaturesSection() {
                   e.currentTarget.style.borderColor = '#66c4e1';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(102, 196, 225, 0.2)';
+                  e.currentTarget.style.borderColor = 'var(--border)';
                 }}
               >
                 <div style={{
                   width: '48px',
                   height: '48px',
                   borderRadius: '0.75rem',
-                  background: 'linear-gradient(135deg, rgba(102, 196, 225, 0.2), rgba(243, 143, 149, 0.2))',
+                  background: 'linear-gradient(135deg, var(--border), rgba(243, 143, 149, 0.2))',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -132,13 +133,13 @@ export default function FeaturesSection() {
                 <h3 style={{
                   fontSize: '1.125rem',
                   fontWeight: '600',
-                  color: 'white',
+                  color: 'var(--text)',
                   marginBottom: '0.5rem'
                 }}>
                   {feature.title}
                 </h3>
                 <p style={{
-                  color: 'rgba(255, 255, 255, 0.8)',
+                  color: 'var(--muted)',
                   fontSize: '0.9rem',
                   lineHeight: 1.6
                 }}>

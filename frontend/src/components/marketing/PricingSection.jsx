@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import { PRICING_PLANS } from '../../lib/constants';
 import { SignInModal } from '../auth';
 import { useAuth } from '../../hooks';
+import { isSupabaseConfigured } from '../../lib/supabase';
 
 export default function PricingSection({
   isSubscriber = false,
@@ -33,9 +34,15 @@ export default function PricingSection({
     return () => observer.disconnect();
   }, []);
 
-  // Handle checkout - require login first
+  // Handle checkout - require login first when auth is available.
   const handleCheckout = (plan) => {
     if (!isAuthenticated) {
+      // When sign-in isn't configured for this deployment, don't dead-end the user in a modal
+      // that can't send a magic link — send them straight to checkout (email captured there).
+      if (!isSupabaseConfigured) {
+        window.open(plan.checkoutUrl, '_blank');
+        return;
+      }
       // Store the checkout URL to redirect after login
       setPendingCheckoutUrl(plan.checkoutUrl);
       setSignInModalOpen(true);
@@ -90,11 +97,21 @@ export default function PricingSection({
           <h2 style={{
             fontSize: 'clamp(1.75rem, 4vw, 2.5rem)',
             fontWeight: 'bold',
-            color: 'white',
+            color: 'var(--text)',
             marginBottom: '1rem'
           }}>
             Simple, Transparent Pricing
           </h2>
+          <p style={{
+            fontSize: '1.125rem',
+            color: 'var(--text)',
+            maxWidth: '700px',
+            margin: '0 auto',
+            lineHeight: 1.6
+          }}>
+            Start free — the demo scan runs the full flow with no signup. Paid plans unlock real,
+            live scans against your model. Cancel anytime.
+          </p>
         </div>
 
         {/* Pricing cards */}
@@ -122,9 +139,9 @@ export default function PricingSection({
                 width: '100%',
                 maxWidth: '350px',
                 background: plan.popular
-                  ? 'linear-gradient(135deg, rgba(102, 196, 225, 0.2), rgba(243, 143, 149, 0.2))'
-                  : 'rgba(80, 77, 154, 0.4)',
-                border: plan.popular ? '2px solid #f38f95' : '1px solid rgba(102, 196, 225, 0.3)',
+                  ? 'linear-gradient(135deg, var(--border), rgba(243, 143, 149, 0.2))'
+                  : 'var(--surface-2)',
+                border: plan.popular ? '2px solid #f38f95' : '1px solid var(--border-strong)',
                 borderRadius: '1rem',
                 padding: '1.5rem',
                 display: 'flex',
@@ -143,7 +160,7 @@ export default function PricingSection({
               }}
               onMouseLeave={(e) => {
                 if (!plan.popular) {
-                  e.currentTarget.style.borderColor = 'rgba(102, 196, 225, 0.3)';
+                  e.currentTarget.style.borderColor = 'var(--border-strong)';
                 }
                 e.currentTarget.style.transform = 'translateY(0)';
               }}
@@ -159,7 +176,7 @@ export default function PricingSection({
                   borderRadius: '1rem',
                   fontSize: '0.75rem',
                   fontWeight: 'bold',
-                  color: 'white',
+                  color: 'var(--text)',
                   whiteSpace: 'nowrap'
                 }}>
                   MOST POPULAR
@@ -177,15 +194,15 @@ export default function PricingSection({
               </h3>
 
               <div style={{ marginBottom: '1rem' }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'white' }}>${plan.price}</span>
-                <span style={{ color: 'white', fontSize: '0.875rem' }}>/month</span>
+                <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--text)' }}>${plan.price}</span>
+                <span style={{ color: 'var(--text)', fontSize: '0.875rem' }}>/month</span>
               </div>
 
               <p style={{ color: plan.popular ? '#f38f95' : '#66c4e1', fontSize: '0.875rem', marginBottom: '1rem' }}>
                 {plan.credits} scans/month
               </p>
 
-              <ul style={{ color: 'white', fontSize: '0.875rem', lineHeight: '1.8', paddingLeft: '0', listStyle: 'none', marginBottom: '1rem', flex: 1 }}>
+              <ul style={{ color: 'var(--text)', fontSize: '0.875rem', lineHeight: '1.8', paddingLeft: '0', listStyle: 'none', marginBottom: '1rem', flex: 1 }}>
                 {plan.features.map((feature, idx) => (
                   <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.5rem' }}>
                     <Check size={18} color="#66c4e1" style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -200,8 +217,8 @@ export default function PricingSection({
                   display: 'block',
                   width: '100%',
                   padding: '0.75rem',
-                  background: plan.popular ? 'linear-gradient(to right, #f38f95, #db418b)' : 'rgba(102, 196, 225, 0.2)',
-                  border: plan.popular ? 'none' : '1px solid rgba(102, 196, 225, 0.5)',
+                  background: plan.popular ? 'linear-gradient(to right, #f38f95, #db418b)' : 'var(--border)',
+                  border: plan.popular ? 'none' : '1px solid var(--border-strong)',
                   borderRadius: '0.5rem',
                   color: plan.popular ? 'white' : '#66c4e1',
                   fontWeight: 'bold',

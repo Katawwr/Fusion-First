@@ -25,7 +25,7 @@ export default function Hero() {
   }, []);
 
   const goToTest = () => {
-    navigate('/test');
+    navigate('/scan');
   };
 
   const scrollToPricing = () => {
@@ -36,10 +36,10 @@ export default function Hero() {
   };
 
   const features = [
-    { icon: AlertTriangle, text: 'Detect hallucinations & false claims' },
-    { icon: Shield, text: 'Test boundary violations' },
-    { icon: Zap, text: 'AI-powered fix recommendations' },
-    { icon: CheckCircle, text: '20+ quality test categories' },
+    { icon: AlertTriangle, text: 'Catch prompt injection & hijacks (LLM01)' },
+    { icon: Zap, text: 'Stop runaway actions & excessive agency (LLM06)' },
+    { icon: Shield, text: 'Block data exfiltration (LLM02)' },
+    { icon: CheckCircle, text: 'Prevent system-prompt & secret leakage (LLM07)' },
   ];
 
   return (
@@ -63,43 +63,44 @@ export default function Hero() {
             gap: '0.5rem',
             padding: '0.5rem 1rem',
             borderRadius: '9999px',
-            background: 'rgba(80, 77, 154, 0.25)',
-            border: '1px solid rgba(102, 196, 225, 0.3)',
+            background: 'var(--surface)',
+            border: '1px solid var(--border-strong)',
             marginBottom: '2rem'
           }}>
-            <span style={{ color: '#66c4e1', fontSize: '0.875rem', fontWeight: '500' }}>2 Free Scans</span>
-            <span style={{ color: 'white', fontSize: '0.875rem' }}>No signup required</span>
+            <span style={{ color: 'var(--accent-ink)', fontSize: '0.875rem', fontWeight: '500' }}>Free demo scan</span>
+            <span style={{ color: 'var(--text)', fontSize: '0.875rem' }}>No signup required</span>
           </div>
 
           {/* Main heading */}
           <h1 style={{
             fontSize: 'clamp(2rem, 6vw, 3.5rem)',
             fontWeight: 'bold',
-            color: 'white',
+            color: 'var(--text)',
             marginBottom: '1.5rem',
             lineHeight: 1.2
           }}>
-            Test Your LLM for{' '}
+            Ship AI agents you can{' '}
             <span style={{
               background: 'linear-gradient(to right, #66c4e1, #f38f95)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}>
-              Quality Issues
+              prove
             </span>
-            <br />Before They Reach Production
+            {' '}are safe
           </h1>
 
           {/* Subheading */}
           <p style={{
             fontSize: 'clamp(1rem, 2.5vw, 1.25rem)',
-            color: 'white',
+            color: 'var(--text)',
             maxWidth: '800px',
             margin: '0 auto 2.5rem',
             lineHeight: 1.6
           }}>
-            Automatically detect hallucinations, boundary violations, and instruction failures
-            in your LLM system prompts. Get AI-powered recommendations to fix issues in minutes.
+            Paste your bot's system prompt. Fusion runs an OWASP-mapped attack suite, grades it
+            baseline vs hardened, and hands you a one-click fix — every number backed by a
+            confidence interval, not a vibe.
           </p>
 
           {/* CTA buttons */}
@@ -119,7 +120,7 @@ export default function Hero() {
                 background: 'linear-gradient(to right, #f38f95, #db418b)',
                 border: 'none',
                 borderRadius: '0.5rem',
-                color: 'white',
+                color: '#fff',
                 fontWeight: 'bold',
                 fontSize: '1rem',
                 cursor: 'pointer',
@@ -132,7 +133,7 @@ export default function Hero() {
                 e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              Start Testing
+              Scan your bot free
             </button>
             <button
               onClick={scrollToPricing}
@@ -141,7 +142,7 @@ export default function Hero() {
                 background: 'transparent',
                 border: '2px solid #66c4e1',
                 borderRadius: '0.5rem',
-                color: '#66c4e1',
+                color: 'var(--accent-ink)',
                 fontWeight: 'bold',
                 fontSize: '1rem',
                 cursor: 'pointer',
@@ -179,8 +180,8 @@ export default function Hero() {
                     gap: '0.75rem',
                     padding: '1rem',
                     borderRadius: '0.75rem',
-                    background: 'rgba(80, 77, 154, 0.25)',
-                    border: '1px solid rgba(102, 196, 225, 0.2)',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
                     transition: 'border-color 0.2s ease, transform 0.2s ease'
                   }}
                   onMouseEnter={(e) => {
@@ -188,12 +189,12 @@ export default function Hero() {
                     e.currentTarget.style.transform = 'translateY(-2px)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(102, 196, 225, 0.2)';
+                    e.currentTarget.style.borderColor = 'var(--border)';
                     e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
                   <Icon size={20} color="#66c4e1" style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.875rem', color: 'white', textAlign: 'left' }}>{feature.text}</span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text)', textAlign: 'left' }}>{feature.text}</span>
                 </div>
               );
             })}

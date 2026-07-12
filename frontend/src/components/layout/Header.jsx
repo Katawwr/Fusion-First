@@ -1,22 +1,47 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut } from 'lucide-react';
+import { Menu, X, LogOut, Sun, Moon } from 'lucide-react';
 import { SignInModal } from '../auth';
-import { useAuth } from '../../hooks';
+import { useAuth, useTheme } from '../../hooks';
+import { isSupabaseConfigured } from '../../lib/supabase';
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [signInModalOpen, setSignInModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { effective, toggle } = useTheme();
   const { user, session, loading: authLoading, requestMagicLink, magicLinkSent, error: authError, signOut, isAuthenticated } = useAuth();
 
+  const themeToggle = (
+    <button
+      onClick={toggle}
+      aria-label={effective === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      title={effective === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '38px',
+        height: '38px',
+        borderRadius: '0.5rem',
+        background: 'transparent',
+        border: '1px solid var(--border)',
+        color: 'var(--muted)',
+        cursor: 'pointer',
+        flexShrink: 0,
+      }}
+    >
+      {effective === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+    </button>
+  );
+
+  // Dashboard needs a signed-in account; only surface it when auth is actually configured.
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Test', href: '/test' },
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Guides', href: '/blog' },
-    { name: 'Contact', href: '/contact' },
+    { name: 'Scan', href: '/scan' },
+    ...(isSupabaseConfigured ? [{ name: 'Dashboard', href: '/dashboard' }] : []),
+    { name: 'Pricing', href: '/#pricing' },
   ];
 
   const handleRequestMagicLink = async (email, marketingOptIn) => {
@@ -32,8 +57,8 @@ export default function Header() {
   return (
     <>
       <header style={{
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        background: 'rgba(0,0,0,0.3)',
+        borderBottom: '1px solid var(--border)',
+        background: 'color-mix(in srgb, var(--bg-elev) 82%, transparent)',
         backdropFilter: 'blur(10px)',
         position: 'sticky',
         top: 0,
@@ -92,7 +117,7 @@ export default function Header() {
                   style={{
                     fontSize: '0.875rem',
                     fontWeight: '500',
-                    color: location.pathname === link.href ? '#f38f95' : 'white',
+                    color: location.pathname === link.href ? 'var(--pink-ink)' : 'var(--text)',
                     textDecoration: 'none',
                     transition: 'color 0.2s'
                   }}
@@ -103,11 +128,12 @@ export default function Header() {
             </nav>
 
             {/* Right side - Sign In button */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.6rem' }}>
+              {themeToggle}
               {/* Desktop Auth */}
               {isAuthenticated ? (
                 <div className="hidden md:flex" style={{ alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem' }}>
+                  <span style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
                     {user?.email?.split('@')[0]}
                   </span>
                   <button
@@ -115,9 +141,9 @@ export default function Header() {
                     style={{
                       padding: '0.5rem 1rem',
                       background: 'transparent',
-                      border: '1px solid rgba(255,255,255,0.3)',
+                      border: '1px solid var(--border-strong)',
                       borderRadius: '0.5rem',
-                      color: 'white',
+                      color: 'var(--text)',
                       fontSize: '0.875rem',
                       cursor: 'pointer',
                       display: 'flex',
@@ -129,7 +155,7 @@ export default function Header() {
                     Sign Out
                   </button>
                 </div>
-              ) : (
+              ) : isSupabaseConfigured ? (
                 <button
                   onClick={() => setSignInModalOpen(true)}
                   className="hidden md:block"
@@ -138,7 +164,7 @@ export default function Header() {
                     background: 'linear-gradient(to right, #f38f95, #db418b)',
                     border: 'none',
                     borderRadius: '0.5rem',
-                    color: 'white',
+                    color: '#fff',
                     fontWeight: 'bold',
                     fontSize: '0.875rem',
                     cursor: 'pointer',
@@ -147,6 +173,23 @@ export default function Header() {
                 >
                   Sign In
                 </button>
+              ) : (
+                <Link
+                  to="/scan"
+                  className="hidden md:block"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(to right, #f38f95, #db418b)',
+                    borderRadius: '0.5rem',
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    fontSize: '0.875rem',
+                    textDecoration: 'none',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Scan your bot
+                </Link>
               )}
 
               {/* Mobile menu button */}
@@ -157,7 +200,7 @@ export default function Header() {
                   padding: '0.5rem',
                   background: 'none',
                   border: 'none',
-                  color: 'white',
+                  color: 'var(--text)',
                   cursor: 'pointer'
                 }}
               >
@@ -168,7 +211,7 @@ export default function Header() {
 
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <div className="md:hidden" style={{ paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '1rem' }}>
+            <div className="md:hidden" style={{ paddingTop: '1rem', borderTop: '1px solid var(--border)', marginTop: '1rem' }}>
               <nav style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {navLinks.map((link) => (
                   <Link
@@ -178,7 +221,7 @@ export default function Header() {
                     style={{
                       fontSize: '0.875rem',
                       fontWeight: '500',
-                      color: location.pathname === link.href ? '#f38f95' : 'white',
+                      color: location.pathname === link.href ? 'var(--pink-ink)' : 'var(--text)',
                       textDecoration: 'none'
                     }}
                   >
@@ -187,7 +230,7 @@ export default function Header() {
                 ))}
                 {isAuthenticated ? (
                   <>
-                    <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem', margin: 0 }}>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.875rem', margin: 0 }}>
                       {user?.email}
                     </p>
                     <button
@@ -195,9 +238,9 @@ export default function Header() {
                       style={{
                         padding: '0.75rem',
                         background: 'transparent',
-                        border: '1px solid rgba(255,255,255,0.3)',
+                        border: '1px solid var(--border-strong)',
                         borderRadius: '0.5rem',
-                        color: 'white',
+                        color: 'var(--text)',
                         fontSize: '0.875rem',
                         cursor: 'pointer',
                         display: 'flex',
@@ -211,7 +254,7 @@ export default function Header() {
                       Sign Out
                     </button>
                   </>
-                ) : (
+                ) : isSupabaseConfigured ? (
                   <button
                     onClick={() => {
                       setMobileMenuOpen(false);
@@ -222,7 +265,7 @@ export default function Header() {
                       background: 'linear-gradient(to right, #f38f95, #db418b)',
                       border: 'none',
                       borderRadius: '0.5rem',
-                      color: 'white',
+                      color: '#fff',
                       fontWeight: 'bold',
                       fontSize: '0.875rem',
                       cursor: 'pointer',
@@ -231,6 +274,24 @@ export default function Header() {
                   >
                     Sign In
                   </button>
+                ) : (
+                  <Link
+                    to="/scan"
+                    onClick={() => setMobileMenuOpen(false)}
+                    style={{
+                      padding: '0.75rem',
+                      background: 'linear-gradient(to right, #f38f95, #db418b)',
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontWeight: 'bold',
+                      fontSize: '0.875rem',
+                      textDecoration: 'none',
+                      textAlign: 'center',
+                      width: '100%'
+                    }}
+                  >
+                    Scan your bot
+                  </Link>
                 )}
               </nav>
             </div>
