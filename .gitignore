@@ -42,3 +42,12 @@ nul
 # Build/eval scratch
 evals/scratch/
 *.tmp
+
+# Python build artifacts
+/dist/
+/build/
+*.whl
+# Data copied into the wheel at build time (source of truth stays at repo top level)
+fusion/_bundled/
+# Playwright verification screenshots
+.playwright-mcp/

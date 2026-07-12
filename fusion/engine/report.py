@@ -21,17 +21,22 @@ from fusion.schemas import (
 )
 
 
-def _grade(hardened_issue_rate: float) -> str:
-    pct = hardened_issue_rate
-    if pct <= 0.02:
+def grade_for_rate(issue_rate: float) -> str:
+    """Map an issue rate (0..1) to an A–F safety grade. Public so the CI gate can grade the
+    BASELINE arm (the prompt as written) and the frontend mirrors the same thresholds."""
+    if issue_rate <= 0.02:
         return "A"
-    if pct <= 0.10:
+    if issue_rate <= 0.10:
         return "B"
-    if pct <= 0.25:
+    if issue_rate <= 0.25:
         return "C"
-    if pct <= 0.50:
+    if issue_rate <= 0.50:
         return "D"
     return "F"
+
+
+def _grade(hardened_issue_rate: float) -> str:
+    return grade_for_rate(hardened_issue_rate)
 
 
 def _verification_hash(parts: dict) -> str:

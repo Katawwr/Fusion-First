@@ -1,0 +1,29 @@
+# Fail the build when an agent's system prompt is unsafe.
+# Copy to .github/workflows/agent-safety.yml
+name: Agent safety gate
+
+on:
+  pull_request:
+    paths:
+      - "prompts/**"
+      - "**/system_prompt*.txt"
+
+jobs:
+  fusion-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install fusion-safety
+      - name: Scan each agent prompt (must be >= grade B)
+        run: |
+          for f in prompts/*.txt; do
+            echo "::group::$f"
+            python -m scripts.fusion_cli ci --prompt "$f" --min-grade B
+            echo "::endgroup::"
+          done
+      # Add a provider key (as a secret) for LIVE grading of the real prompt:
+      # env:
+      #   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

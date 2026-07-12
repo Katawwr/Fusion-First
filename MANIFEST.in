@@ -1,0 +1,10 @@
+# Ship the top-level corpora in the sdist so a source build can copy them into fusion/_bundled/.
+recursive-include datasets *.jsonl
+recursive-include cassettes *.json
+recursive-include crosswalk *.yaml *.yml
+recursive-include evals *.json *.yaml
+include README.md CLAUDE.md SCHEMA.md pyproject.toml setup.py
+recursive-include integrations *.md *.json *.yml *.yaml
+# fusion/_bundled/ is a build artifact (populated by setup.py), not shipped in the sdist.
+prune fusion/_bundled
+global-exclude __pycache__ *.pyc *.pyo

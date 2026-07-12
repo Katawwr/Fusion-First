@@ -1,8 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "fusion-safety"
 version = "0.1.0"
 description = "Fusion First — offline test-and-prove engine for agentic AI safety"
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "Fusion First" }]
+keywords = ["llm", "ai-safety", "agentic", "owasp", "prompt-injection", "guardrail", "red-team", "mcp"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Other/Proprietary License",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
 dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.4",
@@ -14,11 +28,21 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[project.scripts]
+fusion = "fusion.cli:main"
+
+[project.urls]
+Homepage = "https://fusion-first-testing.com"
+
 [project.optional-dependencies]
 backend = [
     "fastapi>=0.115",
     "pyjwt[crypto]>=2.9",
     "cryptography>=43",
+]
+# MCP server so an AI coding agent can call Fusion inline (scan / harden / guard).
+mcp = [
+    "mcp>=1.2",
 ]
 dev = [
     "pytest>=8.0",
@@ -30,6 +54,11 @@ dev = [
 # NOTHING under `fusion/` may import `modal` — enforced by tests/test_no_modal_import.py
 [tool.setuptools.packages.find]
 include = ["fusion*"]
+
+# Corpora copied into fusion/_bundled/ by setup.py's build step (see that file) so a bare install
+# has datasets/cassettes/crosswalk/evals without a source checkout.
+[tool.setuptools.package-data]
+fusion = ["_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_bundled/**/*.yml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
