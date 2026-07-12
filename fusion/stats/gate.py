@@ -13,11 +13,12 @@ from dataclasses import asdict, dataclass
 
 import yaml
 
+from fusion._data import data_root
 from fusion.model.client import ModelClient
 from fusion.schemas import AccuracyResult
 from fusion.stats.calibration import run_calibration
 
-EVALS_DIR = pathlib.Path(__file__).resolve().parent.parent.parent / "evals"
+EVALS_DIR = data_root() / "evals"
 DEFAULT_MARGIN = 0.05  # allowed slack before a metric drop counts as a regression
 
 

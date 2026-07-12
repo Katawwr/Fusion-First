@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import pathlib
 
+from fusion._data import data_root
 from fusion.goldset import load_gold
 from fusion.judge.judge import Judge
 from fusion.judge.rubric import get_rubric
@@ -18,7 +19,7 @@ from fusion.model.providers.heuristic import heuristic_verdict_json
 from fusion.model.replay import Cassette, ReplayModelClient
 from fusion.schemas import Trajectory
 
-CASSETTE_DIR = pathlib.Path(__file__).resolve().parent.parent / "cassettes"
+CASSETTE_DIR = data_root() / "cassettes"
 
 
 def _request_builder() -> Judge:

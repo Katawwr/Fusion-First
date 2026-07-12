@@ -7,13 +7,10 @@ import pathlib
 
 import yaml
 
+from fusion._data import data_root
 from fusion.schemas import OwaspTag
 
-_CROSSWALK = (
-    pathlib.Path(__file__).resolve().parent.parent.parent
-    / "crosswalk"
-    / "owasp_crosswalk.v2025.yaml"
-)
+_CROSSWALK = data_root() / "crosswalk" / "owasp_crosswalk.v2025.yaml"
 
 
 class Crosswalk:

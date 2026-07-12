@@ -22,6 +22,14 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("assignment", re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*\S+")),
 ]
 
+# Precise assignment used at the OUTPUT boundary (see contains_secret_strict): the value must look
+# like a credential (contain a digit / underscore / hyphen), so it does not fire on ordinary English
+# such as "password: click the link" or "the secret: hard work" — which, redacted mid-reply, would
+# corrupt a user-facing answer. Logging keeps the conservative `contains_secret` above.
+_STRICT_ASSIGN = re.compile(
+    r"(?i)(api[_-]?key|secret|token|password|passwd|pwd)\s*[:=]\s*[^\s\"']*[0-9_\-][^\s\"']*"
+)
+
 _MASK = "[REDACTED]"
 
 
@@ -52,5 +60,18 @@ def redact_mapping(data: dict, sensitive_keys: tuple[str, ...] = ("authorization
 
 
 def contains_secret(text: str) -> bool:
-    """True if `text` still appears to contain a credential (used to fail closed on outputs)."""
+    """True if `text` still appears to contain a credential. Conservative — used before logging."""
     return any(pattern.search(text or "") for label, pattern in _PATTERNS if label != "email")
+
+
+def contains_secret_strict(text: str) -> bool:
+    """Precise variant for the OUTPUT boundary: credential SHAPES plus a credential-shaped
+    assignment, but NOT the loose keyword-assignment that trips on ordinary prose. Avoids redacting
+    benign user-facing replies like 'to reset your password: click the link'."""
+    text = text or ""
+    for label, pattern in _PATTERNS:
+        if label in ("email", "assignment"):
+            continue
+        if pattern.search(text):
+            return True
+    return bool(_STRICT_ASSIGN.search(text))

@@ -5,8 +5,8 @@ gate) — not a database table. Each compact row expands into a JudgeCase with a
 from __future__ import annotations
 
 import json
-import pathlib
 
+from fusion._data import data_root
 from fusion.schemas import (
     JudgeCase,
     Label,
@@ -19,7 +19,7 @@ from fusion.schemas import (
     Trajectory,
 )
 
-GOLD_DIR = pathlib.Path(__file__).resolve().parent.parent / "datasets" / "gold"
+GOLD_DIR = data_root() / "datasets" / "gold"
 
 
 def _row_to_case(row: dict) -> JudgeCase:
@@ -81,7 +81,7 @@ def gold_version_hash(check: str, version: str = "v1") -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
 
 
-PROBE_DIR = pathlib.Path(__file__).resolve().parent.parent / "datasets" / "probes"
+PROBE_DIR = data_root() / "datasets" / "probes"
 
 
 def _probe_trajectory(row: dict, response_key: str, action_key: str | None = None) -> Trajectory:

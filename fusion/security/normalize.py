@@ -73,7 +73,17 @@ def decoded_layers(text: str) -> list[str]:
 
 
 def normalized_views(text: str) -> list[str]:
-    """The set of strings the guard should scan: folded original + de-spaced + decoded layers."""
+    """The set of strings the guard should scan: folded original + de-spaced + single-spaced +
+    decoded layers of BOTH the folded and the de-spaced views, plus one nested decode pass.
+
+    Red-teaming showed that only decoding the space-intact view lets an attacker defeat the decoder
+    by splitting a base64 blob across spaces/newlines/short chunks (each broken token decodes to
+    garbage) — the reconstituted payload only materialises once whitespace is stripped. We therefore
+    also decode the de-spaced view, collapse repeated spaces (so a doubled space inside a trigger
+    phrase can't hide it), and decode one extra layer to catch nested (double-base64) encodings."""
     folded = fold(text)
     despaced = re.sub(r"\s+", "", folded)  # catch whitespace-split tokens (AKIA XXXX -> AKIAXXXX)
-    return [folded, despaced, *decoded_layers(folded)]
+    single_spaced = re.sub(r"\s+", " ", folded)  # "ignore  previous" -> "ignore previous"
+    layers = [*decoded_layers(folded), *decoded_layers(despaced)]
+    nested = [d for layer in layers for d in decoded_layers(re.sub(r"\s+", "", layer))]
+    return [folded, despaced, single_spaced, *layers, *nested]
