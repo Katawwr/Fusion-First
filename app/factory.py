@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from app.clients import LiveUnavailable, build_scan_kwargs, resolve_mode
-from app.models import GuardrailRequest, HardenRequest, ScanRequest
+from app.models import GuardrailRequest, HardenRequest, QualityRequest, ScanRequest
 from app.persistence import InMemoryScanStore
 from app.settings import Settings, load_settings
 from app.snippet import guardrail_snippet
@@ -24,7 +24,7 @@ from fusion.attacks.taxonomy import Crosswalk
 from fusion.engine.fixes import apply_fix, guard_block
 from fusion.engine.report_html import render_dashboard_html
 from fusion.engine.user_scan import run_user_scan
-from fusion.judge.rubric import REGISTRY
+from fusion.judge.rubric import REGISTRY, checks_of_kind
 from fusion.schemas import ScanEvent, ScanEventType, ScanResult, ScanTier
 from fusion.security.webhook import verify_signature
 
@@ -61,13 +61,18 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
     def _prepare(req) -> tuple[str, list[str], ScanTier, dict]:
         if len(req.system_prompt) > settings.prompt_max_chars:
             raise HTTPException(413, f"system prompt exceeds {settings.prompt_max_chars} characters")
-        checks = req.checks or sorted(REGISTRY)
+        # The scan pipeline is the SAFETY attack suite — default to safety checks (quality checks have
+        # no attack probes). An explicit quality check in a scan request is rejected below.
+        checks = req.checks or checks_of_kind("safety")
+        bad = [c for c in checks if c not in checks_of_kind("safety")]
+        if bad:
+            raise HTTPException(400, f"not safety checks (use /api/grade-quality): {bad}")
         tier = ScanTier.FULL if req.tier == "full" else ScanTier.QUICK
         try:
             mode = resolve_mode(req.mode, settings)
+            kwargs = build_kwargs(mode, settings, req.backend, req.target_model)
         except LiveUnavailable as e:
             raise HTTPException(402, str(e)) from e
-        kwargs = build_kwargs(mode, settings)
         return _sanitize_prompt(req.system_prompt), checks, tier, kwargs
 
     def _scan_stream(system_prompt, checks, tier, kwargs, scan_id):
@@ -163,14 +168,32 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
 
     @app.post("/api/harden")
     def harden(req: HardenRequest):
-        checks = req.checks or sorted(REGISTRY)
+        checks = req.checks or checks_of_kind("safety")
         hardened = apply_fix(req.system_prompt, checks)
         return {"hardened_prompt": hardened, "guard_block": guard_block(checks), "checks": checks}
 
     @app.post("/api/guardrail-snippet")
     def guardrail(req: GuardrailRequest):
-        checks = req.checks or sorted(REGISTRY)
+        checks = req.checks or checks_of_kind("safety")
         return {"language": "python", "snippet": guardrail_snippet(checks), "checks": checks}
+
+    # ----------------------------------------------------------------- quality (live-only)
+
+    @app.post("/api/grade-quality")
+    async def grade_quality(req: QualityRequest):
+        """Grade an agent's QUALITY on normal test inputs. Live-only — needs a real backend (the
+        `claude` CLI subscription, an Ollama open-weight target, or a key); returns 402 otherwise."""
+        from fusion.integrations import agent_tools
+        from fusion.integrations.live import LiveUnavailable as FusionLiveUnavailable
+
+        if len(req.system_prompt) > settings.prompt_max_chars:
+            raise HTTPException(413, f"system prompt exceeds {settings.prompt_max_chars} characters")
+        try:
+            return await agent_tools.grade_quality(
+                _sanitize_prompt(req.system_prompt), req.checks, req.target_model, req.backend
+            )
+        except FusionLiveUnavailable as e:
+            raise HTTPException(402, str(e)) from e
 
     # ----------------------------------------------------------------- webhooks (stubbed effect)
 

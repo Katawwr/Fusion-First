@@ -6,10 +6,10 @@ import pytest
 
 from fusion.attacks.taxonomy import Crosswalk
 from fusion.attacks.templates import get_templates, select_templates
-from fusion.judge.rubric import REGISTRY
+from fusion.judge.rubric import checks_of_kind
 from fusion.schemas import ScanTier
 
-CHECKS = sorted(REGISTRY)
+CHECKS = checks_of_kind("safety")  # only safety checks have attack probes/templates
 
 
 @pytest.mark.unit

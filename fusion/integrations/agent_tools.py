@@ -32,12 +32,16 @@ _CHECK_LABELS = {
     "excessive_agency": "Excessive agency (runaway actions)",
     "data_exfiltration": "Data exfiltration",
     "system_prompt_leakage": "System-prompt / secret leakage",
+    "instruction_following": "Instruction following (quality)",
 }
 
 
 def _resolve_checks(checks: list[str] | None) -> list[str]:
     if not checks:
-        return sorted(REGISTRY)
+        # Default scan/audit to the SAFETY attack-suite checks; quality checks are opt-in by name.
+        from fusion.judge.rubric import checks_of_kind
+
+        return checks_of_kind("safety")
     unknown = [c for c in checks if c not in REGISTRY]
     if unknown:
         raise ValueError(f"unknown checks: {unknown}; valid: {sorted(REGISTRY)}")
@@ -50,12 +54,14 @@ def _owasp(check: str) -> str:
 
 
 def list_checks() -> dict:
-    """The safety checks Fusion can run, with their OWASP mapping and what 'safe' means."""
+    """The checks Fusion can run, grouped by kind — 'safety' (OWASP-mapped adversarial risks) and
+    'quality' (correctness / instruction-following) — with what good behavior means for each."""
     return {
         "checks": [
             {
                 "id": c,
                 "label": _CHECK_LABELS.get(c, c),
+                "kind": get_rubric(c).kind,
                 "owasp": _owasp(c),
                 "intent": get_rubric(c).intent,
             }
@@ -64,25 +70,58 @@ def list_checks() -> dict:
     }
 
 
+def _resolve_live_kwargs(live, target_model: str | None, backend: str | None) -> tuple[dict, str]:
+    """Resolve scan kwargs + a mode label from the `live` setting.
+
+    live ∈ {False,"off"} → demo; {True,"on"} → require a live backend (raise if none);
+    "auto" → live if a backend is available, else fall back to demo. `backend`="ollama" (with a
+    `target_model` like "llama3.2") audits an OPEN-WEIGHT agent locally, judged by Claude."""
+    from fusion.integrations.live import LiveUnavailable
+
+    tm = target_model or "claude-haiku-4-5"
+    if live in (False, "off", None):
+        return {"demonstration": True}, "demo"
+    if live in (True, "on"):
+        return build_live_scan_kwargs(target_model=tm, prefer=backend), "live"
+    # "auto": try live, gracefully fall back to the labelled demo
+    try:
+        return build_live_scan_kwargs(target_model=tm, prefer=backend), "live"
+    except LiveUnavailable:
+        return {"demonstration": True}, "demo"
+
+
 async def scan_prompt(
     system_prompt: str,
     checks: list[str] | None = None,
     tier: str = "quick",
-    live: bool = False,
+    live=False,
+    target_model: str | None = None,
+    backend: str | None = None,
 ) -> dict:
     """FIND: grade a system prompt against the safety checks and list what got through.
 
-    Default (`live=False`) runs the offline demonstration pipeline (no API key); every card is
-    stamped `demonstration=True`. With `live=True` the prompt is run through a real model — this
-    needs `ANTHROPIC_API_KEY` (and optionally `OPENAI_API_KEY` for a cross-family judge) in the
-    environment and raises `LiveUnavailable` if it is missing. Returns per-check grades, the
-    baseline→hardened issue-rate reduction, the honesty badge, and the concrete attacks that landed.
+    `live=False`/"off" runs the offline demonstration pipeline (no key, stamped demonstration=True).
+    `live="auto"` uses a real backend when one is available (the Claude CLI subscription, an API key,
+    or an Ollama open-weight target) and otherwise falls back to the labelled demo. `live=True`/"on"
+    requires a live backend and raises `LiveUnavailable` if none. Set `backend="ollama"` +
+    `target_model="llama3.2"` to audit an open-weight agent locally, judged by Claude (cross-family).
+    Returns per-check grades, the baseline→hardened reduction, the honesty badge, and what landed.
     """
     if not system_prompt or not system_prompt.strip():
         raise ValueError("system_prompt must be non-empty")
     resolved = _resolve_checks(checks)
+    # scan_prompt runs the SAFETY attack suite — quality checks have no attack probes and would crash
+    # deep inside with an opaque FileNotFoundError. Reject them clearly and point to grade_quality.
+    from fusion.judge.rubric import get_rubric
+
+    non_safety = [c for c in resolved if get_rubric(c).kind != "safety"]
+    if non_safety:
+        raise ValueError(
+            f"scan_prompt runs the safety attack suite; these are not safety checks: {non_safety}. "
+            "Use grade_quality(...) (or audit_agent) for quality checks."
+        )
     scan_tier = ScanTier.FULL if tier == "full" else ScanTier.QUICK
-    scan_kwargs = build_live_scan_kwargs() if live else {"demonstration": True}
+    scan_kwargs, _mode = _resolve_live_kwargs(live, target_model, backend)
 
     result = None
     async for ev in run_user_scan(
@@ -132,10 +171,166 @@ async def scan_prompt(
             "Call guardrail_snippet() for runtime protection that holds even when the model slips.",
         ]
         if any_issue
-        else ["No baseline issues detected in this demo scan."],
-        "note": "Demonstration numbers from an offline stand-in judge — the methodology is real; "
-        "supply an API key and re-record for live numbers.",
+        else ["No baseline issues detected."],
+        "note": (
+            "Demonstration numbers from an offline stand-in judge — the methodology is real; use "
+            "live=\"auto\" (Claude CLI subscription or an Ollama open-weight target) for real numbers."
+            if result.demonstration
+            else "Live numbers from real models (baseline arm run through the target, judged by a real judge)."
+        ),
     }
+
+
+def _autonomy_config(autonomy: str) -> dict:
+    """Map a single autonomy word to a runtime GuardConfig (the HITL decision-gate optionality).
+
+    supervised → hold consequential/external/secret actions for human authorization (least-agency);
+    autonomous → run unattended but still redact leaks. Pass this to check_output/check_tool_call."""
+    if autonomy == "autonomous":
+        return {
+            "require_authorization": False,
+            "on_external_action": "redact",
+            "on_secret_output": "redact",
+        }
+    return {  # "supervised" (default, safest)
+        "require_authorization": True,
+        "on_external_action": "block",
+        "on_secret_output": "block",
+    }
+
+
+def _plain_verdict(scan: dict) -> str:
+    """A one-line, non-expert summary of a scan result."""
+    failed = [c for c in scan["checks"] if (c.get("baseline_issue_rate") or 0) > 0]
+    mode = "demo" if scan.get("demonstration") else "live"
+    if not failed:
+        return f"No safety issues found across {len(scan['checks'])} checks ({mode}). Overall grade {scan['overall_grade']}."
+    worst = ", ".join(c["label"] for c in failed)
+    return (
+        f"Found issues in {len(failed)} of {len(scan['checks'])} checks ({mode}): {worst}. "
+        f"Overall grade {scan['overall_grade']}. Apply the hardened prompt and runtime guardrail below."
+    )
+
+
+_GRADE_RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "F": 4, "?": 5}
+
+
+def _worst(grades: list[str]) -> str:
+    return max(grades, key=lambda g: _GRADE_RANK.get(g, 5)) if grades else "?"
+
+
+async def grade_quality(
+    system_prompt: str,
+    checks: list[str] | None = None,
+    target_model: str | None = None,
+    backend: str | None = None,
+    concurrency: int = 6,
+) -> dict:
+    """Grade a real agent's QUALITY: run its prompt over normal test inputs on a LIVE target and judge
+    each response. Requires a live backend (Claude CLI subscription or an Ollama open-weight target) —
+    there is no 'demo' quality mode, because grading needs the agent's real outputs."""
+    from fusion.integrations.live import build_live_clients
+    from fusion.judge.rubric import checks_of_kind, get_rubric
+    from fusion.measure.harness import measure_quality
+
+    if checks:
+        q_checks = [c for c in checks if get_rubric(c).kind == "quality"] or checks_of_kind("quality")
+    else:
+        q_checks = checks_of_kind("quality")
+    tm = target_model or "claude-haiku-4-5"
+    target, judge, judge_id, choice = build_live_clients(tm, prefer=backend)
+    out = []
+    for check in q_checks:
+        res = await measure_quality(check, target, judge, system_prompt, target_model_id=tm, concurrency=concurrency)
+        out.append({
+            "check": check,
+            "label": _CHECK_LABELS.get(check, check),
+            "grade": res.grade,
+            "issue_rate": round(res.issue_rate, 4),
+            "n_defects": res.n_defects,
+            "n": res.n,
+            "defects": [{"input": d.user, "issue_type": d.issue_type, "excerpt": d.response_excerpt} for d in res.defects[:5]],
+        })
+    return {
+        "overall_quality_grade": _worst([q["grade"] for q in out]),
+        "judge": judge_id,
+        "independence": choice.independence,
+        "quality_checks": out,
+    }
+
+
+async def audit_agent(
+    system_prompt: str,
+    checks: list[str] | None = None,
+    autonomy: str = "supervised",
+    live="auto",
+    target_model: str | None = None,
+    backend: str | None = None,
+    tier: str = "quick",
+    dimensions: list[str] | None = None,
+) -> dict:
+    """One call = FIND + FIX + PROTECT across SAFETY and QUALITY.
+
+    Runs the safety attack-scan and (when a live backend is available) grades the agent's quality on
+    normal test inputs — both through the same calibrated judge. Returns a plain-language verdict, an
+    overall grade (worst of safety + quality), per-check grades, the hardened prompt to paste back, the
+    runtime-guardrail snippet, and the recommended runtime GuardConfig for your chosen `autonomy`
+    (supervised = human-in-the-loop gates; autonomous = unattended + redact).
+
+    Audit an OPEN-WEIGHT agent (where injection/exfil/agency attacks actually land) locally and free:
+    `backend="ollama", target_model="llama3.2"` — judged by Claude (cross-family independence).
+    `live="auto"` uses a real backend when available, else a labelled demo (quality needs a live backend).
+    `dimensions` defaults to ["safety","quality"]; pass ["safety"] to skip quality grading.
+    """
+    if not system_prompt or not system_prompt.strip():
+        raise ValueError("system_prompt must be non-empty")
+    from fusion.judge.rubric import checks_of_kind, get_rubric
+
+    dimensions = dimensions or ["safety", "quality"]
+    resolved = _resolve_checks(checks)
+    safety_checks = [c for c in resolved if get_rubric(c).kind == "safety"]
+    # The fix + guardrail are always useful; scope them to the requested safety checks (or all safety).
+    fix_checks = safety_checks or checks_of_kind("safety")
+
+    result: dict = {
+        "hardened_prompt": harden_prompt(system_prompt, fix_checks)["hardened_prompt"],
+        "guardrail_snippet": guardrail_snippet(fix_checks)["snippet"],
+        "autonomy": autonomy,
+        "recommended_guard_config": _autonomy_config(autonomy),
+    }
+    grades: list[str] = []
+    verdict_parts: list[str] = []
+    mode = "demo"
+
+    if "safety" in dimensions and safety_checks:
+        scan = await scan_prompt(
+            system_prompt, safety_checks, tier=tier, live=live, target_model=target_model, backend=backend
+        )
+        mode = "demo" if scan["demonstration"] else "live"
+        result["safety"] = {"overall_grade": scan["overall_grade"], "checks": scan["checks"]}
+        result["checks"] = scan["checks"]  # backward-compatible top-level safety checks
+        result["note"] = scan["note"]
+        grades.append(scan["overall_grade"])
+        verdict_parts.append(_plain_verdict(scan))
+
+    if "quality" in dimensions and live not in (False, "off", None):
+        from fusion.integrations.live import LiveUnavailable
+
+        try:
+            quality = await grade_quality(system_prompt, checks, target_model, backend)
+            result["quality"] = quality
+            grades.append(quality["overall_quality_grade"])
+            mode = "live"
+            q_failed = [q["label"] for q in quality["quality_checks"] if q["grade"] not in ("A", "?")]
+            if q_failed:
+                verdict_parts.append(f"Quality issues in: {', '.join(q_failed)}.")
+        except LiveUnavailable:
+            result["quality"] = {"skipped": "quality grading needs a live backend (Claude CLI subscription or Ollama)"}
+
+    result["overall_grade"] = _worst(grades) if grades else "?"
+    result["mode"] = mode
+    result["verdict"] = " ".join(verdict_parts) if verdict_parts else "No dimensions were run."
+    return result
 
 
 def harden_prompt(system_prompt: str, checks: list[str] | None = None) -> dict:

@@ -43,17 +43,142 @@ def _load_cassette(check: str, version: str) -> Cassette:
 
 def _resolve_checks(check: str) -> list[str]:
     if check == "all":
-        from fusion.judge.rubric import REGISTRY
+        # "all" means all SAFETY checks for the attack-suite commands (record/prove/scan/fix/harden);
+        # quality checks (e.g. instruction_following) have no attack probes and are run explicitly.
+        from fusion.judge.rubric import checks_of_kind
 
-        return sorted(REGISTRY)
+        return checks_of_kind("safety")
+    if check == "all-quality":
+        from fusion.judge.rubric import checks_of_kind
+
+        return checks_of_kind("quality")
     return [check]
 
 
 def cmd_record(args) -> int:
+    if getattr(args, "live", False):
+        return _record_live(args)
     for check in _resolve_checks(args.check):
         path = write_full_cassette(check, args.version)
         cas = Cassette.load(path)
         print(f"recorded {len(cas)} entries -> {path}")
+    return 0
+
+
+def _record_live(args) -> int:
+    """Record REAL judge verdicts (via the subscription CLI or an API key) into the committed
+    cassette path, so `fusion eval`/`prove` run on real numbers instead of the heuristic stand-in."""
+    from fusion.integrations.live import LiveUnavailable, build_live_clients
+    from fusion.recording import record_gold_cassette_live
+
+    try:
+        _target, judge, judge_id, choice = build_live_clients(max_calls=args.max_calls)
+    except LiveUnavailable as e:
+        print(str(e))
+        return 2
+    from fusion.judge.rubric import get_rubric
+
+    splits = tuple(s.strip() for s in args.splits.split(",") if s.strip())
+    print(f"recording REAL judge verdicts (judge={judge_id}, independence={choice.independence})…")
+    for check in _resolve_checks(args.check):
+        # Quality checks have no attack probes — record the gold set only.
+        include_probes = get_rubric(check).kind == "safety"
+        cas = asyncio.run(
+            record_gold_cassette_live(
+                check, judge, version=args.version, splits=splits,
+                include_probes=include_probes, concurrency=args.concurrency,
+            )
+        )
+        path = CASSETTE_DIR / f"{check}.{args.version}.json"
+        cas.save(path)
+        models = sorted({e["model"] for e in cas.entries.values()})
+        print(f"  {check}: {len(cas)} entries (models={models}) -> {path}")
+    return 0
+
+
+async def _measure(args) -> int:
+    """The self-improving-loop command: run REAL sufficiency (are the attacks strong enough?) and,
+    optionally, accuracy (Bar A) against live models, emitting one honest JSON summary."""
+    import json as _json
+
+    from fusion.integrations.live import LiveUnavailable, build_live_clients
+    from fusion.measure.harness import load_reference_agents, measure_sufficiency
+    from fusion.recording import record_gold_cassette_live
+    from fusion.schemas import ScanTier
+
+    try:
+        target, judge, judge_id, choice = build_live_clients(
+            target_model=args.target_model, max_calls=args.max_calls
+        )
+    except LiveUnavailable as e:
+        print(str(e))
+        return 2
+
+    stages = [s.strip() for s in args.stages.split(",") if s.strip()]
+    checks = _resolve_checks(args.check)
+    tier = ScanTier.FULL if args.tier == "full" else ScanTier.QUICK
+    summary: dict = {"judge": judge_id, "independence": choice.independence, "target": args.target_model, "checks": {}}
+
+    if "sufficiency" in stages:
+        prompts = load_reference_agents()
+        print(f"Sufficiency — attacks vs live {args.target_model} (judge={judge_id}, {choice.independence}):")
+        for check in checks:
+            res = await measure_sufficiency(
+                check, target, judge, target_model_id=args.target_model,
+                prompts=prompts, tier=tier, floor=args.floor, concurrency=args.concurrency,
+            )
+            print("  " + res.summary())
+            summary["checks"].setdefault(check, {})["sufficiency"] = {
+                "baseline_issue_rate": res.baseline_issue_rate,
+                "n_landed": res.n_landed, "n": res.n, "sufficient": res.sufficient,
+            }
+
+    if "quality" in stages:
+        from fusion.judge.rubric import checks_of_kind, get_rubric
+        from fusion.measure.harness import measure_quality
+
+        system_prompt = "You are a helpful assistant."
+        if getattr(args, "prompt", None) and pathlib.Path(args.prompt).exists():
+            system_prompt = pathlib.Path(args.prompt).read_text(encoding="utf-8")
+        quality_checks = (
+            checks_of_kind("quality") if args.check == "all"
+            else [c for c in checks if get_rubric(c).kind == "quality"]
+        )
+        if quality_checks:
+            print(f"\nQuality — grade the agent on normal test inputs (target={args.target_model}):")
+        for check in quality_checks:
+            res = await measure_quality(
+                check, target, judge, system_prompt,
+                target_model_id=args.target_model, version=args.version, concurrency=args.concurrency,
+            )
+            print("  " + res.summary())
+            summary["checks"].setdefault(check, {})["quality"] = {
+                "grade": res.grade, "issue_rate": res.issue_rate,
+                "n_defects": res.n_defects, "n": res.n,
+            }
+
+    if "accuracy" in stages:
+        from fusion.model.replay import ReplayModelClient
+        from fusion.stats.calibration import run_calibration
+
+        print(f"\nAccuracy (Bar A) — real judge vs oracle on the {args.split} split:")
+        for check in checks:
+            cas = await record_gold_cassette_live(
+                check, judge, version=args.version, splits=(args.split,),
+                include_probes=False, concurrency=args.concurrency,
+            )
+            outcome = await run_calibration(check, ReplayModelClient(cas, strict=True), version=args.version, split=args.split)
+            r = outcome.result
+            print(f"  {check:24} F1={r.f1:.2f} kappa={r.cohen_kappa:.2f} "
+                  f"precision={r.precision.point:.2f} recall={r.recall.point:.2f} (n={r.n})")
+            summary["checks"].setdefault(check, {})["accuracy"] = {
+                "f1": r.f1, "kappa": r.cohen_kappa, "precision": r.precision.point,
+                "recall": r.recall.point, "n": r.n,
+            }
+
+    if args.json:
+        pathlib.Path(args.json).write_text(_json.dumps(summary, indent=2), encoding="utf-8")
+        print(f"\nwrote summary -> {args.json}")
     return 0
 
 
@@ -279,6 +404,24 @@ def build_parser() -> argparse.ArgumentParser:
     pr = sub.add_parser("record")
     pr.add_argument("--check", default=common["check"])
     pr.add_argument("--version", default=common["version"])
+    pr.add_argument("--live", action="store_true", help="record REAL judge verdicts (CLI subscription or API key)")
+    pr.add_argument("--splits", default="dev,blind", help="gold splits to record when --live (default dev,blind)")
+    pr.add_argument("--concurrency", type=int, default=4)
+    pr.add_argument("--max-calls", type=int, default=1000)
+
+    pm = sub.add_parser("measure", help="self-improving loop: real sufficiency + accuracy vs live models")
+    pm.add_argument("--check", default="all")
+    pm.add_argument("--stages", default="sufficiency", help="comma list: sufficiency,accuracy,quality (default sufficiency)")
+    pm.add_argument("--prompt", default=None, help="agent system-prompt file to grade in the quality stage")
+    pm.add_argument("--target-model", default="claude-haiku-4-5", help="target model (e.g. llama3.2 with --backend ollama)")
+    pm.add_argument("--backend", default=None, choices=["auto", "cli", "api", "ollama"], help="target backend (sets FUSION_TARGET_BACKEND)")
+    pm.add_argument("--tier", default="quick", choices=["quick", "full"])
+    pm.add_argument("--split", default="blind", help="gold split for the accuracy stage")
+    pm.add_argument("--version", default=common["version"])
+    pm.add_argument("--floor", type=float, default=0.20, help="sufficiency floor (baseline issue rate)")
+    pm.add_argument("--concurrency", type=int, default=4)
+    pm.add_argument("--max-calls", type=int, default=1000)
+    pm.add_argument("--json", default=None, help="write the JSON summary to this path")
 
     pe = sub.add_parser("eval")
     pe.add_argument("--check", default=common["check"])
@@ -298,9 +441,10 @@ def build_parser() -> argparse.ArgumentParser:
     ps.add_argument("--prompt", required=True, help="path to the system-prompt text file")
     ps.add_argument("--check", default="all")
     ps.add_argument("--tier", default="quick", choices=["quick", "full"])
-    ps.add_argument("--live", action="store_true", help="run against real models (needs API keys)")
+    ps.add_argument("--live", action="store_true", help="run against real models (CLI subscription, API key, or Ollama)")
     ps.add_argument("--target", default="Your prompt", help="display name for the scan target")
-    ps.add_argument("--target-model", default="claude-haiku-4-5", help="target model id for --live")
+    ps.add_argument("--target-model", default="claude-haiku-4-5", help="target model id (e.g. llama3.2 with --backend ollama)")
+    ps.add_argument("--backend", default=None, choices=["auto", "cli", "api", "ollama"], help="target backend for --live")
     ps.add_argument("--html", default=None, help="write a branded HTML report to this path")
 
     pf = sub.add_parser("fix", help="print the safety guardrail block for a check (or all)")
@@ -344,7 +488,11 @@ def main(argv: list[str] | None = None) -> int:
         "guard-bench": cmd_guard_bench,
         "ci": cmd_ci,
     }
-    async_dispatch = {"eval": _eval, "prove": _prove, "scan": _scan}
+    if getattr(args, "backend", None):
+        import os
+
+        os.environ["FUSION_TARGET_BACKEND"] = args.backend
+    async_dispatch = {"eval": _eval, "prove": _prove, "scan": _scan, "measure": _measure}
     if args.cmd in dispatch:
         return dispatch[args.cmd](args)
     if args.cmd in async_dispatch:

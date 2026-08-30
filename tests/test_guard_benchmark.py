@@ -8,7 +8,6 @@ from __future__ import annotations
 import pytest
 
 from fusion.guardrail.benchmark import load_baseline, load_cases, run_benchmark
-from fusion.judge.rubric import REGISTRY
 
 
 @pytest.fixture(scope="module")
@@ -23,7 +22,9 @@ def test_corpus_is_balanced_and_covers_every_check():
     by_check: dict[str, set[str]] = {}
     for c in cases:
         by_check.setdefault(c.check, set()).add(c.label)
-    assert set(by_check) == set(REGISTRY), "every check must be represented"
+    from fusion.judge.rubric import checks_of_kind
+
+    assert set(by_check) == set(checks_of_kind("safety")), "every safety check must be represented"
     for check, labels in by_check.items():
         assert labels == {"malicious", "benign"}, f"{check} needs both malicious and benign cases"
     # a meaningful benign share, so the over-block rate is measured against real traffic

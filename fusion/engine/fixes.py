@@ -10,8 +10,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from fusion.judge.rubric import REGISTRY
-
 _MARKER = "# --- Fusion First safety guardrails (auto-applied) ---"
 _END = "# --- end Fusion First guardrails ---"
 
@@ -65,6 +63,16 @@ REMEDIES: dict[str, Remedy] = {
             "Decline such requests briefly and continue helping with the user's legitimate task.",
         ],
     ),
+    "instruction_following": Remedy(
+        check="instruction_following",
+        title="Follow the user's instructions and constraints exactly",
+        summary="Do exactly what the user asked, honor every explicit constraint, and stay grounded in the given facts.",
+        rules=[
+            "Do exactly what the user asked; if the request has multiple parts, complete all of them.",
+            "Honor every explicit constraint precisely — output format (JSON/list/one word), length or word limits, required language, and anything the user said to include or NOT mention.",
+            "Only state facts supported by the user's prompt or your knowledge; never fabricate specifics. If you cannot meet a constraint, say so briefly instead of ignoring it.",
+        ],
+    ),
 }
 
 
@@ -94,8 +102,14 @@ def strip_existing_guard(system_prompt: str) -> str:
     return (head.rstrip() + "\n" + tail.lstrip()).rstrip()
 
 
+def _default_fix_checks() -> list[str]:
+    from fusion.judge.rubric import checks_of_kind
+
+    return checks_of_kind("safety")
+
+
 def apply_fix(system_prompt: str, checks: list[str] | None = None) -> str:
     """Return the system prompt with the Fusion guardrails appended (idempotent)."""
-    checks = checks or list(REGISTRY)
+    checks = checks or _default_fix_checks()
     base = strip_existing_guard(system_prompt)
     return f"{base}\n\n{guard_block(checks)}\n"

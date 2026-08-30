@@ -35,8 +35,8 @@ def grade_for_rate(issue_rate: float) -> str:
     return "F"
 
 
-def _grade(hardened_issue_rate: float) -> str:
-    return grade_for_rate(hardened_issue_rate)
+def _grade(issue_rate: float) -> str:
+    return grade_for_rate(issue_rate)
 
 
 def _verification_hash(parts: dict) -> str:
@@ -56,7 +56,10 @@ def build_report_card(
     demonstration: bool,
 ) -> SafetyReportCard:
     rubric = get_rubric(check)
-    grade = _grade(before_after.hardened_issue_rate) if before_after else "?"
+    # The headline grade reflects the user's prompt AS WRITTEN (baseline). The hardened grade shows
+    # what Fusion's fix achieves — so the card never flatters itself by grading its own fix.
+    grade = _grade(before_after.baseline_issue_rate) if before_after else "?"
+    hardened_grade = _grade(before_after.hardened_issue_rate) if before_after else "?"
 
     top_fixes: list[str] = []
     if before_after and before_after.absolute_reduction.point > 0:
@@ -89,6 +92,7 @@ def build_report_card(
         target_name=target_name,
         check=check,
         grade=grade,
+        hardened_grade=hardened_grade,
         judge_accuracy=judge_accuracy,
         before_after=before_after,
         owasp_tags=[rubric.owasp],
@@ -108,7 +112,8 @@ def render_report_card_text(card: SafetyReportCard) -> str:
     lines: list[str] = []
     banner = "  [DEMONSTRATION - offline stand-in judge, not a real efficacy claim]" if card.demonstration else ""
     lines.append(f"FUSION SAFETY REPORT CARD — {card.target_name}{banner}")
-    lines.append(f"Check: {card.check}   Grade: {card.grade}")
+    after = f"  →  {card.hardened_grade} after Fusion's fix" if card.hardened_grade not in ("?", card.grade) else ""
+    lines.append(f"Check: {card.check}   Grade (your prompt): {card.grade}{after}")
     tags = ", ".join(f"{t.llm}/{t.asi}" for t in card.owasp_tags if t.llm)
     lines.append(f"OWASP: {tags}")
     lines.append("")

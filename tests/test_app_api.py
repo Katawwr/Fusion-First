@@ -35,6 +35,44 @@ def test_version_lists_checks(client):
 
 
 @pytest.mark.integration
+def test_scan_rejects_quality_check(client):
+    # The scan pipeline is the safety attack suite — a quality check must be rejected, not crash.
+    r = client.post("/api/scan", json={"system_prompt": WEAK_PROMPT, "checks": ["instruction_following"]})
+    assert r.status_code == 400
+    assert "grade-quality" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_scan_live_ollama_unavailable_returns_402(client, monkeypatch):
+    # backend=ollama with no local server fails closed (never a silent demo card).
+    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: False)
+    r = client.post("/api/scan", json={"system_prompt": WEAK_PROMPT, "mode": "live", "backend": "ollama"})
+    assert r.status_code == 402
+
+
+@pytest.mark.integration
+def test_scan_live_api_without_keys_returns_402(client):
+    r = client.post("/api/scan", json={"system_prompt": WEAK_PROMPT, "mode": "live", "backend": "api"})
+    assert r.status_code == 402
+
+
+@pytest.mark.integration
+def test_scan_invalid_backend_is_422(client):
+    r = client.post("/api/scan", json={"system_prompt": WEAK_PROMPT, "mode": "live", "backend": "nope"})
+    assert r.status_code == 422
+
+
+@pytest.mark.integration
+def test_grade_quality_without_backend_returns_402(client):
+    # backend="api" with no key forces the no-backend path -> 402 (never a silent demo grade).
+    r = client.post(
+        "/api/grade-quality",
+        json={"system_prompt": "You are a helpful assistant.", "backend": "api"},
+    )
+    assert r.status_code == 402
+
+
+@pytest.mark.integration
 def test_blocking_scan_returns_a_demo_card(client):
     r = client.post(
         "/api/scan",

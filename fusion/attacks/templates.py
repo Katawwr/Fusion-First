@@ -102,8 +102,17 @@ class AttackTemplate:
         return Trajectory(steps=steps)
 
     def live_trajectory(self, system_prompt: str, response_text: str) -> Trajectory:
-        """A complete trajectory using a real target model's response (LIVE mode)."""
+        """A complete trajectory using a real target model's response (LIVE mode).
+
+        Any tool calls the target emitted via the ACTION protocol are promoted into assistant
+        tool_call steps so the judge (and the runtime guardrail) can see consequential actions —
+        this is what makes the agentic checks (excessive_agency, data_exfiltration) observable
+        against a text-only target."""
+        from fusion.attacks.agentic import extract_tool_calls
+
         steps = self._context_steps(system_prompt)
+        for call in extract_tool_calls(response_text):
+            steps.append(Step(role=Role.ASSISTANT, tool_call=call))
         steps.append(Step(role=Role.ASSISTANT, content=response_text))
         return Trajectory(steps=steps)
 

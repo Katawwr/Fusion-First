@@ -254,7 +254,8 @@ class SafetyReportCard(BaseModel):
 
     target_name: str
     check: str
-    grade: str  # A..F, derived from hardened issue rate
+    grade: str  # A..F headline grade of the user's prompt AS WRITTEN (the baseline arm)
+    hardened_grade: str = "?"  # A..F grade after applying Fusion's fix (the hardened arm)
     judge_accuracy: AccuracyResult | None = None
     before_after: BeforeAfterResult | None = None
     benchmark: BenchmarkResult | None = None

@@ -42,14 +42,25 @@ class AnthropicModelClient:
         *,
         client=None,
         registry: ModelRegistry | None = None,
+        judge_model: str | None = None,
         timeout: float = 60.0,
         max_retries: int = 2,
     ):
         self._api_key = api_key
         self._client = client  # injected fake in tests; real AsyncAnthropic otherwise
         self._registry = registry or ModelRegistry()
+        # Override the role-default judge tier (e.g. a stronger tier for independence) WITHOUT changing
+        # the request's cache key — the request still carries model_id=None. Must be allowlisted.
+        self._judge_model = judge_model
         self._timeout = timeout
         self._max_retries = max_retries
+
+    def _resolve(self, request: ModelRequest) -> str:
+        judge_role = request.role in (ModelRole.JUDGE, ModelRole.CALIBRATION)
+        if self._judge_model and judge_role and request.model_id is None:
+            self._registry.require_allowed(self._judge_model)
+            return self._judge_model
+        return resolve_model(self._registry, request, _ROLE_MAP)
 
     def _ensure_client(self):
         if self._client is None:
@@ -62,7 +73,7 @@ class AnthropicModelClient:
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
         client = self._ensure_client()
-        model = resolve_model(self._registry, request, _ROLE_MAP)
+        model = self._resolve(request)
 
         kwargs: dict = {
             "model": model,

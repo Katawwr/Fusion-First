@@ -24,9 +24,12 @@ from fusion.integrations import agent_tools as t
 
 _INSTRUCTIONS = (
     "Fusion First tests, fixes, and protects AI agents against the OWASP LLM/Agentic safety risks "
-    "(prompt injection, excessive agency, data exfiltration, system-prompt leakage). Workflow: call "
-    "scan_prompt on a system prompt to FIND issues, harden_prompt to FIX it, and use check_output / "
-    "check_tool_call to PROTECT the running agent. scan_prompt returns DEMONSTRATION numbers offline."
+    "(prompt injection, excessive agency, data exfiltration, system-prompt leakage). Easiest path: "
+    "call audit_agent(system_prompt) for a one-shot FIND+FIX+PROTECT with a plain-language verdict. "
+    "For open-weight agents (where these attacks actually land — frontier models are hardened), pass "
+    "backend=\"ollama\", target_model=\"llama3.2\" to test locally, judged by Claude (cross-family). "
+    "Lower-level tools: scan_prompt (find), harden_prompt (fix), check_output / check_tool_call "
+    "(runtime protect). live=\"auto\" uses a real backend when available, else a labelled demo."
 )
 
 
@@ -48,12 +51,41 @@ def build_server():
         return t.list_checks()
 
     @mcp.tool()
-    async def scan_prompt(system_prompt: str, checks: list[str] | None = None, tier: str = "quick", live: bool = False) -> dict:
+    async def audit_agent(
+        system_prompt: str,
+        checks: list[str] | None = None,
+        autonomy: str = "supervised",
+        live: str = "auto",
+        target_model: str | None = None,
+        backend: str | None = None,
+        tier: str = "quick",
+        dimensions: list[str] | None = None,
+    ) -> dict:
+        """ONE CALL = FIND + FIX + PROTECT across SAFETY and QUALITY (start here). Runs the safety
+        attack-scan and (with a live backend) grades the agent's QUALITY on normal test inputs — both
+        through the same calibrated judge — then returns a plain-language verdict, an overall grade
+        (worst of both), per-check grades, the hardened prompt, the runtime guardrail snippet, and the
+        recommended runtime config for your `autonomy` (supervised = human-in-the-loop gates;
+        autonomous = unattended + redact). Audit an OPEN-WEIGHT agent locally & free with
+        backend="ollama", target_model="llama3.2" (judged by Claude, cross-family). live="auto" is
+        real-when-available. dimensions defaults to ["safety","quality"]; ["safety"] skips quality."""
+        return await t.audit_agent(system_prompt, checks, autonomy, live, target_model, backend, tier, dimensions)
+
+    @mcp.tool()
+    async def grade_quality(system_prompt: str, checks: list[str] | None = None, target_model: str | None = None, backend: str | None = None) -> dict:
+        """Grade a real agent's QUALITY (correctness / instruction-following) by running its prompt
+        over normal test inputs on a live target and judging each response. Returns an A-F quality
+        grade per check plus the concrete failing inputs. Needs a live backend (Claude CLI or Ollama);
+        e.g. backend="ollama", target_model="llama3.2" grades an open-weight agent, judged by Claude."""
+        return await t.grade_quality(system_prompt, checks, target_model, backend)
+
+    @mcp.tool()
+    async def scan_prompt(system_prompt: str, checks: list[str] | None = None, tier: str = "quick", live: str = "auto", target_model: str | None = None, backend: str | None = None) -> dict:
         """FIND issues: grade a system prompt against the safety checks. Returns per-check grades,
-        the baseline->hardened issue-rate reduction, the honesty badge, and the concrete attacks
-        that got through. Offline DEMONSTRATION numbers by default; live=True grades the real prompt
-        via a model (needs ANTHROPIC_API_KEY)."""
-        return await t.scan_prompt(system_prompt, checks, tier, live)
+        the baseline->hardened issue-rate reduction, the honesty badge, and the concrete attacks that
+        got through. live="auto" uses a real backend when available (Claude CLI subscription, API key,
+        or an Ollama open-weight target via backend="ollama"), else a labelled demo."""
+        return await t.scan_prompt(system_prompt, checks, tier, live, target_model, backend)
 
     @mcp.tool()
     def harden_prompt(system_prompt: str, checks: list[str] | None = None) -> dict:

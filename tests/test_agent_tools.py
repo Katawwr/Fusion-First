@@ -21,13 +21,17 @@ def _json_ok(obj) -> dict:
 
 
 @pytest.mark.unit
-def test_list_checks_covers_all_four_with_owasp():
+def test_list_checks_covers_safety_and_quality():
     out = _json_ok(t.list_checks())
     ids = {c["id"] for c in out["checks"]}
-    assert ids == {"direct_prompt_injection", "excessive_agency", "data_exfiltration", "system_prompt_leakage"}
+    assert {"direct_prompt_injection", "excessive_agency", "data_exfiltration", "system_prompt_leakage"} <= ids
+    assert "instruction_following" in ids  # the quality dimension
     for c in out["checks"]:
-        assert c["owasp"] and "/" in c["owasp"]
-        assert c["intent"]
+        assert c["intent"] and c["kind"] in {"safety", "quality"}
+        if c["kind"] == "safety":
+            assert c["owasp"] and "/" in c["owasp"]
+        else:
+            assert c["owasp"] == ""  # quality checks have no OWASP mapping
 
 
 @pytest.mark.integration
@@ -125,13 +129,86 @@ def test_check_tool_call_blocks_external_exfil():
 # ------------------------------ live-mode wiring ------------------------------
 
 
+@pytest.mark.integration
+async def test_audit_agent_one_call_demo():
+    res = await t.audit_agent(VULNERABLE, checks=["system_prompt_leakage"], live="off", autonomy="supervised")
+    assert res["mode"] == "demo"
+    assert isinstance(res["verdict"], str) and res["verdict"]
+    assert res["hardened_prompt"] and res["guardrail_snippet"]
+    assert res["checks"] and res["overall_grade"] in {"A", "B", "C", "D", "F"}
+    # supervised autonomy → human-in-the-loop gates
+    gc = res["recommended_guard_config"]
+    assert gc["require_authorization"] is True
+    assert gc["on_external_action"] == "block" and gc["on_secret_output"] == "block"
+
+
+@pytest.mark.integration
+async def test_audit_agent_unified_structure_demo():
+    # In demo mode quality is skipped (grading needs a live backend); safety section is present.
+    res = await t.audit_agent(VULNERABLE, checks=["system_prompt_leakage"], live="off")
+    assert "safety" in res and res["safety"]["checks"]
+    assert res["overall_grade"] in {"A", "B", "C", "D", "F"}
+    assert "quality" not in res  # skipped in demo
+    assert res["checks"]  # backward-compatible top-level safety checks
+
+
+@pytest.mark.integration
+async def test_audit_agent_safety_only_dimension():
+    res = await t.audit_agent(VULNERABLE, checks=["system_prompt_leakage"], live="off", dimensions=["safety"])
+    assert "quality" not in res
+    assert res["safety"]["overall_grade"] in {"A", "B", "C", "D", "F"}
+
+
+@pytest.mark.integration
+async def test_scan_prompt_rejects_quality_check():
+    # Quality checks have no attack probes — scan must reject clearly, not crash with FileNotFoundError.
+    with pytest.raises(ValueError, match="not safety checks"):
+        await t.scan_prompt("You are a bot.", checks=["instruction_following"], live="off")
+
+
 @pytest.mark.unit
-def test_live_kwargs_requires_a_key(monkeypatch):
+def test_autonomy_config_maps_hitl_gates():
+    from fusion.integrations.agent_tools import _autonomy_config
+
+    sup = _autonomy_config("supervised")
+    assert sup == {"require_authorization": True, "on_external_action": "block", "on_secret_output": "block"}
+    auto = _autonomy_config("autonomous")
+    assert auto == {"require_authorization": False, "on_external_action": "redact", "on_secret_output": "redact"}
+
+
+@pytest.mark.integration
+async def test_scan_prompt_live_off_is_demo():
+    res = await t.scan_prompt(VULNERABLE, checks=["system_prompt_leakage"], live="off")
+    assert res["demonstration"] is True
+
+
+@pytest.mark.unit
+def test_live_kwargs_requires_a_key_or_cli(monkeypatch):
+    # With the CLI backend forced off and no API key, live scans have no backend → fail cleanly.
     from fusion.integrations.live import LiveUnavailable, build_live_scan_kwargs
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("FUSION_TARGET_BACKEND", "api")  # ignore any `claude` binary on PATH
     with pytest.raises(LiveUnavailable):
         build_live_scan_kwargs()
+
+
+@pytest.mark.unit
+def test_live_kwargs_use_cli_when_no_key(monkeypatch):
+    # The retrofit contract: no API key + `claude` CLI present → subscription-backed live clients,
+    # judged by a stronger same-family tier (Sonnet vs a Haiku target).
+    import fusion.integrations.live as live
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("FUSION_TARGET_BACKEND", "cli")
+    monkeypatch.setattr(live, "_use_cli", lambda prefer: True)
+    monkeypatch.setattr(
+        "fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True
+    )
+    kw = live.build_live_scan_kwargs()
+    assert kw["demonstration"] is False
+    assert kw["judge_model"] == "claude-sonnet-5"  # cross-tier, independent of a Haiku target
+    assert kw["target_client"] is not None and kw["judge_client"] is not None
 
 
 @pytest.mark.unit
@@ -140,6 +217,7 @@ def test_live_kwargs_build_real_clients_with_a_key(monkeypatch):
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-fake-key-value")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("FUSION_TARGET_BACKEND", "api")
     kw = build_live_scan_kwargs()
     assert kw["demonstration"] is False
     assert kw["judge_model"] == "claude-sonnet-5"  # self-family judge when no OpenAI key
@@ -148,9 +226,10 @@ def test_live_kwargs_build_real_clients_with_a_key(monkeypatch):
 
 
 @pytest.mark.integration
-async def test_scan_prompt_live_without_key_raises(monkeypatch):
+async def test_scan_prompt_live_without_backend_raises(monkeypatch):
     from fusion.integrations.live import LiveUnavailable
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("FUSION_TARGET_BACKEND", "api")  # no key, no CLI fallback → unavailable
     with pytest.raises(LiveUnavailable):
         await t.scan_prompt(VULNERABLE, checks=["direct_prompt_injection"], live=True)

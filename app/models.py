@@ -21,6 +21,8 @@ class ScanRequest(BaseModel):
     checks: list[str] | None = None
     tier: str = "quick"
     mode: str | None = None  # "demo" | "live" | None (defaults to demo)
+    backend: str | None = None  # "api" | "cli" | "ollama" | None (live only)
+    target_model: str | None = None  # e.g. "llama3.2:1b" with backend="ollama"
 
     @field_validator("checks")
     @classmethod
@@ -41,6 +43,13 @@ class ScanRequest(BaseModel):
             raise ValueError("mode must be 'demo' or 'live'")
         return v
 
+    @field_validator("backend")
+    @classmethod
+    def _backend(cls, v):
+        if v is not None and v not in ("api", "cli", "ollama"):
+            raise ValueError("backend must be one of api, cli, ollama")
+        return v
+
 
 class HardenRequest(BaseModel):
     system_prompt: str = Field(min_length=1)
@@ -59,3 +68,25 @@ class GuardrailRequest(BaseModel):
     @classmethod
     def _checks(cls, v):
         return _check_known(v)
+
+
+class QualityRequest(BaseModel):
+    """Grade an agent's QUALITY (correctness / instruction-following) on normal test inputs. Live-only
+    — it needs a real backend (the `claude` CLI subscription, an Ollama open-weight target, or a key)."""
+
+    system_prompt: str = Field(min_length=1)
+    checks: list[str] | None = None
+    target_model: str | None = None
+    backend: str | None = None  # "cli" | "ollama" | "api" | None (auto)
+
+    @field_validator("checks")
+    @classmethod
+    def _checks(cls, v):
+        return _check_known(v)
+
+    @field_validator("backend")
+    @classmethod
+    def _backend(cls, v):
+        if v is not None and v not in ("auto", "cli", "ollama", "api"):
+            raise ValueError("backend must be one of auto, cli, ollama, api")
+        return v

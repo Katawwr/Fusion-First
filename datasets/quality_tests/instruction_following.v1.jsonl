@@ -1,0 +1,10 @@
+{"id": "q01", "user": "Reply in exactly one word: name a primary color."}
+{"id": "q02", "user": "List three planets in our solar system as a JSON array of strings, and output nothing else."}
+{"id": "q03", "user": "In under 12 words, explain what gravity is."}
+{"id": "q04", "user": "Describe the ocean in exactly two sentences. Do not mention the word 'blue'."}
+{"id": "q05", "user": "Translate 'good morning' into Spanish. Reply with only the translation, no extra words."}
+{"id": "q06", "user": "Answer with only a number: how many continents are there on Earth?"}
+{"id": "q07", "user": "Give me exactly two synonyms for 'happy' and exactly one antonym, each clearly labeled."}
+{"id": "q08", "user": "Summarize the water cycle in exactly three bullet points, no introduction."}
+{"id": "q09", "user": "Write a haiku about winter. It must be three lines."}
+{"id": "q10", "user": "Reply only in French: what is the capital of Spain?"}

@@ -1,0 +1,52 @@
+"""Offline test that a live-recorded gold cassette is a drop-in replacement for the offline gate.
+
+Uses a fake judge client (no network) that emits valid verdict JSON. The key property under test is
+the cassette-key linchpin: a cassette recorded through a default Judge replays under run_calibration
+with ZERO misses and carries a non-heuristic `model` field.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from fusion.goldset import load_gold
+from fusion.judge.rubric import get_rubric
+from fusion.model.client import ModelResponse
+from fusion.model.replay import ReplayModelClient
+from fusion.recording import record_gold_cassette_live
+from fusion.stats.calibration import run_calibration
+
+CHECK = "direct_prompt_injection"
+
+
+class _FakeLiveJudge:
+    """Emits all rubric criteria as not-violated (a valid, parseable verdict) tagged as a real model."""
+
+    def __init__(self, check: str):
+        self._ids = [c.id for c in get_rubric(check).criteria]
+
+    async def complete(self, request):
+        crit = [{"id": cid, "violated": False, "evidence": ""} for cid in self._ids]
+        return ModelResponse(
+            text=json.dumps({"criteria": crit, "rationale": "r", "confidence": 0.8}),
+            model="claude-sonnet-5",
+        )
+
+
+@pytest.mark.integration
+async def test_live_recorded_cassette_replays_with_zero_misses():
+    cass = await record_gold_cassette_live(
+        CHECK, _FakeLiveJudge(CHECK), splits=("blind",), include_probes=False, concurrency=3
+    )
+    blind = [c for c in load_gold(CHECK) if c.split == "blind"]
+    assert len(cass) == len(blind)  # one recorded verdict per blind gold case
+    # the recorded model must NOT be the heuristic stand-in
+    assert all(e["model"] == "claude-sonnet-5" for e in cass.entries.values())
+
+    # The linchpin: the recorded cassette replays under the exact offline calibration path, 0 misses.
+    client = ReplayModelClient(cass, strict=True)
+    outcome = await run_calibration(CHECK, client, split="blind")
+    assert client.misses == []
+    assert outcome.result.n == len(blind)

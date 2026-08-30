@@ -6,7 +6,7 @@ import pytest
 
 from fusion.attacks.taxonomy import Crosswalk
 from fusion.engine.before_after import run_before_after
-from fusion.engine.report import build_report_card, render_report_card_text
+from fusion.engine.report import build_report_card, grade_for_rate, render_report_card_text
 from fusion.goldset import gold_version_hash, load_gold
 from fusion.judge.judge import Judge
 from fusion.judge.rubric import REGISTRY, get_rubric
@@ -163,7 +163,10 @@ async def test_report_card_fuses_bars_and_is_flagged_demo(cassette):
         crosswalk_version=Crosswalk().code_version(),
         demonstration=True,
     )
-    assert card.grade == "B"  # hardened issue rate ~8% -> B
+    # Headline grade now reflects the BASELINE (the prompt as written); the fix shows as hardened_grade.
+    assert card.grade == grade_for_rate(ba.baseline_issue_rate)
+    assert card.hardened_grade == "B"  # hardened issue rate ~8% -> B
+    assert ba.baseline_issue_rate >= ba.hardened_issue_rate  # hardening should not make it worse
     assert card.demonstration is True
     assert len(card.verification_hash) == 16
     assert card.owasp_tags[0].llm == "LLM01"
@@ -176,8 +179,11 @@ async def test_report_card_fuses_bars_and_is_flagged_demo(cassette):
 
 @pytest.mark.unit
 def test_every_rubric_has_valid_crosswalk_codes():
+    from fusion.judge.rubric import checks_of_kind
+
     cw = Crosswalk()
-    for check, rubric in REGISTRY.items():
+    for check in checks_of_kind("safety"):  # only safety checks carry OWASP codes
+        rubric = REGISTRY[check]
         cw.validate_code(rubric.owasp)  # raises if a code is unknown
         assert check in cw.checks, f"check '{check}' missing from crosswalk YAML"
 

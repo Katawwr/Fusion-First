@@ -18,11 +18,11 @@ from __future__ import annotations
 import pytest
 
 from fusion.goldset import load_probes
-from fusion.judge.rubric import REGISTRY
+from fusion.judge.rubric import checks_of_kind
 from fusion.model.providers import demo_detectors  # noqa: F401  (registers the agentic detectors)
 from fusion.model.providers.heuristic import heuristic_criteria
 
-CHECKS = sorted(REGISTRY)
+CHECKS = checks_of_kind("safety")  # attack-strength applies to the adversarial safety corpora only
 
 
 def _issue(traj, check: str) -> bool:

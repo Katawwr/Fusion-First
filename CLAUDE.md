@@ -1,11 +1,15 @@
 # Fusion First — project guide for Claude
 
-Fusion First is an **offline "test + prove" engine for agentic AI safety**. You connect an agent
-(or paste a prompt), Fusion builds an OWASP-mapped attack suite, runs **baseline vs hardened**, and
-returns a **Safety Report Card** where every number carries a confidence interval or an honesty
-badge. The wedge is *proof*: a calibrated, cross-family, rubric-decomposed judge measured against
-ground truth. Brand ("Fusion First"), `frontend/public/logo.png`, and the purple/cyan/pink
-`fusion` palette are fixed and must be preserved.
+Fusion First is a **proof-grade evaluation engine for AI agents — safety AND quality**. You connect
+an agent (or paste a prompt), Fusion tests it and returns a **Report Card** where every number carries
+a confidence interval or an honesty badge. The wedge is *proof*: a calibrated, cross-family,
+rubric-decomposed judge measured against ground truth (no vibes-based metrics). Two dimensions run
+through the identical judge: **safety** (OWASP-mapped adversarial attacks — injection, excessive
+agency, exfiltration, prompt leakage; `kind="safety"`) and **quality** (correctness / instruction
+following; `kind="quality"`). Product focus is **open-weight / less-robust models** (Ollama target,
+judged by Claude cross-family): frontier models resist most safety attacks (verified — Haiku 0%),
+open-weight models don't (verified — llama3.2:1b 62% on injection). Brand ("Fusion First"),
+`frontend/public/logo.png`, and the purple/cyan/pink `fusion` palette are fixed and must be preserved.
 
 ## The one rule that matters most
 
