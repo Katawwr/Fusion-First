@@ -1,28 +1,43 @@
-import React from 'react';
-import Term from '../ui/Term';
-import { GRADE_LEGEND } from '../../lib/jargon';
+import React from "react";
+import Term from "../ui/Term";
+import { GRADE_LEGEND } from "../../lib/jargon";
 
+// Theme tokens, not raw palette colors, so grades match the rest of the site in both themes.
 const TONE = {
-  A: 'from-emerald-400 to-emerald-600 text-white',
-  B: 'from-emerald-400 to-emerald-600 text-white',
-  C: 'from-amber-400 to-amber-500 text-fusion-purple',
-  D: 'from-orange-500 to-red-500 text-white',
-  F: 'from-red-500 to-red-700 text-white',
+  A: "var(--ok)",
+  B: "var(--ok)",
+  C: "var(--warn)",
+  D: "var(--orange)",
+  F: "var(--danger)",
 };
 
 const SIZES = {
-  sm: 'h-10 w-10 text-xl',
-  md: 'h-16 w-16 text-4xl',
-  lg: 'h-24 w-24 text-6xl',
+  sm: { box: 32, font: "1rem", radius: "0.6rem" },
+  md: { box: 44, font: "1.5rem", radius: "0.75rem" },
+  lg: { box: 64, font: "2.25rem", radius: "1rem" },
 };
 
-// The A–F safety grade. Legend (real thresholds) lives in the tooltip.
-export default function GradeBadge({ grade = '?', size = 'md' }) {
-  const tone = TONE[grade] || 'from-gray-400 to-gray-600 text-white';
+// The A-F safety grade. Legend (real thresholds) lives in the tooltip.
+export default function GradeBadge({ grade = "?", size = "md" }) {
+  const tone = TONE[grade] || "var(--subtle)";
+  const s = SIZES[size] || SIZES.md;
   return (
     <Term term="Safety grade" tip={GRADE_LEGEND}>
       <span
-        className={`inline-flex items-center justify-center rounded-2xl bg-gradient-to-br font-bold shadow-lg ${tone} ${SIZES[size]}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: s.box,
+          height: s.box,
+          borderRadius: s.radius,
+          fontSize: s.font,
+          fontWeight: 800,
+          lineHeight: 1,
+          color: tone,
+          background: `color-mix(in srgb, ${tone} 14%, transparent)`,
+          border: `1.5px solid ${tone}`,
+        }}
       >
         {grade}
       </span>

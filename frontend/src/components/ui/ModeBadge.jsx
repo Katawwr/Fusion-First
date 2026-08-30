@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 // Small DEMO / REAL chip so history and headers never mix modes silently.
 export default function ModeBadge({ demonstration }) {

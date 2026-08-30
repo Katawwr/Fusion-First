@@ -1,9 +1,8 @@
-// Client for the new Fusion Safety API (the fusion-safety-api Modal app).
-// Ported from the legacy SSE fetch+getReader reader; targets VITE_API_URL.
-
-export const API_URL =
-  import.meta.env.VITE_API_URL ||
-  'https://katawwr--fusion-quality-tester-fastapi-app.modal.run';
+// Client for the new Fusion Safety API (the fusion-safety-api backend).
+// Targets VITE_API_URL when set, else SAME-ORIGIN ('' → relative /api/... paths). Same-origin means
+// a misconfigured deploy 404s loudly against its own host instead of silently hitting the wrong app
+// (the old default pointed at the legacy fusion-quality-tester deployment, a latent prod bug).
+export const API_URL = import.meta.env.VITE_API_URL || "";
 
 // Wake a possibly-cold Modal container so the first real request isn't stuck on cold start.
 export async function wakeBackend() {
@@ -17,7 +16,10 @@ export async function wakeBackend() {
 
 export async function getScan(scanId) {
   const r = await fetch(`${API_URL}/api/scan/${encodeURIComponent(scanId)}`);
-  if (!r.ok) throw new Error(r.status === 404 ? 'Scan not found' : 'Failed to load scan');
+  if (!r.ok)
+    throw new Error(
+      r.status === 404 ? "Scan not found" : "Failed to load scan",
+    );
   return r.json();
 }
 
@@ -27,21 +29,47 @@ export function reportHtmlUrl(scanId) {
 
 export async function harden(systemPrompt, checks = null) {
   const r = await fetch(`${API_URL}/api/harden`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ system_prompt: systemPrompt, checks }),
   });
-  if (!r.ok) throw new Error('Failed to harden prompt');
+  if (!r.ok) throw new Error("Failed to harden prompt");
   return r.json();
 }
 
 export async function guardrailSnippet(checks = null) {
   const r = await fetch(`${API_URL}/api/guardrail-snippet`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ checks }),
   });
-  if (!r.ok) throw new Error('Failed to load guardrail snippet');
+  if (!r.ok) throw new Error("Failed to load guardrail snippet");
+  return r.json();
+}
+
+// Grade the agent's QUALITY (correctness / instruction-following) on normal test inputs.
+// Live-only: needs a real backend. A 402 means no backend is configured (offer live/local Ollama).
+export async function gradeQuality(
+  systemPrompt,
+  { targetModel = null, backend = null } = {},
+) {
+  const r = await fetch(`${API_URL}/api/grade-quality`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_prompt: systemPrompt,
+      target_model: targetModel,
+      backend,
+    }),
+  });
+  if (r.status === 402) {
+    const e = new Error(
+      "Quality grading needs a live backend (a Claude key or a local Ollama model).",
+    );
+    e.code = 402;
+    throw e;
+  }
+  if (!r.ok) throw new Error("Failed to grade quality");
   return r.json();
 }
 
@@ -51,20 +79,21 @@ export async function guardrailSnippet(checks = null) {
 export async function streamScan(body, handlers = {}, signal) {
   await wakeBackend();
   const resp = await fetch(`${API_URL}/api/scan/stream`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal,
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    if (resp.status === 402) throw new Error(text || 'Real scans require an upgrade.');
+    const text = await resp.text().catch(() => "");
+    if (resp.status === 402)
+      throw new Error(text || "Real scans require an upgrade.");
     throw new Error(text || `Server error: ${resp.status}`);
   }
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = '';
+  let buffer = "";
   let currentEvent = null;
   let result = null;
 
@@ -72,16 +101,16 @@ export async function streamScan(body, handlers = {}, signal) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
+    const lines = buffer.split("\n");
     buffer = lines.pop();
     for (const line of lines) {
-      if (line.startsWith('event:')) {
+      if (line.startsWith("event:")) {
         currentEvent = line.slice(6).trim();
-      } else if (line.startsWith('data:') && currentEvent) {
+      } else if (line.startsWith("data:") && currentEvent) {
         try {
           const data = JSON.parse(line.slice(5).trim());
           handlers[currentEvent]?.(data);
-          if (currentEvent === 'scan_completed') result = data.result;
+          if (currentEvent === "scan_completed") result = data.result;
         } catch {
           /* ignore malformed frame */
         }

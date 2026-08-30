@@ -1,21 +1,58 @@
-import React from 'react';
-import Term from '../ui/Term';
-import HonestyPill from './HonestyPill';
-import { pct, STATS } from '../../lib/jargon';
+import React from "react";
+import Term from "../ui/Term";
+import HonestyPill from "./HonestyPill";
+import { pct, STATS } from "../../lib/jargon";
 
 function Bar({ label, rate, tone }) {
   const width = Math.max(2, Math.round((rate || 0) * 100));
+  // The value always sits OUTSIDE the fill, in a fixed-width column, so Before and After
+  // read down a straight edge instead of jumping in and out of the bar with the value.
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-20 shrink-0 text-sm text-app-muted">{label}</span>
-      <div className="h-6 flex-1 overflow-hidden rounded bg-black/20">
+    <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+      <span
+        style={{
+          width: "3.75rem",
+          flexShrink: 0,
+          fontSize: "0.875rem",
+          fontWeight: 500,
+          color: "var(--muted)",
+        }}
+      >
+        {label}
+      </span>
+      <div
+        style={{
+          height: "0.85rem",
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          borderRadius: "9999px",
+          background: "var(--surface-2)",
+        }}
+      >
         <div
-          className={`flex h-full items-center justify-end rounded pr-2 text-xs font-semibold text-white ${tone}`}
-          style={{ width: `${width}%` }}
-        >
-          {pct(rate)}
-        </div>
+          style={{
+            height: "100%",
+            borderRadius: "9999px",
+            background: tone,
+            width: `${width}%`,
+            transition: "width .4s ease",
+          }}
+        />
       </div>
+      <span
+        style={{
+          width: "3rem",
+          flexShrink: 0,
+          textAlign: "right",
+          fontFamily: "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
+          fontSize: "0.8125rem",
+          fontWeight: 700,
+          color: tone,
+        }}
+      >
+        {pct(rate)}
+      </span>
     </div>
   );
 }
@@ -25,17 +62,21 @@ export default function BeforeAfterBars({ ba }) {
   if (!ba) return null;
   const red = ba.absolute_reduction || {};
   return (
-    <div className="space-y-3">
-      <Bar label="Before" rate={ba.baseline_issue_rate} tone="bg-red-500" />
-      <Bar label="After" rate={ba.hardened_issue_rate} tone="bg-emerald-500" />
+    <div className="flex flex-col gap-3">
+      <Bar label="Before" rate={ba.baseline_issue_rate} tone="var(--danger)" />
+      <Bar label="After" rate={ba.hardened_issue_rate} tone="var(--ok)" />
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-sm text-app-muted">
-          <strong>−{pct(red.point)}</strong> of{' '}
+          <strong>−{pct(red.point)}</strong> of{" "}
           <Term term="issue rate" tip={STATS.issue_rate.tip}>
             attacks now get through
-          </Term>{' '}
-          <Term term="Wilson 95% CI" tip={STATS.wilson_ci.tip} className="text-app-muted">
-            (range {pct(red.low)}–{pct(red.high)})
+          </Term>{" "}
+          <Term
+            term="Wilson 95% CI"
+            tip={STATS.wilson_ci.tip}
+            className="text-app-muted"
+          >
+            (range {pct(red.low)}-{pct(red.high)})
           </Term>
         </p>
         <HonestyPill badge={ba.honesty} p={ba.mcnemar_p} nPairs={ba.n_pairs} />

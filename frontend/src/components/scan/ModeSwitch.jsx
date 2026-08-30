@@ -1,31 +1,69 @@
-import React from 'react';
+import React from "react";
 
-// Demo (instant, keyless) vs Real (your prompt, real model) segmented control.
+// Demo (instant, keyless) vs Real (your prompt, real model). A quiet segmented control:
+// one hairline track, the selected pill lifted on the card surface.
 export default function ModeSwitch({ mode, onChange, liveAvailable }) {
   const opt = (value, title, subtitle, disabled) => {
     const active = mode === value;
     return (
       <button
+        key={value}
         type="button"
         disabled={disabled}
+        aria-pressed={active}
         onClick={() => onChange(value)}
-        className={`flex-1 rounded-lg px-4 py-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
-          active ? 'bg-fusion-pink-gradient text-app-text shadow' : 'bg-app-elev text-app-muted hover:bg-surface-2'
-        }`}
+        style={{
+          flex: 1,
+          textAlign: "left",
+          padding: "0.65rem 0.9rem",
+          borderRadius: "0.7rem",
+          border: `1px solid ${active ? "var(--accent)" : "transparent"}`,
+          background: active ? "var(--surface)" : "transparent",
+          boxShadow: active ? "var(--shadow-sm)" : "none",
+          color: "inherit",
+          cursor: disabled ? "not-allowed" : "pointer",
+          opacity: disabled ? 0.45 : 1,
+          transition: "all .18s ease",
+        }}
       >
-        <span className="block text-sm font-semibold">{title}</span>
-        <span className="block text-xs opacity-80">{subtitle}</span>
+        <span
+          style={{
+            display: "block",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: active ? "var(--text)" : "var(--muted)",
+          }}
+        >
+          {title}
+        </span>
+        <span
+          style={{
+            display: "block",
+            fontSize: "0.75rem",
+            color: "var(--subtle)",
+          }}
+        >
+          {subtitle}
+        </span>
       </button>
     );
   };
   return (
-    <div className="flex gap-2">
-      {opt('demo', 'Demo scan', 'Instant, no signup')}
+    <div
+      style={{
+        display: "flex",
+        gap: "0.35rem",
+        padding: "0.3rem",
+        borderRadius: "0.9rem",
+        background: "var(--surface-2)",
+      }}
+    >
+      {opt("demo", "Demo scan", "Instant, no signup")}
       {opt(
-        'live',
-        'Real scan',
-        liveAvailable ? 'Your prompt, real model' : 'Coming soon',
-        !liveAvailable
+        "live",
+        "Real scan",
+        liveAvailable ? "Your prompt, real model" : "Coming soon",
+        !liveAvailable,
       )}
     </div>
   );

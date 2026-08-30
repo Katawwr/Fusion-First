@@ -1,31 +1,61 @@
-import React from 'react';
-import GradeBadge from '../report/GradeBadge';
-import { checkMeta } from '../../lib/jargon';
+import React from "react";
+import GradeBadge from "../report/GradeBadge";
+import CheckIcon from "../ui/CheckIcon";
+import { checkMeta } from "../../lib/jargon";
 
-// One lane per enabled check. Progressive completion is the dopamine loop: spinner → live tally →
-// grade flip when this check's card arrives.
-export default function CheckLane({ check, run = 0, issues = 0, grade = null }) {
+// One lane per enabled check: spinner, live tally, then the grade when this check's card arrives.
+export default function CheckLane({
+  check,
+  run = 0,
+  issues = 0,
+  grade = null,
+}) {
   const meta = checkMeta(check);
   const done = grade != null;
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-app-border bg-app-elev p-3">
-      <span className="text-xl" aria-hidden>
-        {meta.icon}
-      </span>
-      <div className="flex-1">
-        <p className="text-sm font-medium text-app-text">{meta.label}</p>
-        <p className="text-xs text-app-muted">
-          {done
-            ? `${run} attacks run · ${issues} got through`
-            : run
-              ? `${run} attacks run · ${issues} got through`
-              : 'waiting…'}
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.875rem",
+        padding: "1rem",
+        borderRadius: "1.1rem",
+        border: "1px solid var(--border)",
+        background: "var(--surface)",
+      }}
+    >
+      <CheckIcon check={check} size={36} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontWeight: 600, color: "var(--text)", margin: 0 }}>
+          {meta.label}
+        </p>
+        <p
+          style={{
+            margin: "0.15rem 0 0",
+            fontSize: "0.875rem",
+            color: "var(--muted)",
+          }}
+        >
+          {run
+            ? `${run} attacks run, ${issues} got through`
+            : "waiting to start"}
         </p>
       </div>
       {done ? (
         <GradeBadge grade={grade} size="sm" />
       ) : (
-        <span className="h-5 w-5 animate-spin rounded-full border-2 border-fusion-cyan border-t-transparent" />
+        <span
+          aria-hidden
+          className="animate-spin"
+          style={{
+            width: 20,
+            height: 20,
+            flexShrink: 0,
+            borderRadius: "50%",
+            border: "2px solid var(--accent)",
+            borderTopColor: "transparent",
+          }}
+        />
       )}
     </div>
   );

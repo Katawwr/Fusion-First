@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
-import Button from '../components/ui/Button';
-import ReportOverview from '../components/report/ReportOverview';
-import ReportCard from '../components/report/ReportCard';
-import { getScan, reportHtmlUrl } from '../lib/scanApi';
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import Button from "../components/ui/Button";
+import ReportOverview from "../components/report/ReportOverview";
+import ReportCard from "../components/report/ReportCard";
+import { getScan, reportHtmlUrl } from "../lib/scanApi";
 
 export default function Report() {
   const { scanId } = useParams();
@@ -32,19 +32,62 @@ export default function Report() {
     );
   }
   if (!result) {
-    return <div className="mx-auto max-w-2xl px-4 py-16 text-center text-app-muted">Loading report…</div>;
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center text-app-muted">
+        Loading report…
+      </div>
+    );
   }
 
-  const perCheckOutcomes = (check) => (result.outcomes || []).filter((o) => o.check === check);
+  const perCheckOutcomes = (check) =>
+    (result.outcomes || []).filter((o) => o.check === check);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 px-4 py-8">
+    <div
+      style={{
+        maxWidth: "820px",
+        margin: "0 auto",
+        padding: "clamp(2rem, 5vw, 3.5rem) 1rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.5rem",
+      }}
+    >
       <Helmet>
-        <title>Safety Report — {result.target_name} — Fusion First</title>
+        <title>Safety Report: {result.target_name} | Fusion First</title>
       </Helmet>
+      {/* Same centred header treatment as the scan steps, so a shared report link
+          does not land on a page that looks unlike the rest of the product. */}
+      <header style={{ textAlign: "center", marginBottom: "0.5rem" }}>
+        <h1
+          style={{
+            fontSize: "clamp(1.75rem, 4vw, 2.5rem)",
+            fontWeight: 700,
+            color: "var(--text)",
+            marginBottom: "0.75rem",
+          }}
+        >
+          Safety report card
+        </h1>
+        <p
+          style={{
+            fontSize: "1.0625rem",
+            color: "var(--muted)",
+            maxWidth: "640px",
+            margin: "0 auto",
+            lineHeight: 1.6,
+          }}
+        >
+          What got through, how often, and how far to trust the grade.
+        </p>
+      </header>
       <ReportOverview result={result} />
       {result.checks.map((check) => (
-        <ReportCard key={check} card={result.cards.find((c) => c.check === check)} outcomes={perCheckOutcomes(check)} />
+        <ReportCard
+          key={check}
+          card={result.cards.find((c) => c.check === check)}
+          outcomes={perCheckOutcomes(check)}
+        />
       ))}
       <div className="flex flex-wrap gap-3">
         <a href={reportHtmlUrl(scanId)} target="_blank" rel="noreferrer">

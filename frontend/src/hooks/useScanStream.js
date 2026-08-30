@@ -1,11 +1,11 @@
-import { useCallback, useRef, useState } from 'react';
-import { streamScan } from '../lib/scanApi';
+import { useCallback, useRef, useState } from "react";
+import { streamScan } from "../lib/scanApi";
 
 const EMPTY = {
   running: false,
   error: null,
   scanId: null,
-  message: '',
+  message: "",
   total: 0,
   completed: 0,
   demonstration: true,
@@ -35,13 +35,23 @@ export function useScanStream() {
     const handlers = {
       scan_id: (d) => setState((s) => ({ ...s, scanId: d.scan_id })),
       scan_started: (d) =>
-        setState((s) => ({ ...s, total: d.total, message: d.message, demonstration: d.demonstration })),
+        setState((s) => ({
+          ...s,
+          total: d.total,
+          message: d.message,
+          demonstration: d.demonstration,
+        })),
       check_started: (d) =>
         setState((s) => ({
           ...s,
           message: d.message,
-          checks: s.checks.includes(d.check) ? s.checks : [...s.checks, d.check],
-          lanes: { ...s.lanes, [d.check]: s.lanes[d.check] || { run: 0, issues: 0, grade: null } },
+          checks: s.checks.includes(d.check)
+            ? s.checks
+            : [...s.checks, d.check],
+          lanes: {
+            ...s.lanes,
+            [d.check]: s.lanes[d.check] || { run: 0, issues: 0, grade: null },
+          },
         })),
       probe_result: (d) => {
         const p = d.probe;
@@ -68,17 +78,26 @@ export function useScanStream() {
           cards: { ...s.cards, [d.check]: d.card },
           lanes: {
             ...s.lanes,
-            [d.check]: { ...(s.lanes[d.check] || { run: 0, issues: 0 }), grade: d.card.grade },
+            [d.check]: {
+              ...(s.lanes[d.check] || { run: 0, issues: 0 }),
+              grade: d.card.grade,
+            },
           },
         })),
-      scan_completed: (d) => setState((s) => ({ ...s, result: d.result, running: false })),
-      error: (d) => setState((s) => ({ ...s, error: d.detail || 'Scan failed', running: false })),
+      scan_completed: (d) =>
+        setState((s) => ({ ...s, result: d.result, running: false })),
+      error: (d) =>
+        setState((s) => ({
+          ...s,
+          error: d.detail || "Scan failed",
+          running: false,
+        })),
     };
 
     try {
       await streamScan(body, handlers, controller.signal);
     } catch (e) {
-      if (e.name !== 'AbortError') {
+      if (e.name !== "AbortError") {
         setState((s) => ({ ...s, error: e.message, running: false }));
       }
     }

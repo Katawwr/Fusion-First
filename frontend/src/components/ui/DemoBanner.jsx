@@ -1,16 +1,34 @@
-import React from 'react';
+import React from "react";
+import { AlertTriangle } from "lucide-react";
 
 // Non-dismissable honesty ribbon shown wherever a card carries demonstration=true.
-// The schema flag drives it — never inferred client-side.
-export default function DemoBanner({ className = '' }) {
+// The schema flag drives it, never inferred client-side.
+export default function DemoBanner({ className = "" }) {
   return (
     <div
-      className={`flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn ${className}`}
+      className={className}
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "0.65rem",
+        padding: "0.85rem 1rem",
+        borderRadius: "0.85rem",
+        border: "1px solid color-mix(in srgb, var(--warn) 40%, transparent)",
+        background: "color-mix(in srgb, var(--warn) 10%, transparent)",
+        fontSize: "0.9375rem",
+        lineHeight: 1.6,
+        color: "var(--warn)",
+      }}
     >
-      <span aria-hidden>⚠️</span>
+      <AlertTriangle
+        size={18}
+        style={{ flexShrink: 0, marginTop: "0.15rem" }}
+        aria-hidden
+      />
       <span>
-        <strong>Demo scan</strong> — an offline stand-in examiner on recorded runs. This shows how
-        Fusion works; it is <em>not</em> a claim about your bot. Run a real scan for that.
+        <strong>Demo scan</strong>, an offline stand-in examiner on recorded
+        runs. This shows how Fusion works; it is <em>not</em> a claim about your
+        bot. Run a real scan for that.
       </span>
     </div>
   );

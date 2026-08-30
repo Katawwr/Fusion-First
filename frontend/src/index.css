@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ *
- * Fusion First — semantic design tokens.
+ * Fusion First, semantic design tokens.
  *
  * The brand hues (purple #504d9a, cyan #66c4e1, pink #f38f95/#db418b) are
  * fixed, but here they are demoted from big saturated fills to precise
@@ -15,27 +15,29 @@
 :root {
   color-scheme: dark;
 
-  /* surfaces — deep desaturated indigo, not black */
-  --bg: #161520;
-  --bg-elev: #1b1a27;
-  --surface: #201e2e;
-  --surface-2: #29273b;
+  /* surfaces, deep desaturated indigo, not black */
+  --bg: #131419;
+  --bg-elev: #17181e;
+  --surface: #1b1c23;
+  --surface-2: #24262f;
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.16);
 
-  /* text — soft off-white, not #fff */
-  --text: #eceaf3;
-  --muted: #aba7c4;
-  --subtle: #807c98;
+  /* text, soft off-white, not #fff */
+  --text: #eceef2;
+  --muted: #a2a7b5;
+  --subtle: #7c8190;
 
   /* brand, as accents */
-  --accent: #66c4e1;      /* cyan — fills, focus, active */
-  --accent-ink: #8ad4ec;  /* cyan — legible text/links on dark */
-  --brand: #8b86d6;       /* purple — legible on dark */
+  --accent: #66c4e1; /* cyan, fills, focus, active */
+  --accent-ink: #8ad4ec; /* cyan, legible text/links on dark */
+  --brand: #8b86d6; /* purple, legible on dark */
   --pink: #e98aa6;
   --pink-ink: #f0a7bd;
+  --accent-soft: rgba(102, 196, 225, 0.12); /* cyan wash for selected/tinted cards */
+  --pink-soft: rgba(233, 138, 166, 0.14);
 
-  /* status — gentle, desaturated */
+  /* status, gentle, desaturated */
   --ok: #6cc79a;
   --warn: #e2b45f;
   --orange: #e79a63;
@@ -43,11 +45,15 @@
 
   --ring: rgba(102, 196, 225, 0.55);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.30);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3);
 
   /* the one reserved brand-gradient moment (wordmark, hero hairline) */
   --brand-gradient: linear-gradient(90deg, #66c4e1, #f38f95);
-  --brand-gradient-soft: linear-gradient(135deg, rgba(102,196,225,0.14), rgba(243,143,149,0.12));
+  --brand-gradient-soft: linear-gradient(
+    135deg,
+    rgba(102, 196, 225, 0.14),
+    rgba(243, 143, 149, 0.12)
+  );
 }
 
 /* explicit light choice, or light OS preference when the user hasn't chosen */
@@ -60,22 +66,24 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --bg: #f4f4f9;
+  --bg: #f7f8fa;
   --bg-elev: #ffffff;
   --surface: #ffffff;
-  --surface-2: #edecf4;
-  --border: rgba(30, 27, 60, 0.12);
-  --border-strong: rgba(30, 27, 60, 0.20);
+  --surface-2: #f0f1f5;
+  --border: rgba(16, 20, 36, 0.1);
+  --border-strong: rgba(16, 20, 36, 0.16);
 
-  --text: #201d2b;
-  --muted: #57536e;
-  --subtle: #837f99;
+  --text: #15161c;
+  --muted: #575d6b;
+  --subtle: #868c9a;
 
-  --accent: #2f93b6;      /* deeper cyan holds contrast on light fills */
+  --accent: #2f93b6; /* deeper cyan holds contrast on light fills */
   --accent-ink: #1f7ea6;
   --brand: #504d9a;
   --pink: #cf2f7d;
   --pink-ink: #b81f6a;
+  --accent-soft: rgba(47, 147, 182, 0.08);
+  --pink-soft: rgba(207, 47, 125, 0.08);
 
   --ok: #1f9d63;
   --warn: #a9761b;
@@ -84,33 +92,36 @@
 
   --ring: rgba(47, 147, 182, 0.5);
   --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
-  --shadow: 0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.10);
+  --shadow: 0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.1);
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --bg: #f4f4f9;
+    --bg: #f7f8fa;
     --bg-elev: #ffffff;
     --surface: #ffffff;
-    --surface-2: #edecf4;
-    --border: rgba(30, 27, 60, 0.12);
-    --border-strong: rgba(30, 27, 60, 0.20);
-    --text: #201d2b;
-    --muted: #57536e;
-    --subtle: #837f99;
+    --surface-2: #f0f1f5;
+    --border: rgba(16, 20, 36, 0.1);
+    --border-strong: rgba(16, 20, 36, 0.16);
+    --text: #15161c;
+    --muted: #575d6b;
+    --subtle: #868c9a;
     --accent: #2f93b6;
     --accent-ink: #1f7ea6;
     --brand: #504d9a;
     --pink: #cf2f7d;
     --pink-ink: #b81f6a;
+    --accent-soft: rgba(47, 147, 182, 0.08);
+    --pink-soft: rgba(207, 47, 125, 0.08);
     --ok: #1f9d63;
     --warn: #a9761b;
     --orange: #c26a2a;
     --danger: #cf4b4b;
     --ring: rgba(47, 147, 182, 0.5);
     --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
-    --shadow: 0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.10);
+    --shadow:
+      0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.1);
   }
 }
 
@@ -141,8 +152,12 @@
   --color-fusion-purple-light: var(--surface);
   --color-fusion-purple-medium: var(--surface-2);
   --color-fusion-cyan: var(--accent);
-  --color-fusion-cyan-light: var(--border);
+  /* a true cyan WASH (was --border, a near-black translucent that made selected
+     cards read as dark navy slabs on the light theme) */
+  --color-fusion-cyan-light: var(--accent-soft);
   --color-fusion-cyan-medium: var(--border-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-pink-soft: var(--pink-soft);
   --color-fusion-pink: var(--pink);
   --color-fusion-dark-pink: var(--pink-ink);
 
@@ -152,20 +167,34 @@
   --color-severity-low: var(--ok);
 
   --background-image-fusion-gradient: var(--brand-gradient);
-  --background-image-fusion-pink-gradient: linear-gradient(to right, var(--pink), var(--pink-ink));
+  --background-image-fusion-pink-gradient: linear-gradient(
+    to right,
+    var(--pink),
+    var(--pink-ink)
+  );
   --background-image-fusion-cyan-pink: var(--brand-gradient);
 
   /* soft, layered depth (theme-aware via the vars) */
   --shadow-soft: var(--shadow-sm);
   --shadow-card: var(--shadow);
 
-  --radius-xl: 0.9rem;
+  /* friendlier, more modern corner softness */
+  --radius-lg: 0.85rem;
+  --radius-xl: 1.1rem;
+  --radius-2xl: 1.4rem;
 }
 
-*, *::before, *::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* The reset lives in @layer base so Tailwind's utilities (p-*, space-y-*, m-*)
+   always win. Unlayered rules beat layered utilities in the cascade, which
+   silently zeroed every padding/margin utility in the app. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 html {
@@ -176,7 +205,11 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', sans-serif;
+  /* Plus Jakarta Sans: geometric, slightly rounded, modern and friendly without
+     being cute. System stack is the fallback if the webfont does not load. */
+  font-family:
+    "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter",
+    "Roboto", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   width: 100%;
@@ -184,8 +217,12 @@ body {
   overflow-x: hidden;
   color: var(--text);
   background-color: var(--bg);
-  /* calm, near-solid backdrop with the faintest brand wash — not the old loud gradient */
-  background-image: radial-gradient(1200px 600px at 50% -10%, var(--brand-gradient-soft), transparent 70%);
+  /* calm, near-solid backdrop with the faintest brand wash, not the old loud gradient */
+  background-image: radial-gradient(
+    1200px 600px at 50% -10%,
+    var(--brand-gradient-soft),
+    transparent 70%
+  );
   background-repeat: no-repeat;
   letter-spacing: -0.006em;
 }
@@ -199,74 +236,125 @@ body {
 
 body {
   font-size: 1rem;
-  line-height: 1.62;               /* comfortable reading rhythm */
+  line-height: 1.62; /* comfortable reading rhythm */
   text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3 {
-  letter-spacing: -0.021em;
-  line-height: 1.15;
-  text-wrap: balance;              /* avoid lonely words in headings */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.024em; /* a touch tighter: modern display feel */
+  line-height: 1.14;
+  font-weight: 700;
+  text-wrap: balance; /* avoid lonely words in headings */
 }
 
 p {
   text-wrap: pretty;
 }
 
-pre, code, .font-mono {
-  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Courier New', monospace;
+pre,
+code,
+.font-mono {
+  font-family:
+    "JetBrains Mono", ui-monospace, "SF Mono", "Courier New", monospace;
 }
 
 ::selection {
   background: color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
-/* One calm, accessible focus ring everywhere — comfort + keyboard access. */
-:where(a, button, input, textarea, select, summary, [role="button"], [tabindex]):focus-visible {
+/* One calm, accessible focus ring everywhere, comfort + keyboard access. */
+:where(
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  summary,
+  [role="button"],
+  [tabindex]
+):focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px var(--ring);
   border-radius: 0.5rem;
 }
 
 /* Gentle default transitions so hovers feel soft, not abrupt. */
-a, button {
-  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease,
-    box-shadow 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+a,
+button {
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    opacity 0.18s ease;
 }
 
 /* Responsive container behavior */
 @media screen and (max-width: 1200px) {
-  main { padding-left: 1rem !important; padding-right: 1rem !important; }
+  main {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
 }
 @media screen and (max-width: 768px) {
-  main { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+  main {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
   .header-row {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
     grid-template-columns: none !important;
   }
-  .use-cases-arrow { display: none !important; }
+  .use-cases-arrow {
+    display: none !important;
+  }
 }
 
 /* Calm, theme-aware scrollbar */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border-radius: 6px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
-* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: padding-box;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
 
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.animate-spin { animation: spin 1s linear infinite; }
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
 
 /* Respect reduced-motion */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;

@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, Sun, Moon } from 'lucide-react';
-import { SignInModal } from '../auth';
-import { useAuth, useTheme } from '../../hooks';
-import { isSupabaseConfigured } from '../../lib/supabase';
+import React, { useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, LogOut, Sun, Moon } from "lucide-react";
+import { SignInModal } from "../auth";
+import { useAuth, useTheme } from "../../hooks";
+import { isSupabaseConfigured } from "../../lib/supabase";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -11,37 +11,48 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const { effective, toggle } = useTheme();
-  const { user, session, loading: authLoading, requestMagicLink, magicLinkSent, error: authError, signOut, isAuthenticated } = useAuth();
+  const {
+    user,
+    session,
+    loading: authLoading,
+    requestMagicLink,
+    magicLinkSent,
+    error: authError,
+    signOut,
+    isAuthenticated,
+  } = useAuth();
 
   const themeToggle = (
     <button
       onClick={toggle}
-      aria-label={effective === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      title={effective === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      aria-label={
+        effective === "dark" ? "Switch to light mode" : "Switch to dark mode"
+      }
+      title={
+        effective === "dark" ? "Switch to light mode" : "Switch to dark mode"
+      }
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '38px',
-        height: '38px',
-        borderRadius: '0.5rem',
-        background: 'transparent',
-        border: '1px solid var(--border)',
-        color: 'var(--muted)',
-        cursor: 'pointer',
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "38px",
+        height: "38px",
+        borderRadius: "0.5rem",
+        background: "transparent",
+        border: "1px solid var(--border)",
+        color: "var(--muted)",
+        cursor: "pointer",
         flexShrink: 0,
       }}
     >
-      {effective === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+      {effective === "dark" ? <Sun size={18} /> : <Moon size={18} />}
     </button>
   );
 
-  // Dashboard needs a signed-in account; only surface it when auth is actually configured.
   const navLinks = [
-    { name: 'Home', href: '/' },
-    { name: 'Scan', href: '/scan' },
-    ...(isSupabaseConfigured ? [{ name: 'Dashboard', href: '/dashboard' }] : []),
-    { name: 'Pricing', href: '/#pricing' },
+    { name: "Home", href: "/" },
+    { name: "Scan", href: "/scan" },
+    { name: "Pricing", href: "/#pricing-section" },
   ];
 
   const handleRequestMagicLink = async (email, marketingOptIn) => {
@@ -56,70 +67,105 @@ export default function Header() {
 
   return (
     <>
-      <header style={{
-        borderBottom: '1px solid var(--border)',
-        background: 'color-mix(in srgb, var(--bg-elev) 82%, transparent)',
-        backdropFilter: 'blur(10px)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 50
-      }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(0.75rem, 2vw, 1rem) 1rem' }}>
+      <header
+        style={{
+          borderBottom: "1px solid var(--border)",
+          background: "color-mix(in srgb, var(--bg-elev) 82%, transparent)",
+          backdropFilter: "blur(10px)",
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1200px",
+            margin: "0 auto",
+            padding: "clamp(0.75rem, 2vw, 1rem) 1rem",
+          }}
+        >
           <div
             className="header-row"
             style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr auto 1fr',
-              alignItems: 'center',
-              gap: 'clamp(0.5rem, 2vw, 1rem)'
+              display: "grid",
+              gridTemplateColumns: "1fr auto 1fr",
+              alignItems: "center",
+              gap: "clamp(0.5rem, 2vw, 1rem)",
             }}
           >
             {/* Logo - Left */}
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 'clamp(0.75rem, 2.5vw, 1.25rem)', textDecoration: 'none' }}>
-              <div style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 'clamp(48px, 12vw, 64px)',
-                height: 'clamp(48px, 12vw, 64px)',
-                flexShrink: 0
-              }}>
+            <Link
+              to="/"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "clamp(0.75rem, 2.5vw, 1.25rem)",
+                textDecoration: "none",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "clamp(48px, 12vw, 64px)",
+                  height: "clamp(48px, 12vw, 64px)",
+                  flexShrink: 0,
+                }}
+              >
                 <img
                   src="/logo.png"
                   alt="Fusion First"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
                   onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<div style="width: 100%; height: 100%; background: linear-gradient(135deg, #66c4e1, #504d9a); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: clamp(24px, 6vw, 32px);">F</div>';
+                    e.target.style.display = "none";
+                    e.target.parentElement.innerHTML =
+                      '<div style="width: 100%; height: 100%; background: linear-gradient(135deg, #66c4e1, #504d9a); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: clamp(24px, 6vw, 32px);">F</div>';
                   }}
                 />
               </div>
-              <h1 style={{
-                fontSize: 'clamp(1.25rem, 5vw, 2rem)',
-                fontWeight: 'bold',
-                background: 'linear-gradient(to right, #66c4e1, #f38f95)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                margin: 0,
-                lineHeight: 1
-              }}>
+              <h1
+                style={{
+                  fontSize: "clamp(1.25rem, 5vw, 2rem)",
+                  fontWeight: "bold",
+                  background: "linear-gradient(to right, #66c4e1, #f38f95)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  margin: 0,
+                  lineHeight: 1,
+                }}
+              >
                 Fusion First
               </h1>
             </Link>
 
             {/* Desktop Navigation - Center */}
-            <nav className="hidden md:flex" style={{ alignItems: 'center', justifyContent: 'center', gap: '2rem' }}>
+            <nav
+              className="hidden md:flex"
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "2rem",
+              }}
+            >
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.href}
                   style={{
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: location.pathname === link.href ? 'var(--pink-ink)' : 'var(--text)',
-                    textDecoration: 'none',
-                    transition: 'color 0.2s'
+                    fontSize: "0.875rem",
+                    fontWeight: "500",
+                    color:
+                      location.pathname === link.href
+                        ? "var(--pink-ink)"
+                        : "var(--text)",
+                    textDecoration: "none",
+                    transition: "color 0.2s",
                   }}
                 >
                   {link.name}
@@ -128,27 +174,37 @@ export default function Header() {
             </nav>
 
             {/* Right side - Sign In button */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.6rem' }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: "0.6rem",
+              }}
+            >
               {themeToggle}
               {/* Desktop Auth */}
               {isAuthenticated ? (
-                <div className="hidden md:flex" style={{ alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ color: 'var(--muted)', fontSize: '0.875rem' }}>
-                    {user?.email?.split('@')[0]}
+                <div
+                  className="hidden md:flex"
+                  style={{ alignItems: "center", gap: "0.75rem" }}
+                >
+                  <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
+                    {user?.email?.split("@")[0]}
                   </span>
                   <button
                     onClick={handleSignOut}
                     style={{
-                      padding: '0.5rem 1rem',
-                      background: 'transparent',
-                      border: '1px solid var(--border-strong)',
-                      borderRadius: '0.5rem',
-                      color: 'var(--text)',
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem'
+                      padding: "0.5rem 1rem",
+                      background: "transparent",
+                      border: "1px solid var(--border-strong)",
+                      borderRadius: "0.5rem",
+                      color: "var(--text)",
+                      fontSize: "0.875rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
                     }}
                   >
                     <LogOut size={16} />
@@ -160,15 +216,15 @@ export default function Header() {
                   onClick={() => setSignInModalOpen(true)}
                   className="hidden md:block"
                   style={{
-                    padding: '0.5rem 1rem',
-                    background: 'linear-gradient(to right, #f38f95, #db418b)',
-                    border: 'none',
-                    borderRadius: '0.5rem',
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
+                    padding: "0.5rem 1rem",
+                    background: "linear-gradient(to right, #f38f95, #db418b)",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    color: "#fff",
+                    fontWeight: "bold",
+                    fontSize: "0.875rem",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   Sign In
@@ -178,17 +234,17 @@ export default function Header() {
                   to="/scan"
                   className="hidden md:block"
                   style={{
-                    padding: '0.5rem 1rem',
-                    background: 'linear-gradient(to right, #f38f95, #db418b)',
-                    borderRadius: '0.5rem',
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    fontSize: '0.875rem',
-                    textDecoration: 'none',
-                    whiteSpace: 'nowrap'
+                    padding: "0.5rem 1rem",
+                    background: "linear-gradient(to right, #f38f95, #db418b)",
+                    borderRadius: "0.5rem",
+                    color: "#fff",
+                    fontWeight: "bold",
+                    fontSize: "0.875rem",
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  Scan your bot
+                  Scan your agent
                 </Link>
               )}
 
@@ -197,11 +253,11 @@ export default function Header() {
                 className="md:hidden"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 style={{
-                  padding: '0.5rem',
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text)',
-                  cursor: 'pointer'
+                  padding: "0.5rem",
+                  background: "none",
+                  border: "none",
+                  color: "var(--text)",
+                  cursor: "pointer",
                 }}
               >
                 {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -211,18 +267,34 @@ export default function Header() {
 
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
-            <div className="md:hidden" style={{ paddingTop: '1rem', borderTop: '1px solid var(--border)', marginTop: '1rem' }}>
-              <nav style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div
+              className="md:hidden"
+              style={{
+                paddingTop: "1rem",
+                borderTop: "1px solid var(--border)",
+                marginTop: "1rem",
+              }}
+            >
+              <nav
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1rem",
+                }}
+              >
                 {navLinks.map((link) => (
                   <Link
                     key={link.name}
                     to={link.href}
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
-                      fontSize: '0.875rem',
-                      fontWeight: '500',
-                      color: location.pathname === link.href ? 'var(--pink-ink)' : 'var(--text)',
-                      textDecoration: 'none'
+                      fontSize: "0.875rem",
+                      fontWeight: "500",
+                      color:
+                        location.pathname === link.href
+                          ? "var(--pink-ink)"
+                          : "var(--text)",
+                      textDecoration: "none",
                     }}
                   >
                     {link.name}
@@ -230,24 +302,30 @@ export default function Header() {
                 ))}
                 {isAuthenticated ? (
                   <>
-                    <p style={{ color: 'var(--muted)', fontSize: '0.875rem', margin: 0 }}>
+                    <p
+                      style={{
+                        color: "var(--muted)",
+                        fontSize: "0.875rem",
+                        margin: 0,
+                      }}
+                    >
                       {user?.email}
                     </p>
                     <button
                       onClick={handleSignOut}
                       style={{
-                        padding: '0.75rem',
-                        background: 'transparent',
-                        border: '1px solid var(--border-strong)',
-                        borderRadius: '0.5rem',
-                        color: 'var(--text)',
-                        fontSize: '0.875rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        width: '100%'
+                        padding: "0.75rem",
+                        background: "transparent",
+                        border: "1px solid var(--border-strong)",
+                        borderRadius: "0.5rem",
+                        color: "var(--text)",
+                        fontSize: "0.875rem",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "0.5rem",
+                        width: "100%",
                       }}
                     >
                       <LogOut size={16} />
@@ -261,15 +339,15 @@ export default function Header() {
                       setSignInModalOpen(true);
                     }}
                     style={{
-                      padding: '0.75rem',
-                      background: 'linear-gradient(to right, #f38f95, #db418b)',
-                      border: 'none',
-                      borderRadius: '0.5rem',
-                      color: '#fff',
-                      fontWeight: 'bold',
-                      fontSize: '0.875rem',
-                      cursor: 'pointer',
-                      width: '100%'
+                      padding: "0.75rem",
+                      background: "linear-gradient(to right, #f38f95, #db418b)",
+                      border: "none",
+                      borderRadius: "0.5rem",
+                      color: "#fff",
+                      fontWeight: "bold",
+                      fontSize: "0.875rem",
+                      cursor: "pointer",
+                      width: "100%",
                     }}
                   >
                     Sign In
@@ -279,15 +357,15 @@ export default function Header() {
                     to="/scan"
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
-                      padding: '0.75rem',
-                      background: 'linear-gradient(to right, #f38f95, #db418b)',
-                      borderRadius: '0.5rem',
-                      color: '#fff',
-                      fontWeight: 'bold',
-                      fontSize: '0.875rem',
-                      textDecoration: 'none',
-                      textAlign: 'center',
-                      width: '100%'
+                      padding: "0.75rem",
+                      background: "linear-gradient(to right, #f38f95, #db418b)",
+                      borderRadius: "0.5rem",
+                      color: "#fff",
+                      fontWeight: "bold",
+                      fontSize: "0.875rem",
+                      textDecoration: "none",
+                      textAlign: "center",
+                      width: "100%",
                     }}
                   >
                     Scan your bot

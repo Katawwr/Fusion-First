@@ -1,25 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 
 // Theme is stored as an explicit 'light' | 'dark' choice, or null to follow the OS preference.
 // The choice is written to <html data-theme="…">, which index.css reads; null removes the attribute
 // so the prefers-color-scheme rules take over.
-const KEY = 'fusion-theme';
+const KEY = "fusion-theme";
 
 function stored() {
   try {
     const v = localStorage.getItem(KEY);
-    return v === 'light' || v === 'dark' ? v : null;
+    return v === "light" || v === "dark" ? v : null;
   } catch {
     return null;
   }
 }
 
 function systemTheme() {
-  return typeof window !== 'undefined' &&
+  return typeof window !== "undefined" &&
     window.matchMedia &&
-    window.matchMedia('(prefers-color-scheme: light)').matches
-    ? 'light'
-    : 'dark';
+    window.matchMedia("(prefers-color-scheme: light)").matches
+    ? "light"
+    : "dark";
 }
 
 export default function useTheme() {
@@ -27,23 +27,27 @@ export default function useTheme() {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (choice === 'light' || choice === 'dark') {
-      root.setAttribute('data-theme', choice);
+    if (choice === "light" || choice === "dark") {
+      root.setAttribute("data-theme", choice);
       try {
         localStorage.setItem(KEY, choice);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     } else {
-      root.removeAttribute('data-theme');
+      root.removeAttribute("data-theme");
       try {
         localStorage.removeItem(KEY);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }, [choice]);
 
   const effective = choice || systemTheme();
 
   const toggle = useCallback(() => {
-    setChoice((c) => ((c || systemTheme()) === 'dark' ? 'light' : 'dark'));
+    setChoice((c) => ((c || systemTheme()) === "dark" ? "light" : "dark"));
   }, []);
 
   return { theme: choice, effective, toggle };

@@ -1,50 +1,67 @@
-import React, { useRef } from 'react';
-import { Helmet } from 'react-helmet-async';
-import { Hero, PricingSection, FeaturesSection, UseCasesSection } from '../components/marketing';
+import React, { useRef } from "react";
+import { Helmet } from "react-helmet-async";
+import {
+  Hero,
+  PricingSection,
+  FeaturesSection,
+  UseCasesSection,
+} from "../components/marketing";
 
-export default function Landing({
-  freeCredits,
-  totalCredits,
-  isSubscriber,
-  userPlan,
-}) {
+export default function Landing() {
   const pricingRef = useRef(null);
 
   return (
     <>
       <Helmet>
-        <title>Fusion First — Prove your AI agent is safe</title>
+        <title>Fusion First: Prove your AI agent is safe and good</title>
         <meta
           name="description"
-          content="Fusion First is a test-and-prove engine for agentic AI safety. Paste your bot's system prompt, run an OWASP-mapped attack suite, and get a Safety Report Card with a one-click fix — every number backed by a confidence interval or an honesty badge."
+          content="Fusion First automatically red-teams your AI agent for safety, grades its quality, and hands you a one-click fix. Every number carries a confidence interval and is checked against ground truth. Built for open-weight models, where the risks are real. Free demo, no signup."
         />
-        <meta name="keywords" content="AI agent safety, prompt injection testing, OWASP LLM Top 10, agentic AI security, excessive agency, data exfiltration, system prompt leakage, LLM red teaming, AI guardrails, safety report card" />
-        <meta property="og:title" content="Fusion First — Prove your AI agent is safe" />
+        <meta
+          name="keywords"
+          content="AI agent evaluation, LLM safety testing, LLM quality evals, prompt injection testing, OWASP LLM Top 10, agentic AI security, open-weight model testing, Ollama, Llama safety, LLM red teaming, AI guardrails, instruction following, safety report card"
+        />
+        <meta
+          property="og:title"
+          content="Fusion First: Prove your AI agent is safe and good"
+        />
         <meta
           property="og:description"
-          content="Paste your bot's prompt, run an OWASP-mapped attack suite, and get a graded before/after Safety Report Card with a one-click fix. Free demo, no signup."
+          content="Red-team your agent for safety and grade its quality, automatically. Every number carries a confidence interval, checked against ground truth. Built for open-weight models. Free demo, no signup."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://fusion-first-testing.com" />
-        <meta property="og:image" content="https://fusion-first-testing.com/og-image.png" />
+        <meta
+          property="og:image"
+          content="https://fusion-first-testing.com/og-image.png"
+        />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Fusion First — Prove your AI agent is safe" />
-        <meta name="twitter:description" content="An OWASP-mapped test-and-prove engine for agentic AI safety, with one-click hardening." />
+        <meta
+          name="twitter:title"
+          content="Fusion First: Prove your AI agent is safe and good"
+        />
+        <meta
+          name="twitter:description"
+          content="Proof-grade safety + quality evals for AI agents, with honest confidence intervals and one-click hardening. Built for open-weight models."
+        />
         <link rel="canonical" href="https://fusion-first-testing.com" />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "SoftwareApplication",
-            "name": "Fusion First",
-            "description": "A test-and-prove engine for agentic AI safety. Runs an OWASP-mapped attack suite against your bot's system prompt, grades baseline vs hardened, and ships a one-click fix.",
-            "applicationCategory": "SecurityApplication",
-            "operatingSystem": "Web",
-            "offers": {
+            name: "Fusion First",
+            description:
+              "A proof-grade evaluation engine for AI agents, safety and quality. Red-teams your agent, grades its quality against a calibrated judge, and ships a one-click fix. Built for open-weight models.",
+            applicationCategory: "DeveloperApplication",
+            operatingSystem: "Web",
+            offers: {
               "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD",
-              "description": "Free demo scan; real scans on paid plans"
-            }
+              price: "0",
+              priceCurrency: "USD",
+              description:
+                "Free demo scan and free local open-weight testing; hosted live scans on paid plans",
+            },
           })}
         </script>
       </Helmet>
@@ -60,14 +77,8 @@ export default function Landing({
 
       {/* Pricing Section */}
       <div ref={pricingRef}>
-        <PricingSection
-          isSubscriber={isSubscriber}
-          userPlan={userPlan}
-          freeCredits={freeCredits}
-          totalCredits={totalCredits}
-        />
+        <PricingSection />
       </div>
-
     </>
   );
 }

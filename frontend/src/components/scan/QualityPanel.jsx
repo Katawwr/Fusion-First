@@ -1,0 +1,112 @@
+import React, { useState } from "react";
+import { X } from "lucide-react";
+import Card from "../ui/Card";
+import Button from "../ui/Button";
+import CheckIcon from "../ui/CheckIcon";
+import GradeBadge from "../report/GradeBadge";
+import { gradeQuality } from "../../lib/scanApi";
+import { qualityMeta } from "../../lib/jargon";
+
+// Quality grading is a LIVE-only operation (it runs the agent on normal inputs and judges the
+// answers). A 402 means no live backend, we say so honestly and point to the free local path.
+export default function QualityPanel({ systemPrompt }) {
+  const [state, setState] = useState("idle"); // idle | loading | done | unavailable | error
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState("");
+  const meta = qualityMeta("instruction_following");
+
+  const run = async () => {
+    setState("loading");
+    setErr("");
+    try {
+      const res = await gradeQuality(systemPrompt);
+      setData(res);
+      setState("done");
+    } catch (e) {
+      if (e.code === 402) setState("unavailable");
+      else {
+        setErr(e.message || "Failed to grade quality");
+        setState("error");
+      }
+    }
+  };
+
+  const q = data?.quality_checks?.[0];
+
+  return (
+    <Card>
+      <div className="mb-2 flex items-center gap-3">
+        <CheckIcon check="instruction_following" size={32} />
+        <span className="font-semibold text-app-text">{meta.label}</span>
+      </div>
+      <p className="mb-3 text-sm text-app-muted">
+        {meta.scenario} The same calibrated examiner, graded on normal requests
+        instead of attacks.
+      </p>
+
+      {state === "idle" && (
+        <Button variant="outline" onClick={run}>
+          Grade quality
+        </Button>
+      )}
+
+      {state === "loading" && (
+        <p className="text-sm text-app-muted">
+          Grading your agent on sample tasks…
+        </p>
+      )}
+
+      {state === "unavailable" && (
+        <p className="text-sm text-app-muted">
+          Quality grading runs against a{" "}
+          <strong className="text-app-text">live</strong> model. Add a Claude
+          key, or test an open-weight model locally and free with Ollama, then
+          re-grade. From the CLI:{" "}
+          <code>
+            fusion measure --backend ollama --target-model llama3.2 --stages
+            quality
+          </code>
+          .
+        </p>
+      )}
+
+      {state === "error" && (
+        <p className="text-sm" style={{ color: "var(--danger)" }}>
+          {err}
+        </p>
+      )}
+
+      {state === "done" && q && (
+        <div>
+          <div className="flex items-center gap-3">
+            <GradeBadge grade={q.grade} size="lg" />
+            <p className="text-sm text-app-muted">
+              {q.n_defects} of {q.n} responses had a defect
+              {data.judge ? ` · judged by ${data.judge}` : ""}
+            </p>
+          </div>
+          {q.defects?.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-2 text-sm">
+              {q.defects.slice(0, 3).map((d, i) => (
+                <li key={i} className="flex items-start gap-2 text-app-muted">
+                  <X
+                    size={15}
+                    color="var(--danger)"
+                    style={{ flexShrink: 0, marginTop: "0.2rem" }}
+                    aria-hidden
+                  />
+                  <span>
+                    <span className="text-app-text">{d.input}</span>
+                    {d.issue_type
+                      ? `, ${d.issue_type.replace(/_/g, " ")}`
+                      : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}

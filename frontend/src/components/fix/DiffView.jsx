@@ -1,17 +1,54 @@
-import React from 'react';
+import React from "react";
 
 // The harden diff is always "your prompt, unchanged + our guard block appended", so we render the
-// original dim and the added guardrail block highlighted green — no diff library needed.
+// original dim and the added guardrail block highlighted, no diff library needed.
 export default function DiffView({ original, guardBlock }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-app-border bg-surface-2">
-      <pre className="max-h-96 overflow-auto p-3 text-xs leading-relaxed">
-        <code className="text-app-subtle">{original.replace(/\n+$/, '')}</code>
-        {'\n\n'}
-        <code className="block rounded bg-emerald-500/10 text-emerald-200">
-          {guardBlock.split('\n').map((line, i) => (
-            <span key={i} className="block">
-              <span className="select-none text-emerald-400/70">+ </span>
+    <div
+      style={{
+        overflow: "hidden",
+        borderRadius: "0.85rem",
+        border: "1px solid var(--border)",
+        background: "var(--surface-2)",
+      }}
+    >
+      <pre
+        style={{
+          maxHeight: "24rem",
+          overflow: "auto",
+          padding: "0.9rem 1rem",
+          margin: 0,
+          fontSize: "0.8125rem",
+          lineHeight: 1.7,
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        }}
+      >
+        <code style={{ color: "var(--subtle)" }}>
+          {original.replace(/\n+$/, "")}
+        </code>
+        {"\n\n"}
+        <code
+          style={{
+            display: "block",
+            borderRadius: "0.5rem",
+            padding: "0.5rem 0.6rem",
+            // Readable in both themes: tinted ground, full-strength text.
+            background: "color-mix(in srgb, var(--ok) 12%, transparent)",
+            color: "var(--text)",
+          }}
+        >
+          {guardBlock.split("\n").map((line, i) => (
+            <span key={i} style={{ display: "block" }}>
+              <span
+                style={{
+                  userSelect: "none",
+                  color: "var(--ok)",
+                  fontWeight: 700,
+                }}
+              >
+                +{" "}
+              </span>
               {line}
             </span>
           ))}

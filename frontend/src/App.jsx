@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Header, Footer } from './components/layout';
-import { useCredits, useAuth } from './hooks';
+import { useEffect, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Header, Footer } from "./components/layout";
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -13,30 +12,26 @@ function ScrollToTop() {
 }
 
 // Pages
-import Landing from './pages/Landing';
-import Scan from './pages/Scan';
-import Report from './pages/Report';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import Dashboard from './pages/Dashboard';
-import ScanDetail from './pages/ScanDetail';
+import Landing from "./pages/Landing";
+import Scan from "./pages/Scan";
+import Report from "./pages/Report";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 export default function App() {
-  const { session } = useAuth();
-
-  // Legacy credits — still feeds the (soon-to-be-rewritten) Landing page.
-  const { freeCredits, totalCredits, isSubscriber, userPlan, setFreeCredits } = useCredits(session);
-
-  // Scan state lifted to App so a report survives navigation (same pattern as the old tool state).
-  const [scanState, setScanState] = useState({ systemPrompt: '', result: null });
+  // Scan state lifted to App so a report survives navigation.
+  const [scanState, setScanState] = useState({
+    systemPrompt: "",
+    result: null,
+  });
 
   return (
     <div
       style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'transparent', // the calm, theme-aware backdrop is painted on <body> (index.css)
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: "transparent", // the calm, theme-aware backdrop is painted on <body> (index.css)
       }}
     >
       <ScrollToTop />
@@ -44,24 +39,14 @@ export default function App() {
 
       <main style={{ flex: 1 }}>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route
-            path="/"
-            element={
-              <Landing
-                freeCredits={freeCredits}
-                setFreeCredits={setFreeCredits}
-                totalCredits={totalCredits}
-                isSubscriber={isSubscriber}
-                userPlan={userPlan}
-              />
-            }
+            path="/scan"
+            element={<Scan scanState={scanState} setScanState={setScanState} />}
           />
-          <Route path="/scan" element={<Scan scanState={scanState} setScanState={setScanState} />} />
           <Route path="/report/:scanId" element={<Report />} />
           {/* Preserve inbound links/SEO from the old tool route. */}
           <Route path="/test" element={<Navigate to="/scan" replace />} />
-          <Route path="/dashboard" element={<Dashboard setToolState={setScanState} />} />
-          <Route path="/dashboard/scan/:scanId" element={<ScanDetail />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
 
@@ -71,16 +56,33 @@ export default function App() {
               <div
                 style={{
                   flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '5rem 1rem',
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "5rem 1rem",
                 }}
               >
-                <div style={{ textAlign: 'center' }}>
-                  <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem' }}>404</h1>
-                  <p style={{ color: 'white', marginBottom: '1.5rem' }}>Page not found</p>
-                  <a href="/" style={{ color: '#66c4e1', textDecoration: 'underline' }}>
+                <div style={{ textAlign: "center" }}>
+                  <h1
+                    style={{
+                      fontSize: "2.5rem",
+                      fontWeight: "bold",
+                      color: "var(--text)",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    404
+                  </h1>
+                  <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
+                    Page not found
+                  </p>
+                  <a
+                    href="/"
+                    style={{
+                      color: "var(--accent-ink)",
+                      textDecoration: "underline",
+                    }}
+                  >
                     Go back home
                   </a>
                 </div>

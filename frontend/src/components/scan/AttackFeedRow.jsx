@@ -1,23 +1,50 @@
-import React from 'react';
-import { checkMeta } from '../../lib/jargon';
+import React from "react";
+import CheckIcon from "../ui/CheckIcon";
 
-// Newest-first stream of judged attacks. "Resisted" (green) or "Fooled" (red) at baseline —
-// the "oh no, it really did that" moment. Uses the baseline arm (the raw prompt under attack).
+// Newest-first stream of judged attacks: "Resisted" or "Fooled" on the baseline arm
+// (the raw prompt under attack).
 export default function AttackFeedRow({ outcome }) {
-  const meta = checkMeta(outcome.check);
   const fooled = outcome.baseline_issue;
+  const tone = fooled ? "var(--danger)" : "var(--ok)";
   return (
-    <div className="flex items-start gap-3 border-b border-app-border py-2 text-sm">
-      <span className="mt-0.5 text-base" aria-hidden>
-        {meta.icon}
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "0.75rem",
+        padding: "0.7rem 0",
+        borderBottom: "1px solid var(--border)",
+      }}
+    >
+      <span style={{ marginTop: "0.1rem", flexShrink: 0 }}>
+        <CheckIcon check={outcome.check} size={26} />
       </span>
-      <span className="flex-1 text-app-muted">{outcome.attack_label}</span>
       <span
-        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-          fooled ? 'bg-red-500/20 text-red-200' : 'bg-emerald-500/20 text-emerald-200'
-        }`}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontSize: "0.9375rem",
+          color: "var(--muted)",
+          lineHeight: 1.55,
+        }}
       >
-        {fooled ? 'Fooled' : 'Resisted'}
+        {outcome.attack_label}
+      </span>
+      {/* Soft tinted pill, not an outline: these repeat down a long feed, and a column of
+          hard-bordered chips reads as noise. */}
+      <span
+        style={{
+          flexShrink: 0,
+          borderRadius: 9999,
+          padding: "0.15rem 0.6rem",
+          fontSize: "0.75rem",
+          fontWeight: 600,
+          color: tone,
+          background: `color-mix(in srgb, ${tone} 14%, transparent)`,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {fooled ? "Fooled" : "Resisted"}
       </span>
     </div>
   );

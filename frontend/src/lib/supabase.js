@@ -1,15 +1,17 @@
-import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './constants';
+import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./constants";
 
 // Fusion is demo-first: the whole scan → report → fix → prove flow is anonymous and needs no
 // account. Auth (magic-link sign-in, saved history) is a progressive enhancement that only turns
 // on when Supabase credentials are present. When they are missing we MUST NOT call createClient
-// with an empty key — supabase-js throws "supabaseKey is required" at module load, which would
+// with an empty key, supabase-js throws "supabaseKey is required" at module load, which would
 // crash the entire app to a blank page. Instead we export a harmless stub and a config flag.
 
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 
-const AUTH_DISABLED = new Error('Sign-in is not configured for this deployment.');
+const AUTH_DISABLED = new Error(
+  "Sign-in is not configured for this deployment.",
+);
 
 // A no-op client shaped just enough to satisfy the calls in useAuth/useCredits without throwing.
 function createStubClient() {
@@ -41,9 +43,12 @@ export const supabase = isSupabaseConfigured
 
 // Helper to get the current session
 export async function getSession() {
-  const { data: { session }, error } = await supabase.auth.getSession();
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
   if (error) {
-    console.error('Error getting session:', error);
+    console.error("Error getting session:", error);
     return null;
   }
   return session;
@@ -51,9 +56,12 @@ export async function getSession() {
 
 // Helper to get the current user
 export async function getCurrentUser() {
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
   if (error) {
-    console.error('Error getting user:', error);
+    console.error("Error getting user:", error);
     return null;
   }
   return user;
@@ -72,7 +80,7 @@ export async function sendMagicLink(email) {
   });
 
   if (error) {
-    console.error('Error sending magic link:', error);
+    console.error("Error sending magic link:", error);
     throw error;
   }
 
@@ -83,7 +91,7 @@ export async function sendMagicLink(email) {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) {
-    console.error('Error signing out:', error);
+    console.error("Error signing out:", error);
     throw error;
   }
 }

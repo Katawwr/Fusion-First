@@ -1,0 +1,158 @@
+import React from "react";
+
+/**
+ * One question, one answer: which model do we run the attacks against?
+ *
+ * This replaces the old pair of overlapping controls (a Demo/Real switch AND a
+ * separate backend chooser that also offered "Demo / hosted"), which asked the
+ * same thing twice and could disagree with itself.
+ */
+export default function TargetPicker({
+  target,
+  onChange,
+  liveAvailable,
+  targetModel,
+  setTargetModel,
+}) {
+  const OPTIONS = [
+    {
+      id: "demo",
+      title: "Demo scan",
+      note: "Instant, no signup. Recorded runs that show the full flow.",
+    },
+    {
+      id: "ollama",
+      title: "Open-weight model",
+      note: "Runs locally through Ollama. Free, and where attacks actually land.",
+    },
+    {
+      id: "cli",
+      title: "Claude",
+      note: "Uses the server's Claude CLI subscription. No API key needed.",
+    },
+    {
+      id: "hosted",
+      title: "Hosted real scan",
+      note: liveAvailable ? "Your prompt, our keys." : "Coming soon.",
+      disabled: !liveAvailable,
+    },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      {OPTIONS.map((opt) => {
+        const on = target === opt.id;
+        return (
+          <div key={opt.id}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={on}
+              disabled={opt.disabled}
+              onClick={() => onChange(opt.id)}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.75rem",
+                width: "100%",
+                textAlign: "left",
+                padding: "0.85rem 1rem",
+                borderRadius: "0.85rem",
+                border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+                background: on ? "var(--accent-soft)" : "transparent",
+                cursor: opt.disabled ? "not-allowed" : "pointer",
+                opacity: opt.disabled ? 0.5 : 1,
+                transition: "all .18s ease",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 18,
+                  height: 18,
+                  flexShrink: 0,
+                  marginTop: "0.15rem",
+                  borderRadius: "50%",
+                  border: `1.5px solid ${on ? "var(--accent)" : "var(--border-strong)"}`,
+                }}
+              >
+                {on && (
+                  <span
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: "var(--accent)",
+                    }}
+                  />
+                )}
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: "0.9375rem",
+                    fontWeight: 600,
+                    color: "var(--text)",
+                  }}
+                >
+                  {opt.title}
+                </span>
+                <span
+                  style={{
+                    display: "block",
+                    marginTop: "0.1rem",
+                    fontSize: "0.8125rem",
+                    color: "var(--muted)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {opt.note}
+                </span>
+              </span>
+            </button>
+
+            {opt.id === "ollama" && on && (
+              <div style={{ padding: "0.75rem 0 0.25rem 2.6rem" }}>
+                <input
+                  value={targetModel}
+                  onChange={(e) => setTargetModel(e.target.value)}
+                  placeholder="llama3.2:1b"
+                  aria-label="Ollama model name"
+                  style={{
+                    width: "100%",
+                    maxWidth: "20rem",
+                    borderRadius: "0.65rem",
+                    border: "1px solid var(--border)",
+                    background: "var(--surface-2)",
+                    padding: "0.55rem 0.8rem",
+                    fontFamily:
+                      "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
+                    fontSize: "0.8125rem",
+                    color: "var(--text)",
+                    outline: "none",
+                  }}
+                />
+                <p
+                  style={{
+                    marginTop: "0.5rem",
+                    fontSize: "0.8125rem",
+                    color: "var(--subtle)",
+                    lineHeight: 1.55,
+                  }}
+                >
+                  Run <code>ollama serve</code> and{" "}
+                  <code>ollama pull {targetModel || "llama3.2:1b"}</code> first.
+                  Graded by Claude, a different model family entirely.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

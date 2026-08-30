@@ -1,13 +1,13 @@
-import React from 'react';
+import React from "react";
 
 export default function Input({
-  type = 'text',
+  type = "text",
   placeholder,
   value,
   onChange,
   disabled = false,
   error = false,
-  className = '',
+  className = "",
   ...props
 }) {
   return (
@@ -17,20 +17,7 @@ export default function Input({
       value={value}
       onChange={onChange}
       disabled={disabled}
-      className={`
-        w-full
-        px-4 py-3
-        bg-surface-2
-        border ${error ? 'border-fusion-pink' : 'border-fusion-cyan-medium'}
-        rounded-lg
-        text-app-text
-        placeholder:text-app-subtle
-        font-mono
-        focus:outline-none focus:border-fusion-cyan
-        disabled:opacity-50 disabled:cursor-not-allowed
-        transition-colors duration-200
-        ${className}
-      `}
+      className={`w-full px-4 py-3 bg-surface-2 border ${error ? "border-fusion-pink" : "border-app-border"} rounded-xl text-app-text placeholder:text-app-subtle font-mono focus:outline-none focus:border-fusion-cyan disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${className}`.trim()}
       {...props}
     />
   );
@@ -42,7 +29,7 @@ export function Textarea({
   onChange,
   disabled = false,
   rows = 10,
-  className = '',
+  className = "",
   ...props
 }) {
   return (
@@ -52,21 +39,7 @@ export function Textarea({
       onChange={onChange}
       disabled={disabled}
       rows={rows}
-      className={`
-        w-full
-        px-4 py-3
-        bg-surface-2
-        border border-fusion-cyan-medium
-        rounded-lg
-        text-app-text
-        placeholder:text-app-subtle
-        font-mono
-        resize-none
-        focus:outline-none focus:border-fusion-cyan
-        disabled:opacity-50 disabled:cursor-not-allowed
-        transition-colors duration-200
-        ${className}
-      `}
+      className={`w-full px-4 py-3 bg-surface-2 border border-app-border rounded-xl text-app-text placeholder:text-app-subtle font-mono resize-none focus:outline-none focus:border-fusion-cyan disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 ${className}`.trim()}
       {...props}
     />
   );

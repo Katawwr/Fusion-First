@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+import { Check, Copy } from "lucide-react";
 
 // Copy-to-clipboard button with a brief "Copied" confirmation.
-export default function CopyButton({ text, label = 'Copy', className = '' }) {
+export default function CopyButton({ text, label = "Copy", className = "" }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -9,11 +10,11 @@ export default function CopyButton({ text, label = 'Copy', className = '' }) {
       await navigator.clipboard.writeText(text);
     } catch {
       // Fallback for older/insecure contexts.
-      const ta = document.createElement('textarea');
+      const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
       ta.select();
-      document.execCommand('copy');
+      document.execCommand("copy");
       document.body.removeChild(ta);
     }
     setCopied(true);
@@ -24,9 +25,26 @@ export default function CopyButton({ text, label = 'Copy', className = '' }) {
     <button
       type="button"
       onClick={copy}
-      className={`rounded-md border border-fusion-cyan-medium bg-fusion-purple-light px-3 py-1.5 text-sm font-medium text-app-text transition-colors hover:bg-fusion-purple-medium ${className}`}
+      className={className}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.45rem",
+        borderRadius: "0.75rem",
+        border: `1px solid ${copied ? "var(--ok)" : "var(--border)"}`,
+        background: copied
+          ? "color-mix(in srgb, var(--ok) 12%, transparent)"
+          : "var(--surface-2)",
+        padding: "0.5rem 0.9rem",
+        fontSize: "0.875rem",
+        fontWeight: 600,
+        color: copied ? "var(--ok)" : "var(--text)",
+        cursor: "pointer",
+        transition: "all .18s ease",
+      }}
     >
-      {copied ? '✓ Copied' : label}
+      {copied ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />}
+      {copied ? "Copied" : label}
     </button>
   );
 }
