@@ -35,7 +35,17 @@ claude plugin install fusion-guard@fusion-first
 
 ## How good is it?
 
-The heuristics are scored on `datasets/guard_bench/claude_code.jsonl` (everyday dev commands that
-must pass silently, plus attack-shaped calls). That bench was written together with the rules, so
-it checks self-consistency and is not an independent accuracy claim. Semantic paraphrases and
-novel exfiltration channels can evade pattern rules. Treat this as defense in depth, not a sandbox.
+We measure it on tool calls written by independent agents who never saw the rules. Each set is
+scored once and then retired. Latest held-out set (v2, 100 benign and 70 attack-shaped calls,
+`evals/guard_bench/claude_code_heldout_v2.json`):
+
+- Everyday commands: 5% of benign calls prompted.
+- Attacks: 33% of attack-shaped calls caught as written.
+- With placeholder `.test` attacker domains treated as public: 61% of attack-shaped calls caught.
+
+It catches the common exfiltration, destruction and remote-code patterns. It misses much of the
+long tail: cloud CLIs it has no rule for, datastore wipes, CI and build-file backdoors, sudoers
+and CA-store edits, and obfuscated one-liners. The in-house bench
+(`datasets/guard_bench/claude_code.jsonl`) was written with the rules, so it only checks
+self-consistency. Treat this as defense in depth that asks before the obvious mistakes. It is not
+a sandbox.

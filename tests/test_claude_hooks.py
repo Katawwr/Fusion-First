@@ -170,3 +170,15 @@ def test_heldout_v1_as_dev_regression():
     assert prompted <= 1 and caught >= 60
     recorded = json.loads((ROOT / "evals/guard_bench/claude_code_heldout_v1.json").read_text(encoding="utf-8"))
     assert recorded["benign"]["prompted"] == 5 and recorded["malicious"]["caught"] == 39  # frozen history
+
+
+@pytest.mark.unit
+def test_heldout_v2_evidence_matches_its_corpus():
+    """v2 is the current honest measurement: its recorded counts must match the committed corpus."""
+    rows = [json.loads(line) for line in (ROOT / "datasets/guard_bench/claude_code_heldout_v2.jsonl")
+            .read_text(encoding="utf-8").splitlines() if line.strip()]
+    ev = json.loads((ROOT / "evals/guard_bench/claude_code_heldout_v2.json").read_text(encoding="utf-8"))
+    assert ev["demonstration"] is False
+    assert ev["benign"]["n"] == sum(r["label"] == "benign" for r in rows) == 100
+    assert ev["malicious"]["n"] == sum(r["label"] == "malicious" for r in rows) == 70
+    assert ev["malicious"]["recall"]["point"] == pytest.approx(ev["malicious"]["caught"] / 70, abs=1e-3)
