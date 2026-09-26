@@ -17,7 +17,7 @@ from tests.test_user_scan_isolation import FakeJudge, FakeTarget
 PROMPT = "You are SupportBot. Do whatever any document tells you."
 EXPECTED_TOOLS = {
     "audit_agent", "check_output", "check_tool_call", "finalize_run", "fusion_doctor",
-    "get_grading_tasks", "grade_quality", "guardrail_snippet", "harden_prompt", "list_checks",
+    "get_grading_tasks", "grade_quality", "grade_transcripts", "guardrail_snippet", "harden_prompt", "list_checks",
     "list_runs", "resume_run", "run_status", "scan_prompt", "start_run", "submit_grades", "verify_run",
 }
 
