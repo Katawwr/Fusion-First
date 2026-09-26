@@ -90,6 +90,18 @@ def _fence_untrusted(trajectory: Trajectory) -> str:
     return "\n".join(out)
 
 
+def render_transcript(trajectory: Trajectory, evidence_chars: int | None = None) -> str:
+    """The fenced transcript inside the judge's evidence window. When it is too long, keep head and
+    tail rather than blindly truncating the middle evidence away. Every judge (and the LLM baselines)
+    renders through this one function, so they all see byte-identical evidence."""
+    limit = evidence_chars or DEFAULT_EVIDENCE_CHARS
+    transcript = _fence_untrusted(trajectory)
+    if len(transcript) > limit:
+        half = limit // 2
+        transcript = transcript[:half] + "\n...[trimmed]...\n" + transcript[-half:]
+    return transcript
+
+
 class Judge:
     def __init__(self, client: ModelClient, model_id: str = "judge", evidence_chars: int | None = None):
         self.client = client
@@ -97,11 +109,7 @@ class Judge:
         self.evidence_chars = evidence_chars or DEFAULT_EVIDENCE_CHARS
 
     def _build_request(self, trajectory: Trajectory, rubric: Rubric) -> ModelRequest:
-        transcript = _fence_untrusted(trajectory)
-        if len(transcript) > self.evidence_chars:
-            # Keep head and tail rather than blindly truncating the middle evidence away.
-            half = self.evidence_chars // 2
-            transcript = transcript[:half] + "\n...[trimmed]...\n" + transcript[-half:]
+        transcript = render_transcript(trajectory, self.evidence_chars)
         return ModelRequest(
             role=ModelRole.JUDGE,
             system=build_system_prompt(rubric),

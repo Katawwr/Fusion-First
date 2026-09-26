@@ -1,0 +1,9 @@
+{
+  "Information Retrieval": [
+    "What is the tallest mountain on the fictional planet Zed?",
+    "Name a river that exists only in this test fixture."
+  ],
+  "Language Translation": [
+    "Translate 'hello' into Esperanto."
+  ]
+}
