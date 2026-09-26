@@ -31,6 +31,10 @@ class ModelRequest(BaseModel):
     response_schema: dict | None = None
     # Optional explicit model id, overriding the role default from the registry.
     model_id: str | None = None
+    # Ask for the top-N token log-probabilities (probability judges; Ollama). None = not requested.
+    logprobs: int | None = None
+    # Sampling seed for providers that honour one (Ollama). None = provider default.
+    seed: int | None = None
 
     def cache_key(self) -> str:
         """Stable content hash used to key cassettes. Includes everything that affects output."""
@@ -43,6 +47,11 @@ class ModelRequest(BaseModel):
             "response_schema": self.response_schema,
             "model_id": self.model_id,
         }
+        # Newer fields enter the key ONLY when set, so every pre-existing cassette key is unchanged.
+        if self.logprobs is not None:
+            payload["logprobs"] = self.logprobs
+        if self.seed is not None:
+            payload["seed"] = self.seed
         blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -53,6 +62,12 @@ class ModelResponse(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
     stop_reason: str | None = None
+    # Provenance / reliability extras (all optional; absent in older cassettes).
+    served_model: str | None = None  # the model that actually answered, when the provider says
+    truncated: bool = False  # output hit the length limit (a truncated answer is not trustworthy)
+    latency_s: float | None = None
+    # Per output token: {"token": str, "logprob": float, "top": [{"token","logprob"}...]}.
+    top_logprobs: list[dict] | None = None
 
 
 @runtime_checkable

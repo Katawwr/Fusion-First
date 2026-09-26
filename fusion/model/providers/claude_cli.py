@@ -31,7 +31,14 @@ import tempfile
 import time
 from collections.abc import Callable
 
-from fusion.errors import FatalRunError, FusionProviderError
+from fusion.errors import (
+    FatalRunError,
+    FusionProviderError,
+    PromptTooLong,
+    ProviderQuotaExhausted,
+    ProviderRateLimited,
+    ProviderTimeout,
+)
 from fusion.model.client import ModelRequest, ModelResponse, ModelRole
 from fusion.model.providers._common import resolve_model
 from fusion.model.registry import ModelRegistry
@@ -174,8 +181,58 @@ def claude_cli_available(binary: str | None = None) -> bool:
     return bool(binary or os.environ.get("FUSION_CLAUDE_BIN") or shutil.which("claude"))
 
 
+# Error-text markers. Quota is checked FIRST: a usage-limit reply must stop the run (never retried,
+# so it can't roll into metered overage); only transient throttling gets backoff.
+_QUOTA_MARKERS = ("usage limit", "limit reached", "limit will reset", "resets at", "out of extra usage", "quota")
+_RATE_MARKERS = ("rate limit", "rate_limit", "429", "529", "overloaded", "too many requests")
+
+# Windows CreateProcess caps the whole command line at 32,767 chars; stay well under it.
+ARGV_BUDGET = 30_000
+
+
+class ClaudeCliRateLimited(ClaudeCliUnavailable, ProviderRateLimited):
+    """Transient throttling from the CLI — retried with jittered backoff."""
+
+
+class ClaudeCliQuotaExhausted(ClaudeCliUnavailable, ProviderQuotaExhausted):
+    """The subscription usage limit was hit — the run stops; never retried."""
+
+
+class ClaudeCliPromptTooLong(ClaudeCliUnavailable, PromptTooLong):
+    """The request can't be passed to the CLI without exceeding the OS command-line limit."""
+
+
+def classify_cli_error(text: str) -> ClaudeCliUnavailable:
+    low = (text or "").lower()
+    if any(m in low for m in _QUOTA_MARKERS):
+        return ClaudeCliQuotaExhausted(f"claude CLI usage limit reached: {text[:200]}")
+    if any(m in low for m in _RATE_MARKERS):
+        return ClaudeCliRateLimited(f"claude CLI rate-limited: {text[:200]}")
+    return ClaudeCliUnavailable(f"claude CLI error: {text[:200]}")
+
+
+async def _kill_process_tree(proc) -> None:
+    """Kill a CLI child AND its descendants (the npm shim runs node under cmd.exe on Windows)."""
+    try:
+        if os.name == "nt":
+            killer = await asyncio.create_subprocess_exec(
+                "taskkill", "/T", "/F", "/PID", str(proc.pid),
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(killer.wait(), 10)
+        else:
+            proc.kill()
+        await asyncio.wait_for(proc.wait(), 5)
+    except (ProcessLookupError, TimeoutError, OSError):
+        pass
+
+
 class ClaudeCliModelClient:
     """A ModelClient backed by the `claude` CLI subprocess (subscription auth, no API key)."""
+
+    # The CLI exposes no temperature/max_tokens controls: sampling is NOT pinned on this backend,
+    # so repeat-run stability must be measured, never assumed (disclosed on reports).
+    controls_sampling = False
 
     def __init__(
         self,
@@ -183,9 +240,11 @@ class ClaudeCliModelClient:
         binary: str | None = None,
         registry: ModelRegistry | None = None,
         judge_model: str | None = None,
-        timeout: float = 90.0,
-        max_retries: int = 1,
+        timeout: float = 120.0,
+        max_retries: int = 2,
         clean_cwd: str | None = None,
+        sleep=None,
+        backoff_base: float = 4.0,
     ):
         self._binary = binary
         self._registry = registry or ModelRegistry()
@@ -195,6 +254,8 @@ class ClaudeCliModelClient:
         self._timeout = timeout
         self._max_retries = max_retries
         self._clean_cwd = clean_cwd  # if None, a fresh temp dir is created per call
+        self._sleep = sleep or asyncio.sleep
+        self._backoff_base = backoff_base
 
     # -- pure helpers (unit-testable without spawning a subprocess) ----------------------------
 
@@ -231,6 +292,7 @@ class ClaudeCliModelClient:
         return "\n\n".join(lines)
 
     def _build_argv(self, binary: str, request: ModelRequest, cli_model: str) -> list[str]:
+        """The command line WITHOUT the prompt: the prompt goes over stdin (no argv length limit)."""
         system = request.system
         if request.response_schema is not None:
             # Nudge bare-JSON output; does NOT change the cache key (computed upstream from the
@@ -239,7 +301,6 @@ class ClaudeCliModelClient:
         return [
             binary,
             "-p",
-            self._flatten_messages(request.messages),
             "--model",
             cli_model,
             "--system-prompt",
@@ -248,9 +309,20 @@ class ClaudeCliModelClient:
             "",
             "--setting-sources",
             "",
+            "--strict-mcp-config",
+            "--no-session-persistence",
             "--output-format",
             "json",
         ]
+
+    @staticmethod
+    def _check_argv_budget(argv: list[str]) -> None:
+        length = len(subprocess.list2cmdline(argv))
+        if length > ARGV_BUDGET:
+            raise ClaudeCliPromptTooLong(
+                f"system prompt too long for the claude CLI command line ({length} > {ARGV_BUDGET} "
+                "chars); use the Ollama backend for very long prompts"
+            )
 
     @staticmethod
     def _build_env() -> dict:
@@ -260,15 +332,25 @@ class ClaudeCliModelClient:
     def _parse_cli_json(stdout: str, cli_model: str) -> ModelResponse:
         data = json.loads(stdout)
         if data.get("is_error"):
-            raise ClaudeCliUnavailable(f"claude CLI error: {str(data.get('result'))[:200]}")
+            raise classify_cli_error(str(data.get("result")))
         usage = data.get("usage", {}) or {}
+        served = None
+        model_usage = data.get("modelUsage")
+        if isinstance(model_usage, dict) and model_usage:
+            # The model that actually answered (the CLI may route internally); provenance only.
+            served = max(model_usage, key=lambda m: (model_usage[m] or {}).get("outputTokens", 0) or 0)
         return ModelResponse(
             text=data.get("result", "") or "",
             model=cli_model,
             input_tokens=usage.get("input_tokens", 0) or 0,
             output_tokens=usage.get("output_tokens", 0) or 0,
             stop_reason="cli",
+            served_model=served,
         )
+
+    def _backoff(self, attempt: int) -> float:
+        # Deterministic jitter from the attempt number (no RNG needed): 1.0x, 1.3x, 1.6x ...
+        return self._backoff_base * (2 ** attempt) * (1.0 + 0.3 * (attempt % 3))
 
     # -- the ModelClient contract --------------------------------------------------------------
 
@@ -277,43 +359,75 @@ class ClaudeCliModelClient:
             raise ClaudeCliUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
         binary = self._resolve_binary()
         cli_model = self._cli_model(request)  # raises ClaudeCliUnavailable early (non-retryable)
+        argv = self._build_argv(binary, request, cli_model)
+        self._check_argv_budget(argv)  # refuse up front — never a silently truncated prompt
         # Zero-spend guarantee: verify subscription auth before calling (PASS cached for AUTH_TTL_S).
         await asyncio.to_thread(assert_subscription_auth, binary)
-        argv = self._build_argv(binary, request, cli_model)
+        prompt = self._flatten_messages(request.messages)
         env = self._build_env()
 
         last_exc: Exception | None = None
-        for _ in range(self._max_retries + 1):
-            cwd = self._clean_cwd or tempfile.mkdtemp(prefix="fusion_cli_")
-            proc = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                return await self._run_once(argv, prompt, env, cli_model)
+            except ClaudeCliQuotaExhausted:
+                raise  # hard stop: never retry into overage
+            except ClaudeCliRateLimited as exc:
+                last_exc = exc
+                if attempt < self._max_retries:
+                    await self._sleep(self._backoff(attempt))
+            except (ProviderTimeout, ClaudeCliUnavailable, json.JSONDecodeError) as exc:
+                if getattr(exc, "spawn_failed", False):
+                    raise  # the binary can't start; retrying won't help
+                last_exc = exc
+        if isinstance(last_exc, ClaudeCliRateLimited):
+            raise last_exc
+        if isinstance(last_exc, ProviderTimeout):
+            raise ProviderTimeout(
+                f"claude CLI timed out after {self._max_retries + 1} attempt(s) ({self._timeout:.0f}s each)"
+            ) from last_exc
+        raise ClaudeCliUnavailable(
+            f"claude CLI failed after {self._max_retries + 1} attempt(s): {last_exc}"
+        ) from last_exc
+
+    async def _run_once(self, argv: list[str], prompt: str, env: dict, cli_model: str) -> ModelResponse:
+        cwd = self._clean_cwd or tempfile.mkdtemp(prefix="fusion_cli_")
+        proc = None
+        started = time.monotonic()
+        try:
             try:
                 proc = await asyncio.create_subprocess_exec(
                     *argv,
+                    stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     cwd=cwd,
                     env=env,
                 )
-                out, err = await asyncio.wait_for(proc.communicate(), self._timeout)
-                if proc.returncode != 0:
-                    raise ClaudeCliUnavailable(
-                        f"claude CLI exited {proc.returncode}: "
-                        f"{err.decode('utf-8', 'replace')[:200]}"
-                    )
-                return self._parse_cli_json(out.decode("utf-8", "replace"), cli_model)
-            except (TimeoutError, json.JSONDecodeError, ClaudeCliUnavailable) as exc:
-                last_exc = exc
-                if proc is not None and proc.returncode is None:
-                    try:
-                        proc.kill()
-                        # Reap the child so it releases the temp cwd before finally's rmtree (on
-                        # Windows a still-running process holds its cwd and rmtree would silently fail).
-                        await asyncio.wait_for(proc.wait(), 5)
-                    except (ProcessLookupError, TimeoutError):
-                        pass
-            finally:
-                if self._clean_cwd is None:
-                    shutil.rmtree(cwd, ignore_errors=True)
-        raise ClaudeCliUnavailable(
-            f"claude CLI failed after {self._max_retries + 1} attempt(s): {last_exc}"
-        )
+            except OSError as e:
+                err = ClaudeCliUnavailable(f"could not start the claude CLI: {e}")
+                err.spawn_failed = True  # type: ignore[attr-defined]
+                raise err from e
+            try:
+                out, err_b = await asyncio.wait_for(
+                    proc.communicate(prompt.encode("utf-8")), self._timeout
+                )
+            except TimeoutError as e:
+                await _kill_process_tree(proc)
+                raise ProviderTimeout(f"claude CLI call exceeded {self._timeout:.0f}s") from e
+            stdout = out.decode("utf-8", "replace")
+            if proc.returncode != 0:
+                # The JSON envelope (with is_error) may still be on stdout; classify its message.
+                try:
+                    payload = json.loads(stdout)
+                    message = str(payload.get("result", "")) if isinstance(payload, dict) else stdout
+                except json.JSONDecodeError:
+                    message = err_b.decode("utf-8", "replace") or stdout
+                raise classify_cli_error(f"exit {proc.returncode}: {message}")
+            resp = self._parse_cli_json(stdout, cli_model)
+            return resp.model_copy(update={"latency_s": round(time.monotonic() - started, 3)})
+        finally:
+            if proc is not None and proc.returncode is None:
+                await _kill_process_tree(proc)
+            if self._clean_cwd is None:
+                shutil.rmtree(cwd, ignore_errors=True)

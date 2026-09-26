@@ -109,7 +109,8 @@ def test_build_argv_has_clean_context_flags():
     req = _target_req()
     argv = c._build_argv("claude", req, "claude-haiku-4-5-20251001")
     assert argv[:2] == ["claude", "-p"]
-    assert argv[2] == "hi"  # flattened single user turn
+    assert "hi" not in argv  # the prompt goes over stdin, never argv (Windows command-line limit)
+    assert "--strict-mcp-config" in argv and "--no-session-persistence" in argv
     # clean-context + headless flags must be present
     assert "--tools" in argv and argv[argv.index("--tools") + 1] == ""
     assert "--setting-sources" in argv and argv[argv.index("--setting-sources") + 1] == ""

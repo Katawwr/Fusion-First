@@ -91,3 +91,16 @@ async def test_record_client_captures(tmp_path):
     out = await rec.complete(req)
     assert out.text == "live-answer"
     assert cas.get(req.cache_key()).text == "live-answer"  # captured for replay
+
+
+@pytest.mark.unit
+def test_pinned_cache_key_is_stable_across_schema_additions():
+    """Every committed cassette is keyed by this hash. New optional request fields must not change
+    the key of a request that doesn't set them — pin one known key."""
+    from fusion.model.client import ModelRequest, ModelRole
+
+    req = ModelRequest(role=ModelRole.JUDGE, system="s", messages=[{"role": "user", "content": "x"}])
+    assert req.cache_key() == PINNED_KEY
+
+
+PINNED_KEY = "c3f720dd02ecd69c4a6ed9d46318c79faff26b5cdf5f02e7b9a25f794b1aa6f5"

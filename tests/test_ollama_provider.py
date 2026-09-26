@@ -108,3 +108,77 @@ def test_live_clients_ollama_unavailable_raises(monkeypatch):
     monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: False)
     with pytest.raises(live.LiveUnavailable):
         live.build_live_clients("llama3.2", prefer="ollama")
+
+
+# -- measurement-integrity options (no server: payload/parse helpers + faked _post) -------------
+
+
+def _r(**kw):
+    from fusion.model.client import ModelRequest, ModelRole
+
+    base = dict(role=ModelRole.TARGET, system="sys", messages=[{"role": "user", "content": "hi"}], model_id="qwen2.5:3b")
+    base.update(kw)
+    return ModelRequest(**base)
+
+
+@pytest.mark.unit
+def test_payload_pins_context_and_passes_seed_and_logprobs():
+    c = OllamaModelClient(num_ctx=4096)
+    p = c._build_payload(_r(seed=7, logprobs=5, max_tokens=1), "qwen2.5:3b")
+    assert p["options"]["num_ctx"] == 4096
+    assert p["options"]["seed"] == 7
+    assert p["logprobs"] is True and p["top_logprobs"] == 5
+
+
+@pytest.mark.unit
+def test_payload_omits_seed_and_logprobs_by_default():
+    p = OllamaModelClient()._build_payload(_r(), "qwen2.5:3b")
+    assert "seed" not in p["options"] and "logprobs" not in p
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("mid", ["claude-haiku-4-5", "gpt-4o"])
+def test_hosted_model_ids_are_rejected(mid):
+    from fusion.model.providers.ollama import OllamaUnavailable
+
+    with pytest.raises(OllamaUnavailable, match="not an Ollama model"):
+        OllamaModelClient()._resolve_model(_r(model_id=mid))
+
+
+@pytest.mark.unit
+async def test_context_overflow_is_refused_not_truncated(monkeypatch):
+    from fusion.model.providers.ollama import OllamaContextTooLong
+
+    monkeypatch.delenv("FUSION_OFFLINE", raising=False)
+    c = OllamaModelClient(num_ctx=512)
+    monkeypatch.setattr(c, "_post", lambda path, payload: pytest.fail("must not send"))
+    with pytest.raises(OllamaContextTooLong):
+        await c.complete(_r(system="word " * 2000))
+
+
+@pytest.mark.unit
+async def test_truncation_and_logprobs_are_parsed(monkeypatch):
+    monkeypatch.delenv("FUSION_OFFLINE", raising=False)
+    c = OllamaModelClient()
+
+    def fake_post(path, payload):
+        return {
+            "model": "qwen2.5:1.5b", "message": {"content": "No"}, "done_reason": "length",
+            "prompt_eval_count": 39, "eval_count": 1,
+            "logprobs": [{"token": "No", "logprob": -0.05, "bytes": [78, 111],
+                          "top_logprobs": [{"token": "No", "logprob": -0.05}, {"token": "Yes", "logprob": -3.1}]}],
+        }
+
+    monkeypatch.setattr(c, "_post", fake_post)
+    resp = await c.complete(_r(model_id="qwen2.5:1.5b", logprobs=5, max_tokens=1))
+    assert resp.truncated is True
+    assert resp.served_model == "qwen2.5:1.5b"
+    assert resp.top_logprobs[0]["top"][1] == {"token": "Yes", "logprob": -3.1}
+
+
+@pytest.mark.unit
+def test_seed_and_logprobs_change_the_cache_key_only_when_set():
+    base = _r()
+    assert base.cache_key() == _r(seed=None, logprobs=None).cache_key()
+    assert base.cache_key() != _r(seed=1).cache_key()
+    assert base.cache_key() != _r(logprobs=5).cache_key()

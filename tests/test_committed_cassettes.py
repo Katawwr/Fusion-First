@@ -39,7 +39,11 @@ def test_committed_demo_cassettes_are_fresh(check):
     models = {e.get("model") for e in committed.entries.values()}
     if models != {"demo-heuristic-judge"}:
         pytest.skip(f"{check} cassette holds real recordings ({models}); freshness is by coverage")
-    assert committed.entries == build_full_cassette(check).entries
+    fresh = build_full_cassette(check)
+    # Compare what replay actually serves (parsed responses), so additive optional response fields
+    # don't read as staleness; any change to keys or verdict payloads still fails.
+    assert set(committed.entries) == set(fresh.entries)
+    assert all(committed.get(k) == fresh.get(k) for k in fresh.entries)
 
 
 @pytest.mark.integration
