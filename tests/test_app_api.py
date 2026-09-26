@@ -35,11 +35,36 @@ def test_version_lists_checks(client):
 
 
 @pytest.mark.integration
-def test_scan_rejects_quality_check(client):
-    # The scan pipeline is the safety attack suite — a quality check must be rejected, not crash.
+def test_scan_rejects_quality_check_in_demo_mode(client):
+    # Quality needs a real model: canned demo responses say nothing about quality -> clear 400.
     r = client.post("/api/scan", json={"system_prompt": WEAK_PROMPT, "checks": ["instruction_following"]})
     assert r.status_code == 400
-    assert "grade-quality" in r.json()["detail"]
+    assert "live model" in r.json()["detail"]
+
+
+@pytest.mark.integration
+def test_scan_rejects_unknown_checks(client):
+    r = client.post("/api/scan", json={"system_prompt": WEAK_PROMPT, "checks": ["made_up_check"]})
+    assert r.status_code in (400, 422)  # rejected cleanly, never a crash or a silent default
+
+
+@pytest.mark.integration
+def test_live_scan_accepts_quality_alongside_safety(monkeypatch):
+    """Live scans may mix safety and quality checks; the stream carries a quality card."""
+    from tests.test_user_scan_isolation import FakeJudge, FakeTarget
+
+    def builder(mode, settings, backend=None, target_model=None):
+        return {"demonstration": False, "judge_client": FakeJudge(), "target_client": FakeTarget(),
+                "target_model_id": "m", "judge_model": "fake-judge"}
+
+    app = create_app(settings=Settings(version="test"), scan_kwargs_builder=builder)
+    r = TestClient(app).post("/api/scan", json={
+        "system_prompt": WEAK_PROMPT, "mode": "live",
+        "checks": ["direct_prompt_injection", "instruction_following"],
+    })
+    assert r.status_code == 200, r.text
+    kinds = [c["kind"] for c in r.json()["result"]["cards"]]
+    assert kinds == ["safety", "quality"]
 
 
 @pytest.mark.integration

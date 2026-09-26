@@ -37,6 +37,7 @@ from fusion.engine.report import build_report_card
 from fusion.errors import ErrorKind, classify, isolatable
 from fusion.judge.judge import Judge
 from fusion.judge.rubric import get_rubric
+from fusion.measure.harness import load_quality_tests
 from fusion.model.client import ModelClient, ModelRequest, ModelRole
 from fusion.model.replay import Cassette, CassetteMiss, ReplayModelClient
 from fusion.recording import CASSETTE_DIR, build_trajectory_cassette
@@ -225,6 +226,95 @@ async def _score_template(
     )
 
 
+async def _plain_response(
+    user: str, system_prompt: str, target_client: ModelClient, target_model_id: str
+) -> str:
+    req = ModelRequest(
+        role=ModelRole.TARGET,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user}],
+        max_tokens=600,
+        model_id=target_model_id,
+    )
+    return (await target_client.complete(req)).text
+
+
+def _verify(spec: dict, prompt: str, response: str) -> tuple[bool | None, str]:
+    """Deterministic grading of a quality test (IFEval-style verifiers, no LLM). Returns
+    (is_defect | None if undecidable, evidence)."""
+    from fusion.validate import ifeval_lite
+
+    row = {"prompt": prompt, "instruction_id_list": spec["instruction_id_list"], "kwargs": spec["kwargs"]}
+    res = ifeval_lite.evaluate_prompt(row, response)
+    if res["all_followed"] is None:
+        return None, "the verifier could not decide"
+    failed = [k for k, v in res["per_instruction"].items() if v is False]
+    if failed:
+        return True, "verifier: instruction not followed — " + ", ".join(sorted(set(failed)))
+    return False, "verifier: every instruction followed"
+
+
+async def _score_quality_test(
+    test: dict,
+    check: str,
+    system_prompt: str,
+    hardened_prompt: str,
+    judge: Judge,
+    *,
+    target_client: ModelClient | None,
+    target_model_id: str | None,
+) -> ProbeOutcome:
+    """Run one QUALITY test on both arms (the prompt as written, and the hardened prompt the user
+    ships) and grade each — by a deterministic verifier when the test has one, else by the judge
+    with the quality rubric. The hardened arm makes the card's before/after a FIX-COST measure:
+    did the safety fix hurt quality?"""
+    from fusion.attacks.agentic import build_agentic_trajectory
+    from fusion.errors import JudgeUndecided
+
+    rubric = get_rubric(check)
+    label = test["user"] if len(test["user"]) <= 140 else test["user"][:139] + "…"
+    base = dict(check=check, probe_id=test["id"], attack_label=label, owasp=rubric.owasp)
+    if target_client is None or target_model_id is None:
+        raise ValueError("quality tests need a live target model")
+    try:
+        base_text = await _plain_response(test["user"], system_prompt, target_client, target_model_id)
+        hard_text = await _plain_response(test["user"], hardened_prompt, target_client, target_model_id)
+    except Exception as exc:  # noqa: BLE001 — only isolatable errors are absorbed
+        if isolatable(exc):
+            return _unscored_named(base, exc, "target")
+        raise
+    spec = test.get("verify")
+    if spec:
+        b_issue, b_ev = _verify(spec, test["user"], base_text)
+        h_issue, _ = _verify(spec, test["user"], hard_text)
+        if b_issue is None or h_issue is None:
+            return _unscored_named(base, JudgeUndecided("verifier undecidable"), "judge")
+        return ProbeOutcome(
+            **base, baseline_issue=b_issue, hardened_issue=h_issue,
+            evidence=b_ev if b_issue else "", baseline_excerpt=_excerpt(base_text, 200),
+        )
+    try:
+        b = await judge.evaluate(build_agentic_trajectory(system_prompt, test["user"], base_text), rubric)
+        h = await judge.evaluate(build_agentic_trajectory(hardened_prompt, test["user"], hard_text), rubric)
+    except Exception as exc:  # noqa: BLE001
+        if isolatable(exc):
+            return _unscored_named(base, exc, "judge")
+        raise
+    return ProbeOutcome(
+        **base, baseline_issue=b.is_issue, hardened_issue=h.is_issue,
+        baseline_severity=b.severity, hardened_severity=h.severity,
+        evidence=_evidence(b) if b.is_issue else "", baseline_excerpt=_excerpt(base_text, 200),
+    )
+
+
+def _unscored_named(base: dict, exc: BaseException, stage: str) -> ProbeOutcome:
+    return ProbeOutcome(
+        **base, baseline_issue=None, hardened_issue=None,
+        error=_excerpt(f"{stage} failed: {type(exc).__name__}: {exc}", 240),
+        error_kind=classify(exc, stage).value,
+    )
+
+
 _ABORT_MESSAGES = {
     "budget_exceeded": "The scan hit its model-call budget before finishing.",
     "quota_exhausted": "The Claude subscription usage limit was reached; the scan stopped "
@@ -281,7 +371,19 @@ async def run_user_scan(
         _demo_accuracy if demonstration else _live_accuracy_unmeasured
     )
 
-    plan = {check: select_templates(check, tier, version) for check in checks}
+    kinds = {check: get_rubric(check).kind for check in checks}
+    if demonstration and any(k == "quality" for k in kinds.values()):
+        raise ValueError(
+            "quality checks need a live model — demonstration responses are canned and would say "
+            "nothing about your agent's quality"
+        )
+    plan: dict[str, list] = {
+        check: (
+            load_quality_tests(check, version) if kinds[check] == "quality"
+            else select_templates(check, tier, version)
+        )
+        for check in checks
+    }
     total = sum(len(v) for v in plan.values())
     yield ScanEvent(
         type=ScanEventType.SCAN_STARTED,
@@ -296,12 +398,16 @@ async def run_user_scan(
     try:
         for check in checks:
             templates = plan[check]
+            is_quality = kinds[check] == "quality"
             yield ScanEvent(
                 type=ScanEventType.CHECK_STARTED,
                 check=check,
                 total=len(templates),
                 demonstration=demonstration,
-                message=f"Attacking your prompt: {check.replace('_', ' ')}",
+                message=(
+                    f"Grading quality: {check.replace('_', ' ')}" if is_quality
+                    else f"Attacking your prompt: {check.replace('_', ' ')}"
+                ),
             )
 
             check_outcomes: dict[str, ProbeOutcome] = {}
@@ -327,9 +433,15 @@ async def run_user_scan(
                 sem = asyncio.Semaphore(max(1, concurrency))
 
                 async def one(
-                    t: AttackTemplate, check: str = check, sem=sem, judge: Judge = live_judge
+                    t, check: str = check, sem=sem, judge: Judge = live_judge,
+                    is_quality: bool = is_quality,
                 ) -> ProbeOutcome:
                     async with sem:
+                        if is_quality:
+                            return await _score_quality_test(
+                                t, check, system_prompt, hardened, judge,
+                                target_client=target_client, target_model_id=target_model_id,
+                            )
                         return await _score_template(
                             t, check, system_prompt, hardened, judge,
                             demonstration=False, target_client=target_client,
@@ -355,11 +467,14 @@ async def run_user_scan(
                         task.cancel()
                     await asyncio.gather(*tasks, return_exceptions=True)
 
-            ordered = [check_outcomes[t.id] for t in templates if t.id in check_outcomes]
+            ordered = [
+                check_outcomes[_unit_id(t)] for t in templates if _unit_id(t) in check_outcomes
+            ]
             outcomes.extend(ordered)
             card = await _build_card(
                 check, ordered, target_name, judge_model, crosswalk_version, demonstration,
                 execution, judge_choice, judge_backend, sampling_pinned, accuracy_for,
+                kind=kinds[check],
             )
             cards.append(card)
             yield ScanEvent(
@@ -404,6 +519,10 @@ async def run_user_scan(
     )
 
 
+def _unit_id(unit) -> str:
+    return unit["id"] if isinstance(unit, dict) else unit.id
+
+
 def _probe_event(check: str, outcome: ProbeOutcome, completed: int, total: int, demo: bool) -> ScanEvent:
     return ScanEvent(
         type=ScanEventType.PROBE_RESULT, check=check, probe=outcome,
@@ -413,7 +532,7 @@ def _probe_event(check: str, outcome: ProbeOutcome, completed: int, total: int, 
 
 async def _build_card(
     check, outcomes, target_name, judge_model, crosswalk_version, demonstration,
-    execution, judge_choice, judge_backend, sampling_pinned, accuracy_for,
+    execution, judge_choice, judge_backend, sampling_pinned, accuracy_for, kind="safety",
 ):
     scored = [o for o in outcomes if o.scored]
     ba = before_after([bool(o.baseline_issue) for o in scored], [bool(o.hardened_issue) for o in scored])
@@ -450,6 +569,7 @@ async def _build_card(
         demonstration=demonstration,
         judge_accuracy_note=note,
         trust=trust,
+        kind=kind,
     )
 
 

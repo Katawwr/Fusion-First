@@ -67,13 +67,19 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
     def _prepare(req) -> tuple[str, list[str], ScanTier, dict]:
         if len(req.system_prompt) > settings.prompt_max_chars:
             raise HTTPException(413, f"system prompt exceeds {settings.prompt_max_chars} characters")
-        # The scan pipeline is the SAFETY attack suite — default to safety checks (quality checks have
-        # no attack probes). An explicit quality check in a scan request is rejected below.
+        # Safety checks run the attack suite; quality checks grade normal test inputs on both arms
+        # (a fix-cost measure). Quality needs a real model: demo responses are canned.
         checks = req.checks or checks_of_kind("safety")
-        bad = [c for c in checks if c not in checks_of_kind("safety")]
-        if bad:
-            raise HTTPException(400, f"not safety checks (use /api/grade-quality): {bad}")
+        known = set(checks_of_kind("safety")) | set(checks_of_kind("quality"))
+        unknown = [c for c in checks if c not in known]
+        if unknown:
+            raise HTTPException(400, f"unknown checks: {unknown}")
         tier = ScanTier.FULL if req.tier == "full" else ScanTier.QUICK
+        quality = [c for c in checks if c in checks_of_kind("quality")]
+        if quality and resolve_mode(req.mode, settings) == "demo":
+            raise HTTPException(
+                400, f"quality checks need a live model (demo responses are canned): {quality}"
+            )
         try:
             mode = resolve_mode(req.mode, settings)
             kwargs = build_kwargs(mode, settings, req.backend, req.target_model)

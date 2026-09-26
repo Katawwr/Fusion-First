@@ -64,6 +64,10 @@ class PromptTooLong(FusionProviderError):
     Refused up front — a silently truncated system prompt would corrupt the measurement."""
 
 
+class JudgeUndecided(IsolatableError):
+    """A grader (e.g. a deterministic verifier) could not decide this case — unscored, not guessed."""
+
+
 class ScanAborted(FatalRunError):
     """A scan stopped early; `code` is a stable machine-readable reason for the UI/API."""
 
@@ -79,6 +83,7 @@ class ErrorKind(str, Enum):
     JUDGE_ERROR = "judge_error"
     JUDGE_TIMEOUT = "judge_timeout"
     JUDGE_PARSE = "judge_parse"
+    UNDECIDABLE = "undecidable"
     RATE_LIMITED = "rate_limited"
     QUOTA_EXHAUSTED = "quota_exhausted"
     PROMPT_TOO_LONG = "prompt_too_long"
@@ -116,6 +121,8 @@ def classify(exc: BaseException, stage: str = "judge") -> ErrorKind:
         return ErrorKind.MODEL_NOT_ALLOWED
     if name == "JudgeParseError":
         return ErrorKind.JUDGE_PARSE
+    if isinstance(exc, JudgeUndecided):
+        return ErrorKind.UNDECIDABLE
     timeout = isinstance(exc, (TimeoutError, ProviderTimeout))
     if stage == "target":
         return ErrorKind.TARGET_TIMEOUT if timeout else ErrorKind.TARGET_ERROR

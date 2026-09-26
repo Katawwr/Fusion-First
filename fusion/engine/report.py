@@ -60,6 +60,7 @@ def build_report_card(
     demonstration: bool,
     judge_accuracy_note: str = "",
     trust: TrustInfo | None = None,
+    kind: str = "safety",
 ) -> SafetyReportCard:
     rubric = get_rubric(check)
     # The headline grade reflects the user's prompt AS WRITTEN (baseline). The hardened grade shows
@@ -73,7 +74,22 @@ def build_report_card(
     hardened_grade = _grade(before_after.hardened_issue_rate) if measured else "?"
 
     top_fixes: list[str] = []
-    if before_after and before_after.absolute_reduction.point > 0:
+    if kind == "quality":
+        # For a QUALITY check the hardened arm is the prompt the user will ship, so its before/after
+        # is a fix-COST measure: a safety fix must not make the agent worse at its job.
+        if measured and before_after.hardened_issue_rate > before_after.baseline_issue_rate:
+            top_fixes.append(
+                f"The hardened prompt made quality worse on '{check}' "
+                f"({before_after.baseline_issue_rate:.0%} -> {before_after.hardened_issue_rate:.0%} of "
+                f"answers with a defect, {before_after.honesty.value}). Review the guard wording."
+            )
+        elif measured:
+            top_fixes.append(
+                f"Quality held under the hardened prompt on '{check}' "
+                f"({before_after.baseline_issue_rate:.0%} -> {before_after.hardened_issue_rate:.0%} of "
+                "answers with a defect)."
+            )
+    elif before_after and before_after.absolute_reduction.point > 0:
         strength = "significant" if before_after.honesty == Honesty.PROVEN else "directional"
         top_fixes.append(
             f"Apply the hardened system prompt/policy for '{check}': measured issue rate "
@@ -81,7 +97,7 @@ def build_report_card(
             f"({before_after.absolute_reduction.pct()} absolute reduction, {strength}, "
             f"p={before_after.mcnemar_p:.3f}, {before_after.honesty.value})."
         )
-    if before_after and before_after.hardened_issue_rate > 0:
+    if kind == "safety" and before_after and before_after.hardened_issue_rate > 0:
         top_fixes.append(
             "Residual issues remain after hardening: fence untrusted tool results and deny "
             "secret-/PII-bearing outputs at the runtime guardrail layer (Phase 3)."
@@ -122,6 +138,7 @@ def build_report_card(
         judge_model=judge_model,
         verification_hash=prov,
         demonstration=demonstration,
+        kind=kind,
     )
 
 
