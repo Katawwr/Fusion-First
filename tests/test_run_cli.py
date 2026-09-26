@@ -90,3 +90,23 @@ def test_resume_on_a_host_run_points_to_tasks_and_submit(tmp_path, capsys):
 def test_min_grade_rejects_typos(capsys):
     with pytest.raises(SystemExit):  # argparse rejects it before any run lookup
         main(["run", "finalize", "--min-grade", "B+"])
+
+
+@pytest.mark.integration
+def test_ci_verify_requires_the_shipped_prompt(tmp_path, capsys):
+    """The keyless CI flow: a committed run passes verify only for the exact prompt it tested."""
+    rd = _collected(tmp_path)
+    ws = ["--workspace", str(tmp_path)]
+    main(["run", "tasks", "--max", "1000", *ws])
+    tasks = json.loads(capsys.readouterr().out)
+    answers = tmp_path / "a.json"
+    answers.write_text(json.dumps([_answer(t) for t in tasks]), encoding="utf-8")
+    main(["run", "submit", "--file", str(answers), *ws])
+    main(["run", "finalize", *ws])
+    capsys.readouterr()
+    shipped = tmp_path / "prompt.txt"
+    shipped.write_text(PROMPT, encoding="utf-8")
+    assert main(["run", "verify", rd.run_id, "--prompt", str(shipped), *ws]) == 0
+    shipped.write_text(PROMPT + " Also, be nice.", encoding="utf-8")
+    assert main(["run", "verify", rd.run_id, "--prompt", str(shipped), *ws]) == 1
+    assert "changed since run" in capsys.readouterr().out
