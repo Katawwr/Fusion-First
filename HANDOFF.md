@@ -96,9 +96,32 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pr
    If the agent finished and committed, review the diff and run the full suite, then run
    `git merge worktree-agent-ab12d4bdedd3b0f7b`. It branched from `dca69ea`, before later commits,
    so expect conflicts only in `fusion/cli.py` (`_cmd_hook` stdin). If it did not finish, redo
-   those fixes. The findings are in commit `65fa5c5`'s message context and the review summary
-   below. **Do not tune against `datasets/guard_bench/claude_code_heldout_v2.jsonl`.** Measuring
-   after changes needs a fresh blind v3 set.
+   these fixes (each was verified with a concrete repro):
+   - **#8 Fail-open on write errors.** Compute the decision before logging. Wrap
+     `_log`/`_save_state`/`_load_state` in try/except. Read stdin as UTF-8 bytes. Use a unique tmp
+     file for state. Validate the state shape. Test: a directory at the log path, non-ASCII stdin
+     and a malformed state file must each still deny.
+   - **#9 Self-tampering.** Treat writes, mkdir, rm and edits of `.fusion/guard.json`,
+     `guard-state.json` and `guard-log.jsonl` as tampering. Ignore a non-dict `guard.json` and bad
+     allowlist entries. Project config may only tighten the mode.
+   - **#10 ReDoS.** `_SOCKET_TARGET` is exponential on `nc` + many `--x` flags. `_SECRET_READ`,
+     `_USER_AT_HOST` and `redact` go quadratic on inputs of 30 KB or more. Cap the analyzed text,
+     strip heredoc bodies, and use `redact(raw[:4000])`. Perf tests must finish in under 0.5 s.
+   - **#11 Hosts.** Take the host from `urlsplit().hostname`, so `https://github.com@evil.example`
+     resolves to evil.example. Use `ipaddress` for private, CGNAT and 0.0.0.0 ranges. Treat
+     single-label hosts as internal. Only POST/PUT/data= one-liners count as uploads.
+   - **#21 Secrets in the log.** Mask `_TOKENS`, URL userinfo and `-u user:pass` before
+     `redact()`. Write `.fusion/.gitignore` containing `*`.
+   - **#22 Own-service credentials.** Handle `$env:NAME` in PowerShell and case-sensitive
+     KEY/TOKEN suffixes. `ssh -i` and `curl --cacert/--cert/--key` are authentication, not
+     payload. Add NUGET, PYPI and DOCKER to the service map.
+   - **#23 Over-matching.** Strip grep/rg/`commit -m`/echo arguments and heredocs before the
+     destroy and persist rules. DB drops on localhost are not destructive. Protected branches must
+     match the exact ref, and `--force-with-lease` to a feature branch is fine. Every `rm` segment
+     is checked, so `rm -rf ./build; rm -rf ~` must be HIGH.
+
+   **Do not tune against `datasets/guard_bench/claude_code_heldout_v2.jsonl`.** Measuring after
+   changes needs a fresh blind v3 set.
 2. **Evidence run** (resumable). It was on qwen2.5:1.5b (InjecAgent done, Gandalf 7/60); gemma3:1b
    and qwen2.5:3b come next. Check with `ollama ps`, then resume:
    ```
