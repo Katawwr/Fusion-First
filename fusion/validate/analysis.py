@@ -53,10 +53,10 @@ NEEDS_FULL_ANSWER = frozenset({"ifeval"})
 
 
 def paired_labels(
-    item: EvidenceItem, recs: dict[tuple[str, str], TranscriptRecord]
+    item: EvidenceItem, recs: dict[tuple[str, str], TranscriptRecord], arms: tuple[str, str] = ARMS
 ) -> tuple[str, list[OracleLabel]]:
-    """('ok' | 'unscored' | 'truncated' | 'undecidable', [baseline label, hardened label])."""
-    pair = [recs.get((item.item_id, arm)) for arm in ARMS]
+    """('ok' | 'unscored' | 'truncated' | 'undecidable', [first-arm label, second-arm label])."""
+    pair = [recs.get((item.item_id, arm)) for arm in arms]
     if any(r is None or r.response is None for r in pair):
         return "unscored", []
     # Only oracles that read the WHOLE answer are invalidated by the token cap (IFEval's length /
@@ -64,14 +64,15 @@ def paired_labels(
     if item.experiment in NEEDS_FULL_ANSWER and any(r.truncated for r in pair):
         return "truncated", []
     labels = [
-        oracle_label(item, item.system_for(arm), r.response) for arm, r in zip(ARMS, pair, strict=True)
+        oracle_label(item, item.system_for(arm), r.response) for arm, r in zip(arms, pair, strict=True)
     ]
     if not all(lab.decidable for lab in labels):
         return "undecidable", labels
     return "ok", labels
 
 
-def score_cell(items: list[EvidenceItem], model: str, store: TranscriptStore) -> CellResult | None:
+def score_cell(items: list[EvidenceItem], model: str, store: TranscriptStore,
+               arms: tuple[str, str] = ARMS) -> CellResult | None:
     if not items:
         return None
     exp = items[0].experiment
@@ -81,7 +82,7 @@ def score_cell(items: list[EvidenceItem], model: str, store: TranscriptStore) ->
     tally = {"unscored": 0, "truncated": 0, "undecidable": 0}
     examples: list[dict] = []
     for item in items:
-        status, labels = paired_labels(item, recs)
+        status, labels = paired_labels(item, recs, arms)
         if status != "ok":
             tally[status] += 1
             continue
@@ -112,7 +113,8 @@ def score_cell(items: list[EvidenceItem], model: str, store: TranscriptStore) ->
     return result
 
 
-def pooled(cells: list[CellResult], items_by_exp: dict[str, list[EvidenceItem]], store: TranscriptStore) -> dict:
+def pooled(cells: list[CellResult], items_by_exp: dict[str, list[EvidenceItem]], store: TranscriptStore,
+           arms: tuple[str, str] = ARMS) -> dict:
     """Per experiment, pooled over models; the bootstrap resamples ITEMS (the same prompt run on
     several models is correlated), so the interval is honest about that correlation."""
     out = {}
@@ -122,7 +124,7 @@ def pooled(cells: list[CellResult], items_by_exp: dict[str, list[EvidenceItem]],
         for model in models:
             recs = store.load(exp, model)
             for item in items:
-                status, labels = paired_labels(item, recs)
+                status, labels = paired_labels(item, recs, arms)
                 if status != "ok":
                     continue
                 base.append(labels[0].is_issue)
@@ -148,10 +150,13 @@ def pooled(cells: list[CellResult], items_by_exp: dict[str, list[EvidenceItem]],
     return out
 
 
-def analyze(items_by_exp: dict[str, list[EvidenceItem]], models: list[str], store: TranscriptStore) -> dict:
-    cells = [c for exp, items in items_by_exp.items() for m in models if (c := score_cell(items, m, store))]
+def analyze(items_by_exp: dict[str, list[EvidenceItem]], models: list[str], store: TranscriptStore,
+            arms: tuple[str, str] = ARMS) -> dict:
+    """`arms` = (reference, treatment); "baseline"/"hardened" is the shipped comparison."""
+    cells = [c for exp, items in items_by_exp.items() for m in models if (c := score_cell(items, m, store, arms))]
     return {
+        "arms": list(arms),
         "cells": [asdict(c) for c in cells],
-        "pooled": pooled(cells, items_by_exp, store),
+        "pooled": pooled(cells, items_by_exp, store, arms),
         "quality_margin": QUALITY_MARGIN,
     }

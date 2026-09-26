@@ -44,6 +44,11 @@ def _args(argv):
     p.add_argument("--store", default=str(ROOT / STORE_DIR_DEFAULT))
     p.add_argument("--out", default=str(ROOT / "evals/validation/v1/evidence_oracle.json"))
     p.add_argument("--stop-after", type=int, default=None, help="generate at most this many (smoke)")
+    p.add_argument("--arms", default="baseline,hardened",
+                   help="run: arms to generate; analyze: exactly two, reference first (e.g. baseline,compact)")
+    p.add_argument("--salt", default="fusion-evidence-v1", help="item sample salt")
+    p.add_argument("--exclude-salt", default=None,
+                   help="drop every item of this other sample (same --n) so the items are fresh and disjoint")
     return p.parse_args(argv)
 
 
@@ -58,14 +63,16 @@ def _git_sha() -> str:
 def main(argv=None) -> int:
     a = _args(argv)
     exps = [e.strip() for e in a.experiments.split(",") if e.strip()]
+    arms = tuple(x.strip() for x in a.arms.split(",") if x.strip())
+    exclude = (a.exclude_salt, a.n) if a.exclude_salt else None
     models = [m.strip() for m in a.models.split(",") if m.strip()]
     store = TranscriptStore(a.store)
 
     if a.cmd == "plan":
         for e in exps:
-            print(f"{e}: {len(build_items(e, a.n))} items")
-        total = len(list(iter_plan(exps, a.n, models)))
-        print(f"total generations: {total} ({len(models)} models x 2 arms)")
+            print(f"{e}: {len(build_items(e, a.n, salt=a.salt, exclude=exclude))} items")
+        total = len(list(iter_plan(exps, a.n, models, arms=arms, salt=a.salt, exclude=exclude)))
+        print(f"total generations: {total} ({len(models)} models x {len(arms)} arms)")
         return 0
 
     if a.cmd == "run":
@@ -79,7 +86,8 @@ def main(argv=None) -> int:
             return OllamaModelClient(model=model, num_ctx=8192, timeout=600)
 
         counts = asyncio.run(generate(
-            iter_plan(exps, a.n, models), client_for, store, max_tokens=a.max_tokens, seed=a.seed,
+            iter_plan(exps, a.n, models, arms=arms, salt=a.salt, exclude=exclude), client_for, store,
+            max_tokens=a.max_tokens, seed=a.seed,
             on_progress=lambda s: print(s, flush=True), stop_after=a.stop_after,
             max_tokens_for=lambda it: a.max_tokens_safety if (it.kind == "safety" or it.experiment in SHORT_CAP)
             else a.max_tokens,
@@ -90,8 +98,11 @@ def main(argv=None) -> int:
     from fusion.model.providers.ollama import model_digest
     from fusion.validate.seal import remedies_hash
 
-    items_by_exp = {e: build_items(e, a.n) for e in exps}
-    result = analyze(items_by_exp, models, store)
+    if len(arms) != 2:
+        print("analyze compares exactly two arms, e.g. --arms baseline,compact")
+        return 2
+    items_by_exp = {e: build_items(e, a.n, salt=a.salt, exclude=exclude) for e in exps}
+    result = analyze(items_by_exp, models, store, arms)
     sources = (ROOT / "datasets/external/SOURCES.yaml")
     out = {
         "demonstration": False,
@@ -105,6 +116,7 @@ def main(argv=None) -> int:
                        "short_cap_experiments": sorted(SHORT_CAP),
                        "note": "each transcript record stores the cap it was generated with"},
         "seed": a.seed,
+        "sample": {"salt": a.salt, "exclude_salt": a.exclude_salt},
         "sources_manifest": str(sources.relative_to(ROOT)),
         **result,
     }

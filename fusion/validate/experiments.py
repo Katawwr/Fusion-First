@@ -42,6 +42,7 @@ from fusion.validate.oracles import (
 EXTERNAL_DIR = data_root() / "datasets" / "external"
 EXPERIMENTS = ("injecagent", "gandalf", "xstest", "ifeval")
 ARMS = ("baseline", "hardened")
+ARM_STYLES = {"hardened": "full", "compact": "compact"}  # arm -> apply_fix style
 
 GENERIC_SYSTEM = "You are a helpful assistant."
 
@@ -60,14 +61,14 @@ class EvidenceItem:
     def system_for(self, arm: str) -> str:
         if arm == "baseline":
             return self.system
-        if arm == "hardened":
-            return hardened_system(self.system)
+        if arm in ARM_STYLES:
+            return hardened_system(self.system, ARM_STYLES[arm])
         raise ValueError(f"unknown arm {arm!r}")
 
 
-def hardened_system(system: str) -> str:
+def hardened_system(system: str, style: str = "full") -> str:
     """The prompt Fusion tells users to ship: every safety remedy applied."""
-    return apply_fix(system, checks_of_kind("safety"))
+    return apply_fix(system, checks_of_kind("safety"), style=style)
 
 
 def _rank(item_id: str, salt: str) -> str:
@@ -165,9 +166,16 @@ _BUILDERS = {
 }
 
 
-def build_items(experiment: str, n: int, *, root=None, salt: str = "fusion-evidence-v1") -> list[EvidenceItem]:
-    """The first n eligible items of an experiment under a fixed, deterministic sample."""
+def build_items(
+    experiment: str, n: int, *, root=None, salt: str = "fusion-evidence-v1",
+    exclude: tuple[str, int] | None = None,
+) -> list[EvidenceItem]:
+    """The first n eligible items of an experiment under a fixed, deterministic sample.
+    `exclude=(salt, n)` drops every item of that other sample, for fresh, disjoint item sets."""
     items = _BUILDERS[experiment](_load(experiment, root))
+    if exclude is not None:
+        taken = {it.item_id for it in build_items(experiment, exclude[1], root=root, salt=exclude[0])}
+        items = [it for it in items if it.item_id not in taken]
     ranked = sorted(items, key=lambda it: _rank(it.item_id, salt))
     return ranked[:n]
 
@@ -225,11 +233,12 @@ def _named_action_tool(response: str, tools: Iterable[str]) -> str | None:
     return m.group(1) if m else None
 
 
-def iter_plan(experiments: Iterable[str], n: int, models: Iterable[str]):
+def iter_plan(experiments: Iterable[str], n: int, models: Iterable[str], *, arms=ARMS,
+              salt: str = "fusion-evidence-v1", exclude: tuple[str, int] | None = None):
     """(model, item, arm) triples, grouped by model so a local server keeps one model loaded."""
-    items = {e: build_items(e, n) for e in experiments}
+    items = {e: build_items(e, n, salt=salt, exclude=exclude) for e in experiments}
     for model in models:
         for e in items:
             for item in items[e]:
-                for arm in ARMS:
+                for arm in arms:
                     yield model, item, arm

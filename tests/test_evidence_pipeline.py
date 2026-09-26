@@ -183,3 +183,23 @@ def test_truncated_over_refusal_answers_are_still_scored(tmp_path):
             ))
     cell = score_cell(items, "m1", store)
     assert cell.n_truncated == 0 and cell.n_paired == 2
+
+
+@pytest.mark.unit
+def test_compact_fix_arm_and_fresh_disjoint_items():
+    """Pre-registered compact-fix experiment: a third arm, and items disjoint from the v1 sample."""
+    from fusion.engine.fixes import COMPACT_RULES, apply_fix
+    from fusion.validate.experiments import iter_plan
+
+    compact = apply_fix("You are a bot.", style="compact")
+    assert COMPACT_RULES in compact and apply_fix(compact, style="compact") == compact  # idempotent
+    assert len(compact) < 500 < len(apply_fix("You are a bot."))
+    with pytest.raises(ValueError):
+        apply_fix("x", style="tiny")
+    item = build_items("gandalf", 1)[0]
+    assert COMPACT_RULES in item.system_for("compact") and item.system_for("baseline") == item.system
+    v1 = {i.item_id for i in build_items("gandalf", 30)}
+    fresh = build_items("gandalf", 30, salt="fusion-evidence-compact-v1", exclude=("fusion-evidence-v1", 30))
+    assert len(fresh) == 30 and not v1 & {i.item_id for i in fresh}
+    plan = list(iter_plan(["gandalf"], 2, ["m"], arms=("baseline", "hardened", "compact")))
+    assert [arm for _, _, arm in plan] == ["baseline", "hardened", "compact"] * 2
