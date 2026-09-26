@@ -36,10 +36,16 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
     (replays attacks through the guard to prove issue-rate reduction).
   - `goldset.py`, `recording.py` — load gold/probes; record demo cassettes.
   - `runs/` — the keyless run engine: `engine.py` (collect -> grade -> strict-replay finalize ->
-    verify; in-run grader accuracy on blind gold), `service.py` (shared by CLI + MCP), `cli.py`.
+    verify; grade WITHHELD ('?') unless every question is answered, the grader clears the policy
+    floor on blind known-answer questions AND agrees with `oracle_check.py` on the run's own
+    clear-cut transcripts), `logs.py` (grade existing transcripts), `service.py` (shared by CLI +
+    MCP; resume, stalled-run detection), `cli.py`.
   - `backends/resolve.py` — target/grader spec strings (`ollama:<m>`, `claude-cli:<m>`, `host`,
     `ollama-prob:<m>`) -> budgeted clients; `doctor()`. Never selects a metered path.
-  - `validate/` — oracles, IFEval-lite, baselines, importers, evidence experiments, claims registry.
+  - `validate/` — oracles, IFEval-lite, baselines, importers, evidence experiments, claims registry,
+    `judge_eval.py` (grader vs deterministic oracles on real transcripts), `trust_report.py`
+    (GENERATES `TRUST_REPORT.md` + `frontend/src/content/evidence.json` from `evals/`; a test
+    fails if they drift — regenerate with `python -m fusion.validate.trust_report`).
   - `integrations/` — `mcp_server.py` + `run_tools.py` (MCP v2), `agent_tools.py` (one-shot tools),
     `claude_hooks.py` (fusion-guard PreToolUse/PostToolUse), `live.py`.
 - `plugins/fusion/` — Claude Code plugin (skills audit/grade/harden/setup/guard, `fusion-judge`
@@ -70,6 +76,10 @@ python -m fusion.cli doctor                                          # keyless b
 python -m fusion.cli run start --prompt p.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
 python -m fusion.cli run finalize && python -m fusion.cli run verify # card + offline re-derivation
 python scripts/run_evidence.py run|analyze --n 30                    # oracle-labelled evidence (local)
+python scripts/judge_eval.py prepare|grade|score --workspace W --run-id R   # grader vs oracle (Q1)
+python -m fusion.cli run logs --file logs.jsonl --check everything   # grade existing transcripts
+python -m fusion.cli import-promptfoo results.json                   # honest stats on promptfoo output
+python -m fusion.validate.trust_report                               # regenerate TRUST_REPORT.md
 claude plugin validate plugins/fusion                                # plugin manifest check
 ```
 
