@@ -84,6 +84,7 @@ async def generate(
     seed: int = 7,
     on_progress: Callable[[str], None] | None = None,
     stop_after: int | None = None,
+    max_tokens_for: Callable[[EvidenceItem], int] | None = None,
 ) -> dict:
     """Run every (model, item, arm) not yet recorded successfully. Returns counts.
 
@@ -106,9 +107,10 @@ async def generate(
         if stop_after is not None and counts["generated"] + counts["errored"] >= stop_after:
             break
         client = clients.setdefault(model, client_for(model))
+        cap = max_tokens_for(item) if max_tokens_for else max_tokens
         req = ModelRequest(
             role=ModelRole.TARGET, system=system, messages=[{"role": "user", "content": item.user}],
-            max_tokens=max_tokens, temperature=0.0, seed=seed, model_id=model,
+            max_tokens=cap, temperature=0.0, seed=seed, model_id=model,
         )
         started = time.monotonic()
         try:
@@ -117,7 +119,7 @@ async def generate(
                 experiment=item.experiment, item_id=item.item_id, model=model, arm=arm,
                 system_sha256=prompt_sha, response=resp.text, truncated=resp.truncated,
                 latency_s=resp.latency_s or round(time.monotonic() - started, 3),
-                served_model=resp.served_model, seed=seed, max_tokens=max_tokens,
+                served_model=resp.served_model, seed=seed, max_tokens=cap,
             )
             counts["generated"] += 1
         except Exception as exc:  # noqa: BLE001 — isolatable failures are recorded, fatal ones stop
@@ -126,7 +128,7 @@ async def generate(
             rec = TranscriptRecord(
                 experiment=item.experiment, item_id=item.item_id, model=model, arm=arm,
                 system_sha256=prompt_sha, response=None, error=f"{type(exc).__name__}: {exc}"[:300],
-                seed=seed, max_tokens=max_tokens,
+                seed=seed, max_tokens=cap,
             )
             counts["errored"] += 1
         store.append(rec)

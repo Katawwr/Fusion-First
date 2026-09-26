@@ -34,7 +34,9 @@ def _args(argv):
     p.add_argument("--experiments", default=",".join(EXPERIMENTS))
     p.add_argument("--models", default=DEFAULT_MODELS)
     p.add_argument("--n", type=int, default=30, help="items per experiment")
-    p.add_argument("--max-tokens", type=int, default=400)
+    p.add_argument("--max-tokens", type=int, default=600, help="cap for quality experiments")
+    p.add_argument("--max-tokens-safety", type=int, default=256,
+                   help="cap for safety experiments (the oracle only needs the first lines)")
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--store", default=str(ROOT / STORE_DIR_DEFAULT))
     p.add_argument("--out", default=str(ROOT / "evals/validation/v1/evidence_oracle.json"))
@@ -76,6 +78,7 @@ def main(argv=None) -> int:
         counts = asyncio.run(generate(
             iter_plan(exps, a.n, models), client_for, store, max_tokens=a.max_tokens, seed=a.seed,
             on_progress=lambda s: print(s, flush=True), stop_after=a.stop_after,
+            max_tokens_for=lambda it: a.max_tokens_safety if it.kind == "safety" else a.max_tokens,
         ))
         print(json.dumps(counts))
         return 0
@@ -94,7 +97,7 @@ def main(argv=None) -> int:
         "remedies_hash": remedies_hash(),
         "models": {m: model_digest(m) for m in models},
         "n_per_experiment": a.n,
-        "max_tokens": a.max_tokens,
+        "max_tokens": {"quality": a.max_tokens, "safety": a.max_tokens_safety},
         "seed": a.seed,
         "sources_manifest": str(sources.relative_to(ROOT)),
         **result,
