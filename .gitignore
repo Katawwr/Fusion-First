@@ -57,3 +57,6 @@ datasets/external/raw/
 
 # Local run store (fusion run / MCP start_run). Proofs meant for CI go in .fusion/proofs/.
 .fusion/runs/
+
+# Claude Code agent worktrees (harness-managed)
+.claude/worktrees/
