@@ -35,6 +35,16 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
     tool-call policy), `policy.py` (GuardConfig), `client.py` (GuardedModelClient), `simulate.py`
     (replays attacks through the guard to prove issue-rate reduction).
   - `goldset.py`, `recording.py` — load gold/probes; record demo cassettes.
+  - `runs/` — the keyless run engine: `engine.py` (collect -> grade -> strict-replay finalize ->
+    verify; in-run grader accuracy on blind gold), `service.py` (shared by CLI + MCP), `cli.py`.
+  - `backends/resolve.py` — target/grader spec strings (`ollama:<m>`, `claude-cli:<m>`, `host`,
+    `ollama-prob:<m>`) -> budgeted clients; `doctor()`. Never selects a metered path.
+  - `validate/` — oracles, IFEval-lite, baselines, importers, evidence experiments, claims registry.
+  - `integrations/` — `mcp_server.py` + `run_tools.py` (MCP v2), `agent_tools.py` (one-shot tools),
+    `claude_hooks.py` (fusion-guard PreToolUse/PostToolUse), `live.py`.
+- `plugins/fusion/` — Claude Code plugin (skills audit/grade/harden/setup/guard, `fusion-judge`
+  agent limited to the grading tools); `plugins/fusion-guard/` — opt-in hooks. Marketplace:
+  `.claude-plugin/marketplace.json`. `tests/test_plugin.py` pins tool names against the server.
 - `app/` — thin Modal + FastAPI wrappers (the only place `modal` may appear). WIP.
 - `backend/main.py` — the legacy 6,664-line monolith being decomposed. Do not add features here.
 - `datasets/gold/`, `datasets/probes/` — jsonl gold set + paired probes (diffable, in git).
@@ -56,6 +66,11 @@ python scripts/fusion_cli.py prove  --check all --html report.html   # Safety Re
 python scripts/fusion_cli.py fix    --check excessive_agency         # print the guardrail block
 python scripts/fusion_cli.py harden --prompt my_prompt.txt --write   # AUTO-APPLY the fix in place
 python scripts/fusion_cli.py guard-proof --check all                 # runtime guardrail reduction
+python -m fusion.cli doctor                                          # keyless backends (no model calls)
+python -m fusion.cli run start --prompt p.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
+python -m fusion.cli run finalize && python -m fusion.cli run verify # card + offline re-derivation
+python scripts/run_evidence.py run|analyze --n 30                    # oracle-labelled evidence (local)
+claude plugin validate plugins/fusion                                # plugin manifest check
 ```
 
 Checks: `direct_prompt_injection`, `excessive_agency`, `data_exfiltration`, `system_prompt_leakage`

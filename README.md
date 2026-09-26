@@ -12,8 +12,8 @@ Covers the OWASP LLM Top 10 (2025) + Agentic AI (2026) risks:
 ## Install
 
 ```bash
-pip install fusion-safety            # core: harden, runtime guardrail, agent tools, CLI
-pip install "fusion-safety[mcp]"     # + MCP server for AI coding agents
+pip install fusion-safety            # core (keyless): runs, harden, runtime guardrail, CLI
+pip install "fusion-safety[mcp]"     # + MCP server (fusion-mcp) for AI coding agents
 ```
 
 > The `fusion` command, the runtime guardrail, `harden`, and the `check_output` / `check_tool_call`
@@ -21,25 +21,42 @@ pip install "fusion-safety[mcp]"     # + MCP server for AI coding agents
 > `prove`) read the committed corpora (`datasets/`, `cassettes/`, `crosswalk/`, `evals/`); run those
 > from a source checkout until the data ships bundled in the package.
 
-## Use it three ways
+## Use it without an API key
 
-**1. Command line / CI gate**
+Fusion tests a **real model running your prompt**: a local open-weight model through Ollama (free),
+or Claude through your `claude` CLI subscription. The judge is Claude Code itself (host-as-judge)
+or a built-in keyless grader, and every report card shows the grader's accuracy **measured in that
+run** on questions with known answers.
+
+**1. Claude Code plugin** (recommended): see `plugins/fusion/README.md`.
 
 ```bash
-fusion scan   --prompt system_prompt.txt        # grade it; see what got through
-fusion harden --prompt system_prompt.txt --write  # apply the fix in place
-fusion ci     --prompt system_prompt.txt --min-grade B --live   # exit 1 if unsafe (needs a live backend)
+claude plugin marketplace add /path/to/fusion && claude plugin install fusion@fusion-first
+# then in Claude Code:  /fusion:audit prompts/support_bot.md ollama:llama3.2:1b
+```
+
+**2. Command line / CI**
+
+```bash
+fusion doctor                                                    # what can run here, keyless
+fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
+fusion run start --prompt agent.txt --target ollama:llama3.2:1b  # grader=host: stops for grading
+fusion run tasks > tasks.json;  fusion run submit --file answers.json
+fusion run finalize --min-grade B                               # exit 1 below the bar
+fusion run verify                                               # re-derive offline; exit 1 on drift
+fusion harden --prompt agent.txt --write                        # apply the tested fix in place
 fusion guard-bench                              # benchmark the runtime guard (in-house corpus: 100% recall / 0% over-block)
 ```
 
-**2. Inside an AI coding agent (MCP)** — point Claude Code / Cursor at the server and it can grade,
-fix, and guard the prompt it just wrote:
+**MCP** (any client): `fusion-mcp` (stdio) exposes `fusion_doctor`, `start_run`, `run_status`,
+`get_grading_tasks`, `submit_grades`, `finalize_run`, `verify_run`, plus the one-shot
+`audit_agent` / `scan_prompt` / `harden_prompt` / `check_output` / `check_tool_call` tools.
 
 ```json
-{ "mcpServers": { "fusion-safety": { "command": "python", "args": ["-m", "fusion.integrations.mcp_server"] } } }
+{ "mcpServers": { "fusion": { "command": "fusion-mcp" } } }
 ```
 
-**3. Runtime guardrail in your agent code**
+**3. Runtime guardrail in your agent code** (and `plugins/fusion-guard` for Claude Code itself)
 
 ```python
 from fusion.guardrail.guard import Guardrail

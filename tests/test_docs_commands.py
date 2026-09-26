@@ -1,0 +1,44 @@
+"""Every `fusion …` command shown in the docs must parse with the real CLI parser (docs can't drift)."""
+
+from __future__ import annotations
+
+import pathlib
+import re
+import shlex
+
+import pytest
+
+from fusion.cli import build_parser
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+DOCS = ["README.md", "CLAUDE.md", "plugins/fusion/README.md", "plugins/fusion-guard/README.md"]
+
+
+def _commands():
+    for doc in DOCS:
+        text = (ROOT / doc).read_text(encoding="utf-8")
+        for block in re.findall(r"```(?:bash|sh)?\n(.*?)```", text, re.S):
+            for line in block.splitlines():
+                line = line.split(" #")[0].strip()
+                for part in re.split(r"&&|;|\|", line):
+                    part = re.sub(r"\s[<>]\s*\S+", "", part).strip()
+                    for prefix in ("python -m fusion.cli ", "fusion "):
+                        if part.startswith(prefix):
+                            yield doc, part[len(prefix):]
+
+
+CASES = list(_commands())
+
+
+@pytest.mark.unit
+def test_docs_show_fusion_commands():
+    assert len(CASES) >= 10
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("doc, argv", CASES, ids=[f"{d}:{a[:40]}" for d, a in CASES])
+def test_documented_command_parses(doc, argv):
+    try:
+        build_parser().parse_args(shlex.split(argv))
+    except SystemExit as e:  # argparse exits on error
+        pytest.fail(f"{doc}: `fusion {argv}` does not parse (exit {e.code})")
