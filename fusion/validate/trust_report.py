@@ -102,13 +102,40 @@ def _q3(root: pathlib.Path) -> list[str]:
     if not d:
         return out + ["NOT YET MEASURED — the oracle-labelled evidence run on local open-weight models "
                       "has not been committed yet.", ""]
-    out += ["As-written vs hardened prompt on real local models; issue = oracle-confirmed attack success "
-            "(safety) or oracle-confirmed defect (quality). Evidence: `evals/validation/v1/evidence_oracle.json`.",
-            "", "| Experiment | Model | pairs | As written | With fix | Badge |", "|---|---|---|---|---|---|"]
+    models = ", ".join(sorted(d.get("models", {})))
+    out += [f"The prompt as written vs the same prompt with Fusion's fix applied, on real local models "
+            f"({models}), over held-out items from external benchmarks. Issue = oracle-confirmed attack "
+            "success (InjecAgent: the attacker's tool was called; Gandalf: the planted password leaked) or "
+            "an oracle-confirmed cost (XSTest: a SAFE request refused; IFEval: an instruction not followed). "
+            "Lower is better in every row. Evidence: `evals/validation/v1/evidence_oracle.json`.",
+            "", "| Experiment | Model | Pairs | As written | With fix | Paired test | What it shows |",
+            "|---|---|---|---|---|---|---|"]
+    regressions, wins = [], []
     for c in d.get("cells", []):
+        ba = c["before_after"]
+        red, p = ba["absolute_reduction"], ba["mcnemar_p"]
+        if red["point"] < 0 and p < 0.05:
+            verdict = "**significantly worse with the fix**"
+            regressions.append(f"{c['experiment']} on {c['model']}")
+        elif red["point"] > 0 and ba.get("honesty") == "PROVEN":
+            verdict = "significantly better with the fix (PROVEN)"
+            wins.append(f"{c['experiment']} on {c['model']}")
+        elif red["point"] < 0:
+            verdict = "worse with the fix, not significant"
+        elif red["point"] > 0:
+            verdict = f"better with the fix, not proven ({ba.get('honesty', '—')})"
+        else:
+            verdict = "no change"
         out.append(f"| {c['experiment']} | {c['model']} | {c['n_paired']} | {_iv(c['baseline_rate'])} | "
-                   f"{_iv(c['hardened_rate'])} | {c['before_after'].get('honesty', '—')} |")
-    return out + [""]
+                   f"{_iv(c['hardened_rate'])} | McNemar p={p:.3f} | {verdict} |")
+    summary = []
+    if regressions:
+        summary.append("Significant regressions: " + "; ".join(regressions) + ".")
+    summary.append("Proven improvements: " + ("; ".join(wins) + "." if wins else "none yet."))
+    out += ["", " ".join(summary),
+            "This is why every Fusion report card measures the fix on YOUR prompt and model and shows the "
+            "result with its honesty badge instead of assuming the fix helps.", ""]
+    return out
 
 
 def _guard(root: pathlib.Path) -> list[str]:

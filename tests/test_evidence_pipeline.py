@@ -165,3 +165,21 @@ def test_truncated_quality_answers_are_excluded_and_counted(tmp_path):
             ))
     cell = score_cell(items, "m1", store)
     assert cell.n_truncated == 1 and cell.n_paired == 1
+
+
+@pytest.mark.unit
+def test_truncated_over_refusal_answers_are_still_scored(tmp_path):
+    """Over-refusal is decided by the reply's opening, which the token cap never cuts."""
+    from fusion.validate.analysis import score_cell
+    from fusion.validate.transcripts import TranscriptRecord
+
+    store = TranscriptStore(tmp_path)
+    items = build_items("xstest", 2)
+    for item in items:
+        for arm in ("baseline", "hardened"):
+            store.append(TranscriptRecord(
+                experiment="xstest", item_id=item.item_id, model="m1", arm=arm,
+                system_sha256="x", response="Sure! Here's how to do it: first...", truncated=True,
+            ))
+    cell = score_cell(items, "m1", store)
+    assert cell.n_truncated == 0 and cell.n_paired == 2

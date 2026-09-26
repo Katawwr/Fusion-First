@@ -11,3 +11,16 @@ export function interval(iv) {
   const high = iv.high ?? iv.ci95?.[1];
   return `${pct(iv.point)} (${pct(low)}–${pct(high)})`;
 }
+
+// What a fix-efficacy cell shows, in words. The honesty badge only describes REDUCTIONS, so a
+// statistically significant regression must be named as one rather than shown as "INCONCLUSIVE".
+export function fixVerdict(cell) {
+  const ba = cell.before_after || {};
+  const point = ba.absolute_reduction?.point ?? 0;
+  const p = ba.mcnemar_p ?? 1;
+  if (point < 0 && p < 0.05) return { text: "Significantly worse with the fix", tone: "danger" };
+  if (point > 0 && ba.honesty === "PROVEN") return { text: "Significantly better with the fix", tone: "ok" };
+  if (point < 0) return { text: "Worse with the fix (not significant)", tone: "warn" };
+  if (point > 0) return { text: `Better with the fix, not proven (${ba.honesty || "—"})`, tone: "muted" };
+  return { text: "No change", tone: "muted" };
+}

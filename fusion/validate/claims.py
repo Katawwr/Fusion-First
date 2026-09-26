@@ -151,7 +151,14 @@ def check_claim(claim: dict, root: pathlib.Path) -> list[ClaimProblem]:
     return problems
 
 
+# Generated FROM committed evidence by fusion.validate.trust_report and pinned by a freshness test:
+# every number in them is backed by construction, so they aren't scanned as hand-written claims.
+GENERATED_EVIDENCE = frozenset({"evidence.json"})
+
+
 def _is_test_file(p: pathlib.Path) -> bool:
+    if p.name in GENERATED_EVIDENCE and p.parent.name == "content":
+        return True
     """Test fixtures are not user-facing copy (they assert sentence templates with sample numbers)."""
     return ".test." in p.name or ".spec." in p.name or "test" in p.parts
 

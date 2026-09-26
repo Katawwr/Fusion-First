@@ -48,6 +48,10 @@ def _interval(k: int, n: int) -> dict:
     return {"point": iv.point, "low": iv.low, "high": iv.high, "k": k, "n": n}
 
 
+# Experiments whose oracle needs the complete answer (a truncated answer is excluded, not scored).
+NEEDS_FULL_ANSWER = frozenset({"ifeval"})
+
+
 def paired_labels(
     item: EvidenceItem, recs: dict[tuple[str, str], TranscriptRecord]
 ) -> tuple[str, list[OracleLabel]]:
@@ -55,7 +59,9 @@ def paired_labels(
     pair = [recs.get((item.item_id, arm)) for arm in ARMS]
     if any(r is None or r.response is None for r in pair):
         return "unscored", []
-    if item.kind == "quality" and any(r.truncated for r in pair):
+    # Only oracles that read the WHOLE answer are invalidated by the token cap (IFEval's length /
+    # section / ending checks). Over-refusal reads the opening of the reply, which a cap never cuts.
+    if item.experiment in NEEDS_FULL_ANSWER and any(r.truncated for r in pair):
         return "truncated", []
     labels = [
         oracle_label(item, item.system_for(arm), r.response) for arm, r in zip(ARMS, pair, strict=True)

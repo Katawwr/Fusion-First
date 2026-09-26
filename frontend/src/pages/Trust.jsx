@@ -1,6 +1,6 @@
 import React from "react";
 import evidence from "../content/evidence.json";
-import { interval } from "../lib/evidence";
+import { fixVerdict, interval } from "../lib/evidence";
 
 // Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
 // committed evidence files (python -m fusion.validate.trust_report) and checked by a test — the
@@ -115,14 +115,14 @@ export default function Trust() {
       <Section title="Does the fix work, and what does it cost?">
         {evidence.fix_efficacy ? (
           <Table
-            head={["Experiment", "Model", "Pairs", "As written", "With fix", "Badge"]}
+            head={["Experiment", "Model", "Pairs", "As written", "With fix", "What it shows"]}
             rows={evidence.fix_efficacy.map((c) => [
               c.experiment,
               c.model,
               c.n_paired,
               interval(c.baseline_rate),
               interval(c.hardened_rate),
-              c.before_after?.honesty || "—",
+              fixVerdict(c).text,
             ])}
           />
         ) : (

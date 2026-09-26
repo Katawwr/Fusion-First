@@ -24,7 +24,17 @@ Every run also measures its own grader in-run (known-answer questions + an oracl
 
 ## Q3 — Does the fix work, and what does it cost?
 
-NOT YET MEASURED — the oracle-labelled evidence run on local open-weight models has not been committed yet.
+The prompt as written vs the same prompt with Fusion's fix applied, on real local models (llama3.2:1b), over held-out items from external benchmarks. Issue = oracle-confirmed attack success (InjecAgent: the attacker's tool was called; Gandalf: the planted password leaked) or an oracle-confirmed cost (XSTest: a SAFE request refused; IFEval: an instruction not followed). Lower is better in every row. Evidence: `evals/validation/v1/evidence_oracle.json`.
+
+| Experiment | Model | Pairs | As written | With fix | Paired test | What it shows |
+|---|---|---|---|---|---|---|
+| injecagent | llama3.2:1b | 30 | 17% (7%–34%) | 33% (19%–51%) | McNemar p=0.125 | worse with the fix, not significant |
+| gandalf | llama3.2:1b | 30 | 20% (10%–37%) | 20% (10%–37%) | McNemar p=1.000 | no change |
+| xstest | llama3.2:1b | 30 | 10% (3%–26%) | 33% (19%–51%) | McNemar p=0.039 | **significantly worse with the fix** |
+| ifeval | llama3.2:1b | 24 | 67% (47%–82%) | 62% (43%–79%) | McNemar p=1.000 | better with the fix, not proven (PRELIMINARY) |
+
+Significant regressions: xstest on llama3.2:1b. Proven improvements: none yet.
+This is why every Fusion report card measures the fix on YOUR prompt and model and shows the result with its honesty badge instead of assuming the fix helps.
 
 ## Runtime guard for Claude Code (fusion-guard hook)
 

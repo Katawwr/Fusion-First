@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Trust from "./Trust";
-import { interval, pct } from "../lib/evidence";
+import { fixVerdict, interval, pct } from "../lib/evidence";
 import evidence from "../content/evidence.json";
 
 describe("Trust page", () => {
@@ -27,5 +27,14 @@ describe("Trust page", () => {
     for (const j of evidence.judge_accuracy) {
       expect(screen.getAllByText(interval(j.accuracy)).length).toBeGreaterThan(0);
     }
+  });
+
+  it("names a significant regression instead of calling it inconclusive", () => {
+    const worse = { before_after: { absolute_reduction: { point: -0.23 }, mcnemar_p: 0.039, honesty: "INCONCLUSIVE" } };
+    const noisy = { before_after: { absolute_reduction: { point: -0.17 }, mcnemar_p: 0.125, honesty: "INCONCLUSIVE" } };
+    const proven = { before_after: { absolute_reduction: { point: 0.4 }, mcnemar_p: 0.001, honesty: "PROVEN" } };
+    expect(fixVerdict(worse).text).toMatch(/Significantly worse/);
+    expect(fixVerdict(noisy).text).toMatch(/not significant/);
+    expect(fixVerdict(proven).text).toMatch(/Significantly better/);
   });
 });
