@@ -527,6 +527,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_run_parsers(sub)
 
+    pk = sub.add_parser("hook", help="Claude Code hook entry point (fusion-guard plugin): reads the event on stdin")
+    pk.add_argument("event", choices=["pre-tool-use", "post-tool-use"])
+
     ph = sub.add_parser("harden", help="auto-apply the safety guardrails to a system-prompt file")
     ph.add_argument("--prompt", required=True, help="path to the system-prompt text file")
     ph.add_argument("--check", default="all")
@@ -539,6 +542,15 @@ def _cmd_run(args) -> int:
     from fusion.runs.cli import cmd_run
 
     return cmd_run(args)
+
+
+def _cmd_hook(args) -> int:
+    from fusion.integrations.claude_hooks import run_hook
+
+    code, out = run_hook(args.event, sys.stdin.read())
+    if out:
+        print(out)
+    return code
 
 
 def _cmd_doctor(args) -> int:
@@ -564,6 +576,7 @@ def main(argv: list[str] | None = None) -> int:
         "guard-bench": cmd_guard_bench,
         "ci": cmd_ci,
         "run": _cmd_run,
+        "hook": _cmd_hook,
         "doctor": _cmd_doctor,
     }
     if getattr(args, "backend", None):
