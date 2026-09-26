@@ -101,7 +101,10 @@ _PRIVATE_V4 = re.compile(r"^(?:10\.|127\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.
 
 def is_internal(host: str, allow: list[str]) -> bool:
     h = host.lower().strip("[]")
-    if h in ("localhost", "::1") or h.endswith((".localhost", ".local", ".test", ".internal")):
+    if h in ("localhost", "::1") or h.endswith((".localhost", ".local", ".test", ".internal", ".lan",
+                                                 ".intranet", ".home.arpa")):
+        return True
+    if any(seg in h for seg in (".internal.", ".intranet.", ".corp.")):
         return True
     if _PRIVATE_V4.match(h):
         return True
@@ -114,10 +117,16 @@ _SOCKET_TARGET = re.compile(
 _SOCAT_TARGET = re.compile(r"\bsocat\b[^|;&]*?(?:tcp|udp|openssl)[\w-]*:([\w.\-]+)", re.I)
 
 
+_REMOTE_TOOLS = re.compile(r"(?:^|[|;&(]\s*|\s)(?:ssh|scp|sftp|rsync|git)\b", re.I)
+_DNS_TARGET = re.compile(r"(?:^|[|;&]\s*)(?:nslookup|dig|host)\b(?:\s+-\S+)*\s+[\"']?([^\s\"']+)", re.I)
+
+
 def _hosts(text: str) -> list[str]:
     hosts = [m.group(1) for m in _URL.finditer(text)]
     hosts += [m.group(1) for m in _SCP_REMOTE.finditer(text)]
-    hosts += [m.group(1) for m in _USER_AT_HOST.finditer(text)]
+    if _REMOTE_TOOLS.search(text):
+        hosts += [m.group(1) for m in _USER_AT_HOST.finditer(text)]
+    hosts += [m.group(1) for m in _DNS_TARGET.finditer(text)]
     hosts += [m.group(2) for m in _SOCKET_TARGET.finditer(text)]
     hosts += [m.group(1) for m in _SOCAT_TARGET.finditer(text)]
     return list(dict.fromkeys(h.lower() for h in hosts))
@@ -136,6 +145,44 @@ _SECRET_ENV = re.compile(
     r"(\$\{?|\$env:|%)[A-Za-z_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIALS?|PAT)\b", re.I
 )
 _ENV_DUMP = re.compile(r"(?:^|[|;&]\s*|\$\(\s*)(printenv|env|set|Get-ChildItem\s+env:|gci\s+env:|dir\s+env:)(?=\s*(?:$|[|;&)]))", re.I)
+_TOKENS = re.compile(
+    r"\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}|sk-ant-[A-Za-z0-9_\-]{20,}"
+    r"|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|glpat-[A-Za-z0-9_\-]{20,}"
+    r"|hf_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_\-]{35})")
+_CODE_SECRET = re.compile(r"process\.env|os\.environ|getenv\(|\bENV\[|\$ENV\{", re.I)
+
+
+def _has_secret(text: str) -> bool:
+    return contains_secret_strict(text) or bool(_TOKENS.search(text))
+
+
+# A secret env var sent to ITS OWN service is how APIs are used, not exfiltration.
+_SERVICE_HOSTS = {
+    "GITHUB": ("github.com", "githubusercontent.com"), "GH": ("github.com",), "STRIPE": ("stripe.com",),
+    "OPENAI": ("openai.com",), "ANTHROPIC": ("anthropic.com",), "AWS": ("amazonaws.com",),
+    "SLACK": ("slack.com",), "HF": ("huggingface.co",), "HUGGINGFACE": ("huggingface.co",),
+    "NPM": ("npmjs.org", "npmjs.com"), "GITLAB": ("gitlab.com",), "VERCEL": ("vercel.com",),
+    "SENTRY": ("sentry.io",), "DATADOG": ("datadoghq.com",), "DD": ("datadoghq.com",),
+    "CLOUDFLARE": ("cloudflare.com",), "CF": ("cloudflare.com",), "TWILIO": ("twilio.com",),
+    "SENDGRID": ("sendgrid.com",), "LINEAR": ("linear.app",), "NOTION": ("notion.com", "notion.so"),
+}
+_ENV_NAME = re.compile(r"(?:\$\{?|\$env:|%)([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _secret_to_own_service(cmd: str, external: list[str]) -> bool:
+    if not external or _SENSITIVE_PATH.search(cmd) or _ENV_DUMP.search(cmd) or _CODE_SECRET.search(cmd) \
+            or _has_secret(cmd):
+        return False
+    names = [n for n in _ENV_NAME.findall(cmd) if _SECRET_ENV.search("$" + n)]
+    if not names:
+        return False
+    for n in names:
+        suffixes = _SERVICE_HOSTS.get(n.upper().split("_")[0])
+        if not suffixes or not all(any(h == x or h.endswith("." + x) for x in suffixes) for h in external):
+            return False
+    return True
+
+
 _READERS = r"(?:cat|type|less|more|head|tail|bat|strings|xxd|base64|Get-Content|gc|grep|rg|awk|sed)"
 _SECRET_READ = re.compile(_READERS + r"\b[^|;&]*" + _SENSITIVE_PATH.pattern, re.I)
 
@@ -151,9 +198,33 @@ _PIPE_TO_SHELL = re.compile(
     r"\b(?:curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b[^|;&]*\|\s*(?:sudo\s+)?"
     r"(?:sh|bash|zsh|dash|ksh|iex|Invoke-Expression|python3?|node|perl|ruby)\b", re.I)
 
+_DOWNLOADER = re.compile(
+    r"\b(?:curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod|urlopen|urllib\.request|requests\.get"
+    r"|DownloadString|DownloadFile|Net\.WebClient)\b|\bfetch\(|\bhttps?\.get\(", re.I)
+_EVALUATOR = re.compile(
+    r"\|\s*(?:sudo\s+)?(?:sh|bash|zsh|dash|ksh|python3?|node|perl|ruby)\b|<\(|\bIEX\b|\bInvoke-Expression\b"
+    r"|\bexec\(|\beval\b|\b(?:sh|bash)\s+-c\b", re.I)
+_B64_EXEC = re.compile(r"\bbase64\s+(?:-d|--decode|-D)\b[^;&]*\|\s*(?:sudo\s+)?(?:sh|bash|zsh|python3?|node)\b", re.I)
+_ONE_LINER = re.compile(r"\b(?:python3?|node|ruby|perl|php|deno)\s+-{1,2}(?:c|e|eval)\b", re.I)
+_DNS_EXFIL = re.compile(r"\b(?:nslookup|dig|host)\b[^|;&]*(?:\$\(|`)", re.I)
+_CLOUD_WIPE = re.compile(
+    r"\baws\s+s3\s+rm\b[^|;&]*--recursive|\baws\s+s3\s+rb\b[^|;&]*--force|\bgsutil\s+(?:-m\s+)?rm\s+-r"
+    r"|\baz\s+storage\s+(?:blob\s+delete-batch|container\s+delete)|\bterraform\s+destroy\b[^|;&]*-auto-approve"
+    r"|\bkubectl\s+delete\s+(?:ns|namespace)\b|\bdropDatabase\(\)|\bDROP\s+TABLE\b", re.I)
+_FIND_DELETE = re.compile(r"\bfind\s+(?:/|~|\$HOME)(?:\s|/\s)[^|;&]*-delete\b", re.I)
+_BRANCH_DELETE = re.compile(r"\bgit\s+push\b[^|;&]*(?:--delete\b|\s:\S)", re.I)
+_PROTECTED = re.compile(r"\b(?:main|master|trunk|develop|prod|production|stable|release[\w/.-]*)\b", re.I)
+_SEC_TAMPER = re.compile(
+    r"\bspctl\s+--master-disable|\bcsrutil\s+disable|\bsetenforce\s+0|Set-MpPreference[^|;&]*-Disable"
+    r"|Add-MpPreference[^|;&]*-Exclusion|\bufw\s+disable|netsh\s+advfirewall\s+set\s+\w+\s+state\s+off"
+    r"|\bsystemctl\s+(?:stop|disable)\s+(?:firewalld|apparmor|auditd)", re.I)
+
 _RM_RF = re.compile(r"(?:^|[|;&]\s*|sudo\s+)rm\s+((?:-{1,2}[\w-]+\s+)+)(.+)", re.I)
-_PS_RM = re.compile(r"\bRemove-Item\b(?=[^|;&]*-Recurse)[^|;&]*?\s(['\"]?(?:[A-Za-z]:\\?|~|\$HOME|\$env:USERPROFILE|/)['\"]?)(?:\s|$)", re.I)
-_DISK = re.compile(r"(?:^|[|;&]\s*|sudo\s+)(?:mkfs(?:\.\w+)?\b|dd\b[^|;&]*\bof=/dev/(?:sd|nvme|hd|disk)|format\s+[a-z]:|diskpart\b)", re.I)
+_PS_RM = re.compile(
+    r"\bRemove-Item\b(?=[^|;&]*-Recurse)[^|;&]*?\s(?:-(?:Literal)?Path\s+)?(['\"]?(?:[A-Za-z]:\\?\*?|~[\\/]?\*?"
+    r"|\$HOME[\\/]?\*?|\$env:USERPROFILE[\\/]?\*?|/\*?)['\"]?)(?:\s|$)", re.I)
+_DISK = re.compile(r"(?:^|[|;&]\s*|sudo\s+)(?:mkfs(?:\.\w+)?\b|dd\b[^|;&]*\bof=/dev/(?:sd|nvme|hd|disk)|format\s+[a-z]:|diskpart\b)"
+                   r"|\b(?:Format-Volume|Clear-Disk|Initialize-Disk)\b", re.I)
 _FORK_BOMB = re.compile(r":\s*\(\s*\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:")
 _CHMOD_ROOT = re.compile(r"\b(?:chmod|chown)\s+-R\s+\S+\s+/(?:\s|$)", re.I)
 _FORCE_PUSH = re.compile(r"\bgit\s+push\b[^|;&]*(?:\s--force\b|\s-f\b|\s--force-with-lease\b|\s\+\S+)", re.I)
@@ -182,8 +253,12 @@ def analyze_bash(command: str, allow: list[str]) -> list[Finding]:
     hosts = _hosts(cmd)
     external = [h for h in hosts if not is_internal(h, allow)]
     secret_src = bool(_SENSITIVE_PATH.search(cmd) or _SECRET_ENV.search(cmd) or _ENV_DUMP.search(cmd)
-                      or contains_secret_strict(cmd))
-    upload = bool(_CURL_UPLOAD.search(cmd) or _WGET_UPLOAD.search(cmd) or _PS_UPLOAD.search(cmd))
+                      or _CODE_SECRET.search(cmd) or _has_secret(cmd))
+    if secret_src and _secret_to_own_service(cmd, external):
+        secret_src = False  # e.g. $GITHUB_TOKEN sent to api.github.com
+    one_liner_net = bool(_ONE_LINER.search(cmd)) and bool(external)
+    upload = bool(_CURL_UPLOAD.search(cmd) or _WGET_UPLOAD.search(cmd) or _PS_UPLOAD.search(cmd)
+                  or (one_liner_net and re.search(r"post|request|urlopen|fetch|\.get\(|send", cmd, re.I)))
     raw = bool(_RAW_SOCKET.search(cmd))
     copy_out = bool(_COPY_OUT.search(cmd)) and bool(_SCP_REMOTE.search(cmd))
 
@@ -200,12 +275,18 @@ def analyze_bash(command: str, allow: list[str]) -> list[Finding]:
         out.append(Finding("egress.secret_in_request", "high",
                            f"a request to {external} carries secret material (secret file / env var / key)",
                            "data_exfiltration", "LLM02"))
+    elif _DNS_EXFIL.search(cmd):
+        out.append(Finding("egress.dns", "high" if secret_src else "medium",
+                           "smuggles data out through a DNS lookup of a computed hostname",
+                           "data_exfiltration", "LLM02"))
     elif _SECRET_READ.search(cmd) or _ENV_DUMP.search(cmd):
         out.append(Finding("secret.read", "low", "reads a credential file or dumps environment variables",
                            "data_exfiltration", "LLM02"))
 
-    if _PIPE_TO_SHELL.search(cmd) and any(not is_internal(h, allow) for h in hosts or ["?"]):
-        out.append(Finding("exec.remote_script", "medium", "pipes a downloaded script straight into a shell",
+    remote_exec = (_PIPE_TO_SHELL.search(cmd) or (_DOWNLOADER.search(cmd) and _EVALUATOR.search(cmd)))
+    if (remote_exec and any(not is_internal(h, allow) for h in hosts or ["?"])) or _B64_EXEC.search(cmd):
+        out.append(Finding("exec.remote_script", "medium",
+                           "runs code it downloads (or decodes) without anyone reading it first",
                            "excessive_agency", "LLM06"))
     m = _RM_RF.search(cmd)
     if (m and _rm_is_catastrophic(m.group(1), m.group(2))) or _PS_RM.search(cmd):
@@ -215,10 +296,39 @@ def analyze_bash(command: str, allow: list[str]) -> list[Finding]:
         out.append(Finding("destroy.system", "high", "disk format / raw disk write / fork bomb / chmod of /",
                            "excessive_agency", "LLM06"))
     if _FORCE_PUSH.search(cmd):
-        out.append(Finding("destroy.force_push", "medium", "force-pushes, rewriting remote history",
+        protected = bool(_PROTECTED.search(cmd.split("push", 1)[-1]))
+        lease = "--force-with-lease" in cmd
+        if protected:
+            out.append(Finding("destroy.force_push", "high", "force-pushes over a protected branch (main/release…)",
+                               "excessive_agency", "LLM06"))
+        elif not lease:
+            out.append(Finding("destroy.force_push", "medium" if not re.search(r"push\s+\S+\s+\S", cmd) else "low",
+                               "force-pushes, rewriting remote history", "excessive_agency", "LLM06"))
+    if re.search(r"\bgit\s+(?:push|remote\s+(?:add|set-url))\b", cmd) and external:
+        whole = bool(re.search(r"--all\b|--mirror\b|--tags\b", cmd))
+        out.append(Finding("egress.repo", "high" if whole else "medium",
+                           f"sends the repository to a remote on an unknown host {external}",
+                           "data_exfiltration", "LLM02"))
+    if _BRANCH_DELETE.search(cmd):
+        bulk = bool(re.search(r"\bxargs\b|\bfor\b|\bwhile\b", cmd))
+        protected = bool(_PROTECTED.search(cmd.split("push", 1)[-1]))
+        if bulk or protected:
+            out.append(Finding("destroy.remote_branch", "high" if protected else "medium",
+                               "deletes remote branches" + (" in bulk" if bulk else " (protected)"),
+                               "excessive_agency", "LLM06"))
+    if _CLOUD_WIPE.search(cmd):
+        out.append(Finding("destroy.data", "high", "deletes a bucket, database, namespace or infrastructure",
                            "excessive_agency", "LLM06"))
-    if _SQL_DROP.search(cmd):
-        out.append(Finding("destroy.sql_drop", "medium", "drops or truncates a database", "excessive_agency", "LLM06"))
+    if _FIND_DELETE.search(cmd):
+        out.append(Finding("destroy.rm_root", "high", "mass-deletes files from / or the home directory",
+                           "excessive_agency", "LLM06"))
+    if _SEC_TAMPER.search(cmd):
+        out.append(Finding("tamper.security", "medium", "turns off a system security control (AV, firewall, Gatekeeper…)",
+                           "excessive_agency", "LLM06"))
+    if _SQL_DROP.search(cmd) and not _CLOUD_WIPE.search(cmd):
+        prod = bool(re.search(r"\bprod(?:uction)?\b", cmd, re.I))
+        out.append(Finding("destroy.sql_drop", "high" if prod else "medium", "drops or truncates a database",
+                           "excessive_agency", "LLM06"))
     if _AUTH_KEYS.search(cmd) and _WRITES.search(cmd):
         out.append(Finding("persist.ssh_key", "high", "writes to ~/.ssh/authorized_keys", "excessive_agency", "LLM06"))
     elif _PERSIST.search(cmd):
@@ -241,7 +351,7 @@ def analyze_webfetch(url: str, allow: list[str], tainted: bool) -> list[Finding]
     hosts = [h for h in _hosts(url or "") if not is_internal(h, allow)]
     if not hosts:
         return []
-    if contains_secret_strict(url) or _SECRET_ENV.search(url):
+    if _has_secret(url) or _SECRET_ENV.search(url):
         return [Finding("egress.secret_in_url", "high", f"URL to {hosts} carries a secret",
                         "data_exfiltration", "LLM02")]
     if _QUERY_BLOB.search(url):
@@ -262,7 +372,15 @@ def analyze_file_write(path: str, content: str) -> list[Finding]:
     elif re.search(r"(^|/)\.(bashrc|zshrc|profile|bash_profile)$", p):
         out.append(Finding("persist.autostart", "medium", f"edits a shell startup file ({p})",
                            "excessive_agency", "LLM06"))
-    if content and contains_secret_strict(content) and not re.search(r"(^|/)\.env(\.[\w.]+)?$", p):
+    elif re.search(r"Library/Launch(?:Agents|Daemons)/|(^|/)\.git/hooks/|^/etc/(?:cron|systemd|rc\.local)"
+                   r"|\.config/(?:systemd|autostart)/|Start Menu/Programs/Startup", p, re.I):
+        out.append(Finding("persist.autostart", "medium", f"writes something that runs automatically ({p})",
+                           "excessive_agency", "LLM06"))
+    elif re.search(r"(^|/)package\.json$", p) and re.search(
+            r'"(?:pre|post)?install"\s*:\s*"[^"]*(?:curl|wget|iwr|node\s+-e|python3?\s+-c|\|\s*(?:sh|bash))', content or "", re.I):
+        out.append(Finding("persist.install_hook", "medium", "adds an install hook that downloads or runs code",
+                           "excessive_agency", "LLM06"))
+    if content and _has_secret(content) and not re.search(r"(^|/)\.env(\.[\w.]+)?$", p):
         out.append(Finding("secret.in_file", "low", f"writes what looks like a live secret into {p}",
                            "data_exfiltration", "LLM02"))
     return out
@@ -275,6 +393,13 @@ def analyze_mcp(tool_name: str, arguments: dict, allow: list[str]) -> list[Findi
     if _OWN_TOOLS.match(tool_name):
         return []
     short = tool_name.rsplit("__", 1)[-1]
+    blob = json.dumps(arguments or {}, ensure_ascii=False)
+    persistent = re.search(r"schedul|cron|registry|\breg_|autostart|startup|launch_?agent|service|task", short, re.I) \
+        and re.search(r"create|add|set|write|register|enable|update|put", short + " " + blob[:200], re.I)
+    if persistent:
+        runs_code = bool((_DOWNLOADER.search(blob) and _EVALUATOR.search(blob)) or re.search(r"\\\\Run\b|\\Run\b", blob))
+        return [Finding("persist.mcp", "high" if runs_code else "medium",
+                        f"{tool_name}: creates something that runs automatically", "excessive_agency", "LLM06")]
     guard = Guardrail(GuardConfig(allowlisted_domains=list(allow), require_authorization=False))
     outcome = guard.guard_tool_call(short, arguments or {})
     out = []
