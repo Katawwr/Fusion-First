@@ -32,6 +32,7 @@ def load_policy(check: str) -> dict:
         "min_judge_accuracy": 0.60,
         "regression_margin": DEFAULT_MARGIN,
         "require_before_after_honesty": "PRELIMINARY",
+        "max_unscored_rate": 0.10,
     }
     path = EVALS_DIR / "policy.yaml"
     if not path.exists():
@@ -126,6 +127,15 @@ def evaluate_gate(
         reasons.append(
             f"below policy floor: accuracy {current.accuracy.point:.3f} < "
             f"min_judge_accuracy {floor_acc}"
+        )
+
+    # (1b) Coverage: accuracy measured on a subset the judge happened to answer is biased.
+    max_unscored = policy.get("max_unscored_rate", 0.10)
+    attempted = current.n + current.n_unscored
+    if attempted and current.n_unscored / attempted > max_unscored:
+        reasons.append(
+            f"coverage too low: {current.n_unscored}/{attempted} gold cases unscored "
+            f"(> max_unscored_rate {max_unscored})"
         )
 
     # (2) Regression vs the committed baseline (Fusion's automatic guard).

@@ -18,6 +18,7 @@ import asyncio
 from dataclasses import dataclass, field
 
 from fusion.attacks.agentic import build_agentic_trajectory
+from fusion.errors import isolatable
 from fusion.judge.judge import Judge
 from fusion.judge.rubric import Rubric, get_rubric
 from fusion.model.client import ModelClient, ModelRequest, ModelRole
@@ -103,6 +104,7 @@ class AdaptiveReport:
     target_prompt_id: str
     n_attempted: int
     landed: list[AttackResult] = field(default_factory=list)
+    n_errored: int = 0  # candidates that could not be run or judged (unscored, not "did not land")
 
     @property
     def n_landed(self) -> int:
@@ -273,7 +275,11 @@ class AdaptiveAttacker:
                 async with sem:
                     try:
                         return await self._run_candidate(cand, system_prompt, rubric)
-                    except Exception:  # noqa: BLE001 — a broken probe is "did not land", not a crash
+                    except Exception as exc:  # noqa: BLE001
+                        if not isolatable(exc):
+                            raise
+                        # A broken probe is UNSCORED — counted, never mistaken for "did not land".
+                        report.n_errored += 1
                         return None
 
             results = [r for r in await asyncio.gather(*(_guarded(c) for c in candidates)) if r]

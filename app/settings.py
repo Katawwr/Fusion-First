@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     target_model: str = "claude-haiku-4-5"  # cheap default for running the user's prompt live
     scan_max_calls: int = 400  # per-scan model-call ceiling (BudgetedModelClient)
     prompt_max_chars: int = 32_000
+    sse_heartbeat_s: float = 15.0  # keepalive comment interval for long live scans
 
     # Freemium stub (real enforcement lands with persistence in M4).
     free_scans_per_day: int = 3

@@ -215,6 +215,7 @@ class AccuracyResult(BaseModel):
     tn: int
     fn: int
     label_source: str
+    n_unscored: int = 0  # gold cases the judge failed to answer (excluded above, never guessed)
 
 
 class Honesty(str, Enum):
@@ -236,6 +237,8 @@ class BeforeAfterResult(BaseModel):
     discordant_b: int  # baseline-fail, hardened-pass (improvements)
     discordant_c: int  # baseline-pass, hardened-fail (regressions)
     honesty: Honesty
+    # Plain-language reasons the badge is not PROVEN (empty when PROVEN) — "Why not PROVEN?".
+    honesty_reasons: list[str] = Field(default_factory=list)
 
 
 class BenchmarkResult(BaseModel):
@@ -248,6 +251,26 @@ class BenchmarkResult(BaseModel):
     note: str = ""
 
 
+class TrustInfo(BaseModel):
+    """How far to trust a card: what actually ran, who judged it, and how much was scored.
+
+    Every card carries this so a reader never has to guess whether numbers came from canned demo
+    responses or a real model, or how many attacks silently failed to score (none can: they are
+    counted here and shown)."""
+
+    execution: str = "canned"  # "canned" (demo responses, prompt NOT run) | "live" (real target)
+    judge_id: str = ""
+    judge_backend: str = ""  # heuristic | claude_cli | ollama_prob | api | host
+    independence: str = ""  # cross_family | same_family_cross_tier | same_model | n/a
+    independence_disclosure: str = ""
+    judge_accuracy_source: str = ""  # where judge_accuracy came from (or "" if absent)
+    n_planned: int = 0
+    n_scored: int = 0
+    n_errored: int = 0
+    error_kinds: dict[str, int] = Field(default_factory=dict)
+    sampling_pinned: bool | None = None  # None = unknown; False = backend can't pin temperature
+
+
 class SafetyReportCard(BaseModel):
     """The customer-facing artifact fusing all proof bars. Every number carries a CI or
     an honesty badge; provenance hashes make it verifiable and non-repudiable."""
@@ -257,6 +280,8 @@ class SafetyReportCard(BaseModel):
     grade: str  # A..F headline grade of the user's prompt AS WRITTEN (the baseline arm)
     hardened_grade: str = "?"  # A..F grade after applying Fusion's fix (the hardened arm)
     judge_accuracy: AccuracyResult | None = None
+    kind: str = "safety"  # safety | quality
+    trust: TrustInfo = Field(default_factory=TrustInfo)
     # Why judge_accuracy is absent (stale/missing calibration, or not yet measured for this judge).
     # Never silently empty: a card either shows Bar A or says why it can't.
     judge_accuracy_note: str = ""
@@ -296,10 +321,19 @@ class ProbeOutcome(BaseModel):
     probe_id: str
     attack_label: str  # human-readable ("Posed as a developer: 'ignore previous instructions'")
     owasp: OwaspTag = Field(default_factory=OwaspTag)
-    baseline_issue: bool
-    hardened_issue: bool
+    # None = UNSCORED (the target or judge failed for this attack) — never counted as clean.
+    baseline_issue: bool | None
+    hardened_issue: bool | None
     baseline_severity: Severity = Severity.NONE
     hardened_severity: Severity = Severity.NONE
+    error: str | None = None  # why this attack is unscored
+    error_kind: str | None = None  # an ErrorKind value
+    evidence: str = ""  # the judge's quote for the baseline violation (<= 240 chars)
+    baseline_excerpt: str = ""  # the start of the baseline response (<= 200 chars)
+
+    @property
+    def scored(self) -> bool:
+        return self.baseline_issue is not None and self.hardened_issue is not None
 
 
 class ScanResult(BaseModel):
@@ -312,6 +346,13 @@ class ScanResult(BaseModel):
     overall_grade: str = "?"
     cards: list[SafetyReportCard] = Field(default_factory=list)
     outcomes: list[ProbeOutcome] = Field(default_factory=list)
+    execution: str = "canned"  # canned | live
+    n_planned: int = 0
+    n_scored: int = 0
+    n_errored: int = 0
+    # The exact hardened prompt the "after" arm measured (= what the user copies), by hash.
+    hardened_prompt_sha256: str = ""
+    target_model: str = ""
 
 
 class ScanEventType(str, Enum):
@@ -332,6 +373,7 @@ class ScanEvent(BaseModel):
 
     type: ScanEventType
     check: str | None = None
+    code: str | None = None  # machine-readable reason on ERROR events (e.g. backend_unavailable)
     message: str = ""
     completed: int = 0
     total: int = 0

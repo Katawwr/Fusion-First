@@ -139,7 +139,7 @@ def build_live_scan_kwargs(
 ) -> dict:
     """The kwargs `run_user_scan` expects for a live scan (subscription CLI or Ollama; API only on
     explicit opt-in)."""
-    target, judge, judge_model, _choice = build_live_clients(
+    target, judge, judge_model, choice = build_live_clients(
         target_model, max_calls=max_calls, prefer=prefer
     )
     return {
@@ -148,4 +148,23 @@ def build_live_scan_kwargs(
         "target_client": target,
         "target_model_id": target_model,
         "judge_model": judge_model,
+        **judge_trust_kwargs(judge, choice),
+    }
+
+
+def judge_trust_kwargs(judge_client, choice) -> dict:
+    """What the report card must disclose about the judge that actually runs: its backend, its
+    independence from the target, and whether sampling can be pinned (the CLI can't set temperature)."""
+    inner = getattr(judge_client, "inner", judge_client)
+    name = type(inner).__name__
+    backend = {
+        "ClaudeCliModelClient": "claude_cli",
+        "AnthropicModelClient": "api_anthropic",
+        "OpenAIModelClient": "api_openai",
+        "OllamaModelClient": "ollama",
+    }.get(name, name)
+    return {
+        "judge_choice": choice,
+        "judge_backend": backend,
+        "sampling_pinned": bool(getattr(inner, "controls_sampling", True)),
     }

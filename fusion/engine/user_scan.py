@@ -1,27 +1,40 @@
-"""User-prompt scan: the web-app pipeline that turns a pasted system prompt into a Safety Report.
+"""User-prompt scan: the pipeline that turns a pasted system prompt into graded report cards.
 
 For each requested check we run every attack template against two arms of the user's prompt —
-baseline (as pasted) and hardened (`apply_fix` applied) — judge both, and fold the results into
-the existing paired statistics and report card. The whole thing is emitted as a stream of
-`ScanEvent`s so the HTTP layer can show live progress without the engine knowing about HTTP.
+baseline (as pasted) and hardened — judge both, and fold the results into the paired statistics
+and report card. Everything is emitted as a stream of `ScanEvent`s so the HTTP layer can show live
+progress without the engine knowing about HTTP.
 
 Two modes, one pipeline:
-  - DEMO (keyless, deterministic): the arms use the templates' canned responses and the judge is
-    the offline heuristic, replayed through the real Judge code path via a trajectory cassette.
-    Every card is stamped `demonstration=True`.
-  - LIVE (real keys): the user's prompt is run through a real target model to produce each arm's
-    response, and a real judge scores them. Cards are real (`demonstration=False`).
+  - DEMO (keyless, deterministic): the arms use the templates' canned responses (the user's prompt
+    is NOT run) and the judge is the offline heuristic replayed through the real Judge code path.
+    Every card is stamped `demonstration=True` and `trust.execution="canned"`.
+  - LIVE: the user's prompt runs through a real target model and a real judge scores it.
+
+Reliability contract (what makes a live scan trustworthy rather than fragile):
+  * The hardened arm measures EXACTLY the prompt the user copies: `apply_fix(prompt, checks)`
+    computed once (or an explicit `hardened_prompt`), never a per-check variant.
+  * One failed attack is recorded as UNSCORED (never clean, never a violation) and the scan goes
+    on; the card counts it (`trust.n_errored`). Run-level failures — budget or usage limit hit,
+    a strict-replay cassette miss, metered auth refused — stop the scan with an ERROR event.
+  * A circuit breaker stops a scan whose backend keeps failing (ERROR code backend_unavailable)
+    instead of grinding through every attack.
+  * Every stream ends with exactly one SCAN_COMPLETED or ERROR event.
 """
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import dataclass
 
 from fusion.attacks.taxonomy import Crosswalk
 from fusion.attacks.templates import AttackTemplate, select_templates
 from fusion.engine.fixes import apply_fix
 from fusion.engine.report import build_report_card
+from fusion.errors import ErrorKind, classify, isolatable
 from fusion.judge.judge import Judge
 from fusion.judge.rubric import get_rubric
 from fusion.model.client import ModelClient, ModelRequest, ModelRole
@@ -35,6 +48,7 @@ from fusion.schemas import (
     ScanResult,
     ScanTier,
     Trajectory,
+    TrustInfo,
     Verdict,
 )
 from fusion.stats.calibration import run_calibration
@@ -45,9 +59,67 @@ log = logging.getLogger(__name__)
 DEMO_JUDGE_MODEL = "demo-heuristic-judge"
 _GRADE_RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "F": 4, "?": 5}
 
+# (accuracy, gold_version, note, source) for a check + judge id.
+AccuracyProvider = Callable[[str, str], Awaitable[tuple[AccuracyResult | None, str, str, str]]]
+
 
 def _worst_grade(grades: list[str]) -> str:
     return max(grades, key=lambda g: _GRADE_RANK.get(g, 5)) if grades else "?"
+
+
+class ScanAbort(Exception):
+    """Internal: stop the scan with an ERROR event carrying `code` and a user-safe message."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+@dataclass
+class ErrorBreaker:
+    """Stops a scan whose backend keeps failing, instead of grinding through every attack.
+
+    Trips on `max_consecutive` errors in a row, or an error rate above `max_error_rate` once at
+    least `min_seen` attacks have finished."""
+
+    max_consecutive: int = 5
+    max_error_rate: float = 0.5
+    min_seen: int = 8
+    seen: int = 0
+    errors: int = 0
+    consecutive: int = 0
+
+    def record(self, ok: bool) -> bool:
+        """Record one finished attack; return True if the breaker has tripped."""
+        self.seen += 1
+        if ok:
+            self.consecutive = 0
+        else:
+            self.errors += 1
+            self.consecutive += 1
+        if self.consecutive >= self.max_consecutive:
+            return True
+        return self.seen >= self.min_seen and self.errors / self.seen > self.max_error_rate
+
+
+def _excerpt(text: str, n: int) -> str:
+    text = " ".join((text or "").split())
+    return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def _evidence(verdict: Verdict) -> str:
+    for c in verdict.criteria:
+        if c.violated and c.evidence:
+            return _excerpt(c.evidence, 240)
+    return ""
+
+
+def _last_assistant_text(traj: Trajectory) -> str:
+    for step in reversed(traj.steps):
+        if step.role.value == "assistant" and step.content:
+            return step.content
+    return ""
 
 
 async def _target_response(
@@ -94,6 +166,88 @@ def _demo_judge(trajectories: list[Trajectory], check: str) -> Judge:
     return Judge(ReplayModelClient(cassette, strict=True))
 
 
+def _unscored(template: AttackTemplate, check: str, exc: BaseException, stage: str) -> ProbeOutcome:
+    kind = classify(exc, stage)
+    return ProbeOutcome(
+        check=check,
+        probe_id=template.id,
+        attack_label=template.attack_label,
+        owasp=template.owasp,
+        baseline_issue=None,
+        hardened_issue=None,
+        error=_excerpt(f"{stage} failed: {type(exc).__name__}: {exc}", 240),
+        error_kind=kind.value,
+    )
+
+
+async def _score_template(
+    template: AttackTemplate,
+    check: str,
+    system_prompt: str,
+    hardened_prompt: str,
+    judge: Judge,
+    *,
+    demonstration: bool,
+    target_client: ModelClient | None,
+    target_model_id: str | None,
+    arms: tuple[Trajectory, Trajectory] | None = None,
+) -> ProbeOutcome:
+    """Run one attack on both arms and judge them. Isolatable failures become an UNSCORED outcome;
+    anything run-level (budget, quota, cassette miss, auth, bugs) propagates."""
+    rubric = get_rubric(check)
+    try:
+        base_traj, hard_traj = arms or await _build_arms(
+            template, system_prompt, hardened_prompt,
+            demonstration=demonstration, target_client=target_client, target_model_id=target_model_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — only isolatable errors are absorbed
+        if isolatable(exc):
+            return _unscored(template, check, exc, "target")
+        raise
+    try:
+        b: Verdict = await judge.evaluate(base_traj, rubric)
+        h: Verdict = await judge.evaluate(hard_traj, rubric)
+    except Exception as exc:  # noqa: BLE001
+        if isolatable(exc):
+            return _unscored(template, check, exc, "judge")
+        raise
+    return ProbeOutcome(
+        check=check,
+        probe_id=template.id,
+        attack_label=template.attack_label,
+        owasp=template.owasp,
+        baseline_issue=b.is_issue,
+        hardened_issue=h.is_issue,
+        baseline_severity=b.severity,
+        hardened_severity=h.severity,
+        evidence=_evidence(b) if b.is_issue else "",
+        baseline_excerpt=_excerpt(_last_assistant_text(base_traj), 200),
+    )
+
+
+_ABORT_MESSAGES = {
+    "budget_exceeded": "The scan hit its model-call budget before finishing.",
+    "quota_exhausted": "The Claude subscription usage limit was reached; the scan stopped "
+    "(nothing is retried into overage). Try again after the limit resets.",
+    "model_not_allowed": "A model outside the allowlist was requested.",
+    "auth_refused": "The claude CLI is not on subscription auth (or not logged in); no calls were "
+    "made. Run `claude auth login` with your Claude subscription account.",
+    "prompt_too_long": "The prompt is too long for this backend.",
+    "internal": "The scan failed unexpectedly.",
+}
+
+
+def _abort_for(exc: BaseException) -> ScanAbort:
+    code = {
+        ErrorKind.BUDGET_EXCEEDED: "budget_exceeded",
+        ErrorKind.QUOTA_EXHAUSTED: "quota_exhausted",
+        ErrorKind.MODEL_NOT_ALLOWED: "model_not_allowed",
+        ErrorKind.AUTH_REFUSED: "auth_refused",
+        ErrorKind.PROMPT_TOO_LONG: "prompt_too_long",
+    }.get(classify(exc), "internal")
+    return ScanAbort(code, _ABORT_MESSAGES[code])
+
+
 async def run_user_scan(
     *,
     system_prompt: str,
@@ -106,12 +260,26 @@ async def run_user_scan(
     target_name: str = "Your prompt",
     judge_model: str | None = None,
     version: str = "v1",
+    hardened_prompt: str | None = None,
+    concurrency: int = 3,
+    judge_choice=None,
+    judge_backend: str | None = None,
+    sampling_pinned: bool | None = None,
+    judge_accuracy_provider: AccuracyProvider | None = None,
+    breaker: ErrorBreaker | None = None,
 ) -> AsyncIterator[ScanEvent]:
-    """Stream a full user-prompt scan as ScanEvents. See module docstring for the two modes."""
+    """Stream a full user-prompt scan as ScanEvents. See module docstring for the contract."""
     if not demonstration and judge_client is None:
         raise ValueError("live scan requires a judge_client")
     judge_model = judge_model or (DEMO_JUDGE_MODEL if demonstration else "judge")
     crosswalk_version = Crosswalk().code_version()
+    hardened = hardened_prompt if hardened_prompt is not None else apply_fix(system_prompt, checks)
+    hardened_sha = hashlib.sha256(hardened.encode("utf-8")).hexdigest()
+    execution = "canned" if demonstration else "live"
+    breaker = breaker or ErrorBreaker()
+    accuracy_for: AccuracyProvider = judge_accuracy_provider or (
+        _demo_accuracy if demonstration else _live_accuracy_unmeasured
+    )
 
     plan = {check: select_templates(check, tier, version) for check in checks}
     total = sum(len(v) for v in plan.values())
@@ -125,94 +293,94 @@ async def run_user_scan(
     cards = []
     outcomes: list[ProbeOutcome] = []
     completed = 0
-    for check in checks:
-        templates = plan[check]
-        rubric = get_rubric(check)
-        hardened_prompt = apply_fix(system_prompt, [check])
-        yield ScanEvent(
-            type=ScanEventType.CHECK_STARTED,
-            check=check,
-            total=len(templates),
-            demonstration=demonstration,
-            message=f"Attacking your prompt: {check.replace('_', ' ')}",
-        )
-
-        # Build both arms for every template first (needed to seed the demo judge cassette).
-        arms: list[tuple[AttackTemplate, Trajectory, Trajectory]] = []
-        for template in templates:
-            base_traj, hard_traj = await _build_arms(
-                template,
-                system_prompt,
-                hardened_prompt,
-                demonstration=demonstration,
-                target_client=target_client,
-                target_model_id=target_model_id,
-            )
-            arms.append((template, base_traj, hard_traj))
-
-        if demonstration:
-            all_trajs = [t for _, b, h in arms for t in (b, h)]
-            judge = _demo_judge(all_trajs, check)
-        else:
-            judge = Judge(judge_client)
-
-        baseline_fail: list[bool] = []
-        hardened_fail: list[bool] = []
-        for template, base_traj, hard_traj in arms:
-            b: Verdict = await judge.evaluate(base_traj, rubric)
-            h: Verdict = await judge.evaluate(hard_traj, rubric)
-            baseline_fail.append(b.is_issue)
-            hardened_fail.append(h.is_issue)
-            outcome = ProbeOutcome(
-                check=check,
-                probe_id=template.id,
-                attack_label=template.attack_label,
-                owasp=template.owasp,
-                baseline_issue=b.is_issue,
-                hardened_issue=h.is_issue,
-                baseline_severity=b.severity,
-                hardened_severity=h.severity,
-            )
-            outcomes.append(outcome)
-            completed += 1
+    try:
+        for check in checks:
+            templates = plan[check]
             yield ScanEvent(
-                type=ScanEventType.PROBE_RESULT,
+                type=ScanEventType.CHECK_STARTED,
                 check=check,
-                probe=outcome,
-                completed=completed,
-                total=total,
+                total=len(templates),
                 demonstration=demonstration,
+                message=f"Attacking your prompt: {check.replace('_', ' ')}",
             )
 
-        ba = before_after(baseline_fail, hardened_fail)
-        if demonstration:
-            bar_a, gold_version, bar_a_note = await _demo_calibration(check, version)
-        else:
-            bar_a, gold_version = None, ""
-            bar_a_note = (
-                f"Not yet measured for judge {judge_model} on this backend — run "
-                f"`fusion measure --stages accuracy` to measure it against the labelled gold set."
-            )
-        card = build_report_card(
-            target_name=target_name,
-            check=check,
-            judge_accuracy=bar_a,
-            before_after=ba,
-            judge_model=judge_model,
-            gold_version=gold_version,
-            crosswalk_version=crosswalk_version,
-            demonstration=demonstration,
-            judge_accuracy_note=bar_a_note,
-        )
-        cards.append(card)
-        yield ScanEvent(
-            type=ScanEventType.CHECK_COMPLETED,
-            check=check,
-            card=card,
-            demonstration=demonstration,
-            message=f"Grade {card.grade} on {check.replace('_', ' ')}",
-        )
+            check_outcomes: dict[str, ProbeOutcome] = {}
+            if demonstration:
+                # Canned arms are deterministic; seed one replay judge over all of them.
+                arms = {
+                    t.id: (t.demo_trajectory(system_prompt, hardened=False),
+                           t.demo_trajectory(hardened, hardened=True))
+                    for t in templates
+                }
+                demo_judge = _demo_judge([tr for pair in arms.values() for tr in pair], check)
+                for t in templates:
+                    outcome = await _score_template(
+                        t, check, system_prompt, hardened, demo_judge,
+                        demonstration=True, target_client=None, target_model_id=None,
+                        arms=arms[t.id],
+                    )
+                    check_outcomes[t.id] = outcome
+                    completed += 1
+                    yield _probe_event(check, outcome, completed, total, demonstration)
+            else:
+                live_judge = Judge(judge_client)
+                sem = asyncio.Semaphore(max(1, concurrency))
 
+                async def one(
+                    t: AttackTemplate, check: str = check, sem=sem, judge: Judge = live_judge
+                ) -> ProbeOutcome:
+                    async with sem:
+                        return await _score_template(
+                            t, check, system_prompt, hardened, judge,
+                            demonstration=False, target_client=target_client,
+                            target_model_id=target_model_id,
+                        )
+
+                tasks = [asyncio.create_task(one(t)) for t in templates]
+                try:
+                    for fut in asyncio.as_completed(tasks):
+                        outcome = await fut
+                        check_outcomes[outcome.probe_id] = outcome
+                        completed += 1
+                        yield _probe_event(check, outcome, completed, total, demonstration)
+                        if breaker.record(outcome.scored):
+                            scored = sum(1 for o in [*outcomes, *check_outcomes.values()] if o.scored)
+                            raise ScanAbort(
+                                "backend_unavailable",
+                                f"{scored} of {completed} attacks scored before the model backend "
+                                f"stopped responding reliably ({outcome.error or 'repeated errors'}).",
+                            )
+                finally:
+                    for task in tasks:
+                        task.cancel()
+                    await asyncio.gather(*tasks, return_exceptions=True)
+
+            ordered = [check_outcomes[t.id] for t in templates if t.id in check_outcomes]
+            outcomes.extend(ordered)
+            card = await _build_card(
+                check, ordered, target_name, judge_model, crosswalk_version, demonstration,
+                execution, judge_choice, judge_backend, sampling_pinned, accuracy_for,
+            )
+            cards.append(card)
+            yield ScanEvent(
+                type=ScanEventType.CHECK_COMPLETED,
+                check=check,
+                card=card,
+                demonstration=demonstration,
+                message=f"Grade {card.grade} on {check.replace('_', ' ')}",
+            )
+    except ScanAbort as abort:
+        yield ScanEvent(type=ScanEventType.ERROR, code=abort.code, message=abort.message,
+                        completed=completed, total=total, demonstration=demonstration)
+        return
+    except Exception as exc:  # noqa: BLE001 — every stream must end with one terminal event
+        abort = _abort_for(exc)
+        log.warning("scan aborted (%s): %r", abort.code, exc)
+        yield ScanEvent(type=ScanEventType.ERROR, code=abort.code, message=abort.message,
+                        completed=completed, total=total, demonstration=demonstration)
+        return
+
+    n_scored = sum(1 for o in outcomes if o.scored)
     result = ScanResult(
         target_name=target_name,
         checks=list(checks),
@@ -221,6 +389,12 @@ async def run_user_scan(
         overall_grade=_worst_grade([c.grade for c in cards]),
         cards=cards,
         outcomes=outcomes,
+        execution=execution,
+        n_planned=total,
+        n_scored=n_scored,
+        n_errored=len(outcomes) - n_scored,
+        hardened_prompt_sha256=hardened_sha,
+        target_model=target_model_id or "",
     )
     yield ScanEvent(
         type=ScanEventType.SCAN_COMPLETED,
@@ -228,6 +402,70 @@ async def run_user_scan(
         demonstration=demonstration,
         message=f"Overall grade {result.overall_grade}",
     )
+
+
+def _probe_event(check: str, outcome: ProbeOutcome, completed: int, total: int, demo: bool) -> ScanEvent:
+    return ScanEvent(
+        type=ScanEventType.PROBE_RESULT, check=check, probe=outcome,
+        completed=completed, total=total, demonstration=demo,
+    )
+
+
+async def _build_card(
+    check, outcomes, target_name, judge_model, crosswalk_version, demonstration,
+    execution, judge_choice, judge_backend, sampling_pinned, accuracy_for,
+):
+    scored = [o for o in outcomes if o.scored]
+    ba = before_after([bool(o.baseline_issue) for o in scored], [bool(o.hardened_issue) for o in scored])
+    bar_a, gold_version, note, source = await accuracy_for(check, judge_model)
+    error_kinds: dict[str, int] = {}
+    for o in outcomes:
+        if not o.scored:
+            key = o.error_kind or "unknown"
+            error_kinds[key] = error_kinds.get(key, 0) + 1
+    trust = TrustInfo(
+        execution=execution,
+        judge_id=judge_model,
+        judge_backend=judge_backend or ("heuristic" if demonstration else "unknown"),
+        independence=(
+            "n/a (demonstration)" if demonstration
+            else getattr(judge_choice, "independence", "") or "undisclosed"
+        ),
+        independence_disclosure=getattr(judge_choice, "disclosure", "") if judge_choice else "",
+        judge_accuracy_source=source if bar_a is not None else "",
+        n_planned=len(outcomes),
+        n_scored=len(scored),
+        n_errored=len(outcomes) - len(scored),
+        error_kinds=error_kinds,
+        sampling_pinned=sampling_pinned,
+    )
+    return build_report_card(
+        target_name=target_name,
+        check=check,
+        judge_accuracy=bar_a,
+        before_after=ba,
+        judge_model=judge_model,
+        gold_version=gold_version,
+        crosswalk_version=crosswalk_version,
+        demonstration=demonstration,
+        judge_accuracy_note=note,
+        trust=trust,
+    )
+
+
+async def _demo_accuracy(check: str, judge_id: str) -> tuple[AccuracyResult | None, str, str, str]:
+    acc, gold_version, note = await _demo_calibration(check, "v1")
+    return acc, gold_version, note, "committed calibration set (offline stand-in judge)"
+
+
+async def _live_accuracy_unmeasured(
+    check: str, judge_id: str
+) -> tuple[AccuracyResult | None, str, str, str]:
+    note = (
+        f"Not yet measured for judge {judge_id} on this backend — run "
+        f"`fusion measure --stages accuracy` to measure it against the labelled gold set."
+    )
+    return None, "", note, ""
 
 
 async def _demo_calibration(

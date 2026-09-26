@@ -120,3 +120,11 @@ def test_offline_switch_disables_real_clients(monkeypatch):
     monkeypatch.setenv("FUSION_OFFLINE", "1")
     assert claude_cli_available("claude") is False
     assert ollama_available() is False
+
+
+@pytest.mark.unit
+def test_live_scan_kwargs_disclose_the_judge(ambient_keys):
+    kw = live.build_live_scan_kwargs("llama3.2:1b", prefer="ollama")
+    assert kw["judge_backend"] == "claude_cli"
+    assert kw["sampling_pinned"] is False  # the CLI cannot pin temperature — disclosed, not assumed
+    assert kw["judge_choice"].independence == "cross_family"

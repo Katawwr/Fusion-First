@@ -90,21 +90,30 @@ def _record_live(args) -> int:
     from fusion.judge.rubric import get_rubric
 
     splits = tuple(s.strip() for s in args.splits.split(",") if s.strip())
+    out_dir = pathlib.Path(args.out_dir) if args.out_dir else CASSETTE_DIR
     print(f"recording REAL judge verdicts (judge={judge_id}, independence={choice.independence})…")
+    code = 0
     for check in _resolve_checks(args.check):
         # Quality checks have no attack probes — record the gold set only.
         include_probes = get_rubric(check).kind == "safety"
-        cas = asyncio.run(
+        path = out_dir / f"{check}.{args.version}.json"
+        report = asyncio.run(
             record_gold_cassette_live(
                 check, judge, version=args.version, splits=splits,
                 include_probes=include_probes, concurrency=args.concurrency,
+                path=path, resume=not args.fresh,
             )
         )
-        path = CASSETTE_DIR / f"{check}.{args.version}.json"
-        cas.save(path)
-        models = sorted({e["model"] for e in cas.entries.values()})
-        print(f"  {check}: {len(cas)} entries (models={models}) -> {path}")
-    return 0
+        cas = report.cassette
+        models = sorted(cas.models())
+        print(f"  {check}: {len(cas)} entries (+{report.recorded} new, models={models}) -> {path}")
+        if report.failed:
+            code = 1
+            print(f"    {len(report.failed)} case(s) failed (re-run to retry): {report.failed[:5]}")
+        if report.aborted:
+            print(f"    STOPPED: {report.aborted} — progress saved; re-run later to resume.")
+            return 1
+    return code
 
 
 async def _measure(args) -> int:
@@ -141,7 +150,8 @@ async def _measure(args) -> int:
             print("  " + res.summary())
             summary["checks"].setdefault(check, {})["sufficiency"] = {
                 "baseline_issue_rate": res.baseline_issue_rate,
-                "n_landed": res.n_landed, "n": res.n, "sufficient": res.sufficient,
+                "n_landed": res.n_landed, "n": res.n, "n_errored": res.n_errored,
+                "sufficient": res.sufficient,
             }
 
     if "quality" in stages:
@@ -165,7 +175,7 @@ async def _measure(args) -> int:
             print("  " + res.summary())
             summary["checks"].setdefault(check, {})["quality"] = {
                 "grade": res.grade, "issue_rate": res.issue_rate,
-                "n_defects": res.n_defects, "n": res.n,
+                "n_defects": res.n_defects, "n": res.n, "n_errored": res.n_errored,
             }
 
     if "accuracy" in stages:
@@ -174,17 +184,22 @@ async def _measure(args) -> int:
 
         print(f"\nAccuracy (Bar A) — real judge vs oracle on the {args.split} split:")
         for check in checks:
-            cas = await record_gold_cassette_live(
+            report = await record_gold_cassette_live(
                 check, judge, version=args.version, splits=(args.split,),
                 include_probes=False, concurrency=args.concurrency,
             )
-            outcome = await run_calibration(check, ReplayModelClient(cas, strict=True), version=args.version, split=args.split)
+            if report.aborted:
+                print(f"  {check}: STOPPED ({report.aborted})")
+                break
+            outcome = await run_calibration(
+                check, ReplayModelClient(report.cassette, strict=True), version=args.version, split=args.split
+            )
             r = outcome.result
             print(f"  {check:24} F1={r.f1:.2f} kappa={r.cohen_kappa:.2f} "
                   f"precision={r.precision.point:.2f} recall={r.recall.point:.2f} (n={r.n})")
             summary["checks"].setdefault(check, {})["accuracy"] = {
                 "f1": r.f1, "kappa": r.cohen_kappa, "precision": r.precision.point,
-                "recall": r.recall.point, "n": r.n,
+                "recall": r.recall.point, "n": r.n, "n_unscored": r.n_unscored,
             }
 
     if args.json:
@@ -211,8 +226,16 @@ async def _eval(args) -> int:
 
 
 async def _prove_one(check: str, args):
+    from fusion.model.replay import cassette_provenance
+
     cas = _load_cassette(check, args.version)
-    client = ReplayModelClient(cas, strict=True)
+    prov = cassette_provenance(cas)
+    if prov.mixed:
+        raise CliUsageError(
+            f"{check}: cassette mixes answers from several models {sorted(prov.models)} — "
+            "re-record it from one judge before proving anything"
+        )
+    client = ReplayModelClient(cas, strict=True, expected_models=prov.models)
     outcome = await run_calibration(check, client, version=args.version, split=args.split)
     ba = await run_before_after(check, client, version=args.version)
     card = build_report_card(
@@ -220,10 +243,10 @@ async def _prove_one(check: str, args):
         check=check,
         judge_accuracy=outcome.result,
         before_after=ba,
-        judge_model="demo-heuristic-judge",
+        judge_model=next(iter(prov.models)) if prov.models else "unknown",
         gold_version=outcome.gold_version,
         crosswalk_version=Crosswalk().code_version(),
-        demonstration=True,
+        demonstration=prov.demonstration,
     )
     print(render_report_card_text(card))
     print("")
@@ -440,6 +463,8 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--splits", default="dev,blind", help="gold splits to record when --live (default dev,blind)")
     pr.add_argument("--concurrency", type=int, default=4)
     pr.add_argument("--max-calls", type=int, default=1000)
+    pr.add_argument("--out-dir", default=None, help="where to write live cassettes (default cassettes/)")
+    pr.add_argument("--fresh", action="store_true", help="ignore any existing live recording (no resume)")
 
     pm = sub.add_parser("measure", help="self-improving loop: real sufficiency + accuracy vs live models")
     pm.add_argument("--check", default="all")

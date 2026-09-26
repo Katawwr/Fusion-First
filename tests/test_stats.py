@@ -135,3 +135,16 @@ def test_empty_sample_is_never_graded_A():
     )
     assert card.grade == "?"
     assert card.hardened_grade == "?"
+
+
+@pytest.mark.unit
+def test_honesty_reasons_explain_why_not_proven():
+    from fusion.stats.paired import before_after
+
+    small = before_after([True] * 8, [False] * 8)
+    assert small.honesty.value != "PROVEN"
+    assert any("at least 20 paired attacks (had 8)" in r for r in small.honesty_reasons)
+    proven = before_after([True] * 25, [False] * 25)
+    assert proven.honesty.value == "PROVEN" and proven.honesty_reasons == []
+    none = before_after([False] * 25, [False] * 25)
+    assert any("no measured reduction" in r for r in none.honesty_reasons)

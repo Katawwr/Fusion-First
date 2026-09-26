@@ -37,9 +37,11 @@ class _FakeLiveJudge:
 
 @pytest.mark.integration
 async def test_live_recorded_cassette_replays_with_zero_misses():
-    cass = await record_gold_cassette_live(
+    report = await record_gold_cassette_live(
         CHECK, _FakeLiveJudge(CHECK), splits=("blind",), include_probes=False, concurrency=3
     )
+    assert report.ok
+    cass = report.cassette
     blind = [c for c in load_gold(CHECK) if c.split == "blind"]
     assert len(cass) == len(blind)  # one recorded verdict per blind gold case
     # the recorded model must NOT be the heuristic stand-in

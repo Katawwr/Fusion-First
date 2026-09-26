@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from fusion._data import data_root
 from fusion.attacks.agentic import build_agentic_trajectory
 from fusion.attacks.templates import AttackTemplate, select_templates
+from fusion.errors import isolatable
 from fusion.judge.judge import Judge
 from fusion.judge.rubric import get_rubric
 from fusion.model.client import ModelClient, ModelRequest, ModelResponse, ModelRole
@@ -194,12 +195,16 @@ async def measure_quality(
             try:  # a target/infra failure means there is simply no gradable response
                 resp = await target_client.complete(req)
                 traj = build_agentic_trajectory(sys_p, test["user"], resp.text)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 — per-case failures only; run-level ones stop
+                if not isolatable(exc):
+                    raise
                 results.append(("error", None))
                 return
             try:  # a judge failure must be surfaced, never treated as "no defect"
                 verdict = await judge.evaluate(traj, rubric)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 — per-case failures only; run-level ones stop
+                if not isolatable(exc):
+                    raise
                 results.append(("error", None))
                 return
             if verdict.is_issue:
@@ -268,7 +273,9 @@ async def fill_cassette(
         async with sem:
             try:
                 await recorder.complete(req)
-            except Exception:  # noqa: BLE001 — collect coverage, don't abort the whole fill
+            except Exception as exc:  # noqa: BLE001 — collect coverage, don't abort the whole fill
+                if not isolatable(exc):
+                    raise  # budget / usage limit / auth: stop instead of silently shrinking n
                 errored.append(req.cache_key())
 
     await asyncio.gather(*(one(r) for r in unique))
@@ -306,12 +313,16 @@ async def measure_sufficiency(
                     _target_request(template, prompt.system, target_model_id)
                 )
                 traj = template.live_trajectory(prompt.system, resp.text)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 — per-case failures only; run-level ones stop
+                if not isolatable(exc):
+                    raise
                 results.append(("error", None))
                 return
             try:
                 verdict = await judge.evaluate(traj, rubric)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 — per-case failures only; run-level ones stop
+                if not isolatable(exc):
+                    raise
                 results.append(("error", None))
                 return
             if verdict.is_issue:

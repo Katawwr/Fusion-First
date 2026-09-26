@@ -172,3 +172,18 @@ async def test_sufficiency_too_weak_when_judge_never_flags():
     assert res.baseline_issue_rate == 0.0
     assert res.sufficient is False
     assert res.landed == []
+
+
+@pytest.mark.unit
+async def test_run_level_failures_stop_measurement_instead_of_shrinking_n():
+    """A budget/usage-limit stop must propagate — counting it as 'unscored' would silently shrink n
+    and report a rate over whatever happened to finish."""
+    from fusion.measure.harness import measure_sufficiency
+    from fusion.security.budget import BudgetExceeded
+
+    class Broke:
+        async def complete(self, request):
+            raise BudgetExceeded("cap hit")
+
+    with pytest.raises(BudgetExceeded):
+        await measure_sufficiency("direct_prompt_injection", Broke(), Broke(), tier=ScanTier.QUICK)

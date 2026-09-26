@@ -7,6 +7,8 @@ is the only thing that imports `modal`; it simply calls this factory.
 
 from __future__ import annotations
 
+import logging
+import os
 import uuid
 from collections.abc import AsyncIterator
 
@@ -19,7 +21,7 @@ from app.models import GuardrailRequest, HardenRequest, QualityRequest, ScanRequ
 from app.persistence import InMemoryScanStore
 from app.settings import Settings, load_settings
 from app.snippet import guardrail_snippet
-from app.sse import sse_frame
+from app.sse import sse_error, sse_frame, stream_with_heartbeat
 from fusion.attacks.taxonomy import Crosswalk
 from fusion.engine.fixes import apply_fix, guard_block
 from fusion.engine.report_html import render_dashboard_html
@@ -30,6 +32,8 @@ from fusion.security.webhook import verify_signature
 
 _FENCE_TOKENS = ("<untrusted>", "</untrusted>")
 
+
+log = logging.getLogger(__name__)
 
 def _sanitize_prompt(text: str) -> str:
     """Strip the judge's untrusted-content fence markers from user input so a pasted prompt can't
@@ -84,21 +88,42 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
 
     # ----------------------------------------------------------------- meta
 
-    @app.get("/api/health")
-    def health():
+    async def _backends() -> dict:
+        """Which live backends THIS server can actually run (not merely whether a key exists)."""
+        import asyncio
+
+        from fusion.integrations.live import METERED_OPT_IN_ENV
+        from fusion.model.providers.claude_cli import claude_cli_available
+        from fusion.model.providers.ollama import ollama_available, ollama_models
+
+        local = settings.allow_local_backends
+        ollama_ok = local and await asyncio.to_thread(ollama_available)
         return {
-            "status": "ok",
-            "mode": "live" if settings.has_live_keys else "demo",
-            "version": settings.version,
+            "demo": True,
+            "cli": bool(local and claude_cli_available()),
+            "ollama": bool(ollama_ok),
+            "api": bool(os.environ.get(METERED_OPT_IN_ENV) == "1" and settings.anthropic_api_key),
+            "ollama_models": (
+                [m["name"] for m in await asyncio.to_thread(ollama_models)] if ollama_ok else []
+            ),
+            "local_backends_enabled": bool(local),
         }
 
+    @app.get("/api/health")
+    async def health():
+        b = await _backends()
+        live = b["cli"] or b["ollama"] or b["api"]
+        return {"status": "ok", "mode": "live" if live else "demo", "version": settings.version}
+
     @app.get("/api/version")
-    def version():
+    async def version():
+        b = await _backends()
         return {
             "version": settings.version,
             "crosswalk": Crosswalk().code_version(),
             "checks": sorted(REGISTRY),
-            "live_available": settings.has_live_keys,
+            "live_available": b["cli"] or b["ollama"] or b["api"],
+            "backends": b,
         }
 
     @app.get("/api/me")
@@ -109,7 +134,7 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
     @app.get("/api/credits")
     def credits():
         return {
-            "mode": "live" if settings.has_live_keys else "demo",
+            "mode": "demo",
             "free_scans_per_day": settings.free_scans_per_day,
             "note": "billing not enforced during beta",
         }
@@ -124,8 +149,10 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
         async for ev in _scan_stream(system_prompt, checks, tier, kwargs, scan_id):
             if ev.type == ScanEventType.SCAN_COMPLETED and ev.result is not None:
                 result = ev.result
+            elif ev.type == ScanEventType.ERROR:
+                raise HTTPException(502, {"code": ev.code or "internal", "message": ev.message})
         if result is None:
-            raise HTTPException(500, "scan produced no result")
+            raise HTTPException(502, {"code": "internal", "message": "scan produced no result"})
         store.put(scan_id, result)
         return {"scan_id": scan_id, "result": result.model_dump(mode="json")}
 
@@ -134,19 +161,25 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
         system_prompt, checks, tier, kwargs = _prepare(req)
         scan_id = _new_scan_id()
 
-        async def gen() -> AsyncIterator[str]:
+        async def frames() -> AsyncIterator[str]:
             # Emit the scan id immediately so the client can fetch/reload even if the stream drops.
             yield sse_frame("scan_id", {"scan_id": scan_id})
-            async for ev in _scan_stream(system_prompt, checks, tier, kwargs, scan_id):
-                ev: ScanEvent
-                if ev.type == ScanEventType.SCAN_COMPLETED and ev.result is not None:
-                    store.put(scan_id, ev.result)
-                payload = ev.model_dump(mode="json")
-                payload["scan_id"] = scan_id
-                yield sse_frame(ev.type.value, payload)
+            try:
+                async for ev in _scan_stream(system_prompt, checks, tier, kwargs, scan_id):
+                    ev: ScanEvent
+                    if ev.type == ScanEventType.SCAN_COMPLETED and ev.result is not None:
+                        store.put(scan_id, ev.result)
+                    payload = ev.model_dump(mode="json")
+                    payload["scan_id"] = scan_id
+                    yield sse_frame(ev.type.value, payload)
+            except Exception:  # noqa: BLE001 — the stream must end with a terminal frame, safely
+                log.exception("scan %s failed", scan_id)
+                yield sse_error(
+                    "internal", f"The scan failed unexpectedly (ref {scan_id}).", scan_id
+                )
 
         return StreamingResponse(
-            gen(),
+            stream_with_heartbeat(frames(), settings.sse_heartbeat_s),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )

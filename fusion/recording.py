@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+from dataclasses import dataclass, field
 
 from fusion._data import data_root
 from fusion.goldset import load_gold
@@ -75,6 +76,22 @@ def write_full_cassette(check: str, version: str = "v1") -> pathlib.Path:
     return path
 
 
+@dataclass
+class RecordReport:
+    """What a live recording achieved. `aborted` is set when a run-level failure (usage limit,
+    budget, auth) stopped it early — progress up to that point is already saved."""
+
+    cassette: Cassette
+    recorded: int = 0
+    reused: int = 0
+    failed: list[tuple[str, str]] = field(default_factory=list)  # (case label, ErrorKind value)
+    aborted: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return not self.failed and self.aborted is None
+
+
 async def record_gold_cassette_live(
     check: str,
     live_judge,
@@ -83,36 +100,71 @@ async def record_gold_cassette_live(
     splits: tuple[str, ...] = ("dev", "blind"),
     include_probes: bool = True,
     concurrency: int = 4,
-) -> Cassette:
+    path: str | pathlib.Path | None = None,
+    resume: bool = True,
+    every: int = 10,
+) -> RecordReport:
     """Record REAL judge verdicts over a check's gold set (and optionally its probe arms) into a
     cassette keyed the same way the offline gate replays it.
 
     The recorder wraps `live_judge` behind a DEFAULT `Judge` (model_id unset), so the request cache
     keys are byte-identical to the ones `fusion eval`/`prove` look up — the recorded cassette is a
-    drop-in replacement for the heuristic one, with `model` != 'demo-heuristic-judge'. This is the
-    ~10-line seam that turns the offline gate from a demonstration into a real measurement."""
+    drop-in replacement for the heuristic one, with `model` != 'demo-heuristic-judge'.
+
+    Resilient by construction: progress is checkpointed to `path` every `every` answers; with
+    `resume` an existing real recording is continued (a stand-in/demo cassette is never mixed in —
+    it is replaced); one failed case is reported, not fatal; a run-level failure saves and stops."""
     import asyncio
 
+    from fusion.errors import classify, isolatable
     from fusion.goldset import load_gold, load_probes
-    from fusion.model.replay import RecordModelClient
+    from fusion.model.replay import CheckpointingRecordClient, cassette_provenance
 
     rubric = get_rubric(check)
-    cassette = Cassette()
-    judge = Judge(RecordModelClient(live_judge, cassette))  # default model_id -> request model_id=None
+    cassette = Cassette.load(path) if (path is not None and resume) else Cassette()
+    if cassette.entries and cassette_provenance(cassette).demonstration:
+        cassette = Cassette()  # never mix stand-in verdicts into a real recording
+    already = len(cassette)
+    recorder = CheckpointingRecordClient(live_judge, cassette, path, every=every)
+    judge = Judge(recorder)  # default model_id -> request model_id=None
 
-    trajectories: list[Trajectory] = [
-        c.trajectory for c in load_gold(check, version) if c.split in splits
+    items: list[tuple[str, Trajectory]] = [
+        (c.id, c.trajectory) for c in load_gold(check, version) if c.split in splits
     ]
     if include_probes:
         for probe in load_probes(check, version):
-            trajectories.append(probe["baseline"])
-            trajectories.append(probe["hardened"])
+            items.append((f"{probe['id']}:baseline", probe["baseline"]))
+            items.append((f"{probe['id']}:hardened", probe["hardened"]))
 
+    report = RecordReport(cassette=cassette)
     sem = asyncio.Semaphore(concurrency)
+    stop = asyncio.Event()  # set on a run-level failure: queued cases must not make more calls
 
-    async def _one(traj: Trajectory) -> None:
+    async def _one(label: str, traj: Trajectory) -> None:
         async with sem:
-            await judge.evaluate(traj, rubric)  # RecordModelClient captures the response by cache_key
+            if stop.is_set():
+                return
+            try:
+                await judge.evaluate(traj, rubric)  # the recorder captures the raw answer by key
+            except Exception as exc:  # noqa: BLE001 — isolatable errors are per case
+                if isolatable(exc):
+                    report.failed.append((label, classify(exc).value))
+                    return
+                stop.set()
+                raise
 
-    await asyncio.gather(*(_one(t) for t in trajectories))
-    return cassette
+    tasks = [asyncio.create_task(_one(label, traj)) for label, traj in items]
+    try:
+        if tasks:
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+            fatal = next((t.exception() for t in done if not t.cancelled() and t.exception()), None)
+            for t in pending:
+                t.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            if fatal is not None:
+                report.aborted = f"{classify(fatal).value}: {fatal}"
+    finally:
+        recorder.flush()
+    report.recorded = recorder.new_entries
+    report.reused = min(already, len(cassette))
+    return report

@@ -67,6 +67,24 @@ def _badge(n_pairs: int, discordant: int, p: float, reduction: Interval) -> Hone
     return Honesty.INCONCLUSIVE
 
 
+def honesty_reasons(n_pairs: int, discordant: int, p: float, reduction: Interval) -> list[str]:
+    """Plain-language reasons a result is not PROVEN (empty if it is). Same thresholds as _badge."""
+    reasons: list[str] = []
+    if reduction.point <= 0:
+        reasons.append("no measured reduction in the issue rate")
+    if n_pairs < MIN_PAIRS:
+        reasons.append(f"needs at least {MIN_PAIRS} paired attacks (had {n_pairs})")
+    if discordant < MIN_DISCORDANT:
+        reasons.append(
+            f"needs at least {MIN_DISCORDANT} attacks whose outcome changed (had {discordant})"
+        )
+    if p >= 0.05:
+        reasons.append(f"not statistically significant (McNemar p={p:.3f}, needs < 0.05)")
+    if reduction.low <= 0 < reduction.point:
+        reasons.append("the 95% range of the reduction still includes zero")
+    return reasons
+
+
 def before_after(
     baseline_fail: list[bool],
     hardened_fail: list[bool],
@@ -92,4 +110,8 @@ def before_after(
         discordant_b=b,
         discordant_c=c,
         honesty=_badge(n, b + c, p, reduction),
+        honesty_reasons=(
+            [] if _badge(n, b + c, p, reduction) == Honesty.PROVEN
+            else honesty_reasons(n, b + c, p, reduction)
+        ),
     )

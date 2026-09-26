@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 
 from app.settings import Settings
-from fusion.integrations.live import LiveUnavailable, build_live_clients
+from fusion.integrations.live import LiveUnavailable, build_live_clients, judge_trust_kwargs
 
 __all__ = ["LiveUnavailable", "build_scan_kwargs", "require_backend_allowed", "resolve_mode"]
 
@@ -60,7 +60,7 @@ def build_scan_kwargs(
         return {"demonstration": True}
     prefer = require_backend_allowed(backend, settings)
     tm = _target_model(prefer, target_model, settings)
-    target, judge, judge_model, _choice = build_live_clients(
+    target, judge, judge_model, choice = build_live_clients(
         tm, max_calls=settings.scan_max_calls, prefer=prefer
     )
     return {
@@ -69,4 +69,5 @@ def build_scan_kwargs(
         "target_client": target,
         "target_model_id": tm,
         "judge_model": judge_model,
+        **judge_trust_kwargs(judge, choice),
     }
