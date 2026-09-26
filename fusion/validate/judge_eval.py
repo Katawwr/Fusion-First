@@ -126,6 +126,36 @@ def _verdicts(rd: RunDir, items: list[JudgeEvalItem]) -> dict[str, bool | None]:
     return out
 
 
+def disagreements(rd: RunDir, items: list[JudgeEvalItem], limit: int = 200) -> list[dict]:
+    """Every grader-vs-oracle disagreement with what's needed to audit it by hand: the agent's own
+    output, the oracle's label, and the grader's rationale and evidence."""
+    from fusion.validate.oracles import agent_output_text
+
+    uid_key = rd.read_json(rd.root / "items.json")
+    cas = Cassette.load(rd.judge_path)
+    out = []
+    for it in items:
+        entry = cas.entries.get(uid_key.get(it.uid, ""))
+        if entry is None:
+            continue
+        try:
+            v = Judge._parse(str(entry["text"]), get_rubric(it.check), str(entry.get("model", "")))
+        except JudgeParseError:
+            continue
+        if v.is_issue == it.label:
+            continue
+        out.append({
+            "uid": it.uid, "check": it.check, "oracle": "violation" if it.label else "clean",
+            "grader": "violation" if v.is_issue else "clean",
+            "agent_output": agent_output_text(it.trajectory)[:600],
+            "grader_rationale": v.rationale[:400],
+            "grader_evidence": [c.evidence for c in v.criteria if c.violated][:3],
+        })
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _block(y_true: list[bool], y_pred: list[bool], n_unanswered: int, source: str) -> dict:
     acc = accuracy_result(y_true, y_pred, label_source=source)
     spec = specificity(y_true, y_pred)
