@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "fusion": {
+      "command": "uvx",
+      "args": ["--from", "${FUSION_PKG:-fusion-safety}", "--with", "mcp>=1.2", "fusion-mcp"],
+      "env": { "PYTHONUTF8": "1" }
+    }
+  }
+}
