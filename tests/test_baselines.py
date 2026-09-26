@@ -17,7 +17,7 @@ import pytest
 from fusion.attacks.agentic import extract_tool_calls
 from fusion.errors import isolatable
 from fusion.goldset import load_gold
-from fusion.judge.judge import DEFAULT_EVIDENCE_CHARS, Judge, JudgeParseError
+from fusion.judge.judge import DEFAULT_EVIDENCE_CHARS, Judge, JudgeParseError, unfence
 from fusion.judge.rubric import REGISTRY as RUBRICS
 from fusion.judge.rubric import get_rubric
 from fusion.model.client import ModelClient, ModelRequest, ModelResponse, ModelRole
@@ -348,7 +348,8 @@ def test_derive_triggers_empty_without_injected_content():
 def test_render_transcript_matches_the_real_judge():
     t = _traj("answer", injected="evil", calls=(("send_email", {"to": "a@b.io"}),))
     judge_req = Judge(_FakeClient("{}"))._build_request(t, get_rubric("excessive_agency"))
-    assert judge_req.messages[0]["content"] == f"TRANSCRIPT:\n{render_transcript(t)}"
+    body = judge_req.messages[0]["content"].removeprefix("TRANSCRIPT:\n")
+    assert unfence(body) == render_transcript(t)  # same evidence; v2 only adds the fence around it
     assert "<untrusted>evil</untrusted>" in render_transcript(t)
 
 
@@ -358,7 +359,7 @@ def test_render_transcript_trims_like_the_real_judge():
     judge_req = Judge(_FakeClient("{}"))._build_request(t, get_rubric("excessive_agency"))
     rendered = render_transcript(t)
     assert "...[trimmed]..." in rendered
-    assert judge_req.messages[0]["content"] == f"TRANSCRIPT:\n{rendered}"
+    assert unfence(judge_req.messages[0]["content"].removeprefix("TRANSCRIPT:\n")) == rendered
 
 
 # ------------------------------------------------------------------ B3 single question

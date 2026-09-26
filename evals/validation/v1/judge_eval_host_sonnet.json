@@ -370,6 +370,7 @@
   ],
   "git_sha": "1e23115d6e9ef2f121c2e9a819864b0cb52a570d",
   "grader": "Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules)",
+  "judge_prompt_version": 1,
   "label_source": "deterministic oracle on real transcripts",
   "measured": "2026-09-26",
   "models": [

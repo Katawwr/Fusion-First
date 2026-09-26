@@ -44,7 +44,15 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 
 from fusion.errors import FusionProviderError, IsolatableError, NotGraded
-from fusion.judge.judge import Judge, JudgeParseError, build_system_prompt
+from fusion.judge.judge import (
+    JUDGE_PROMPT_VERSION,
+    PROMPT_VERSIONS,
+    Judge,
+    JudgeParseError,
+    build_system_prompt,
+    judge_prompt_version,
+    strip_fence,
+)
 from fusion.judge.rubric import REGISTRY, get_rubric
 from fusion.model.client import ModelClient, ModelRequest, ModelResponse
 from fusion.model.replay import (
@@ -87,6 +95,7 @@ class RunPlan:
     prompt_sha256: str
     calibration: bool = True
     version: str = "v1"
+    judge_prompt_version: int = 1  # plans written before prompt versioning were graded under v1
 
 
 @dataclass
@@ -245,7 +254,7 @@ def new_run(
     plan = RunPlan(
         run_id=rid, checks=list(checks), tier=tier, target=target, target_model=target_model,
         grader=grader, prompt_sha256=hashlib.sha256(system_prompt.encode("utf-8")).hexdigest(),
-        calibration=calibration,
+        calibration=calibration, judge_prompt_version=JUDGE_PROMPT_VERSION,
     )
     rd.write_json(rd.plan_path, asdict(plan))
     rd.save_state(RunState())
@@ -311,7 +320,7 @@ class CollectingJudgeClient:
         return ModelResponse(text=json.dumps(body), model="collector")
 
 
-_CHECK_BY_PROMPT = {build_system_prompt(get_rubric(c)): c for c in REGISTRY}
+_CHECK_BY_PROMPT = {build_system_prompt(get_rubric(c), v): c for c in REGISTRY for v in PROMPT_VERSIONS}
 
 
 def _check_of(req: ModelRequest) -> str:
@@ -331,10 +340,15 @@ async def collect(
 ) -> RunState:
     """Phase 1. Runs the scan against the real target (recorded) and captures the judge questions.
     Resumable: target answers already recorded are replayed instead of re-asked."""
+    plan = rd.plan()
+    with judge_prompt_version(plan.judge_prompt_version):
+        return await _collect(rd, plan, target_client, concurrency, on_progress)
+
+
+async def _collect(rd, plan, target_client, concurrency, on_progress) -> RunState:
     from fusion.engine.user_scan import run_user_scan
     from fusion.stats.calibration import run_calibration
 
-    plan = rd.plan()
     rd.update_state(phase="collecting", message="testing the target")
     recorder = CheckpointingRecordClient(target_client, Cassette.load(rd.target_path), rd.target_path, every=1)
     collector = CollectingJudgeClient()
@@ -453,7 +467,7 @@ _ROLE_LINE = re.compile(r"^\[(SYSTEM|USER|ASSISTANT(?: calls [^\]]*)?|TOOL_RESUL
 def agent_spans(transcript: str) -> str:
     """Only what the AGENT said or did ([ASSISTANT] text and its tool calls) — the only place
     evidence of a violation can legitimately come from."""
-    parts = _ROLE_LINE.split(transcript)
+    parts = _ROLE_LINE.split(strip_fence(transcript))
     # split -> [preamble, role1, body1, role2, body2, ...]
     return "\n".join(body for role, body in zip(parts[1::2], parts[2::2], strict=False)
                      if role.startswith("ASSISTANT"))
@@ -734,12 +748,17 @@ def _gate(result: ScanResult, agreement: dict | None = None) -> tuple[ScanResult
 async def finalize(rd: RunDir, *, allow_partial: bool = False, write: bool = True) -> ScanResult:
     """Phase 3. Replays the scan from a snapshot of the recordings; writes result.json and
     report.html (`write=False` re-derives without touching the run directory — used by verify)."""
+    _require_tasks(rd)
+    snap = _snapshot(rd)
+    with judge_prompt_version(snap.plan.judge_prompt_version):
+        return await _finalize(rd, snap, allow_partial, write)
+
+
+async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanResult:
     from fusion.engine.report_html import render_dashboard_html
     from fusion.engine.user_scan import ErrorBreaker, run_user_scan
     from fusion.model.registry import JudgeChoice
 
-    _require_tasks(rd)
-    snap = _snapshot(rd)
     plan = snap.plan
     n_graded = sum(1 for t in rd.tasks() if t.key in snap.judge.entries)
     if snap.n_tasks == 0:

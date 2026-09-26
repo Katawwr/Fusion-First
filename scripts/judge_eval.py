@@ -69,7 +69,8 @@ def main(argv=None) -> int:
     rep = score(rd, items, a.grader_label)
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     rep.update({"demonstration": False, "measured": _dt.date.today().isoformat(), "git_sha": sha,
-                "models": models, "experiments": exps, "n_transcripts": len(items)})
+                "models": models, "experiments": exps, "n_transcripts": len(items),
+                "judge_prompt_version": rd.plan().judge_prompt_version})
     if a.out:
         write_report(a.out, rep)
         print(f"wrote {a.out}")

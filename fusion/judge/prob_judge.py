@@ -363,11 +363,12 @@ class ProbJudgeClient:
         self.judge = judge
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
-        from fusion.judge.judge import build_system_prompt
+        from fusion.judge.judge import PROMPT_VERSIONS, build_system_prompt
         from fusion.judge.rubric import REGISTRY, get_rubric
 
         rubric = next(
-            (get_rubric(c) for c in REGISTRY if build_system_prompt(get_rubric(c)) == request.system),
+            (get_rubric(c) for c in REGISTRY for v in PROMPT_VERSIONS
+             if build_system_prompt(get_rubric(c), v) == request.system),
             None,
         )
         if rubric is None:
@@ -375,7 +376,11 @@ class ProbJudgeClient:
         content = str(request.messages[0].get("content", "")) if request.messages else ""
         if not content.startswith(_TRANSCRIPT_PREFIX):
             raise ValueError("unexpected judge request shape (no TRANSCRIPT: block)")
-        result = await self.judge.evaluate_rendered(content[len(_TRANSCRIPT_PREFIX):], rubric, strict=True)
+        from fusion.judge.judge import unfence
+
+        # Same evidence window the probability judge builds itself (its own fixed prompt marks it as data).
+        rendered = unfence(content[len(_TRANSCRIPT_PREFIX):])
+        result = await self.judge.evaluate_rendered(rendered, rubric, strict=True)
         v = result.verdict
         body = {
             "criteria": [{"id": c.id, "violated": c.violated, "evidence": c.evidence} for c in v.criteria],

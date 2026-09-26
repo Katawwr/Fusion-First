@@ -205,12 +205,20 @@ def is_log_run(rd: RunDir) -> bool:
 async def finalize_logs(rd: RunDir, *, allow_partial: bool = False, write: bool = True) -> dict:
     """Issue rate per check (Wilson), flagged transcripts, grader accuracy, and the same grade gate
     as attack runs (withheld when the grader didn't earn it)."""
+
+    from fusion.judge.judge import judge_prompt_version
+
+    snap = _snapshot(rd)
+    with judge_prompt_version(snap.plan.judge_prompt_version):
+        return await _finalize_logs(rd, snap, allow_partial, write)
+
+
+async def _finalize_logs(rd: RunDir, snap, allow_partial: bool, write: bool) -> dict:
     from fusion.engine.report import grade_for_rate
     from fusion.stats.calibration import run_calibration
     from fusion.stats.gate import load_policy
     from fusion.stats.metrics import wilson_interval
 
-    snap = _snapshot(rd)
     graded = [t for t in rd.tasks() if t.key in snap.judge.entries]
     if len(graded) < snap.n_tasks and not allow_partial:
         raise RunError(f"{snap.n_tasks - len(graded)} questions are still ungraded")

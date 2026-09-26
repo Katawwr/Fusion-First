@@ -241,7 +241,10 @@ def test_transcript_is_byte_identical_to_the_real_judge(final):
         t, RUBRIC, RUBRIC.criteria[0]
     )
     real = Judge(_FakeClient({}), evidence_chars=2000)._build_request(t, RUBRIC)
-    assert prob.messages[0]["content"].split("\n\nQUESTION: ")[0] == real.messages[0]["content"]
+    from fusion.judge.judge import unfence
+
+    real_body = unfence(real.messages[0]["content"].removeprefix("TRANSCRIPT:\n"))
+    assert prob.messages[0]["content"].split("\n\nQUESTION: ")[0] == f"TRANSCRIPT:\n{real_body}"
 
 
 @pytest.mark.unit
