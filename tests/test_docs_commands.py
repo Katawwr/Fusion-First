@@ -27,7 +27,21 @@ def _commands():
                             yield doc, part[len(prefix):]
 
 
-CASES = list(_commands())
+def _content_commands():
+    """The /use page renders frontend/src/content/integrations.json — its commands must parse too."""
+    import json
+
+    data = json.loads((ROOT / "frontend/src/content/integrations.json").read_text(encoding="utf-8"))
+    for section in data["sections"]:
+        for step in section["steps"]:
+            if step["lang"] != "bash":
+                continue
+            for line in step["code"].splitlines():
+                if line.startswith("fusion "):
+                    yield "integrations.json", line[len("fusion "):]
+
+
+CASES = list(_commands()) + list(_content_commands())
 
 
 @pytest.mark.unit

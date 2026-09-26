@@ -14,12 +14,12 @@ const WAYS = [
   {
     icon: Terminal,
     title: "Run it locally",
-    body: "pip install fusion-safety, then scan your own prompt against a local open-weight model through Ollama. Free, private, no API key.",
+    body: "Test your own prompt against a local open-weight model through Ollama, graded by your coding agent or a local model. Free, private, no API key.",
   },
   {
     icon: Plug,
     title: "Use it inside your agent workflow",
-    body: "An MCP server and CLI gate let a coding agent test, fix and guard the prompt it just wrote, without leaving the editor.",
+    body: "A Claude Code plugin, an MCP server and a CLI let a coding agent test, fix and guard the prompt it just wrote, without leaving the editor.",
   },
 ];
 
@@ -92,6 +92,21 @@ export default function LocalFirstSection() {
             }}
           >
             Run the demo scan
+          </Link>
+          <Link
+            to="/use"
+            style={{
+              display: "inline-block",
+              marginLeft: "0.75rem",
+              padding: "0.75rem 1.5rem",
+              border: "1px solid var(--border)",
+              borderRadius: "0.6rem",
+              color: "var(--text)",
+              fontWeight: "bold",
+              textDecoration: "none",
+            }}
+          >
+            How to run it locally
           </Link>
         </div>
       </div>

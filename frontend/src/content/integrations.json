@@ -1,0 +1,86 @@
+{
+  "intro": "Real testing runs on your machine: the model under test is a local open-weight model (Ollama) or Claude on your own subscription, and the grader is your coding agent or a local model. No API key, nothing metered.",
+  "sections": [
+    {
+      "id": "plugin",
+      "title": "Claude Code plugin",
+      "badge": "Recommended",
+      "body": "Claude Code attacks and tests your agent's prompt on a real model, grades the answers itself, and hands you the report card and the fix. Fusion mixes in questions with known answers, so every card shows how accurate the grading was in that run.",
+      "steps": [
+        {
+          "label": "Install",
+          "lang": "bash",
+          "code": "claude plugin marketplace add /path/to/fusion\nclaude plugin install fusion@fusion-first\nollama pull llama3.2:1b"
+        },
+        {
+          "label": "Then, inside Claude Code",
+          "lang": "text",
+          "code": "/fusion:audit prompts/support_bot.md ollama:llama3.2:1b\n/fusion:harden prompts/support_bot.md"
+        }
+      ]
+    },
+    {
+      "id": "cli",
+      "title": "Command line",
+      "body": "The same engine without an agent. Pick a local grader, or grade the questions yourself with tasks and submit.",
+      "steps": [
+        {
+          "label": "See what can run here",
+          "lang": "bash",
+          "code": "fusion doctor"
+        },
+        {
+          "label": "Test a prompt end to end",
+          "lang": "bash",
+          "code": "fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b\nfusion run finalize --min-grade B"
+        },
+        {
+          "label": "Apply the tested fix",
+          "lang": "bash",
+          "code": "fusion harden --prompt agent.txt --write"
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "title": "Any MCP client",
+      "body": "Cursor, Windsurf or your own agent: the fusion-mcp server exposes the same run tools (start_run, get_grading_tasks, submit_grades, finalize_run) plus one-shot scan, harden and runtime-check tools.",
+      "steps": [
+        {
+          "label": "MCP config",
+          "lang": "json",
+          "code": "{ \"mcpServers\": { \"fusion\": { \"command\": \"fusion-mcp\" } } }"
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "title": "CI, offline",
+      "body": "Every run is recorded under .fusion/runs. Commit a run and CI re-derives its result offline, with no model or key. It checks the run tested the prompt you ship, and fails the build below your bar. A withheld grade always fails.",
+      "steps": [
+        {
+          "label": "In your pipeline",
+          "lang": "bash",
+          "code": "fusion run verify $RUN_ID --prompt agent.txt\nfusion run finalize $RUN_ID --min-grade B"
+        }
+      ]
+    },
+    {
+      "id": "guard",
+      "title": "Runtime guard",
+      "body": "Prompt fixes reduce issues; the runtime guard catches what still slips through. Wrap your model client in code, or add the opt-in fusion-guard plugin so Claude Code asks before exfiltration, destructive commands or settings tampering. It never auto-allows.",
+      "steps": [
+        {
+          "label": "In your agent's code",
+          "lang": "python",
+          "code": "from fusion.guardrail.guard import Guardrail\nfrom fusion.guardrail.policy import GuardConfig\nfrom fusion.guardrail.client import GuardedModelClient\n\nguard = Guardrail(GuardConfig(allowlisted_domains=[\"your-co.com\"], system_prompt=SYSTEM_PROMPT))\nclient = GuardedModelClient(your_model_client, guard)"
+        },
+        {
+          "label": "For Claude Code itself",
+          "lang": "bash",
+          "code": "claude plugin install fusion-guard@fusion-first"
+        }
+      ]
+    }
+  ]
+}
