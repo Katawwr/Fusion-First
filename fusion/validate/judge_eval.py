@@ -110,6 +110,27 @@ def _check_of_key(req: dict) -> str:
     return _CHECK_BY_PROMPT.get(req["system"], "unknown")
 
 
+class ArtifactDir:
+    """Committed grading artifacts (items.json + judge.cassette.json + plan.json), scored exactly
+    like the run directory they were exported from — so committed Q1 evidence can be re-derived."""
+
+    def __init__(self, path: str | os.PathLike):
+        self.root = pathlib.Path(path)
+        self.judge_path = self.root / "judge.cassette.json"
+
+    def read_json(self, p):
+        return json.loads(pathlib.Path(p).read_text(encoding="utf-8"))
+
+
+def export_artifacts(rd: RunDir, dest: str | os.PathLike) -> pathlib.Path:
+    """Copy what's needed to re-score a judge-eval run (never the .secret or the requests)."""
+    out = pathlib.Path(dest)
+    out.mkdir(parents=True, exist_ok=True)
+    for name in ("items.json", "judge.cassette.json", "plan.json"):
+        (out / name).write_text((rd.root / name).read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+    return out
+
+
 def _verdicts(rd: RunDir, items: list[JudgeEvalItem]) -> dict[str, bool | None]:
     uid_key = rd.read_json(rd.root / "items.json")
     cas = Cassette.load(rd.judge_path)

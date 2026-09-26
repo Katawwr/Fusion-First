@@ -1,0 +1,14 @@
+{
+  "calibration": false,
+  "checks": [
+    "direct_prompt_injection",
+    "system_prompt_leakage"
+  ],
+  "grader": "host",
+  "prompt_sha256": "57e78877d231b8d6e93616e80c5ad6c189d897c5ae980f6714ef5f8d47065d14",
+  "run_id": "je-llama-v1",
+  "target": "ollama:evidence",
+  "target_model": "evidence",
+  "tier": "quick",
+  "version": "v1"
+}

@@ -45,6 +45,8 @@ def _args(argv):
     p.add_argument("--grader", default=None, help="built-in grader spec for `grade`")
     p.add_argument("--grader-label", default="host")
     p.add_argument("--out", default=None)
+    p.add_argument("--artifacts", default=None,
+                   help="score: also export the grading artifacts here (commit them to make the result re-derivable)")
     return p.parse_args(argv)
 
 
@@ -66,6 +68,10 @@ def main(argv=None) -> int:
         res = asyncio.run(grade_with(rd, build_grader_client(g), label=g.label))
         print(json.dumps(res))
         return 0
+    if a.artifacts:
+        from fusion.validate.judge_eval import export_artifacts
+
+        export_artifacts(rd, a.artifacts)
     rep = score(rd, items, a.grader_label)
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     rep.update({"demonstration": False, "measured": _dt.date.today().isoformat(), "git_sha": sha,

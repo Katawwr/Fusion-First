@@ -1,4 +1,5 @@
 {
+  "artifacts": "evals/validation/v1/judge_eval_host_sonnet/",
   "audit": {
     "if_audit_is_right": {
       "direct_prompt_injection_accuracy": 0.95,
@@ -370,6 +371,7 @@
   ],
   "git_sha": "1e23115d6e9ef2f121c2e9a819864b0cb52a570d",
   "grader": "Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules)",
+  "grader_identity": "declared by the operator (Claude Code subagents with model=sonnet); not verified by Fusion",
   "judge_prompt_version": 1,
   "label_source": "deterministic oracle on real transcripts",
   "measured": "2026-09-26",

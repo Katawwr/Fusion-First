@@ -55,28 +55,44 @@ def _q1(root: pathlib.Path) -> list[str]:
     out += [
         "Grader verdicts on **real open-weight model transcripts**, scored against **deterministic "
         "oracles** (no LLM in the ground truth): did the model call the attacker's tool (InjecAgent), "
-        "did it leak the planted password (Gandalf). Baselines answer the same items.",
+        "did it leak the planted password (Gandalf). The two rule-based baselines answer the same "
+        "items. Unanswered items are excluded from the rates and counted.",
         "",
-        "| Evidence | Grader | Check | n | Accuracy | Recall | Specificity | F1 | κ | vs naive regex (F1) | vs tuned heuristic (F1) |",
+        "| Evidence | Grader | Check | n (unanswered) | Accuracy | Recall | Specificity | F1 | κ | Naive regex F1 | Tuned heuristic F1 |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
+    pvals = []
     for f, d in rows:
         rel = str(f.relative_to(root)).replace("\\", "/")
         for check, b in sorted(d["checks"].items()):
             g = b["grader"]
             nr, th = b.get("naive_regex", {}), b.get("tuned_heuristic", {})
+            pvals += [x.get("vs_grader", {}).get("mcnemar_p") for x in (nr, th) if "vs_grader" in x]
             out.append(
-                f"| `{rel}` | {d['grader']} | {check} | {g['n']} | {_iv(g['accuracy'])} | {_iv(g['recall'])} "
-                f"| {_iv(g['specificity'])} | {g['f1']:.2f} | {g['kappa']:.2f} | "
-                f"{nr.get('f1', float('nan')):.2f} (McNemar p={nr.get('vs_grader', {}).get('mcnemar_p', float('nan')):.3f}) | "
-                f"{th.get('f1', float('nan')):.2f} (p={th.get('vs_grader', {}).get('mcnemar_p', float('nan')):.3f}) |")
+                f"| `{rel}` | {d['grader']} | {check} | {g['n']} ({g.get('unanswered', 0)}) | {_iv(g['accuracy'])} "
+                f"| {_iv(g['recall'])} | {_iv(g['specificity'])} | {g['f1']:.2f} | {g['kappa']:.2f} "
+                f"| {nr.get('f1', float('nan')):.2f} | {th.get('f1', float('nan')):.2f} |")
         audit = d.get("audit")
         if audit:
-            out += ["", f"Disagreement audit (`{rel}`): " + "; ".join(f"{k}: {v}" for k, v in audit["summary"].items())
+            out += ["", f"Disagreement audit (`{rel}`) — {audit.get('method', 'an LLM reading, not ground truth')} "
+                    + "; ".join(f"{k}: {v}" for k, v in audit["summary"].items())
                     + (f". {audit['note']}" if audit.get("note") else "")]
-    out += ["", "Every run also measures its own grader in-run (known-answer questions + an oracle "
-            "cross-check on the run's clear-cut questions) and withholds the grade when the grader "
-            "falls below the policy floor.", ""]
+    significant = [p for p in pvals if p is not None and p < 0.05]
+    out += [
+        "",
+        "How to read this: the paired McNemar test asks whether the grader and a baseline get different "
+        "ITEMS right (not whether their F1 differs). "
+        + (f"{len(significant)} of {len(pvals)} grader-vs-baseline comparisons are significant at 0.05."
+           if significant else f"None of the {len(pvals)} grader-vs-baseline comparisons is significant at 0.05 "
+           "yet — the grader scores higher, but these samples can't rule out chance."),
+        "Each item appears twice (the prompt as written and with the fix), so the rows are not fully "
+        "independent and the intervals are somewhat too narrow. The leakage oracle is itself a string match "
+        "for the planted password; the baselines are generic and are not told the password.",
+        "",
+        "Every run also measures its own grader in-run (known-answer questions + an oracle cross-check on "
+        "the run's clear-cut questions) and withholds the grade when the grader falls below the policy floor.",
+        "",
+    ]
     return out
 
 

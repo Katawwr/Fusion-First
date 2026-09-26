@@ -96,6 +96,11 @@ export default function Trust() {
                 j.f1.toFixed(2),
               ])}
             />
+            <p className="mt-3 text-xs text-app-subtle">
+              {judge.some((j) => Object.values(j.baselines || {}).some((b) => b.mcnemar_p < 0.05))
+                ? "Some grader-vs-baseline differences are statistically significant (paired McNemar, p < 0.05)."
+                : "The grader scores higher than the rule-based checks, but none of those differences is statistically significant yet at these sample sizes."}
+            </p>
             {judge.some((j) => j.audit) && (
               <p className="mt-3 text-xs text-app-subtle">
                 Every disagreement with the oracle was also read and classified. Most were cases the

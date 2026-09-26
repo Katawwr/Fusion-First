@@ -57,3 +57,20 @@ async def test_unanswered_items_are_counted_not_guessed(tmp_path):
     rep = score(rd, items, "nobody")
     g = rep["checks"]["system_prompt_leakage"]["grader"]
     assert g["n"] == 0 and g["unanswered"] == 12
+
+
+@pytest.mark.integration
+def test_committed_q1_evidence_is_rederivable():
+    """The published judge-accuracy numbers re-derive exactly from committed transcripts, oracles and
+    the grader's recorded answers — no model involved."""
+    import pathlib
+
+    from fusion.validate.judge_eval import ArtifactDir
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    committed = json.loads((root / "evals/validation/v1/judge_eval_host_sonnet.json").read_text(encoding="utf-8"))
+    items = collect_items(committed["experiments"], committed["models"], 30,
+                          TranscriptStore(root / "evals/validation/v1/transcripts"))
+    fresh = score(ArtifactDir(root / "evals/validation/v1/judge_eval_host_sonnet"), items, committed["grader"])
+    for check, block in committed["checks"].items():
+        assert fresh["checks"][check]["grader"] == block["grader"], check
