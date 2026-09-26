@@ -477,3 +477,35 @@ async def test_live_probability_judge_on_ollama():
     assert 0.0 <= pv.p_issue <= 1.0
     assert pv.verdict is not None and pv.verdict.judge_model.startswith("qwen2.5")
     assert elapsed < 300
+
+
+# ---------------------------------------------------------------------------------------------
+# ProbJudgeClient — the probability judge behind the ordinary judge-client interface
+# ---------------------------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+async def test_prob_judge_client_answers_a_generative_judge_request():
+    from fusion.judge.prob_judge import ProbJudgeClient
+
+    client = _client({IDS[0]: (0.9, 0.1), IDS[1]: (0.2, 0.8), IDS[2]: (0.1, 0.9)})
+    judge_req = Judge(_FakeClient({}))._build_request(_traj(), RUBRIC)
+    resp = await ProbJudgeClient(ProbabilityJudge(client)).complete(judge_req)
+    verdict = Judge._parse(resp.text, RUBRIC, resp.model)  # the production parser accepts it
+    assert verdict.is_issue and [c.violated for c in verdict.criteria] == [True, False, False]
+    # The bounded questions carry the SAME evidence window the generative judge was shown.
+    direct = ProbabilityJudge(_FakeClient({})).build_request(_traj(), RUBRIC, RUBRIC.criteria[0])
+    assert client.requests[0].messages == direct.messages
+
+
+@pytest.mark.unit
+async def test_prob_judge_client_abstains_and_rejects_foreign_requests():
+    from fusion.judge.prob_judge import ProbJudgeClient
+
+    client = _FakeClient({cid: _resp(None) for cid in IDS})
+    judge_req = Judge(_FakeClient({}))._build_request(_traj(), RUBRIC)
+    with pytest.raises(JudgeAbstained):
+        await ProbJudgeClient(ProbabilityJudge(client)).complete(judge_req)
+    foreign = judge_req.model_copy(update={"system": "You are a pirate."})
+    with pytest.raises(ValueError, match="rubric"):
+        await ProbJudgeClient(ProbabilityJudge(client)).complete(foreign)

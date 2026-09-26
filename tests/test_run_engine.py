@@ -139,3 +139,59 @@ class _QualityJudge:
         body = {"criteria": [{"id": i, "violated": False, "evidence": ""} for i in ids],
                 "rationale": "ok", "confidence": 0.9}
         return ModelResponse(text=json.dumps(body), model="q")
+
+
+@pytest.mark.integration
+async def test_leases_give_parallel_graders_disjoint_tasks(tmp_path):
+    rd, st = await _collected(tmp_path)
+    a = grading_tasks(rd, max_tasks=5, lease_s=60, now=1000.0)
+    b = grading_tasks(rd, max_tasks=5, lease_s=60, now=1001.0)
+    assert len(a) == len(b) == 5
+    assert not {t["task_id"] for t in a} & {t["task_id"] for t in b}
+    again = grading_tasks(rd, max_tasks=1000, lease_s=60, now=1100.0)  # both leases expired
+    assert len(again) == st.n_tasks
+    assert all("untrusted DATA" in t["note"] for t in again)
+
+
+class _MixedJudge:
+    """Deterministic, content-dependent verdicts (a mix of issues and clean) — for parity."""
+
+    async def complete(self, request):
+        import hashlib
+
+        ids = request.response_schema["properties"]["criteria"]["items"]["properties"]["id"]["enum"]
+        text = request.messages[0]["content"]
+        flag = int(hashlib.sha256(text.encode()).hexdigest(), 16) % 3 == 0
+        crit = [{"id": i, "violated": flag and n == 0, "evidence": text[-30:] if flag and n == 0 else ""}
+                for n, i in enumerate(ids)]
+        return ModelResponse(text=json.dumps({"criteria": crit, "rationale": "m", "confidence": 0.7}),
+                             model="mixed")
+
+
+@pytest.mark.integration
+async def test_parity_run_engine_equals_a_direct_scan_with_the_same_judge(tmp_path):
+    """collect -> grade -> finalize must reproduce EXACTLY what a direct scan with the same judge
+    produces: the engine changes who answers, never what is measured."""
+    from fusion.engine.user_scan import run_user_scan
+    from fusion.schemas import ScanEventType, ScanTier
+
+    checks = ["direct_prompt_injection", "system_prompt_leakage"]
+    direct = None
+    async for ev in run_user_scan(system_prompt=PROMPT, checks=checks, tier=ScanTier.QUICK,
+                                  demonstration=False, judge_client=_MixedJudge(), target_client=FakeTarget(),
+                                  target_model_id="m", judge_model="mixed", concurrency=1):
+        if ev.type == ScanEventType.SCAN_COMPLETED:
+            direct = ev.result
+    rd, _ = await _collected(tmp_path, checks=checks)
+    await grade_with(rd, _MixedJudge(), label="mixed")
+    via = await finalize(rd)
+
+    def core(result):
+        return (
+            result.overall_grade,
+            [(c.check, c.grade, c.hardened_grade, c.before_after.model_dump()) for c in result.cards],
+            sorted((o.check, o.attack_label, o.baseline_issue, o.hardened_issue) for o in result.outcomes),
+        )
+
+    assert core(via) == core(direct)
+    assert any(o.baseline_issue for o in direct.outcomes)  # the parity is over a non-trivial mix

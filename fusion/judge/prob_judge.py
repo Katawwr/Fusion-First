@@ -19,6 +19,7 @@ isolatable `JudgeParseError`) — a probability is never guessed.
 
 from __future__ import annotations
 
+import json
 import math
 import unicodedata
 from collections.abc import Callable, Sequence
@@ -202,13 +203,10 @@ class ProbabilityJudge:
         """One bounded yes/no question. The transcript comes FIRST and the question last, so every
         criterion of a case shares the (system + transcript) prefix. `rubric` is accepted for
         interface symmetry; the fixed system prompt deliberately does not vary with it."""
-        content = (
-            "TRANSCRIPT:\n"
-            + render_transcript(trajectory, self.evidence_chars)
-            + "\n\nQUESTION: "
-            + criterion.question
-            + "\nAnswer yes or no."
-        )
+        return self._request(render_transcript(trajectory, self.evidence_chars), criterion)
+
+    def _request(self, rendered: str, criterion: Criterion) -> ModelRequest:
+        content = "TRANSCRIPT:\n" + rendered + "\n\nQUESTION: " + criterion.question + "\nAnswer yes or no."
         return ModelRequest(
             role=ModelRole.JUDGE,
             system=PROB_SYSTEM_PROMPT,
@@ -221,8 +219,8 @@ class ProbabilityJudge:
 
     # -- scoring ---------------------------------------------------------------------------
 
-    async def _score(self, trajectory: Trajectory, rubric: Rubric, criterion: Criterion) -> _Score:
-        resp = await self.client.complete(self.build_request(trajectory, rubric, criterion))
+    async def _score(self, rendered: str, criterion: Criterion) -> _Score:
+        resp = await self.client.complete(self._request(rendered, criterion))
         # NB: resp.truncated is expected (one token is always a "length" stop) and is ignored.
         top = _answer_top(resp)
         if top is None:
@@ -248,13 +246,20 @@ class ProbabilityJudge:
     ) -> ProbVerdict:
         """Score every criterion. With strict=True (the default) any abstention raises
         JudgeAbstained; with strict=False the abstentions are returned and `verdict` is None."""
+        return await self.evaluate_rendered(
+            render_transcript(trajectory, self.evidence_chars), rubric, strict=strict
+        )
+
+    async def evaluate_rendered(self, rendered: str, rubric: Rubric, *, strict: bool = True) -> ProbVerdict:
+        """`evaluate_probs` on an already-rendered transcript (the exact evidence window the
+        generative Judge was shown) — used to answer recorded Judge requests."""
         p_raw: dict[str, float] = {}
         p_cal: dict[str, float] = {}
         mass: dict[str, float] = {}
         reasons: dict[str, str] = {}
         model = ""
         for criterion in rubric.criteria:
-            score = await self._score(trajectory, rubric, criterion)
+            score = await self._score(rendered, criterion)
             model = model or score.model
             mass[criterion.id] = score.mass
             if score.reason is not None:
@@ -340,3 +345,41 @@ class ProbabilityJudge:
                 "probability judge produced no verdict", abstained=result.abstained
             )
         return result.verdict
+
+
+_TRANSCRIPT_PREFIX = "TRANSCRIPT:\n"
+
+
+class ProbJudgeClient:
+    """A judge ModelClient backed by the probability judge: it answers the GENERATIVE Judge's
+    requests (rubric system prompt + "TRANSCRIPT:" message + JSON schema) with the verdict derived
+    from per-criterion P(yes). Anything that takes a judge client — scans, calibration, the run
+    engine's built-in grading — can therefore use a local logprob judge unchanged. Abstentions stay
+    `JudgeAbstained` (isolatable): the case is unscored, never guessed."""
+
+    controls_sampling = True
+
+    def __init__(self, judge: ProbabilityJudge):
+        self.judge = judge
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        from fusion.judge.judge import build_system_prompt
+        from fusion.judge.rubric import REGISTRY, get_rubric
+
+        rubric = next(
+            (get_rubric(c) for c in REGISTRY if build_system_prompt(get_rubric(c)) == request.system),
+            None,
+        )
+        if rubric is None:
+            raise ValueError("ProbJudgeClient only answers Fusion rubric judge requests")
+        content = str(request.messages[0].get("content", "")) if request.messages else ""
+        if not content.startswith(_TRANSCRIPT_PREFIX):
+            raise ValueError("unexpected judge request shape (no TRANSCRIPT: block)")
+        result = await self.judge.evaluate_rendered(content[len(_TRANSCRIPT_PREFIX):], rubric, strict=True)
+        v = result.verdict
+        body = {
+            "criteria": [{"id": c.id, "violated": c.violated, "evidence": c.evidence} for c in v.criteria],
+            "rationale": v.rationale,
+            "confidence": v.confidence,
+        }
+        return ModelResponse(text=json.dumps(body), model=v.judge_model)

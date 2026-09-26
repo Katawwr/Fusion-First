@@ -523,12 +523,28 @@ def build_parser() -> argparse.ArgumentParser:
     pci.add_argument("--target-model", default=None, help="target model (e.g. llama3.2:1b with --backend ollama)")
     pci.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
+    from fusion.runs.cli import add_parsers as _add_run_parsers
+
+    _add_run_parsers(sub)
+
     ph = sub.add_parser("harden", help="auto-apply the safety guardrails to a system-prompt file")
     ph.add_argument("--prompt", required=True, help="path to the system-prompt text file")
     ph.add_argument("--check", default="all")
     ph.add_argument("--out", default=None, help="write hardened prompt here (default: stdout)")
     ph.add_argument("--write", action="store_true", help="edit the prompt file in place")
     return p
+
+
+def _cmd_run(args) -> int:
+    from fusion.runs.cli import cmd_run
+
+    return cmd_run(args)
+
+
+def _cmd_doctor(args) -> int:
+    from fusion.runs.cli import cmd_doctor
+
+    return cmd_doctor(args)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -547,6 +563,8 @@ def main(argv: list[str] | None = None) -> int:
         "guard-proof": cmd_guard_proof,
         "guard-bench": cmd_guard_bench,
         "ci": cmd_ci,
+        "run": _cmd_run,
+        "doctor": _cmd_doctor,
     }
     if getattr(args, "backend", None):
         import os
