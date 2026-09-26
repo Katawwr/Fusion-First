@@ -527,6 +527,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     _add_run_parsers(sub)
 
+    ppf = sub.add_parser("import-promptfoo", help="honest stats (Wilson CI, paired McNemar) on a promptfoo results.json")
+    ppf.add_argument("results", help="promptfoo eval output (promptfoo eval -o results.json)")
+    ppf.add_argument("--json", action="store_true")
+
     pk = sub.add_parser("hook", help="Claude Code hook entry point (fusion-guard plugin): reads the event on stdin")
     pk.add_argument("event", choices=["pre-tool-use", "post-tool-use"])
 
@@ -542,6 +546,20 @@ def _cmd_run(args) -> int:
     from fusion.runs.cli import cmd_run
 
     return cmd_run(args)
+
+
+def _cmd_import_promptfoo(args) -> int:
+    import json as _json
+
+    from fusion.integrations.promptfoo import analyze_results, format_analysis, load_results
+
+    try:
+        a = analyze_results(load_results(args.results))
+    except (OSError, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    print(_json.dumps(a, indent=2) if args.json else format_analysis(a))
+    return 0
 
 
 def _cmd_hook(args) -> int:
@@ -577,6 +595,7 @@ def main(argv: list[str] | None = None) -> int:
         "ci": cmd_ci,
         "run": _cmd_run,
         "hook": _cmd_hook,
+        "import-promptfoo": _cmd_import_promptfoo,
         "doctor": _cmd_doctor,
     }
     if getattr(args, "backend", None):
