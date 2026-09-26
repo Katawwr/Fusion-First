@@ -1,15 +1,13 @@
-import React, { useRef } from "react";
+import React from "react";
 import { Helmet } from "react-helmet-async";
 import {
   Hero,
-  PricingSection,
   FeaturesSection,
   UseCasesSection,
+  LocalFirstSection,
 } from "../components/marketing";
 
 export default function Landing() {
-  const pricingRef = useRef(null);
-
   return (
     <>
       <Helmet>
@@ -60,7 +58,7 @@ export default function Landing() {
               price: "0",
               priceCurrency: "USD",
               description:
-                "Free demo scan and free local open-weight testing; hosted live scans on paid plans",
+                "Free keyless demo scan; free local testing with your own open-weight models",
             },
           })}
         </script>
@@ -75,10 +73,8 @@ export default function Landing() {
       {/* Use Cases Section */}
       <UseCasesSection />
 
-      {/* Pricing Section */}
-      <div ref={pricingRef}>
-        <PricingSection />
-      </div>
+      {/* How to use it — free and local-first (no accounts, no billing) */}
+      <LocalFirstSection />
     </>
   );
 }

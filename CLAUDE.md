@@ -84,3 +84,7 @@ appends idempotent guardrails to a system prompt. The branded, theme-aware HTML 
   IDs in logic. Default judge role → `claude-sonnet-5`; calibration/escalation → `claude-opus-4-8`.
 - Security posture is load-bearing: keys server-side only, per-user budgets/allowlist, fail-closed
   webhooks. Never reintroduce the deleted `/api/debug/*` endpoints or `modal.Dict` money state.
+- **Zero spend.** Real model calls go only through the `claude` CLI on subscription auth or local
+  Ollama. Never set API keys; never run `claude auth login|logout|setup-token` (not even `--help`) —
+  they can change the CLI's login and are denied in `.claude/settings.json`. `claude auth status` is
+  fine. Never run `pytest -m live` against the CLI without the user's go-ahead.

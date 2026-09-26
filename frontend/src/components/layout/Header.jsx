@@ -1,162 +1,213 @@
 import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut, Sun, Moon } from "lucide-react";
-import { SignInModal } from "../auth";
-import { useAuth, useTheme } from "../../hooks";
-import { isSupabaseConfigured } from "../../lib/supabase";
+import { Link, useLocation } from "react-router-dom";
+import { Menu, X, Sun, Moon } from "lucide-react";
+import { useTheme } from "../../hooks";
+
+// No accounts, no billing: Fusion runs locally (CLI / MCP / plugin) or as a keyless demo here.
+const NAV_LINKS = [
+  { name: "Home", href: "/" },
+  { name: "Scan", href: "/scan" },
+];
+
+const ctaStyle = {
+  padding: "0.5rem 1rem",
+  background: "linear-gradient(to right, #f38f95, #db418b)",
+  borderRadius: "0.5rem",
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: "0.875rem",
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+};
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [signInModalOpen, setSignInModalOpen] = useState(false);
+  const [logoOk, setLogoOk] = useState(true);
   const location = useLocation();
-  const navigate = useNavigate();
   const { effective, toggle } = useTheme();
-  const {
-    user,
-    session,
-    loading: authLoading,
-    requestMagicLink,
-    magicLinkSent,
-    error: authError,
-    signOut,
-    isAuthenticated,
-  } = useAuth();
-
-  const themeToggle = (
-    <button
-      onClick={toggle}
-      aria-label={
-        effective === "dark" ? "Switch to light mode" : "Switch to dark mode"
-      }
-      title={
-        effective === "dark" ? "Switch to light mode" : "Switch to dark mode"
-      }
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "38px",
-        height: "38px",
-        borderRadius: "0.5rem",
-        background: "transparent",
-        border: "1px solid var(--border)",
-        color: "var(--muted)",
-        cursor: "pointer",
-        flexShrink: 0,
-      }}
-    >
-      {effective === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-    </button>
-  );
-
-  const navLinks = [
-    { name: "Home", href: "/" },
-    { name: "Scan", href: "/scan" },
-    { name: "Pricing", href: "/#pricing-section" },
-  ];
-
-  const handleRequestMagicLink = async (email, marketingOptIn) => {
-    await requestMagicLink(email, marketingOptIn);
-    // Don't close modal - show success state instead
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    setMobileMenuOpen(false);
-  };
+  const themeLabel =
+    effective === "dark" ? "Switch to light mode" : "Switch to dark mode";
 
   return (
-    <>
-      <header
+    <header
+      style={{
+        borderBottom: "1px solid var(--border)",
+        background: "color-mix(in srgb, var(--bg-elev) 82%, transparent)",
+        backdropFilter: "blur(10px)",
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+      }}
+    >
+      <div
         style={{
-          borderBottom: "1px solid var(--border)",
-          background: "color-mix(in srgb, var(--bg-elev) 82%, transparent)",
-          backdropFilter: "blur(10px)",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
+          maxWidth: "1200px",
+          margin: "0 auto",
+          padding: "clamp(0.75rem, 2vw, 1rem) 1rem",
         }}
       >
         <div
+          className="header-row"
           style={{
-            maxWidth: "1200px",
-            margin: "0 auto",
-            padding: "clamp(0.75rem, 2vw, 1rem) 1rem",
+            display: "grid",
+            gridTemplateColumns: "1fr auto 1fr",
+            alignItems: "center",
+            gap: "clamp(0.5rem, 2vw, 1rem)",
           }}
         >
-          <div
-            className="header-row"
+          {/* Logo - Left */}
+          <Link
+            to="/"
             style={{
-              display: "grid",
-              gridTemplateColumns: "1fr auto 1fr",
+              display: "flex",
               alignItems: "center",
-              gap: "clamp(0.5rem, 2vw, 1rem)",
+              gap: "clamp(0.75rem, 2.5vw, 1.25rem)",
+              textDecoration: "none",
             }}
           >
-            {/* Logo - Left */}
-            <Link
-              to="/"
+            <div
               style={{
+                position: "relative",
                 display: "flex",
                 alignItems: "center",
-                gap: "clamp(0.75rem, 2.5vw, 1.25rem)",
-                textDecoration: "none",
+                justifyContent: "center",
+                width: "clamp(48px, 12vw, 64px)",
+                height: "clamp(48px, 12vw, 64px)",
+                flexShrink: 0,
               }}
             >
-              <div
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "clamp(48px, 12vw, 64px)",
-                  height: "clamp(48px, 12vw, 64px)",
-                  flexShrink: 0,
-                }}
-              >
+              {logoOk ? (
                 <img
                   src="/logo.png"
                   alt="Fusion First"
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  onError={() => setLogoOk(false)}
+                />
+              ) : (
+                <div
+                  aria-label="Fusion First"
                   style={{
                     width: "100%",
                     height: "100%",
-                    objectFit: "contain",
+                    background: "linear-gradient(135deg, #66c4e1, #504d9a)",
+                    borderRadius: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    color: "white",
+                    fontSize: "clamp(24px, 6vw, 32px)",
                   }}
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.parentElement.innerHTML =
-                      '<div style="width: 100%; height: 100%; background: linear-gradient(135deg, #66c4e1, #504d9a); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: clamp(24px, 6vw, 32px);">F</div>';
-                  }}
-                />
-              </div>
-              <h1
-                style={{
-                  fontSize: "clamp(1.25rem, 5vw, 2rem)",
-                  fontWeight: "bold",
-                  background: "linear-gradient(to right, #66c4e1, #f38f95)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  margin: 0,
-                  lineHeight: 1,
-                }}
-              >
-                Fusion First
-              </h1>
-            </Link>
-
-            {/* Desktop Navigation - Center */}
-            <nav
-              className="hidden md:flex"
+                >
+                  F
+                </div>
+              )}
+            </div>
+            <h1
               style={{
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "2rem",
+                fontSize: "clamp(1.25rem, 5vw, 2rem)",
+                fontWeight: "bold",
+                background: "linear-gradient(to right, #66c4e1, #f38f95)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                margin: 0,
+                lineHeight: 1,
               }}
             >
-              {navLinks.map((link) => (
+              Fusion First
+            </h1>
+          </Link>
+
+          {/* Desktop Navigation - Center */}
+          <nav
+            className="hidden md:flex"
+            style={{ alignItems: "center", justifyContent: "center", gap: "2rem" }}
+          >
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.name}
+                to={link.href}
+                style={{
+                  fontSize: "0.875rem",
+                  fontWeight: "500",
+                  color:
+                    location.pathname === link.href
+                      ? "var(--pink-ink)"
+                      : "var(--text)",
+                  textDecoration: "none",
+                  transition: "color 0.2s",
+                }}
+              >
+                {link.name}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Right side */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: "0.6rem",
+            }}
+          >
+            <button
+              onClick={toggle}
+              aria-label={themeLabel}
+              title={themeLabel}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "38px",
+                height: "38px",
+                borderRadius: "0.5rem",
+                background: "transparent",
+                border: "1px solid var(--border)",
+                color: "var(--muted)",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              {effective === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <Link to="/scan" className="hidden md:block" style={ctaStyle}>
+              Scan your agent
+            </Link>
+            <button
+              className="md:hidden"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{
+                padding: "0.5rem",
+                background: "none",
+                border: "none",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation */}
+        {mobileMenuOpen && (
+          <div
+            className="md:hidden"
+            style={{
+              paddingTop: "1rem",
+              borderTop: "1px solid var(--border)",
+              marginTop: "1rem",
+            }}
+          >
+            <nav style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {NAV_LINKS.map((link) => (
                 <Link
                   key={link.name}
                   to={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
                   style={{
                     fontSize: "0.875rem",
                     fontWeight: "500",
@@ -165,228 +216,22 @@ export default function Header() {
                         ? "var(--pink-ink)"
                         : "var(--text)",
                     textDecoration: "none",
-                    transition: "color 0.2s",
                   }}
                 >
                   {link.name}
                 </Link>
               ))}
+              <Link
+                to="/scan"
+                onClick={() => setMobileMenuOpen(false)}
+                style={{ ...ctaStyle, padding: "0.75rem", textAlign: "center" }}
+              >
+                Scan your agent
+              </Link>
             </nav>
-
-            {/* Right side - Sign In button */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "flex-end",
-                gap: "0.6rem",
-              }}
-            >
-              {themeToggle}
-              {/* Desktop Auth */}
-              {isAuthenticated ? (
-                <div
-                  className="hidden md:flex"
-                  style={{ alignItems: "center", gap: "0.75rem" }}
-                >
-                  <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
-                    {user?.email?.split("@")[0]}
-                  </span>
-                  <button
-                    onClick={handleSignOut}
-                    style={{
-                      padding: "0.5rem 1rem",
-                      background: "transparent",
-                      border: "1px solid var(--border-strong)",
-                      borderRadius: "0.5rem",
-                      color: "var(--text)",
-                      fontSize: "0.875rem",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <LogOut size={16} />
-                    Sign Out
-                  </button>
-                </div>
-              ) : isSupabaseConfigured ? (
-                <button
-                  onClick={() => setSignInModalOpen(true)}
-                  className="hidden md:block"
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "linear-gradient(to right, #f38f95, #db418b)",
-                    border: "none",
-                    borderRadius: "0.5rem",
-                    color: "#fff",
-                    fontWeight: "bold",
-                    fontSize: "0.875rem",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Sign In
-                </button>
-              ) : (
-                <Link
-                  to="/scan"
-                  className="hidden md:block"
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "linear-gradient(to right, #f38f95, #db418b)",
-                    borderRadius: "0.5rem",
-                    color: "#fff",
-                    fontWeight: "bold",
-                    fontSize: "0.875rem",
-                    textDecoration: "none",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Scan your agent
-                </Link>
-              )}
-
-              {/* Mobile menu button */}
-              <button
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                style={{
-                  padding: "0.5rem",
-                  background: "none",
-                  border: "none",
-                  color: "var(--text)",
-                  cursor: "pointer",
-                }}
-              >
-                {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
-            </div>
           </div>
-
-          {/* Mobile Navigation */}
-          {mobileMenuOpen && (
-            <div
-              className="md:hidden"
-              style={{
-                paddingTop: "1rem",
-                borderTop: "1px solid var(--border)",
-                marginTop: "1rem",
-              }}
-            >
-              <nav
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "1rem",
-                }}
-              >
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.name}
-                    to={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    style={{
-                      fontSize: "0.875rem",
-                      fontWeight: "500",
-                      color:
-                        location.pathname === link.href
-                          ? "var(--pink-ink)"
-                          : "var(--text)",
-                      textDecoration: "none",
-                    }}
-                  >
-                    {link.name}
-                  </Link>
-                ))}
-                {isAuthenticated ? (
-                  <>
-                    <p
-                      style={{
-                        color: "var(--muted)",
-                        fontSize: "0.875rem",
-                        margin: 0,
-                      }}
-                    >
-                      {user?.email}
-                    </p>
-                    <button
-                      onClick={handleSignOut}
-                      style={{
-                        padding: "0.75rem",
-                        background: "transparent",
-                        border: "1px solid var(--border-strong)",
-                        borderRadius: "0.5rem",
-                        color: "var(--text)",
-                        fontSize: "0.875rem",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "0.5rem",
-                        width: "100%",
-                      }}
-                    >
-                      <LogOut size={16} />
-                      Sign Out
-                    </button>
-                  </>
-                ) : isSupabaseConfigured ? (
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      setSignInModalOpen(true);
-                    }}
-                    style={{
-                      padding: "0.75rem",
-                      background: "linear-gradient(to right, #f38f95, #db418b)",
-                      border: "none",
-                      borderRadius: "0.5rem",
-                      color: "#fff",
-                      fontWeight: "bold",
-                      fontSize: "0.875rem",
-                      cursor: "pointer",
-                      width: "100%",
-                    }}
-                  >
-                    Sign In
-                  </button>
-                ) : (
-                  <Link
-                    to="/scan"
-                    onClick={() => setMobileMenuOpen(false)}
-                    style={{
-                      padding: "0.75rem",
-                      background: "linear-gradient(to right, #f38f95, #db418b)",
-                      borderRadius: "0.5rem",
-                      color: "#fff",
-                      fontWeight: "bold",
-                      fontSize: "0.875rem",
-                      textDecoration: "none",
-                      textAlign: "center",
-                      width: "100%",
-                    }}
-                  >
-                    Scan your bot
-                  </Link>
-                )}
-              </nav>
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* Sign In Modal */}
-      <SignInModal
-        isOpen={signInModalOpen}
-        onClose={() => setSignInModalOpen(false)}
-        onRequestMagicLink={handleRequestMagicLink}
-        loading={authLoading}
-        magicLinkSent={magicLinkSent}
-        error={authError}
-        session={session}
-      />
-    </>
+        )}
+      </div>
+    </header>
   );
 }

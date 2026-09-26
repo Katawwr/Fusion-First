@@ -1,10 +1,18 @@
-// Client for the new Fusion Safety API (the fusion-safety-api backend).
+// Client for the Fusion API (FastAPI + SSE).
 // Targets VITE_API_URL when set, else SAME-ORIGIN ('' → relative /api/... paths). Same-origin means
-// a misconfigured deploy 404s loudly against its own host instead of silently hitting the wrong app
-// (the old default pointed at the legacy fusion-quality-tester deployment, a latent prod bug).
+// a misconfigured deploy 404s loudly against its own host instead of silently hitting the wrong app.
+import { ApiError, apiFetch, apiJson } from "./http";
+import { createSseParser } from "./sse";
+
 export const API_URL = import.meta.env.VITE_API_URL || "";
 
-// Wake a possibly-cold Modal container so the first real request isn't stuck on cold start.
+const json = (body) => ({
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+// Wake a possibly-cold container so the first real request isn't stuck on cold start.
 export async function wakeBackend() {
   try {
     const r = await fetch(`${API_URL}/api/health`);
@@ -14,13 +22,13 @@ export async function wakeBackend() {
   }
 }
 
+// What this server can actually run (demo / cli / ollama / api) plus installed Ollama models.
+export async function getCapabilities() {
+  return apiJson(`${API_URL}/api/version`);
+}
+
 export async function getScan(scanId) {
-  const r = await fetch(`${API_URL}/api/scan/${encodeURIComponent(scanId)}`);
-  if (!r.ok)
-    throw new Error(
-      r.status === 404 ? "Scan not found" : "Failed to load scan",
-    );
-  return r.json();
+  return apiJson(`${API_URL}/api/scan/${encodeURIComponent(scanId)}`);
 }
 
 export function reportHtmlUrl(scanId) {
@@ -28,95 +36,58 @@ export function reportHtmlUrl(scanId) {
 }
 
 export async function harden(systemPrompt, checks = null) {
-  const r = await fetch(`${API_URL}/api/harden`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ system_prompt: systemPrompt, checks }),
-  });
-  if (!r.ok) throw new Error("Failed to harden prompt");
-  return r.json();
+  return apiJson(`${API_URL}/api/harden`, json({ system_prompt: systemPrompt, checks }));
 }
 
 export async function guardrailSnippet(checks = null) {
-  const r = await fetch(`${API_URL}/api/guardrail-snippet`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ checks }),
-  });
-  if (!r.ok) throw new Error("Failed to load guardrail snippet");
-  return r.json();
+  return apiJson(`${API_URL}/api/guardrail-snippet`, json({ checks }));
 }
 
 // Grade the agent's QUALITY (correctness / instruction-following) on normal test inputs.
-// Live-only: needs a real backend. A 402 means no backend is configured (offer live/local Ollama).
-export async function gradeQuality(
-  systemPrompt,
-  { targetModel = null, backend = null } = {},
-) {
-  const r = await fetch(`${API_URL}/api/grade-quality`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      system_prompt: systemPrompt,
-      target_model: targetModel,
-      backend,
-    }),
-  });
-  if (r.status === 402) {
-    const e = new Error(
-      "Quality grading needs a live backend (a Claude key or a local Ollama model).",
-    );
-    e.code = 402;
-    throw e;
-  }
-  if (!r.ok) throw new Error("Failed to grade quality");
-  return r.json();
+// Live-only: needs a real backend on this server.
+export async function gradeQuality(systemPrompt, { targetModel = null, backend = null } = {}) {
+  return apiJson(
+    `${API_URL}/api/grade-quality`,
+    json({ system_prompt: systemPrompt, target_model: targetModel, backend }),
+  );
 }
 
-// Stream a scan over SSE. `handlers` is an object of callbacks keyed by event name
-// (scan_id, scan_started, check_started, probe_result, check_completed, scan_completed, error).
-// Returns the final ScanResult (or throws). `signal` (optional) cancels the stream.
+const TERMINAL = new Set(["scan_completed", "error"]);
+
+// Stream a scan over SSE. `handlers` maps event name → callback (scan_id, scan_started,
+// check_started, probe_result, check_completed, scan_completed, error). Contract: the server ends
+// every stream with exactly one terminal event (scan_completed | error). If the connection ends
+// without one, this throws ApiError(code "connection_closed") — the UI must never spin forever.
 export async function streamScan(body, handlers = {}, signal) {
   await wakeBackend();
-  const resp = await fetch(`${API_URL}/api/scan/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
+  const resp = await apiFetch(`${API_URL}/api/scan/stream`, { ...json(body), signal });
+
+  let result = null;
+  let terminal = null;
+  let scanId = null;
+  const parser = createSseParser((name, data) => {
+    if (name === "parse_error") return;
+    if (name === "scan_id") scanId = data.scan_id;
+    if (name === "scan_completed") result = data.result;
+    if (TERMINAL.has(name)) terminal = name;
+    handlers[name]?.(data);
   });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    if (resp.status === 402)
-      throw new Error(text || "Real scans require an upgrade.");
-    throw new Error(text || `Server error: ${resp.status}`);
-  }
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
-  let buffer = "";
-  let currentEvent = null;
-  let result = null;
-
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop();
-    for (const line of lines) {
-      if (line.startsWith("event:")) {
-        currentEvent = line.slice(6).trim();
-      } else if (line.startsWith("data:") && currentEvent) {
-        try {
-          const data = JSON.parse(line.slice(5).trim());
-          handlers[currentEvent]?.(data);
-          if (currentEvent === "scan_completed") result = data.result;
-        } catch {
-          /* ignore malformed frame */
-        }
-        currentEvent = null;
-      }
-    }
+    parser.feed(decoder.decode(value, { stream: true }));
   }
-  return result;
+  parser.feed(decoder.decode());
+  parser.flush();
+
+  if (!terminal) {
+    throw new ApiError(
+      `The connection closed before the scan finished${scanId ? ` (ref ${scanId})` : ""}.`,
+      { code: "connection_closed" },
+    );
+  }
+  return { result, terminal, scanId };
 }

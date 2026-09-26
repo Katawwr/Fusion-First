@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Header, Footer } from "./components/layout";
+import ErrorBoundary from "./components/layout/ErrorBoundary";
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -19,6 +20,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 
 export default function App() {
+  const location = useLocation();
   // Scan state lifted to App so a report survives navigation.
   const [scanState, setScanState] = useState({
     systemPrompt: "",
@@ -38,6 +40,7 @@ export default function App() {
       <Header />
 
       <main style={{ flex: 1 }}>
+        <ErrorBoundary key={location.pathname}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route
@@ -90,6 +93,7 @@ export default function App() {
             }
           />
         </Routes>
+        </ErrorBoundary>
       </main>
 
       <Footer />

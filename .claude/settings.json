@@ -1,4 +1,20 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(claude auth login*)",
+      "Bash(claude auth logout*)",
+      "Bash(claude auth setup-token*)",
+      "Bash(claude setup-token*)",
+      "Bash(claude logout*)",
+      "Bash(claude login*)",
+      "PowerShell(claude auth login*)",
+      "PowerShell(claude auth logout*)",
+      "PowerShell(claude auth setup-token*)",
+      "PowerShell(claude setup-token*)",
+      "PowerShell(claude logout*)",
+      "PowerShell(claude login*)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {

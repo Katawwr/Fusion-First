@@ -23,7 +23,7 @@ export default function QualityPanel({ systemPrompt }) {
       setData(res);
       setState("done");
     } catch (e) {
-      if (e.code === 402) setState("unavailable");
+      if (e.status === 402 || e.status === 403) setState("unavailable");
       else {
         setErr(e.message || "Failed to grade quality");
         setState("error");

@@ -11,10 +11,10 @@ export default function Hero() {
     navigate("/scan");
   };
 
-  const scrollToPricing = () => {
-    const pricingSection = document.getElementById("pricing-section");
-    if (pricingSection) {
-      pricingSection.scrollIntoView({ behavior: "smooth" });
+  const scrollToLocalFirst = () => {
+    const section = document.getElementById("local-first-section");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" });
     }
   };
 
@@ -156,7 +156,7 @@ export default function Hero() {
               Scan your agent free
             </button>
             <button
-              onClick={scrollToPricing}
+              onClick={scrollToLocalFirst}
               style={{
                 padding: "0.875rem 2rem",
                 background: "transparent",
@@ -178,7 +178,7 @@ export default function Hero() {
                 e.currentTarget.style.background = "transparent";
               }}
             >
-              View Pricing
+              Run it locally
             </button>
           </div>
 
@@ -267,8 +267,8 @@ export default function Hero() {
               }}
             >
               Graded by an examiner that is itself{" "}
-              <strong style={{ color: "var(--text)" }}>measured against known answers</strong>,
-              with its accuracy shown on every report. Fusion measures exactly
+              <strong style={{ color: "var(--text)" }}>measured against known answers</strong>;
+              every report says how far to trust its grade. Fusion measures exactly
               where your model resists and where it gives way.
             </p>
           </div>

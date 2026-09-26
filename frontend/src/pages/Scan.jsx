@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { ArrowLeft, ArrowRight, Check, Download } from "lucide-react";
 import Card from "../components/ui/Card";
@@ -24,7 +24,7 @@ import {
   guardrailSnippet,
   reportHtmlUrl,
 } from "../lib/scanApi";
-import { CHECKS, checkMeta, gradeFor, worstGrade } from "../lib/jargon";
+import { CHECKS, checkMeta, worstGrade } from "../lib/jargon";
 
 const ALL_CHECKS = Object.keys(CHECKS);
 const STEPS = [
@@ -244,20 +244,13 @@ export default function Scan({ scanState, setScanState }) {
   const [targetModel, setTargetModel] = useState("llama3.2:1b");
   const [hardened, setHardened] = useState(null);
   const [snippet, setSnippet] = useState("");
+  const [fixError, setFixError] = useState(null);
 
   const checks = useMemo(
     () => ALL_CHECKS.filter((c) => enabled.has(c)),
     [enabled],
   );
   const result = scan.result;
-
-  // Advance to the report the moment the scan completes.
-  useEffect(() => {
-    if (result && step === "run") {
-      setStep("report");
-      setScanState?.((s) => ({ ...s, systemPrompt, result }));
-    }
-  }, [result]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggle(check) {
     setEnabled((prev) => {
@@ -271,27 +264,33 @@ export default function Scan({ scanState, setScanState }) {
     setStep("run");
     // One `target` drives everything: demo replays recorded runs, anything else is live.
     const backend = target === "ollama" || target === "cli" ? target : null;
-    scan.start({
-      system_prompt: systemPrompt,
-      checks,
-      tier: "quick",
-      mode: target === "demo" ? "demo" : "live",
-      backend,
-      target_model: target === "ollama" ? targetModel : null,
-    });
+    scan.start(
+      {
+        system_prompt: systemPrompt,
+        checks,
+        tier: "quick",
+        mode: target === "demo" ? "demo" : "live",
+        backend,
+        target_model: target === "ollama" ? targetModel : null,
+      },
+      {
+        // Advance to the report the moment the scan completes (no effect → no render cascade).
+        onCompleted: (finished) => {
+          setStep("report");
+          setScanState?.((s) => ({ ...s, systemPrompt, result: finished }));
+        },
+      },
+    );
   }
 
   async function goToFix() {
     setStep("fix");
-    if (!hardened) {
-      try {
-        const h = await apiHarden(systemPrompt, checks);
-        setHardened(h);
-        const g = await guardrailSnippet(checks);
-        setSnippet(g.snippet);
-      } catch {
-        /* surfaced below */
-      }
+    setFixError(null);
+    try {
+      if (!hardened) setHardened(await apiHarden(systemPrompt, checks));
+      if (!snippet) setSnippet((await guardrailSnippet(checks)).snippet);
+    } catch (e) {
+      setFixError(e.message || "Couldn't prepare the fix.");
     }
   }
 
@@ -421,6 +420,8 @@ export default function Scan({ scanState, setScanState }) {
           systemPrompt={systemPrompt}
           hardened={hardened}
           snippet={snippet}
+          error={fixError}
+          onRetry={goToFix}
           onProve={() => setStep("prove")}
           onBack={() => setStep("report")}
         />
@@ -646,9 +647,31 @@ function RunStep({ scan, checks, onCancel }) {
 
 /* ---------------------------------------------------------------- 4. Fix */
 
-function FixStep({ systemPrompt, hardened, snippet, onProve, onBack }) {
+function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onBack }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+      {error && (
+        <div
+          role="alert"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "0.75rem",
+            padding: "0.9rem 1.1rem",
+            borderRadius: "0.9rem",
+            border: "1px solid color-mix(in srgb, var(--danger) 40%, transparent)",
+            background: "color-mix(in srgb, var(--danger) 8%, transparent)",
+            color: "var(--text)",
+          }}
+        >
+          <span>{error}</span>
+          <Button variant="outline" onClick={onRetry}>
+            Retry
+          </Button>
+        </div>
+      )}
       <section>
         <SectionTitle hint="Free, ten seconds. We append tested guard rules to your prompt. Safe to re-run: we replace our own block instead of stacking duplicates.">
           Layer 1: Fix the instructions
@@ -678,6 +701,8 @@ function FixStep({ systemPrompt, hardened, snippet, onProve, onBack }) {
                 />
               </div>
             </>
+          ) : error ? (
+            <p style={{ color: "var(--subtle)" }}>The hardened prompt couldn't be prepared.</p>
           ) : (
             <p style={{ color: "var(--subtle)" }}>
               Preparing your hardened prompt…
@@ -693,6 +718,8 @@ function FixStep({ systemPrompt, hardened, snippet, onProve, onBack }) {
         <Card>
           {snippet ? (
             <CodeSnippet code={snippet} language="python" />
+          ) : error ? (
+            <p style={{ color: "var(--subtle)" }}>The snippet couldn't be loaded.</p>
           ) : (
             <p style={{ color: "var(--subtle)" }}>Loading snippet…</p>
           )}
@@ -711,7 +738,7 @@ function FixStep({ systemPrompt, hardened, snippet, onProve, onBack }) {
         <QuietButton onClick={onBack} icon={ArrowLeft}>
           Back to report
         </QuietButton>
-        <Button onClick={onProve}>Prove it worked, re-test</Button>
+        <Button onClick={onProve}>See the before/after</Button>
       </div>
     </div>
   );
@@ -723,11 +750,11 @@ function ProveStep({ result, scanId, systemPrompt, onRestart }) {
   // Both grades are derived from their own arm. `overall_grade` is the BASELINE headline
   // (the prompt as written), so using it for the "hardened" badge would show no improvement.
   const baselineGrade = worstGrade(
-    result.cards.map((c) => gradeFor(c.before_after?.baseline_issue_rate || 0)),
+    result.cards.map((c) => c.grade || "?"),
   );
   const hardenedGrade = worstGrade(
     result.cards.map(
-      (c) => c.hardened_grade || gradeFor(c.before_after?.hardened_issue_rate || 0),
+      (c) => c.hardened_grade || "?",
     ),
   );
   return (
