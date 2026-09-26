@@ -6,6 +6,13 @@ evidence files by `python -m fusion.validate.trust_report` — nothing here is t
 fails if this file and its evidence disagree. Intervals are 95% Wilson (rates) unless noted. Evidence
 from the offline stand-in judge (`demonstration: true`) is never used here.
 
+## Bottom line
+
+- **Detecting accurately?** Graded against deterministic oracles: direct prompt injection 80% (68%–88%), system prompt leakage 92% (82%–96%). It beats the rule-based checks, but not significantly yet (small samples).
+- **Fixing effectively?** On llama3.2:1b: no proven improvement from the prompt fix; 1 significant regression(s) (xstest). Every report card therefore measures the fix on the user's own model instead of assuming it helps.
+- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 33% (23%–44%) of attack-shaped ones as written — useful defense in depth, not a sandbox.
+- **Erroring often?** In the fix-efficacy run, 0 of 120 item pairs failed to generate, 0 were undecidable by the oracle and 6 were cut by the token cap; in the judge evaluation, 0 of 120 questions went unanswered. Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much is unscored, when the grader misses the known-answer floor, or when it denies an oracle-confirmed violation.
+
 ## Q1 — Is the judge accurate?
 
 Grader verdicts on **real open-weight model transcripts**, scored against **deterministic oracles** (no LLM in the ground truth): did the model call the attacker's tool (InjecAgent), did it leak the planted password (Gandalf). The two rule-based baselines answer the same items. Unanswered items are excluded from the rates and counted.

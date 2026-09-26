@@ -45,6 +45,66 @@ def _iv(d: dict | None) -> str:
     return f"{_pct(point)} ({_pct(lo)}–{_pct(hi)})"
 
 
+def _bottom_line(root: pathlib.Path) -> list[str]:
+    """Four plain answers, each derived by rule from the evidence (never typed by hand)."""
+    out = ["## Bottom line", ""]
+    judge = [_load(root, str(f.relative_to(root)).replace("\\\\", "/"))
+             for f in sorted((root / "evals/validation/v1").glob("judge_eval_*.json"))]
+    judge = [d for d in judge if d]
+    if judge:
+        accs = [(c, b["grader"]["accuracy"]) for d in judge for c, b in sorted(d["checks"].items())]
+        span = ", ".join(f"{c.replace('_', ' ')} {_iv(a)}" for c, a in accs)
+        pvals = [b[k]["vs_grader"]["mcnemar_p"] for d in judge for b in d["checks"].values()
+                 for k in ("naive_regex", "tuned_heuristic") if "vs_grader" in b.get(k, {})]
+        beats = all(b["grader"]["f1"] >= b.get(k, {}).get("f1", 0) for d in judge for b in d["checks"].values()
+                    for k in ("naive_regex", "tuned_heuristic"))
+        sig = any(p < 0.05 for p in pvals)
+        out.append(f"- **Detecting accurately?** Graded against deterministic oracles: {span}. "
+                   + ("It beats the rule-based checks" if beats else "It does not always beat the rule-based checks")
+                   + (" significantly." if sig else ", but not significantly yet (small samples)."))
+    else:
+        out.append("- **Detecting accurately?** Not yet measured.")
+    fix = _load(root, "evals/validation/v1/evidence_oracle.json")
+    if fix:
+        cells = fix.get("cells", [])
+        worse = [c for c in cells if c["before_after"]["absolute_reduction"]["point"] < 0
+                 and c["before_after"]["mcnemar_p"] < 0.05]
+        proven = [c for c in cells if c["before_after"].get("honesty") == "PROVEN"
+                  and c["before_after"]["absolute_reduction"]["point"] > 0]
+        models = ", ".join(sorted(fix.get("models", {})))
+        out.append(f"- **Fixing effectively?** On {models}: "
+                   + (f"{len(proven)} proven improvement(s)" if proven else "no proven improvement from the prompt fix")
+                   + (f"; {len(worse)} significant regression(s) ("
+                      + ", ".join(f"{c['experiment']}" for c in worse) + ")" if worse else "")
+                   + ". Every report card therefore measures the fix on the user's own model instead of assuming it helps.")
+    else:
+        out.append("- **Fixing effectively?** Not yet measured.")
+    guard = _load(root, "evals/guard_bench/claude_code_heldout_v2.json") or _load(
+        root, "evals/guard_bench/claude_code_heldout_v1.json")
+    if guard:
+        out.append(f"- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on "
+                   f"{_iv(guard['benign']['over_block'])} of benign calls and caught {_iv(guard['malicious']['recall'])} "
+                   "of attack-shaped ones as written — useful defense in depth, not a sandbox.")
+    counts = []
+    if fix:
+        cells = fix.get("cells", [])
+        items = sum(c["n_items"] for c in cells)
+        unscored = sum(c["n_unscored"] for c in cells)
+        undecidable = sum(c["n_undecidable"] for c in cells)
+        truncated = sum(c.get("n_truncated", 0) for c in cells)
+        counts.append(f"in the fix-efficacy run, {unscored} of {items} item pairs failed to generate, "
+                      f"{undecidable} were undecidable by the oracle and {truncated} were cut by the token cap")
+    if judge:
+        unanswered = sum(b["grader"].get("unanswered", 0) for d in judge for b in d["checks"].values())
+        total = sum(b["grader"]["n"] + b["grader"].get("unanswered", 0) for d in judge for b in d["checks"].values())
+        counts.append(f"in the judge evaluation, {unanswered} of {total} questions went unanswered")
+    out.append("- **Erroring often?** " + ("; ".join(counts).capitalize() + ". " if counts else "")
+               + "Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much "
+               "is unscored, when the grader misses the known-answer floor, or when it denies an "
+               "oracle-confirmed violation.")
+    return out + [""]
+
+
 def _q1(root: pathlib.Path) -> list[str]:
     out = ["## Q1 — Is the judge accurate?", ""]
     files = sorted((root / "evals/validation/v1").glob("judge_eval_*.json"))
@@ -214,7 +274,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
 
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
-    parts = [HEADER, *_q1(root), *_q3(root), *_guard(root), *_limits()]
+    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 
