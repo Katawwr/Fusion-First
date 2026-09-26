@@ -81,3 +81,118 @@ def accuracy_result(
         fn=fn,
         label_source=label_source,
     )
+
+
+# --------------------------------------------------------------------------------------------
+# Validation statistics (Trust Report): sample sizes, balanced accuracy, bootstrap CIs, agreement
+# --------------------------------------------------------------------------------------------
+
+
+def wilson_halfwidth(p: float, n: int, z: float = Z_95) -> float:
+    """Half-width of the Wilson interval at proportion `p` with `n` trials (continuous in p)."""
+    if n <= 0:
+        return 0.5
+    z2 = z * z
+    denom = 1 + z2 / n
+    return (z / denom) * math.sqrt(p * (1 - p) / n + z2 / (4 * n * n))
+
+
+def required_n_for_halfwidth(p: float, halfwidth: float, z: float = Z_95, n_max: int = 100_000) -> int:
+    """Smallest n whose Wilson interval at proportion p has half-width <= `halfwidth`.
+    e.g. p=0.9, h=0.15 -> 17 per class: a blind split needs ~17 positives AND ~17 negatives."""
+    for n in range(1, n_max + 1):
+        if wilson_halfwidth(p, n, z) <= halfwidth:
+            return n
+    raise ValueError("half-width not reachable within n_max")
+
+
+def specificity(y_true: list[bool], y_pred: list[bool]) -> Interval:
+    tp, fp, tn, fn = confusion(y_true, y_pred)
+    return wilson_interval(tn, tn + fp) if (tn + fp) else Interval(point=0, low=0, high=1)
+
+
+def balanced_accuracy(y_true: list[bool], y_pred: list[bool]) -> float:
+    """Mean of recall and specificity — robust to class imbalance (unlike raw accuracy)."""
+    tp, fp, tn, fn = confusion(y_true, y_pred)
+    parts = []
+    if tp + fn:
+        parts.append(tp / (tp + fn))
+    if tn + fp:
+        parts.append(tn / (tn + fp))
+    return sum(parts) / len(parts) if parts else 0.0
+
+
+def f1_score(y_true: list[bool], y_pred: list[bool]) -> float:
+    tp, fp, tn, fn = confusion(y_true, y_pred)
+    return (2 * tp / (2 * tp + fp + fn)) if (2 * tp + fp + fn) else 0.0
+
+
+def bootstrap_ci(
+    y_true: list[bool],
+    y_pred: list[bool],
+    stat,
+    n_boot: int = 2000,
+    seed: int = 7,
+    alpha: float = 0.05,
+) -> Interval:
+    """Percentile bootstrap CI for any paired statistic `stat(y_true, y_pred)` (resampling items).
+    Deterministic given `seed`. Used for F1, kappa and balanced accuracy, which have no Wilson form."""
+    import random
+
+    n = len(y_true)
+    point = stat(y_true, y_pred)
+    if n == 0:
+        return Interval(point=point, low=point, high=point)
+    rng = random.Random(seed)
+    vals = []
+    for _ in range(n_boot):
+        idx = [rng.randrange(n) for _ in range(n)]
+        vals.append(stat([y_true[i] for i in idx], [y_pred[i] for i in idx]))
+    vals.sort()
+    lo = vals[int((alpha / 2) * (n_boot - 1))]
+    hi = vals[int((1 - alpha / 2) * (n_boot - 1))]
+    return Interval(point=point, low=lo, high=hi)
+
+
+def fleiss_kappa(ratings: list[list[bool]]) -> float:
+    """Fleiss' kappa for binary ratings: ratings[i] = the verdicts of all raters on item i.
+    Every item must have the same number of raters (>= 2)."""
+    if not ratings:
+        return 0.0
+    m = len(ratings[0])
+    if m < 2 or any(len(r) != m for r in ratings):
+        raise ValueError("every item needs the same number (>= 2) of ratings")
+    n = len(ratings)
+    p_yes = sum(sum(r) for r in ratings) / (n * m)
+    p_e = p_yes ** 2 + (1 - p_yes) ** 2
+    p_bar = sum(
+        (sum(r) * (sum(r) - 1) + (m - sum(r)) * (m - sum(r) - 1)) / (m * (m - 1)) for r in ratings
+    ) / n
+    if p_e == 1.0:
+        return 1.0
+    return (p_bar - p_e) / (1 - p_e)
+
+
+def flip_rate(runs: list[list[bool]]) -> Interval:
+    """Share of items whose verdict is NOT identical across repeated runs (runs[k][i] = run k on
+    item i), with a Wilson interval: the repeat-run stability of a judge whose sampling isn't pinned."""
+    if not runs:
+        return Interval(point=0, low=0, high=1)
+    n = len(runs[0])
+    if any(len(r) != n for r in runs):
+        raise ValueError("every run must cover the same items")
+    flips = sum(1 for i in range(n) if len({run[i] for run in runs}) > 1)
+    return wilson_interval(flips, n)
+
+
+def mcnemar_classifiers(
+    y_true: list[bool], pred_a: list[bool], pred_b: list[bool]
+) -> tuple[int, int, float]:
+    """Paired comparison of two classifiers on the same items: (a_right_b_wrong, b_right_a_wrong,
+    exact two-sided McNemar p). Answers "is A really better than B here?" (e.g. Fusion vs a naive
+    single-question judge)."""
+    from fusion.stats.paired import mcnemar_exact_p
+
+    b = sum(1 for t, a, bb in zip(y_true, pred_a, pred_b, strict=True) if a == t and bb != t)
+    c = sum(1 for t, a, bb in zip(y_true, pred_a, pred_b, strict=True) if a != t and bb == t)
+    return b, c, mcnemar_exact_p(b, c)

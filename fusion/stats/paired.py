@@ -9,8 +9,9 @@ when the sample is too small to support it.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
-from scipy import stats as scipy_stats
 
 from fusion.schemas import BeforeAfterResult, Honesty, Interval
 
@@ -31,7 +32,11 @@ def mcnemar_exact_p(b: int, c: int) -> float:
     n = b + c
     if n == 0:
         return 1.0
-    return float(scipy_stats.binomtest(min(b, c), n, 0.5, alternative="two-sided").pvalue)
+    # Exact two-sided binomial test at p = 0.5 (symmetric): 2 * P(X <= min(b, c)), capped at 1.
+    # Computed exactly with integers — no scipy needed (keeps `uvx fusion-safety` installs light).
+    k = min(b, c)
+    tail = sum(math.comb(n, i) for i in range(k + 1))
+    return min(1.0, 2 * tail / (2 ** n))
 
 
 def paired_bootstrap_diff(
@@ -115,3 +120,55 @@ def before_after(
             else honesty_reasons(n, b + c, p, reduction)
         ),
     )
+
+
+def noninferiority(
+    before_ok: list[bool],
+    after_ok: list[bool],
+    margin: float,
+    n_boot: int = 5000,
+    seed: int = 42,
+) -> tuple[Interval, bool]:
+    """Did a fix hurt a GOOD outcome (task completed, instruction followed) by more than `margin`?
+
+    Paired bootstrap of the DROP in success rate (before - after). Non-inferior when the upper 95%
+    bound of the drop is <= margin. This is the counter-metric that stops a "fix" from winning on
+    safety by refusing everything."""
+    if len(before_ok) != len(after_ok):
+        raise ValueError("paired arrays must match in length")
+    # A drop in success == an increase in failure, so reuse the paired bootstrap on failures.
+    drop = paired_bootstrap_diff(
+        [not x for x in after_ok], [not x for x in before_ok], n_boot=n_boot, seed=seed
+    )
+    return drop, drop.high <= margin
+
+
+def cluster_bootstrap_diff(
+    baseline_fail: list[bool],
+    hardened_fail: list[bool],
+    clusters: list[str],
+    n_boot: int = 5000,
+    seed: int = 42,
+) -> Interval:
+    """Bootstrap of (baseline - hardened issue rate) resampling whole CLUSTERS (e.g. one attack run
+    against several target models) — pairs within a cluster are correlated, so resampling pairs
+    independently would give a falsely narrow interval."""
+    if not (len(baseline_fail) == len(hardened_fail) == len(clusters)):
+        raise ValueError("arrays must match in length")
+    if not clusters:
+        return Interval(point=0.0, low=0.0, high=0.0)
+    groups: dict[str, list[int]] = {}
+    for i, c in enumerate(clusters):
+        groups.setdefault(c, []).append(i)
+    keys = sorted(groups)
+    b = np.asarray(baseline_fail, dtype=float)
+    h = np.asarray(hardened_fail, dtype=float)
+    point = float(b.mean() - h.mean())
+    rng = np.random.default_rng(seed)
+    diffs = np.empty(n_boot)
+    for k in range(n_boot):
+        pick = rng.integers(0, len(keys), size=len(keys))
+        idx = [i for j in pick for i in groups[keys[j]]]
+        diffs[k] = b[idx].mean() - h[idx].mean()
+    low, high = np.percentile(diffs, [2.5, 97.5])
+    return Interval(point=point, low=float(low), high=float(high))
