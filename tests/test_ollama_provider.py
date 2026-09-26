@@ -60,6 +60,7 @@ def test_build_payload_adds_json_format_with_schema():
 
 @pytest.mark.unit
 async def test_complete_parses_ollama_response(monkeypatch):
+    monkeypatch.delenv("FUSION_OFFLINE", raising=False)  # _post is faked below; no real call
     c = OllamaModelClient(model="llama3.2")
 
     def fake_post(path, payload):

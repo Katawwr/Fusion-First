@@ -150,6 +150,7 @@ async def scan_prompt(
                 "label": _CHECK_LABELS.get(card.check, card.check),
                 "owasp": _owasp(card.check),
                 "grade": card.grade,
+                "n_pairs": ba.n_pairs if ba else 0,
                 "baseline_issue_rate": round(ba.baseline_issue_rate, 4) if ba else None,
                 "hardened_issue_rate": round(ba.hardened_issue_rate, 4) if ba else None,
                 "reduction": round(ba.absolute_reduction.point, 4) if ba else None,
@@ -160,12 +161,14 @@ async def scan_prompt(
         )
 
     any_issue = any((c["baseline_issue_rate"] or 0) > 0 for c in checks_out)
+    # '?' means nothing was measured for that check — never a pass.
+    unmeasured = any(c["grade"] == "?" for c in checks_out)
     return {
         "target": result.target_name,
         "overall_grade": result.overall_grade,
         "demonstration": result.demonstration,
         "checks": checks_out,
-        "passed": not any_issue,
+        "passed": not any_issue and not unmeasured,
         "next_steps": [
             "Call harden_prompt(system_prompt) to get a fixed prompt you can paste back.",
             "Call guardrail_snippet() for runtime protection that holds even when the model slips.",

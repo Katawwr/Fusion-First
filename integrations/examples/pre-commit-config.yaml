@@ -5,6 +5,6 @@ repos:
     hooks:
       - id: fusion-agent-safety
         name: Fusion agent-safety gate
-        entry: python -m scripts.fusion_cli ci --min-grade B --prompt
+        entry: fusion ci --live --min-grade B --prompt   # runs on your machine: local Ollama and/or claude CLI
         language: system
         files: '(prompts/.*\.txt|.*system_prompt.*\.txt)$'

@@ -20,12 +20,14 @@ import json
 import urllib.error
 import urllib.request
 
+from fusion.errors import FusionProviderError
 from fusion.model.client import ModelRequest, ModelResponse
+from fusion.offline import offline
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 
 
-class OllamaUnavailable(RuntimeError):
+class OllamaUnavailable(FusionProviderError):
     """Ollama could not serve the request (server not running, model not pulled, or a network error)."""
 
 
@@ -86,6 +88,8 @@ class OllamaModelClient:
             ) from e
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
+        if offline():
+            raise OllamaUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
         model = self._resolve_model(request)
         payload = self._build_payload(request, model)
         data = await asyncio.to_thread(self._post, "/api/chat", payload)
@@ -103,7 +107,10 @@ class OllamaModelClient:
 
 
 def ollama_available(base_url: str | None = None) -> bool:
-    """True if a local Ollama server answers (used to auto-select the backend)."""
+    """True if a local Ollama server answers (used to auto-select the backend) and real calls are
+    permitted (FUSION_OFFLINE is not set)."""
+    if offline():
+        return False
     url = (base_url or DEFAULT_OLLAMA_URL).rstrip("/")
     try:
         with urllib.request.urlopen(f"{url}/api/tags", timeout=3) as resp:

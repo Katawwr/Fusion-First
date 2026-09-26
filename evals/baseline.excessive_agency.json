@@ -7,5 +7,5 @@
   "recall": 1.0,
   "cohen_kappa": 1.0,
   "n": 8,
-  "gold_version": "3dc0400c154b"
+  "gold_version": "bbd748303fac"
 }

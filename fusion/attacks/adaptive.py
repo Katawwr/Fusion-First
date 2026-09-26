@@ -15,7 +15,6 @@ is explicitly NOT an open-ended jailbreak or harmful-content generator.
 from __future__ import annotations
 
 import asyncio
-import json
 from dataclasses import dataclass, field
 
 from fusion.attacks.agentic import build_agentic_trajectory
@@ -139,14 +138,17 @@ def _target_messages(candidate: AttackCandidate) -> list[dict]:
 
 
 def _parse_candidates(text: str, check: str, parent: str | None = None) -> list[AttackCandidate]:
-    from fusion.judge.judge import _extract_json
+    from fusion.judge.judge import _extract_json_obj
 
     try:
-        data = json.loads(_extract_json(text))
-    except (json.JSONDecodeError, ValueError):
+        data = _extract_json_obj(text, prefer="attacks")
+    except ValueError:
+        return []
+    attacks = data.get("attacks")
+    if not isinstance(attacks, list):
         return []
     out: list[AttackCandidate] = []
-    for a in data.get("attacks", []):
+    for a in attacks:
         if not isinstance(a, dict) or not a.get("user"):
             continue
         out.append(

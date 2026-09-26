@@ -7,8 +7,9 @@ rubric-decomposed judge measured against ground truth (no vibes-based metrics). 
 through the identical judge: **safety** (OWASP-mapped adversarial attacks — injection, excessive
 agency, exfiltration, prompt leakage; `kind="safety"`) and **quality** (correctness / instruction
 following; `kind="quality"`). Product focus is **open-weight / less-robust models** (Ollama target,
-judged by Claude cross-family): frontier models resist most safety attacks (verified — Haiku 0%),
-open-weight models don't (verified — llama3.2:1b 62% on injection). Brand ("Fusion First"),
+judged by Claude cross-family): frontier models resist most safety attacks, open-weight models often
+don't. **Numbers come only from committed evidence** (`evals/claims.yaml`, enforced by
+`tests/test_claims_backed.py`) — never from memory or unrecorded runs. Brand ("Fusion First"),
 `frontend/public/logo.png`, and the purple/cyan/pink `fusion` palette are fixed and must be preserved.
 
 ## The one rule that matters most

@@ -21,9 +21,9 @@ jobs:
         run: |
           for f in prompts/*.txt; do
             echo "::group::$f"
-            python -m scripts.fusion_cli ci --prompt "$f" --min-grade B
+            fusion ci --prompt "$f" --min-grade B --demo   # advisory until a live backend is available
             echo "::endgroup::"
           done
-      # Add a provider key (as a secret) for LIVE grading of the real prompt:
-      # env:
-      #   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # NOTE: --demo grades canned demonstration responses, NOT your prompt, and never fails the
+      # build. Real gating needs a live backend (local Ollama and/or the claude CLI subscription),
+      # so run the pre-commit hook (examples/pre-commit-config.yaml) on developer machines.

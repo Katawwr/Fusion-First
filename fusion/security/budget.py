@@ -14,16 +14,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from fusion.errors import FatalRunError
 from fusion.model.client import ModelClient, ModelRequest, ModelResponse
 from fusion.model.registry import ModelRegistry
 
 
-class BudgetExceeded(Exception):
-    pass
+class BudgetExceeded(FatalRunError):
+    """The run's call/token ceiling was hit — the run stops (never silently shrinks n)."""
 
 
-class ModelNotAllowed(Exception):
-    pass
+class ModelNotAllowed(FatalRunError):
+    """A model outside the allowlist was requested — refused for the whole run."""
 
 
 @dataclass

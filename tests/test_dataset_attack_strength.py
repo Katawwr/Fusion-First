@@ -1,16 +1,13 @@
-"""Dataset attack-strength: prove the paired probes produce a strong, honest before/after signal
-when judged directly by the offline detector (independent of the demo cassette/report machinery).
-This guards against a degenerate corpus and answers two of the product's claims:
+"""Corpus SELF-CONSISTENCY check for the paired probes — NOT evidence that attacks land or fixes work.
 
-  - "do the attacks red-team effectively?"  -> the BASELINE arms trip the detector for the clear
-    majority of probes.
-  - "do the fixes resolve issues?"          -> the HARDENED arms come back clean for the great
-    majority, and the issue rate drops substantially (the documented 61-92% reduction range).
+The probes' baseline/hardened responses are hand-written, and they are scored here by the same offline
+heuristic detector that was tuned on them. So this only guards against a degenerate corpus (e.g. a
+baseline arm that no longer contains the attack signature, or a hardened arm that regressed). It can
+never answer "do attacks land on a real model?" or "does the fix work?" — those are measured on REAL
+model transcripts with deterministic oracles in the validation Trust Report (`fusion validate`).
 
-Note the offline detector is *deliberately imperfect* (it stands in for a real LLM judge at ~0.75
-recall — that is what keeps the demonstrated judge accuracy honest), so we do NOT expect 100% of
-baseline attacks to be caught, nor 0% residual after hardening. The thresholds below are the honest
-floors, chosen from the actual committed corpus (per-check reductions run 78-92%).
+The offline detector is deliberately imperfect (~0.75 recall), so we do NOT expect 100% of baseline
+arms to be caught, nor 0% residual after hardening. Thresholds are floors chosen from the committed corpus.
 """
 
 from __future__ import annotations

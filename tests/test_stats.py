@@ -120,3 +120,18 @@ def test_before_after_no_effect_is_inconclusive():
     hard = [True, False] * 15  # identical -> no discordant pairs
     res = before_after(base, hard, n_boot=2000, seed=1)
     assert res.honesty == Honesty.INCONCLUSIVE
+
+
+@pytest.mark.unit
+def test_empty_sample_is_never_graded_A():
+    """0 scored pairs means nothing was measured: the grade is '?', never a flattering 'A'."""
+    from fusion.engine.report import build_report_card
+    from fusion.stats.paired import before_after
+
+    card = build_report_card(
+        target_name="t", check="direct_prompt_injection", judge_accuracy=None,
+        before_after=before_after([], []), judge_model="m", gold_version="g",
+        crosswalk_version="c", demonstration=False,
+    )
+    assert card.grade == "?"
+    assert card.hardened_grade == "?"

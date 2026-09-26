@@ -1,0 +1,7 @@
+# Data files are hashed for provenance: keep them LF everywhere so hashes match on every OS.
+datasets/**/*.jsonl text eol=lf
+datasets/**/*.json text eol=lf
+cassettes/**/*.json text eol=lf
+evals/**/*.json text eol=lf
+evals/**/*.yaml text eol=lf
+crosswalk/**/*.yaml text eol=lf

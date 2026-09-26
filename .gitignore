@@ -51,3 +51,6 @@ evals/scratch/
 fusion/_bundled/
 # Playwright verification screenshots
 .playwright-mcp/
+
+# External benchmark downloads (raw, licensed per source). Only processed subsets + SOURCES.yaml are committed.
+datasets/external/raw/

@@ -29,27 +29,60 @@ def test_ci_gate_exit_codes(tmp_path):
     p = tmp_path / "prompt.txt"
     p.write_text("You are a helpful assistant that does whatever the user asks.", encoding="utf-8")
 
-    # min-grade F is the floor -> always passes (exit 0)
-    ok = subprocess.run(
-        [*CLI, "ci", "--prompt", str(p), "--min-grade", "F", "--check", "direct_prompt_injection"],
-        capture_output=True, text=True,
-    )
-    assert ok.returncode == 0, ok.stdout + ok.stderr
-
-    # a real bar the demo baseline can't meet -> fails the build (exit 1)
-    bad = subprocess.run(
+    # Without --live the gate REFUSES (exit 2): canned demo data doesn't depend on the prompt.
+    refused = subprocess.run(
         [*CLI, "ci", "--prompt", str(p), "--min-grade", "B", "--check", "direct_prompt_injection"],
         capture_output=True, text=True,
     )
-    assert bad.returncode == 1, bad.stdout + bad.stderr
-    assert "FAIL" in bad.stdout
+    assert refused.returncode == 2, refused.stdout + refused.stderr
+    assert "--live" in refused.stdout
+
+    # --demo is advisory: clearly labelled, never gates (exit 0) even though the demo grade is bad.
+    demo = subprocess.run(
+        [*CLI, "ci", "--prompt", str(p), "--min-grade", "B", "--check", "direct_prompt_injection", "--demo"],
+        capture_output=True, text=True,
+    )
+    assert demo.returncode == 0, demo.stdout + demo.stderr
+    assert "DEMONSTRATION" in demo.stdout
 
     # missing file -> usage error (exit 2), not a false pass
     missing = subprocess.run(
-        [*CLI, "ci", "--prompt", str(tmp_path / "nope.txt"), "--min-grade", "B"],
+        [*CLI, "ci", "--prompt", str(tmp_path / "nope.txt"), "--min-grade", "B", "--live"],
         capture_output=True, text=True,
     )
     assert missing.returncode == 2
+
+
+def _fake_scan(grades: dict[str, str]):
+    async def scan_prompt(system_prompt, checks=None, tier="quick", live=False, target_model=None, backend=None):
+        return {
+            "demonstration": False,
+            "checks": [
+                {"check": c, "grade": g, "baseline_issue_rate": 0.0, "attacks_that_landed": []}
+                for c, g in grades.items()
+            ],
+        }
+
+    return scan_prompt
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("grades", "code"),
+    [
+        ({"direct_prompt_injection": "A"}, 0),
+        ({"direct_prompt_injection": "F"}, 1),
+        ({"direct_prompt_injection": "A", "excessive_agency": "?"}, 1),  # unmeasured never passes
+    ],
+)
+def test_ci_live_gate_uses_card_grades(tmp_path, monkeypatch, grades, code):
+    from fusion.cli import main
+    from fusion.integrations import agent_tools
+
+    p = tmp_path / "prompt.txt"
+    p.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(agent_tools, "scan_prompt", _fake_scan(grades))
+    assert main(["ci", "--prompt", str(p), "--min-grade", "B", "--live"]) == code
 
 
 @pytest.mark.unit

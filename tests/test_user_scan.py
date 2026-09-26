@@ -123,3 +123,37 @@ async def test_live_scan_requires_judge_client():
             checks=["direct_prompt_injection"],
             demonstration=False,
         )
+
+
+@pytest.mark.integration
+async def test_demo_scan_cards_all_carry_bar_a():
+    """Bar A comes from the committed calibration cassette; a stale cassette must never make it
+    silently disappear from a demo card (it used to be swallowed by a catch-all)."""
+    checks = ["direct_prompt_injection", "excessive_agency", "data_exfiltration", "system_prompt_leakage"]
+    events = await _collect(
+        system_prompt=WEAK_PROMPT, checks=checks, tier=ScanTier.QUICK, demonstration=True
+    )
+    for card in events[-1].result.cards:
+        assert card.judge_accuracy is not None, card.check
+
+
+@pytest.mark.integration
+async def test_demo_calibration_reports_stale_cassette_instead_of_hiding_it(monkeypatch, tmp_path):
+    from fusion.engine import user_scan
+    from fusion.model.replay import Cassette
+
+    # An empty (stale) calibration cassette: strict replay misses on every gold case.
+    Cassette().save(tmp_path / "direct_prompt_injection.v1.json")
+    monkeypatch.setattr(user_scan, "CASSETTE_DIR", tmp_path)
+    acc, _version, note = await user_scan._demo_calibration("direct_prompt_injection", "v1")
+    assert acc is None
+    assert "stale" in note or "missing" in note
+
+    # And the user-visible card says why Bar A is absent instead of silently omitting it.
+    events = await _collect(
+        system_prompt=WEAK_PROMPT, checks=["direct_prompt_injection"], tier=ScanTier.QUICK,
+        demonstration=True,
+    )
+    card = events[-1].result.cards[0]
+    assert card.judge_accuracy is None
+    assert "stale" in card.judge_accuracy_note

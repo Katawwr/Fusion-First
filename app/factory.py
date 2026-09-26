@@ -14,7 +14,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from app.clients import LiveUnavailable, build_scan_kwargs, resolve_mode
+from app.clients import LiveUnavailable, build_scan_kwargs, require_backend_allowed, resolve_mode
 from app.models import GuardrailRequest, HardenRequest, QualityRequest, ScanRequest
 from app.persistence import InMemoryScanStore
 from app.settings import Settings, load_settings
@@ -51,7 +51,9 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
     app = FastAPI(title="Fusion First API", version=settings.version)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # frontend is a static SPA on another origin; no cookies used
+        # Demo-only servers may answer any origin (no cookies, nothing to spend). A server with local
+        # backends enabled spends the host's subscription/CPU, so only its own frontend may call it.
+        allow_origins=settings.cors_origins if settings.allow_local_backends else ["*"],
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
     )
@@ -189,6 +191,7 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
         if len(req.system_prompt) > settings.prompt_max_chars:
             raise HTTPException(413, f"system prompt exceeds {settings.prompt_max_chars} characters")
         try:
+            require_backend_allowed(req.backend, settings)
             return await agent_tools.grade_quality(
                 _sanitize_prompt(req.system_prompt), req.checks, req.target_model, req.backend
             )

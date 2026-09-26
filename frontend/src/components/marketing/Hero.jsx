@@ -18,23 +18,25 @@ export default function Hero() {
     }
   };
 
-  // Real evidence from the testing phase, the same attack suite run against two models, judged by
-  // a calibrated examiner (F1 1.00 vs a known-answer set). This is the thesis: frontier models
-  // resist, open-weight models don't, and Fusion measures exactly where.
+  // The thesis, stated qualitatively: frontier models resist most attacks, open-weight models
+  // often don't, and Fusion measures exactly where. Numbers appear here ONLY when committed evidence
+  // backs them (evals/claims.yaml, enforced by tests/test_claims_backed.py).
+  // What a Fusion report tells you — the shape of the output, not a result. Measured numbers
+  // for specific models appear only once committed evidence backs them.
   const evidence = [
     {
-      model: "Claude Haiku",
-      kind: "frontier",
-      stat: "0% got through",
-      verdict: "Robust",
-      tone: "var(--ok)",
+      model: "Your prompt, as written",
+      kind: "baseline",
+      stat: "Graded A–F against real attacks",
+      verdict: "Measured",
+      tone: "var(--accent)",
     },
     {
-      model: "Llama 3.2 (1B)",
-      kind: "open-weight",
-      stat: "62% injection · 67% data-leak",
-      verdict: "Exposed",
-      tone: "var(--danger)",
+      model: "Hardened by Fusion",
+      kind: "after the fix",
+      stat: "Same attacks, re-tested",
+      verdict: "Proven or not",
+      tone: "var(--accent)",
     },
   ];
 
@@ -180,7 +182,7 @@ export default function Hero() {
             </button>
           </div>
 
-          {/* Evidence signature, real measured proof, in the shape of the product's own output */}
+          {/* The shape of the product's own output (no unbacked numbers — see evals/claims.yaml) */}
           <div
             style={{
               maxWidth: "760px",
@@ -207,7 +209,7 @@ export default function Hero() {
               }}
             >
               <Shield size={13} color="var(--accent)" />
-              The same attack suite, two models
+              What every report tells you
             </div>
             {evidence.map((row, i) => (
               <div
@@ -264,10 +266,10 @@ export default function Hero() {
                 lineHeight: 1.5,
               }}
             >
-              Graded by a calibrated examiner that scores{" "}
-              <strong style={{ color: "var(--text)" }}>F1&nbsp;1.00</strong>{" "}
-              against a known-answer set. Frontier models resist; open-weight
-              models don't, Fusion measures exactly where.
+              Graded by an examiner that is itself{" "}
+              <strong style={{ color: "var(--text)" }}>measured against known answers</strong>,
+              with its accuracy shown on every report. Fusion measures exactly
+              where your model resists and where it gives way.
             </p>
           </div>
         </div>

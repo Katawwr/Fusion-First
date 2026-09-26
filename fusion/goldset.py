@@ -78,7 +78,9 @@ def gold_version_hash(check: str, version: str = "v1") -> str:
     import hashlib
 
     path = GOLD_DIR / f"{check}.{version}.jsonl"
-    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    # Line-ending independent: a Windows checkout (autocrlf) must hash identically to a Linux one,
+    # or the gate would report "gold set changed" on every fresh clone.
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()[:12]
 
 
 PROBE_DIR = data_root() / "datasets" / "probes"

@@ -4,7 +4,7 @@
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "python scripts/hooks/post_edit_lint.py" }
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/post_edit_lint.py\"" }
         ]
       }
     ],
@@ -12,14 +12,14 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "python scripts/hooks/pre_deploy_gate.py" }
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/pre_deploy_gate.py\"" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "python scripts/hooks/stop_gate.py" }
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/stop_gate.py\"" }
         ]
       }
     ]

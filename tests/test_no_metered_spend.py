@@ -1,0 +1,122 @@
+"""No code path may reach a METERED model API unless the user explicitly chose it.
+
+An API key merely present in the environment (a stray `export ANTHROPIC_API_KEY=…`) is never
+consent to spend: every keyless path (auto, cli, ollama — CLI, MCP defaults, the web app) must build
+subscription/local clients only. Metered SDK clients require `--backend api` AND
+FUSION_ALLOW_API_SPEND=1. Nothing here makes a network call: provider constructors are lazy.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+import fusion.integrations.live as live
+
+METERED = ("AnthropicModelClient", "OpenAIModelClient")
+
+
+def _inner_name(client) -> str:
+    return type(getattr(client, "inner", client)).__name__
+
+
+@pytest.fixture
+def ambient_keys(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-fake-ambient")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-ambient")
+    monkeypatch.delenv("FUSION_TARGET_BACKEND", raising=False)
+    monkeypatch.delenv(live.METERED_OPT_IN_ENV, raising=False)
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True)
+    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("prefer", [None, "auto", "cli", "ollama"])
+def test_keyless_backends_never_build_metered_clients(ambient_keys, prefer):
+    target, judge, _jid, _choice = live.build_live_clients("llama3.2:1b", prefer=prefer)
+    assert _inner_name(target) not in METERED
+    assert _inner_name(judge) not in METERED
+    assert _inner_name(judge) == "ClaudeCliModelClient"
+
+
+@pytest.mark.unit
+def test_api_backend_without_opt_in_is_refused(ambient_keys):
+    with pytest.raises(live.LiveUnavailable, match=live.METERED_OPT_IN_ENV):
+        live.build_live_clients(prefer="api")
+
+
+@pytest.mark.unit
+def test_api_backend_with_explicit_opt_in_builds_metered(ambient_keys, monkeypatch):
+    monkeypatch.setenv(live.METERED_OPT_IN_ENV, "1")
+    target, judge, _jid, _choice = live.build_live_clients(prefer="api")
+    assert _inner_name(target) == "AnthropicModelClient"
+    assert _inner_name(judge) in METERED
+
+
+@pytest.mark.unit
+def test_opt_in_alone_does_not_make_auto_metered(ambient_keys, monkeypatch):
+    monkeypatch.setenv(live.METERED_OPT_IN_ENV, "1")
+    target, judge, _jid, _choice = live.build_live_clients(prefer="auto")
+    assert _inner_name(target) not in METERED and _inner_name(judge) not in METERED
+
+
+@pytest.mark.unit
+def test_no_cli_and_ambient_keys_fails_closed_not_metered(ambient_keys, monkeypatch):
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: False)
+    for prefer in (None, "auto", "cli", "ollama"):
+        with pytest.raises(live.LiveUnavailable):
+            live.build_live_clients("llama3.2:1b", prefer=prefer)
+
+
+@pytest.mark.unit
+async def test_mcp_auto_mode_with_ambient_keys_is_not_metered(ambient_keys, monkeypatch):
+    from fusion.integrations import agent_tools
+
+    kwargs, mode = agent_tools._resolve_live_kwargs("auto", None, None)
+    assert mode == "live"
+    assert _inner_name(kwargs["target_client"]) not in METERED
+    assert _inner_name(kwargs["judge_client"]) not in METERED
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("backend", ["ollama", "cli", None])
+def test_web_app_keyless_backends_ignore_server_keys(monkeypatch, backend):
+    from app.clients import LiveUnavailable, build_scan_kwargs
+    from app.settings import Settings
+
+    monkeypatch.delenv(live.METERED_OPT_IN_ENV, raising=False)
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True)
+    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
+    settings = Settings(anthropic_api_key="sk-ant-fake", openai_api_key="sk-fake", allow_local_backends=True)
+    if backend is None:
+        # The default backend used to be "api" with server keys; now metered needs explicit opt-in.
+        with pytest.raises(LiveUnavailable):
+            build_scan_kwargs("live", settings, backend="api")
+        return
+    kw = build_scan_kwargs("live", settings, backend=backend, target_model="llama3.2:1b")
+    assert _inner_name(kw["target_client"]) not in METERED
+    assert _inner_name(kw["judge_client"]) not in METERED
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("backend", [None, "auto", "cli", "ollama"])
+def test_web_app_local_backends_are_off_by_default(monkeypatch, backend):
+    """A public server must never let visitors drive the host's subscription or CPU."""
+    from app.clients import LiveUnavailable, build_scan_kwargs
+    from app.settings import Settings
+
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True)
+    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
+    with pytest.raises(LiveUnavailable, match="FUSION_ALLOW_LOCAL_BACKENDS"):
+        build_scan_kwargs("live", Settings(), backend=backend)
+
+
+@pytest.mark.unit
+def test_offline_switch_disables_real_clients(monkeypatch):
+    """FUSION_OFFLINE=1 (set for every non-live test by conftest) must make both real providers
+    report unavailable and refuse to run."""
+    from fusion.model.providers.claude_cli import claude_cli_available
+    from fusion.model.providers.ollama import ollama_available
+
+    monkeypatch.setenv("FUSION_OFFLINE", "1")
+    assert claude_cli_available("claude") is False
+    assert ollama_available() is False

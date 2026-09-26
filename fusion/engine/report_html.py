@@ -58,6 +58,12 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
             <div class="m"><span class="mv">{a.cohen_kappa:.2f}</span><span class="ml">κ vs oracle</span></div>
           </div>
         </div>"""
+    elif card.judge_accuracy_note:
+        acc = f"""
+        <div class="block">
+          <div class="block-h">Judge accuracy</div>
+          <p class="sub">{_esc(card.judge_accuracy_note)}</p>
+        </div>"""
 
     ba = ""
     if card.before_after:

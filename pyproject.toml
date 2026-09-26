@@ -63,6 +63,8 @@ fusion = ["_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_b
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# Live tests spend real (subscription) model calls: opt in explicitly with `-m live`.
+addopts = "-m 'not live'"
 markers = [
     "unit: fast, pure, no I/O",
     "integration: cross-module, still offline (cassette-replayed)",

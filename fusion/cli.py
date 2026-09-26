@@ -11,7 +11,9 @@
     fusion ci      --prompt my_prompt.txt --min-grade B [--live]
 
 Everything runs offline against committed cassettes (deterministic, no API keys). `--live` (on
-`scan` and `ci`) runs the real prompt through a model — needs ANTHROPIC_API_KEY in the environment.
+`scan` and `ci`) runs the real prompt through a model — a local Ollama model and/or the `claude` CLI
+subscription. Metered API keys are never used unless you pass `--backend api` AND set
+FUSION_ALLOW_API_SPEND=1 (an API key merely present in the environment is ignored).
 """
 
 from __future__ import annotations
@@ -33,11 +35,20 @@ from fusion.stats.gate import run_eval_gate, save_baseline
 _GRADE_ORDER = "ABCDF"
 
 
+class CliUsageError(Exception):
+    """A user-facing problem (missing input, nothing recorded yet): printed, exit code 2."""
+
+
 def _load_cassette(check: str, version: str) -> Cassette:
+    from fusion.judge.rubric import get_rubric
+
     path = CASSETTE_DIR / f"{check}.{version}.json"
     if not path.exists():
-        print(f"no cassette at {path}; run: fusion record --check {check}")
-        sys.exit(2)
+        live = " --live" if get_rubric(check).kind == "quality" else ""
+        hint = " (quality checks have no offline stand-in judge)" if live else ""
+        raise CliUsageError(
+            f"no cassette at {path}{hint}; run: fusion record --check {check}{live}"
+        )
     return Cassette.load(path)
 
 
@@ -294,12 +305,23 @@ def cmd_guard_proof(args) -> int:
 
 def cmd_ci(args) -> int:
     """CI gate: scan a system-prompt file and FAIL (exit 1) if the prompt as written scores below
-    --min-grade on any check. Drop into a pipeline to stop an unsafe agent prompt from shipping."""
+    --min-grade on any check. Drop into a pipeline to stop an unsafe agent prompt from shipping.
+
+    Gating needs `--live`: demonstration responses are canned and do not depend on the prompt, so a
+    demo "gate" would fail every prompt (even a hardened one). Without --live the command refuses
+    (exit 2); `--demo` runs an advisory, clearly-labelled demonstration that always exits 0."""
     import json as _json
 
-    from fusion.engine.report import grade_for_rate
     from fusion.integrations.agent_tools import scan_prompt
     from fusion.integrations.live import LiveUnavailable
+
+    if not args.live and not args.demo:
+        print(
+            "fusion ci needs --live to gate: demonstration responses are canned and do not depend on "
+            "your prompt. Use --live (local Ollama and/or the claude CLI subscription — no API key), "
+            "or --demo for an advisory, non-gating demonstration run."
+        )
+        return 2
 
     src = pathlib.Path(args.prompt)
     if not src.exists():
@@ -312,21 +334,29 @@ def cmd_ci(args) -> int:
 
     checks = None if args.check == "all" else [args.check]
     try:
-        result = asyncio.run(scan_prompt(src.read_text(encoding="utf-8"), checks, live=args.live))
+        result = asyncio.run(scan_prompt(
+            src.read_text(encoding="utf-8"), checks, live=bool(args.live),
+            target_model=args.target_model, backend=args.backend,
+        ))
     except LiveUnavailable as e:
         print(str(e))
         return 2
 
     rows, failures = [], []
     for c in result["checks"]:
-        base_grade = grade_for_rate(c["baseline_issue_rate"] or 0.0)
-        ok = _GRADE_ORDER.index(base_grade) <= _GRADE_ORDER.index(min_grade)
+        base_grade = c["grade"]  # the card's baseline grade; '?' = nothing measured
+        ok = base_grade in _GRADE_ORDER and _GRADE_ORDER.index(base_grade) <= _GRADE_ORDER.index(min_grade)
         rows.append({**c, "baseline_grade": base_grade, "pass": ok})
         if not ok:
             failures.append((c["check"], base_grade))
 
+    if args.demo:
+        print("DEMONSTRATION (advisory, not a gate): canned responses that do not depend on your prompt.")
     if args.json:
-        print(_json.dumps({"min_grade": min_grade, "passed": not failures, "checks": rows}, indent=2))
+        print(_json.dumps(
+            {"min_grade": min_grade, "passed": not failures, "demonstration": result["demonstration"],
+             "checks": rows}, indent=2,
+        ))
     else:
         mode = "LIVE" if not result["demonstration"] else "DEMO"
         print(f"Fusion CI gate — prompt must score >= {min_grade} on every check ({mode}):")
@@ -339,6 +369,8 @@ def cmd_ci(args) -> int:
                   f"Run `fusion harden --prompt {src} --write` and re-scan.")
         else:
             print(f"\nPASSED: every check is at least {min_grade}.")
+    if args.demo:
+        return 0  # advisory only — canned data can never pass or fail a real prompt
     return 1 if failures else 0
 
 
@@ -460,7 +492,10 @@ def build_parser() -> argparse.ArgumentParser:
     pci.add_argument("--prompt", required=True, help="path to the system-prompt text file")
     pci.add_argument("--check", default="all")
     pci.add_argument("--min-grade", default="B", help="minimum acceptable baseline grade A-F (default B)")
-    pci.add_argument("--live", action="store_true", help="grade the real prompt via a model (needs API keys)")
+    pci.add_argument("--live", action="store_true", help="grade the real prompt via a model (Ollama and/or claude CLI subscription)")
+    pci.add_argument("--demo", action="store_true", help="advisory demonstration run (canned data, never gates; exit 0)")
+    pci.add_argument("--backend", default=None, choices=["auto", "cli", "ollama", "api"], help="live backend (default auto)")
+    pci.add_argument("--target-model", default=None, help="target model (e.g. llama3.2:1b with --backend ollama)")
     pci.add_argument("--json", action="store_true", help="emit machine-readable JSON")
 
     ph = sub.add_parser("harden", help="auto-apply the safety guardrails to a system-prompt file")
@@ -493,10 +528,14 @@ def main(argv: list[str] | None = None) -> int:
 
         os.environ["FUSION_TARGET_BACKEND"] = args.backend
     async_dispatch = {"eval": _eval, "prove": _prove, "scan": _scan, "measure": _measure}
-    if args.cmd in dispatch:
-        return dispatch[args.cmd](args)
-    if args.cmd in async_dispatch:
-        return asyncio.run(async_dispatch[args.cmd](args))
+    try:
+        if args.cmd in dispatch:
+            return dispatch[args.cmd](args)
+        if args.cmd in async_dispatch:
+            return asyncio.run(async_dispatch[args.cmd](args))
+    except CliUsageError as e:
+        print(str(e))
+        return 2
     return 2
 
 

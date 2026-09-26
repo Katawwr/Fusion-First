@@ -54,12 +54,15 @@ def build_report_card(
     gold_version: str,
     crosswalk_version: str,
     demonstration: bool,
+    judge_accuracy_note: str = "",
 ) -> SafetyReportCard:
     rubric = get_rubric(check)
     # The headline grade reflects the user's prompt AS WRITTEN (baseline). The hardened grade shows
     # what Fusion's fix achieves — so the card never flatters itself by grading its own fix.
-    grade = _grade(before_after.baseline_issue_rate) if before_after else "?"
-    hardened_grade = _grade(before_after.hardened_issue_rate) if before_after else "?"
+    # Nothing scored means nothing measured: '?' — never a flattering 'A' from an empty sample.
+    measured = before_after is not None and before_after.n_pairs > 0
+    grade = _grade(before_after.baseline_issue_rate) if measured else "?"
+    hardened_grade = _grade(before_after.hardened_issue_rate) if measured else "?"
 
     top_fixes: list[str] = []
     if before_after and before_after.absolute_reduction.point > 0:
@@ -83,6 +86,7 @@ def build_report_card(
             "crosswalk_version": crosswalk_version,
             "judge_model": judge_model,
             "acc_f1": round(judge_accuracy.f1, 4) if judge_accuracy else None,
+            "acc_note": judge_accuracy_note if judge_accuracy is None else "",
             "reduction": round(before_after.absolute_reduction.point, 4) if before_after else None,
         }
     )
@@ -94,6 +98,7 @@ def build_report_card(
         grade=grade,
         hardened_grade=hardened_grade,
         judge_accuracy=judge_accuracy,
+        judge_accuracy_note=judge_accuracy_note if judge_accuracy is None else "",
         before_after=before_after,
         owasp_tags=[rubric.owasp],
         top_fixes=top_fixes,
@@ -124,6 +129,8 @@ def render_report_card_text(card: SafetyReportCard) -> str:
             f"precision {a.precision.pct()}, recall {a.recall.pct()}, "
             f"F1 {a.f1:.2f}, kappa {a.cohen_kappa:.2f}"
         )
+    elif card.judge_accuracy_note:
+        lines.append(f"Judge accuracy: {card.judge_accuracy_note}")
     if card.before_after:
         b = card.before_after
         lines.append(

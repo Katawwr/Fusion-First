@@ -1,0 +1,30 @@
+# CLAIMS REGISTRY — every proof-like number in docs or marketing must be registered here and backed by
+# committed evidence. Enforced by tests/test_claims_backed.py (unit, runs in the Stop hook).
+#
+# A claim resolves `evidence` (a committed JSON file), checks each `metrics` entry (dotted path ->
+# expected value, abs tolerance 1e-3), enforces `min_n` via `n_path`, and requires the evidence to be
+# non-demonstration unless `demonstration_ok` is true (only for deterministic, non-LLM evidence such as
+# the guard benchmark). `text` must appear verbatim in every file listed under `files`.
+#
+# Numbers from unrecorded runs, memory, or the offline stand-in judge are NOT claims. Measure first
+# (`fusion validate record` / `report`), commit the evidence, then register the claim here.
+
+claims:
+  - id: guard_bench_in_house
+    text: "100% recall / 0% over-block"
+    qualifier: "in-house hand-labelled corpus (in-distribution); external held-out results live in the Trust Report"
+    files: [README.md, integrations/README.md]
+    evidence: evals/guard_bench.baseline.json
+    metrics:
+      recall: {value: 1.0, n_path: malicious, min_n: 30}          # rate over malicious cases
+      over_block_rate: {value: 0.0, n_path: benign, min_n: 25}    # rate over benign cases
+    demonstration_ok: true   # deterministic guard, no LLM judge involved
+
+# Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.
+allowlist:
+  - file: fusion/engine/report_html.py
+    text: '<span class="mv">{a.f1:.2f}</span><span class="ml">F1</span>'
+    reason: "HTML template that renders the card's measured value — not a static claim"
+  - file: frontend/src/pages/Privacy.jsx
+    text: "100% accuracy in quality issue detection"
+    reason: "Listed under 'DOES NOT guarantee' — a disclaimer, not a claim"

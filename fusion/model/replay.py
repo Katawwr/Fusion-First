@@ -12,10 +12,11 @@ from __future__ import annotations
 import json
 import pathlib
 
+from fusion.errors import FatalRunError
 from fusion.model.client import ModelClient, ModelRequest, ModelResponse
 
 
-class CassetteMiss(KeyError):
+class CassetteMiss(FatalRunError, KeyError):
     """Raised when a request has no recorded response and strict replay is on."""
 
 

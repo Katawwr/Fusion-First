@@ -15,6 +15,7 @@ Two modes, one pipeline:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 
 from fusion.attacks.taxonomy import Crosswalk
@@ -24,7 +25,7 @@ from fusion.engine.report import build_report_card
 from fusion.judge.judge import Judge
 from fusion.judge.rubric import get_rubric
 from fusion.model.client import ModelClient, ModelRequest, ModelRole
-from fusion.model.replay import Cassette, ReplayModelClient
+from fusion.model.replay import Cassette, CassetteMiss, ReplayModelClient
 from fusion.recording import CASSETTE_DIR, build_trajectory_cassette
 from fusion.schemas import (
     AccuracyResult,
@@ -38,6 +39,8 @@ from fusion.schemas import (
 )
 from fusion.stats.calibration import run_calibration
 from fusion.stats.paired import before_after
+
+log = logging.getLogger(__name__)
 
 DEMO_JUDGE_MODEL = "demo-heuristic-judge"
 _GRADE_RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "F": 4, "?": 5}
@@ -182,7 +185,14 @@ async def run_user_scan(
             )
 
         ba = before_after(baseline_fail, hardened_fail)
-        bar_a, gold_version = await _demo_calibration(check, version) if demonstration else (None, "")
+        if demonstration:
+            bar_a, gold_version, bar_a_note = await _demo_calibration(check, version)
+        else:
+            bar_a, gold_version = None, ""
+            bar_a_note = (
+                f"Not yet measured for judge {judge_model} on this backend — run "
+                f"`fusion measure --stages accuracy` to measure it against the labelled gold set."
+            )
         card = build_report_card(
             target_name=target_name,
             check=check,
@@ -192,6 +202,7 @@ async def run_user_scan(
             gold_version=gold_version,
             crosswalk_version=crosswalk_version,
             demonstration=demonstration,
+            judge_accuracy_note=bar_a_note,
         )
         cards.append(card)
         yield ScanEvent(
@@ -219,15 +230,25 @@ async def run_user_scan(
     )
 
 
-async def _demo_calibration(check: str, version: str) -> tuple[AccuracyResult | None, str]:
+async def _demo_calibration(
+    check: str, version: str
+) -> tuple[AccuracyResult | None, str, str]:
     """The judge's accuracy on our committed calibration set (a property of the judge, not the
-    user's prompt) plus that gold set's version. Best-effort: on any hiccup the card omits Bar A."""
+    user's prompt), that gold set's version, and a note. Strict replay: a missing or stale cassette
+    is reported in the note and logged — never silently dropped."""
     path = CASSETTE_DIR / f"{check}.{version}.json"
     if not path.exists():
-        return None, ""
+        note = f"Judge accuracy unavailable: calibration cassette missing for {check}."
+        log.warning(note)
+        return None, "", note
     try:
-        client = ReplayModelClient(Cassette.load(path), strict=False)
+        client = ReplayModelClient(Cassette.load(path), strict=True)
         outcome = await run_calibration(check, client, version=version, split="blind")
-        return outcome.result, outcome.gold_version
-    except Exception:  # noqa: BLE001 — Bar A is a bonus; never fail a scan over it
-        return None, ""
+    except CassetteMiss:
+        note = (
+            f"Judge accuracy unavailable: calibration cassette for {check} is stale "
+            f"(re-run `fusion record --check {check}`)."
+        )
+        log.warning(note)
+        return None, "", note
+    return outcome.result, outcome.gold_version, ""

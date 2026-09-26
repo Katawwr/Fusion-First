@@ -1,93 +1,72 @@
-"""Scan mode resolution and live-client assembly — the one place that decides demo vs real.
+"""Scan mode resolution and live-client assembly — the one place the web app decides demo vs real.
 
 A `live` request without an available backend fails closed (LiveUnavailable → 402); we NEVER
-silently serve a demo card when a real one was asked for. All keys stay server-side; the frontend
-never sees them. Backends, in order of the operator's choosing (`backend` on the request):
+silently serve a demo card when a real one was asked for. Backend selection is DELEGATED to
+`fusion.integrations.live.build_live_clients`, so the web app, CLI and MCP share one zero-spend
+policy:
 
-  * "api"    — server-side ANTHROPIC/OPENAI keys (settings). The hosted default.
-  * "cli"    — the server's `claude` CLI subscription (self-hosted / local dev, no key).
-  * "ollama" — a local OPEN-WEIGHT target (Llama/Mistral/…), judged by Claude (cross-family). The
-               product's focus: where injection/exfil/agency attacks actually land.
+  * "cli" / "auto" (default) — the server's `claude` CLI on subscription auth (no key).
+  * "ollama" — a local OPEN-WEIGHT target (Llama/Qwen/Gemma…), judged by Claude over the CLI.
+  * "api"    — METERED provider keys. Only with the operator's explicit FUSION_ALLOW_API_SPEND=1;
+               an API key merely present in the environment is never used.
 """
 
 from __future__ import annotations
 
+import os
+
 from app.settings import Settings
+from fusion.integrations.live import LiveUnavailable, build_live_clients
 
+__all__ = ["LiveUnavailable", "build_scan_kwargs", "require_backend_allowed", "resolve_mode"]
 
-class LiveUnavailable(Exception):
-    """A real-model scan was requested but no server-side backend is available."""
+DEFAULT_OLLAMA_MODEL = "llama3.2:1b"
 
 
 def resolve_mode(requested: str | None, settings: Settings) -> str:
-    # Availability is decided in build_scan_kwargs (which fails closed per backend), so a cli/ollama
-    # backend can go live without server keys. "None"/"demo" stays the safe, keyless default.
+    # Availability is decided in build_scan_kwargs (which fails closed per backend).
+    # "None"/"demo" stays the safe, keyless default.
     return "live" if requested == "live" else "demo"
 
 
-def _budgeted(client, settings, *, enforce_allowlist=True):
-    from fusion.security.budget import BudgetedModelClient, BudgetLimits
-
-    return BudgetedModelClient(client, BudgetLimits(max_calls=settings.scan_max_calls), enforce_allowlist=enforce_allowlist)
-
-
-def _claude_judge(settings: Settings, *, judge_model: str = "claude-sonnet-5"):
-    """A Claude judge from a server-side key if present, else the server's `claude` CLI subscription.
-    Raises LiveUnavailable if neither is available."""
-    if settings.anthropic_api_key:
-        from fusion.model.providers.anthropic import AnthropicModelClient
-
-        return _budgeted(AnthropicModelClient(settings.anthropic_api_key, judge_model=judge_model), settings), judge_model
-    from fusion.model.providers.claude_cli import ClaudeCliModelClient, claude_cli_available
-
-    if claude_cli_available():
-        return _budgeted(ClaudeCliModelClient(judge_model=judge_model), settings), judge_model
-    raise LiveUnavailable("a Claude judge needs a server ANTHROPIC_API_KEY or the `claude` CLI")
+def _target_model(backend: str | None, target_model: str | None, settings: Settings) -> str:
+    if target_model:
+        return target_model
+    if backend == "ollama":
+        # A Claude model id means nothing to Ollama; use a local open-weight default instead.
+        return os.environ.get("FUSION_OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
+    return settings.target_model
 
 
-def build_scan_kwargs(mode: str, settings: Settings, backend: str | None = None, target_model: str | None = None) -> dict:
+LOCAL_BACKENDS = ("auto", "cli", "ollama")
+
+
+def require_backend_allowed(backend: str | None, settings: Settings) -> str:
+    """Resolve the backend and refuse local backends unless this server enabled them."""
+    prefer = backend or "auto"
+    if prefer in LOCAL_BACKENDS and not settings.allow_local_backends:
+        raise LiveUnavailable(
+            "live scans on this server are disabled: local backends (the claude CLI subscription, "
+            "Ollama) are off unless the server runs with FUSION_ALLOW_LOCAL_BACKENDS=1 (local use only)"
+        )
+    return prefer
+
+
+def build_scan_kwargs(
+    mode: str, settings: Settings, backend: str | None = None, target_model: str | None = None
+) -> dict:
     """Kwargs passed straight into `run_user_scan` for the resolved mode + backend (fail-closed)."""
     if mode == "demo":
         return {"demonstration": True}
-
-    tm = target_model or settings.target_model
-
-    if backend == "ollama":
-        from fusion.model.providers.ollama import OllamaModelClient, ollama_available
-
-        if not ollama_available():
-            raise LiveUnavailable(
-                "no Ollama server at localhost:11434 — run `ollama serve` and `ollama pull <model>`"
-            )
-        # Open-weight ids aren't on the Anthropic allowlist → don't enforce it for the target.
-        target = _budgeted(OllamaModelClient(model=tm), settings, enforce_allowlist=False)
-        judge, judge_model = _claude_judge(settings)  # cross-family (Claude judging an open model)
-        return {"demonstration": False, "judge_client": judge, "target_client": target,
-                "target_model_id": tm, "judge_model": judge_model}
-
-    if backend == "cli":
-        from fusion.model.providers.claude_cli import ClaudeCliModelClient, claude_cli_available
-
-        if not claude_cli_available():
-            raise LiveUnavailable("the `claude` CLI is not available on the server")
-        target = _budgeted(ClaudeCliModelClient(), settings)
-        judge, judge_model = _claude_judge(settings)
-        return {"demonstration": False, "judge_client": judge, "target_client": target,
-                "target_model_id": tm, "judge_model": judge_model}
-
-    # default / "api": server-side keys.
-    if not settings.has_live_keys:
-        raise LiveUnavailable("real-model scans require a server-side API key (or backend=cli/ollama)")
-
-    from fusion.model.providers.anthropic import AnthropicModelClient
-
-    target = _budgeted(AnthropicModelClient(settings.anthropic_api_key), settings)
-    if settings.openai_api_key:
-        from fusion.model.providers.openai import OpenAIModelClient
-
-        judge = _budgeted(OpenAIModelClient(settings.openai_api_key), settings)
-        judge_model = "gpt-4o"  # cross-family judge (self-family guard)
-    else:
-        judge, judge_model = _claude_judge(settings)
-    return {"demonstration": False, "judge_client": judge, "target_client": target,
-            "target_model_id": tm, "judge_model": judge_model}
+    prefer = require_backend_allowed(backend, settings)
+    tm = _target_model(prefer, target_model, settings)
+    target, judge, judge_model, _choice = build_live_clients(
+        tm, max_calls=settings.scan_max_calls, prefer=prefer
+    )
+    return {
+        "demonstration": False,
+        "judge_client": judge,
+        "target_client": target,
+        "target_model_id": tm,
+        "judge_model": judge_model,
+    }

@@ -4,13 +4,30 @@
     {
       "name": "api",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "uvicorn", "app.factory:create_app", "--factory", "--host", "127.0.0.1", "--port", "8000"],
-      "port": 8000
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.factory:create_app",
+        "--factory",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
+      "port": 8000,
+      "env": {
+        "FUSION_ALLOW_LOCAL_BACKENDS": "1"
+      }
     },
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
       "port": 5173
     }
   ]

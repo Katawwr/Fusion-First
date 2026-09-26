@@ -201,7 +201,6 @@ def test_live_kwargs_use_cli_when_no_key(monkeypatch):
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("FUSION_TARGET_BACKEND", "cli")
-    monkeypatch.setattr(live, "_use_cli", lambda prefer: True)
     monkeypatch.setattr(
         "fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True
     )
@@ -218,6 +217,7 @@ def test_live_kwargs_build_real_clients_with_a_key(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-fake-key-value")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("FUSION_TARGET_BACKEND", "api")
+    monkeypatch.setenv("FUSION_ALLOW_API_SPEND", "1")  # metered path needs an explicit opt-in
     kw = build_live_scan_kwargs()
     assert kw["demonstration"] is False
     assert kw["judge_model"] == "claude-sonnet-5"  # self-family judge when no OpenAI key

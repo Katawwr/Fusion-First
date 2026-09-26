@@ -26,7 +26,7 @@ const features = [
     icon: BarChart3,
     title: "A calibrated examiner, not a vibe",
     description:
-      "An AI judge scores each response against a written rubric, and we measure the judge itself against known-answer cases (F1 1.00), so you know exactly how far to trust the grade.",
+      "An AI judge scores each response against a written rubric, and we measure the judge itself against known-answer cases and report that accuracy with a confidence interval, so you know how far to trust the grade.",
   },
   {
     icon: GitBranch,

@@ -6,6 +6,7 @@ the app runs in demo mode — every scan is a clearly-badged demonstration.
 
 from __future__ import annotations
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +30,16 @@ class Settings(BaseSettings):
 
     # Surfaced by /api/version for provenance.
     version: str = "dev"
+
+    # LOCAL backends (the server's `claude` CLI subscription, local Ollama) spend the HOST's own
+    # resources, so they are OFF by default: a public server must never let arbitrary visitors drive
+    # its subscription. Enable only for a local, single-user server (launch.json does this); CORS is
+    # then restricted to `cors_origins`.
+    allow_local_backends: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("FUSION_ALLOW_LOCAL_BACKENDS", "allow_local_backends"),
+    )
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     @property
     def has_live_keys(self) -> bool:

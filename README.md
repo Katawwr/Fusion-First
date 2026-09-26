@@ -28,8 +28,8 @@ pip install "fusion-safety[mcp]"     # + MCP server for AI coding agents
 ```bash
 fusion scan   --prompt system_prompt.txt        # grade it; see what got through
 fusion harden --prompt system_prompt.txt --write  # apply the fix in place
-fusion ci     --prompt system_prompt.txt --min-grade B   # exit 1 if unsafe (drop into CI)
-fusion guard-bench                              # prove the runtime guard (100% recall / 0% over-block)
+fusion ci     --prompt system_prompt.txt --min-grade B --live   # exit 1 if unsafe (needs a live backend)
+fusion guard-bench                              # benchmark the runtime guard (in-house corpus: 100% recall / 0% over-block)
 ```
 
 **2. Inside an AI coding agent (MCP)** — point Claude Code / Cursor at the server and it can grade,
@@ -51,8 +51,9 @@ client = GuardedModelClient(your_model_client, guard)   # responses + tool calls
 ```
 
 See `integrations/README.md` for the full agentic/CI workflow. Offline runs report `DEMONSTRATION`
-numbers from a deterministic stand-in judge; add a provider key (`ANTHROPIC_API_KEY`) and use
-`--live` for real numbers with no other change to the harness.
+numbers from a deterministic stand-in judge on canned responses. Use `--live` for real numbers: it
+runs through a local Ollama model and/or the `claude` CLI subscription — no API key. Metered API keys
+are never used unless you pass `--backend api` AND set `FUSION_ALLOW_API_SPEND=1`.
 
 ## Develop
 

@@ -257,6 +257,9 @@ class SafetyReportCard(BaseModel):
     grade: str  # A..F headline grade of the user's prompt AS WRITTEN (the baseline arm)
     hardened_grade: str = "?"  # A..F grade after applying Fusion's fix (the hardened arm)
     judge_accuracy: AccuracyResult | None = None
+    # Why judge_accuracy is absent (stale/missing calibration, or not yet measured for this judge).
+    # Never silently empty: a card either shows Bar A or says why it can't.
+    judge_accuracy_note: str = ""
     before_after: BeforeAfterResult | None = None
     benchmark: BenchmarkResult | None = None
     owasp_tags: list[OwaspTag] = Field(default_factory=list)

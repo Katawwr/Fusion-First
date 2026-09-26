@@ -8,7 +8,9 @@ and is what we calibrate against oracle labels (Bar A).
 from __future__ import annotations
 
 import json
+import math
 
+from fusion.errors import IsolatableError
 from fusion.judge.rubric import Rubric
 from fusion.model.client import ModelClient, ModelRequest, ModelRole
 from fusion.schemas import CriterionVerdict, Severity, Trajectory, Verdict
@@ -16,7 +18,7 @@ from fusion.schemas import CriterionVerdict, Severity, Trajectory, Verdict
 DEFAULT_EVIDENCE_CHARS = 12_000  # configurable evidence window (NOT the old hard 3000 truncation)
 
 
-class JudgeParseError(ValueError):
+class JudgeParseError(ValueError, IsolatableError):
     """The model returned output that could not be parsed into a structured verdict.
     The judge fails *closed*: callers must surface this, never treat it as 'no issue'."""
 
@@ -112,31 +114,51 @@ class Judge:
 
     @staticmethod
     def _parse(text: str, rubric: Rubric, model_id: str) -> Verdict:
+        """Strict, fail-closed parse. Every malformed shape raises JudgeParseError (one type), so
+        callers can isolate it as an unscored case instead of crashing or mis-scoring."""
         try:
-            data = json.loads(_extract_json(text))
-        except (json.JSONDecodeError, ValueError) as e:
+            return Judge._parse_strict(text, rubric, model_id)
+        except JudgeParseError:
+            raise
+        except (TypeError, ValueError, AttributeError, KeyError, RecursionError, OverflowError) as e:
+            raise JudgeParseError(f"judge output had an unexpected shape: {e}") from e
+
+    @staticmethod
+    def _parse_strict(text: str, rubric: Rubric, model_id: str) -> Verdict:
+        try:
+            data = _extract_json_obj(text, prefer="criteria")
+        except ValueError as e:
             raise JudgeParseError(f"judge output was not valid JSON: {e}") from e
-        if not isinstance(data, dict) or "criteria" not in data:
+        if "criteria" not in data:
             raise JudgeParseError("judge output missing 'criteria'")
+        criteria = data["criteria"]
+        if not isinstance(criteria, list):
+            raise JudgeParseError("judge output 'criteria' must be a list")
 
         by_id = {c.id: c for c in rubric.criteria}
-        verdicts: list[CriterionVerdict] = []
-        seen: set[str] = set()
-        for raw in data["criteria"]:
+        chosen: dict[str, CriterionVerdict] = {}
+        for raw in criteria:
+            if not isinstance(raw, dict):
+                raise JudgeParseError("each criterion must be an object")
             cid = raw.get("id")
-            if cid not in by_id:
+            if not isinstance(cid, str) or cid not in by_id:
                 continue  # ignore unknown ids rather than trusting them
-            verdicts.append(
-                CriterionVerdict(
-                    id=cid,
-                    violated=bool(raw.get("violated", False)),
-                    evidence=str(raw.get("evidence", "")),
-                )
+            if "violated" not in raw:
+                raise JudgeParseError(f"criterion '{cid}' has no 'violated' answer")
+            violated = _coerce_bool(raw["violated"], cid)
+            evidence = raw.get("evidence")
+            prev = chosen.get(cid)
+            if prev is not None:
+                if prev.violated != violated:
+                    raise JudgeParseError(f"criterion '{cid}' answered both ways")
+                continue
+            chosen[cid] = CriterionVerdict(
+                id=cid, violated=violated, evidence="" if evidence is None else str(evidence)
             )
-            seen.add(cid)
-        missing = set(by_id) - seen
+        missing = set(by_id) - set(chosen)
         if missing:
             raise JudgeParseError(f"judge omitted criteria: {sorted(missing)}")
+        verdicts = [chosen[c.id] for c in rubric.criteria]  # rubric order: deterministic
 
         # Verdict is a deterministic function of the binary criteria (auditable).
         violated = [v for v in verdicts if v.violated]
@@ -147,14 +169,14 @@ class Judge:
             worst = max(violated, key=lambda v: by_id[v.id].weight_severity.rank)
             severity = by_id[worst.id].weight_severity
             issue_type = worst.id
-        confidence = float(data.get("confidence", 0.5))
+        rationale = data.get("rationale")
         return Verdict(
             is_issue=is_issue,
             severity=severity,
             issue_type=issue_type,
             criteria=verdicts,
-            rationale=str(data.get("rationale", "")),
-            confidence=confidence,
+            rationale="" if rationale is None else str(rationale),
+            confidence=_coerce_confidence(data.get("confidence")),
             judge_model=model_id,
         )
 
@@ -164,15 +186,90 @@ class Judge:
         return self._parse(resp.text, rubric, resp.model or self.model_id)
 
 
-def _extract_json(text: str) -> str:
-    """Pull the first JSON object out of a possibly chatty response."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.strip("`")
-        if text.lstrip().startswith("json"):
-            text = text.lstrip()[4:]
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end < start:
+_TRUE_WORDS = {"true", "yes", "1"}
+_FALSE_WORDS = {"false", "no", "0"}
+
+
+def _coerce_bool(value: object, cid: str) -> bool:
+    """A criterion answer must be an unambiguous boolean. `bool("false")` is True in Python, so
+    quoted booleans are read by spelling; anything ambiguous fails closed."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        word = value.strip().lower()
+        if word in _TRUE_WORDS:
+            return True
+        if word in _FALSE_WORDS:
+            return False
+    raise JudgeParseError(f"criterion '{cid}': 'violated' must be a boolean, got {value!r}")
+
+
+def _coerce_confidence(value: object) -> float:
+    """Self-reported confidence never affects the verdict, so a bad value defaults to 0.5 rather
+    than discarding an otherwise valid verdict. Clamped to [0, 1]."""
+    try:
+        c = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
+        return 0.5
+    if math.isnan(c) or math.isinf(c):
+        return 0.5
+    return min(1.0, max(0.0, c))
+
+
+def _extract_json_obj(text: str, prefer: str | None = None) -> dict:
+    """Find THE JSON object in a possibly chatty response — failing closed on ambiguity.
+
+    A real JSON decode is attempted at each '{' (so braces inside strings, markdown fences and decoy
+    objects are handled). A successfully decoded object is skipped over as a whole (its inner
+    objects are never separate candidates). Candidates that sit inside a span that FAILED to decode
+    (e.g. a truncated outer object) are discarded — a partial answer is not an answer.
+
+    Returns the unique top-level object containing `prefer` (identical duplicates are fine). If
+    several DIFFERENT such objects exist (a draft then a correction), raises ValueError: guessing
+    which one the model meant could turn a violation into a pass. Without `prefer`, returns the
+    first top-level object. Raises ValueError when there is no usable object."""
+    decoder = json.JSONDecoder()
+    found: list[tuple[int, dict]] = []
+    failed_spans: list[tuple[int, int]] = []
+    i = text.find("{")
+    while i != -1:
+        try:
+            obj, end = decoder.raw_decode(text, i)
+        except json.JSONDecodeError as e:
+            failed_spans.append((i, max(e.pos, i + 1)))
+            i = text.find("{", i + 1)
+            continue
+        except RecursionError:  # absurdly deep nesting: treat everything after as unusable
+            failed_spans.append((i, len(text)))
+            i = text.find("{", i + 1)
+            continue
+        if isinstance(obj, dict):
+            found.append((i, obj))
+        i = text.find("{", end)
+
+    def _inside_failed(pos: int) -> bool:
+        return any(a < pos < b for a, b in failed_spans)
+
+    top = [obj for pos, obj in found if not _inside_failed(pos)]
+    if prefer is None:
+        if top:
+            return top[0]
         raise ValueError("no JSON object found in judge output")
-    return text[start : end + 1]
+    matches = [obj for obj in top if prefer in obj]
+    if not matches:
+        if any(prefer in obj for _, obj in found):
+            raise ValueError("the only answer object sits inside malformed/truncated JSON")
+        if top:
+            return top[0]  # caller reports the missing key
+        raise ValueError("no JSON object found in judge output")
+    first = matches[0]
+    if any(m != first for m in matches[1:]):
+        raise ValueError(f"judge output contains {len(matches)} conflicting '{prefer}' objects")
+    return first
+
+
+def _extract_json(text: str, prefer: str | None = "criteria") -> str:
+    """Back-compat wrapper returning the chosen object as JSON text."""
+    return json.dumps(_extract_json_obj(text, prefer=prefer))
