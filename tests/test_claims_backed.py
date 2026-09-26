@@ -116,3 +116,16 @@ def test_scanner_catches_more_claim_shapes():
     for line in ["recall 100%", "accuracy of 92%", "issue rate 72% -> 11%", "5 percent got through",
                  "kappa of 0.8", "precision: .95"]:
         assert any(p.search(line) for p in PROOF_PATTERNS), line
+
+
+@pytest.mark.unit
+def test_scanner_skips_test_fixtures_but_not_components(tmp_path):
+    from fusion.validate.claims import scanned_files
+
+    lib = tmp_path / "frontend/src/lib"
+    lib.mkdir(parents=True)
+    (lib / "trust.js").write_text("x", encoding="utf-8")
+    (lib / "trust.test.js").write_text("x", encoding="utf-8")
+    (lib / "Card.spec.jsx").write_text("x", encoding="utf-8")
+    names = {p.name for p in scanned_files(tmp_path)}
+    assert "trust.js" in names and "trust.test.js" not in names and "Card.spec.jsx" not in names

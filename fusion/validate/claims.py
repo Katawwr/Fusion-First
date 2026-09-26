@@ -150,10 +150,16 @@ def check_claim(claim: dict, root: pathlib.Path) -> list[ClaimProblem]:
     return problems
 
 
+def _is_test_file(p: pathlib.Path) -> bool:
+    """Test fixtures are not user-facing copy (they assert sentence templates with sample numbers)."""
+    return ".test." in p.name or ".spec." in p.name or "test" in p.parts
+
+
 def scanned_files(root: pathlib.Path) -> list[pathlib.Path]:
     files = [root / rel for rel in SCANNED_FILES if (root / rel).is_file()]
     for pattern in SCANNED_GLOBS:
-        files.extend(p for p in sorted(root.glob(pattern)) if "node_modules" not in p.parts)
+        files.extend(p for p in sorted(root.glob(pattern)) if "node_modules" not in p.parts
+                     and not _is_test_file(p))
     seen: set[pathlib.Path] = set()
     return [f for f in files if not (f in seen or seen.add(f))]
 

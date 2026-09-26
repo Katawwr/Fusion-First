@@ -54,3 +54,6 @@ fusion/_bundled/
 
 # External benchmark downloads (raw, licensed per source). Only processed subsets + SOURCES.yaml are committed.
 datasets/external/raw/
+
+# Local run store (fusion run / MCP start_run). Proofs meant for CI go in .fusion/proofs/.
+.fusion/runs/
