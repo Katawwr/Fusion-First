@@ -38,12 +38,13 @@ function Stat({ value, label, term, tip }) {
 // known-answer set (a property of the judge, never a per-user-prompt accuracy claim).
 // Presented as a compact stat row: the numbers are the point, so they read at a glance
 // instead of being buried in a paragraph of underlined phrases.
-export default function JudgeAccuracyBlock({ acc }) {
+export default function JudgeAccuracyBlock({ acc, note, source }) {
   if (!acc) {
     return (
       <p className="text-sm text-app-muted">
-        Examiner calibration runs in the Prove tier, this scan reports the
-        before/after result on your own prompt.
+        <strong className="text-app-text">Examiner accuracy: </strong>
+        {note ||
+          "not measured for this examiner yet, so treat this grade as unverified."}
       </p>
     );
   }
@@ -98,7 +99,10 @@ export default function JudgeAccuracyBlock({ acc }) {
           lineHeight: 1.6,
         }}
       >
-        Measured on {acc.n} known-answer cases. True precision lies between{" "}
+        {note ? <strong className="text-app-text">{note} </strong> : null}
+        Measured on {acc.n} known-answer cases
+        {acc.n_unscored ? ` (${acc.n_unscored} more could not be scored)` : ""}
+        {source ? `, ${source}` : ""}. True precision lies between{" "}
         {pct(acc.precision?.low)} and {pct(acc.precision?.high)} (
         <Term term="Wilson 95% CI" tip={STATS.wilson_ci.tip}>
           95% CI

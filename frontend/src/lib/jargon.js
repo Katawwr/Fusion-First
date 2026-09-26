@@ -96,6 +96,30 @@ export const STATS = {
   },
 };
 
+// Why an attack couldn't be scored (fusion/errors.py ErrorKind) → plain words.
+export const ERROR_KINDS = {
+  target_error: "the model didn't answer",
+  target_timeout: "the model timed out",
+  judge_error: "the examiner didn't answer",
+  judge_timeout: "the examiner timed out",
+  judge_parse: "the examiner's answer couldn't be read",
+  rate_limited: "the service was busy",
+  quota_exhausted: "the subscription usage limit was reached",
+  prompt_too_long: "the prompt was too long for this backend",
+  internal: "an internal error",
+  unknown: "an unknown error",
+};
+
+// How independent the examiner is from the model it grades.
+export const INDEPENDENCE = {
+  cross_family: "a different model family from the one under test (strongest)",
+  same_family_cross_tier: "the same model family, a stronger tier",
+  same_model: "the same model (weakest — disclosed)",
+};
+
+export const BOOTSTRAP_TIP =
+  "We re-sample the paired attacks thousands of times; 95% of those re-samples fall in this range. Wide means we need more attacks to be sure (paired bootstrap).";
+
 // Honesty badge → translated label (the real word stays visible in the pill).
 export const HONESTY = {
   PROVEN: {

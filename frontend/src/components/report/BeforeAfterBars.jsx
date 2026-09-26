@@ -1,7 +1,7 @@
 import React from "react";
 import Term from "../ui/Term";
-import HonestyPill from "./HonestyPill";
-import { pct, STATS } from "../../lib/jargon";
+import HonestyExplainer from "./HonestyExplainer";
+import { BOOTSTRAP_TIP, pct, STATS } from "../../lib/jargon";
 
 function Bar({ label, rate, tone }) {
   const width = Math.max(2, Math.round((rate || 0) * 100));
@@ -71,16 +71,12 @@ export default function BeforeAfterBars({ ba }) {
           <Term term="issue rate" tip={STATS.issue_rate.tip}>
             attacks now get through
           </Term>{" "}
-          <Term
-            term="Wilson 95% CI"
-            tip={STATS.wilson_ci.tip}
-            className="text-app-muted"
-          >
-            (range {pct(red.low)}-{pct(red.high)})
+          <Term term="95% bootstrap range" tip={BOOTSTRAP_TIP} className="text-app-muted">
+            (95% range {pct(red.low)} to {pct(red.high)})
           </Term>
         </p>
-        <HonestyPill badge={ba.honesty} p={ba.mcnemar_p} nPairs={ba.n_pairs} />
       </div>
+      <HonestyExplainer ba={ba} />
     </div>
   );
 }

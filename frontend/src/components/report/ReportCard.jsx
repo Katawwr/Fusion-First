@@ -7,11 +7,12 @@ import OwaspChip from "./OwaspChip";
 import BeforeAfterBars from "./BeforeAfterBars";
 import JudgeAccuracyBlock from "./JudgeAccuracyBlock";
 import ProvenanceFooter from "./ProvenanceFooter";
+import TrustStrip from "./TrustStrip";
 import { checkMeta } from "../../lib/jargon";
 
 function AttackList({ outcomes }) {
   const [open, setOpen] = useState(false);
-  const gotThrough = outcomes.filter((o) => o.baseline_issue);
+  const gotThrough = outcomes.filter((o) => o.baseline_issue === true);
   if (!gotThrough.length) return null;
   const shown = open ? gotThrough : gotThrough.slice(0, 3);
   return (
@@ -74,7 +75,12 @@ export default function ReportCard({ card, outcomes = [] }) {
 
       <AttackList outcomes={outcomes} />
       <BeforeAfterBars ba={card.before_after} />
-      <JudgeAccuracyBlock acc={card.judge_accuracy} />
+      <TrustStrip card={card} />
+      <JudgeAccuracyBlock
+        acc={card.judge_accuracy}
+        note={card.judge_accuracy_note}
+        source={card.trust?.judge_accuracy_source}
+      />
       <ProvenanceFooter card={card} />
     </Card>
   );
