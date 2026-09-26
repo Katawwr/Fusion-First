@@ -38,6 +38,16 @@
           "label": "Apply the tested fix",
           "lang": "bash",
           "code": "fusion harden --prompt agent.txt --write"
+        },
+        {
+          "label": "Grade your agent's existing logs (no attacks)",
+          "lang": "bash",
+          "code": "fusion run logs --file logs.jsonl --check everything --grader ollama-prob:qwen2.5:7b"
+        },
+        {
+          "label": "Already use promptfoo? Get intervals and a paired test on its results",
+          "lang": "bash",
+          "code": "fusion import-promptfoo results.json"
         }
       ]
     },

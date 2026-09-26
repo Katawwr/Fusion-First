@@ -21,6 +21,10 @@ pip install "fusion-safety[mcp]"     # + MCP server (fusion-mcp) for AI coding a
 > `prove`) read the committed corpora (`datasets/`, `cassettes/`, `crosswalk/`, `evals/`); run those
 > from a source checkout until the data ships bundled in the package.
 
+How far to trust Fusion itself (judge accuracy against deterministic oracles, guard held-out
+results, what isn't measured yet) is in [`TRUST_REPORT.md`](TRUST_REPORT.md), which is generated
+from committed evidence.
+
 ## Use it without an API key
 
 Fusion tests a **real model running your prompt**: a local open-weight model through Ollama (free),
@@ -45,6 +49,8 @@ fusion run tasks > tasks.json;  fusion run submit --file answers.json
 fusion run finalize --min-grade B                               # exit 1 below the bar
 fusion run verify                                               # re-derive offline; exit 1 on drift
 fusion harden --prompt agent.txt --write                        # apply the tested fix in place
+fusion run logs --file logs.jsonl --check everything --grader ollama-prob:qwen2.5:7b  # grade EXISTING transcripts
+fusion import-promptfoo results.json                            # Wilson CIs + paired McNemar on promptfoo results
 fusion guard-bench                              # benchmark the runtime guard (in-house corpus: 100% recall / 0% over-block)
 ```
 
