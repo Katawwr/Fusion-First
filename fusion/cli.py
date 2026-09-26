@@ -19,19 +19,14 @@ FUSION_ALLOW_API_SPEND=1 (an API key merely present in the environment is ignore
 from __future__ import annotations
 
 import argparse
-import asyncio
 import pathlib
 import sys
 
-from fusion.attacks.taxonomy import Crosswalk
-from fusion.engine.before_after import run_before_after
-from fusion.engine.report import build_report_card, render_report_card_text
-from fusion.goldset import gold_version_hash
-from fusion.model.replay import Cassette, ReplayModelClient
-from fusion.recording import CASSETTE_DIR, write_full_cassette
-from fusion.stats.calibration import run_calibration
-from fusion.stats.gate import run_eval_gate, save_baseline
+from fusion._data import data_root
 
+# Heavy modules (schemas, judge, engine, stats) are imported inside the commands that use them, so
+# `fusion hook …` — which runs before EVERY Claude Code tool call — starts in milliseconds.
+CASSETTE_DIR = data_root() / "cassettes"  # == fusion.recording.CASSETTE_DIR
 _GRADE_ORDER = "ABCDF"
 
 
@@ -39,8 +34,9 @@ class CliUsageError(Exception):
     """A user-facing problem (missing input, nothing recorded yet): printed, exit code 2."""
 
 
-def _load_cassette(check: str, version: str) -> Cassette:
+def _load_cassette(check: str, version: str):
     from fusion.judge.rubric import get_rubric
+    from fusion.model.replay import Cassette
 
     path = CASSETTE_DIR / f"{check}.{version}.json"
     if not path.exists():
@@ -69,6 +65,9 @@ def _resolve_checks(check: str) -> list[str]:
 def cmd_record(args) -> int:
     if getattr(args, "live", False):
         return _record_live(args)
+    from fusion.model.replay import Cassette
+    from fusion.recording import write_full_cassette
+
     for check in _resolve_checks(args.check):
         path = write_full_cassette(check, args.version)
         cas = Cassette.load(path)
@@ -79,6 +78,8 @@ def cmd_record(args) -> int:
 def _record_live(args) -> int:
     """Record REAL judge verdicts (via the subscription CLI or an API key) into the committed
     cassette path, so `fusion eval`/`prove` run on real numbers instead of the heuristic stand-in."""
+    import asyncio
+
     from fusion.integrations.live import LiveUnavailable, build_live_clients
     from fusion.recording import record_gold_cassette_live
 
@@ -209,6 +210,10 @@ async def _measure(args) -> int:
 
 
 async def _eval_one(check: str, args) -> int:
+    from fusion.goldset import gold_version_hash
+    from fusion.model.replay import ReplayModelClient
+    from fusion.stats.gate import run_eval_gate, save_baseline
+
     cas = _load_cassette(check, args.version)
     client = ReplayModelClient(cas, strict=True)
     gate, result = await run_eval_gate(check, client, version=args.version, split=args.split)
@@ -226,7 +231,11 @@ async def _eval(args) -> int:
 
 
 async def _prove_one(check: str, args):
-    from fusion.model.replay import cassette_provenance
+    from fusion.attacks.taxonomy import Crosswalk
+    from fusion.engine.before_after import run_before_after
+    from fusion.engine.report import build_report_card, render_report_card_text
+    from fusion.model.replay import ReplayModelClient, cassette_provenance
+    from fusion.stats.calibration import run_calibration
 
     cas = _load_cassette(check, args.version)
     prov = cassette_provenance(cas)
@@ -354,6 +363,8 @@ def cmd_ci(args) -> int:
     if min_grade not in _GRADE_ORDER:
         print(f"--min-grade must be one of {list(_GRADE_ORDER)}")
         return 2
+
+    import asyncio
 
     checks = None if args.check == "all" else [args.check]
     try:
@@ -563,12 +574,22 @@ def _cmd_import_promptfoo(args) -> int:
 
 
 def _cmd_hook(args) -> int:
-    from fusion.integrations.claude_hooks import run_hook
+    import json as _json
 
-    code, out = run_hook(args.event, sys.stdin.read())
+    from fusion.integrations.claude_hooks import read_stdin, run_hook
+
+    try:
+        text = read_stdin()  # bytes decoded as UTF-8: the Windows console code page must not crash it
+    except (OSError, ValueError) as e:
+        print(_json.dumps({"systemMessage": f"Fusion guard hook error (ignored): could not read the event: {e}"}))
+        return 0
+    code, out = run_hook(args.event, text)
     if out:
         print(out)
     return code
+
+
+_HOOK_EVENTS = ("pre-tool-use", "post-tool-use")
 
 
 def _cmd_doctor(args) -> int:
@@ -585,6 +606,11 @@ def main(argv: list[str] | None = None) -> int:
         except (AttributeError, ValueError):
             pass
 
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if len(argv) == 2 and argv[0] == "hook" and argv[1] in _HOOK_EVENTS:
+        # Hot path (before every tool call): skip building the full parser, which imports the run
+        # engine, and go straight to the guard.
+        return _cmd_hook(argparse.Namespace(cmd="hook", event=argv[1]))
     args = build_parser().parse_args(argv)
     dispatch = {
         "record": cmd_record,
@@ -607,6 +633,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd in dispatch:
             return dispatch[args.cmd](args)
         if args.cmd in async_dispatch:
+            import asyncio
+
             return asyncio.run(async_dispatch[args.cmd](args))
     except CliUsageError as e:
         print(str(e))

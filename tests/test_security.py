@@ -52,6 +52,44 @@ def test_contains_secret_ignores_plain_email():
     assert contains_secret("just email me at a@b.com") is False
 
 
+@pytest.mark.unit
+def test_linear_time_patterns_match_the_original_definitions():
+    """The strict assignment and JWT checks were rewritten to run in linear time; they must agree
+    with the original (quadratic) definitions: same truth value for the checks, same spans for
+    redact()."""
+    import random
+    import re
+
+    from fusion.security import redaction as r
+
+    old_strict = re.compile(r"(?i)(api[_-]?key|secret|token|password|passwd|pwd)\s*[:=]\s*[^\s\"']*[0-9_\-][^\s\"']*")
+    old_jwt = re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+")
+    jwt_sub, jwt_search = dict(r._PATTERNS)["jwt"], r._SEARCH_ONLY["jwt"]
+    frags = ["token", "api_key", "api-key", "apikey", "secret", "pwd", "passwd", "password", "=", ":", " ", "'",
+             '"', "1", "_", "-", "a", "Z", "eyJ", "ey", "J", ".", "..", "@", "TOKEN", "Api_Key"]
+    rng = random.Random(20260926)
+    for _ in range(30_000):
+        s = "".join(rng.choice(frags) for _ in range(rng.randint(1, 16)))
+        assert bool(old_strict.search(s)) == bool(r._STRICT_ASSIGN.search(s)), s
+        assert bool(old_jwt.search(s)) == bool(jwt_search.search(s)), s
+        assert [m.span() for m in old_jwt.finditer(s)] == [m.span() for m in jwt_sub.finditer(s)], s
+
+
+@pytest.mark.unit
+def test_secret_checks_are_fast_on_pathological_text():
+    import time
+
+    from fusion.security.redaction import contains_secret_strict
+
+    t = time.perf_counter()
+    for text in ("eyJ" * 7000, "token=" * 4000, "api_key=" * 3000, "eyJa." * 5000):
+        contains_secret_strict(text)
+        contains_secret(text)
+    assert time.perf_counter() - t < 0.5
+    assert contains_secret_strict("token=abc123") and contains_secret_strict("x eyJa.b.c y")
+    assert not contains_secret_strict("password: click the link")
+
+
 # ------------------------------- webhook (fail closed) -------------------------------
 
 

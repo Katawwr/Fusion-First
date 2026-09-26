@@ -16,18 +16,35 @@ _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("anthropic_key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}")),
     ("fusion_api_key", re.compile(r"fst_[A-Za-z0-9]{8,}")),
     ("bearer", re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]{12,}")),
-    ("jwt", re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+")),
+    # Possessive segments: `.` is not in the class, so giving characters back can never help —
+    # identical matches, without the backtracking that made `eyJeyJeyJ…` slow.
+    ("jwt", re.compile(r"eyJ[A-Za-z0-9_\-]++\.[A-Za-z0-9_\-]++\.[A-Za-z0-9_\-]+")),
     ("aws_key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("email", re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")),
     ("assignment", re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*\S+")),
 ]
 
+# For the yes/no checks only (not for redact(), whose replaced spans must not change): a JWT exists
+# iff the FIRST `eyJ` of some token-character run is followed by `.x…` twice — later `eyJ`s in
+# the same run share its continuation. Trying only run starts keeps `eyJeyJeyJ…` linear.
+_SEARCH_ONLY = {
+    "jwt": re.compile(r"(?<![A-Za-z0-9_\-])(?:(?!eyJ)[A-Za-z0-9_\-])*+eyJ[A-Za-z0-9_\-]++\.[A-Za-z0-9_\-]++"
+                      r"\.[A-Za-z0-9_\-]"),
+}
+
 # Precise assignment used at the OUTPUT boundary (see contains_secret_strict): the value must look
 # like a credential (contain a digit / underscore / hyphen), so it does not fire on ordinary English
 # such as "password: click the link" or "the secret: hard work" — which, redacted mid-reply, would
 # corrupt a user-facing answer. Logging keeps the conservative `contains_secret` above.
+_ASSIGN_KEYS = r"api[_-]?key|secret|token|password|passwd|pwd"
+# Same truth value as `KEY\s*[:=]\s*[^\s"']*[0-9_\-][^\s"']*`, in linear time: the value scan stops
+# at the next `KEY:`/`KEY=` (that occurrence is tried on its own and sees the rest of the same run),
+# so `token=token=token=…` no longer re-scans the run once per occurrence. The only special
+# character a stopped scan would have skipped is the `_`/`-` inside `api_key`/`api-key` itself,
+# hence the lookahead alternative. (tests/test_security.py checks equivalence on random strings.)
 _STRICT_ASSIGN = re.compile(
-    r"(?i)(api[_-]?key|secret|token|password|passwd|pwd)\s*[:=]\s*[^\s\"']*[0-9_\-][^\s\"']*"
+    rf"(?i)({_ASSIGN_KEYS})\s*[:=]\s*(?:(?!(?:{_ASSIGN_KEYS})\s*[:=])[^\s\"'0-9_\-])*"
+    r"(?:[0-9_\-]|(?=api[_-]key))[^\s\"']*"
 )
 
 _MASK = "[REDACTED]"
@@ -61,7 +78,8 @@ def redact_mapping(data: dict, sensitive_keys: tuple[str, ...] = ("authorization
 
 def contains_secret(text: str) -> bool:
     """True if `text` still appears to contain a credential. Conservative — used before logging."""
-    return any(pattern.search(text or "") for label, pattern in _PATTERNS if label != "email")
+    return any(_SEARCH_ONLY.get(label, pattern).search(text or "") for label, pattern in _PATTERNS
+               if label != "email")
 
 
 def contains_secret_strict(text: str) -> bool:
@@ -72,6 +90,6 @@ def contains_secret_strict(text: str) -> bool:
     for label, pattern in _PATTERNS:
         if label in ("email", "assignment"):
             continue
-        if pattern.search(text):
+        if _SEARCH_ONLY.get(label, pattern).search(text):
             return True
     return bool(_STRICT_ASSIGN.search(text))
