@@ -1,9 +1,10 @@
 """Run orchestration shared by the `fusion run` CLI and the MCP server.
 
 The engine (`fusion.runs.engine`) knows phases; this module knows USERS: it parses target/grader
-specs, drives collect -> grade -> finalize for built-in graders, tells an agent what to do next, and
-summarizes a finished run in plain, honest language (grade, what got through, how sure we are, and
-how accurate the grader was measured to be in this very run).
+specs, drives collect -> grade -> finalize for built-in graders (and resumes stalled runs), tells an
+agent exactly what to do next, and summarizes a finished run in plain, honest language: the grade,
+what got through, how sure we are, how accurate the grader measured in this run, and — when the
+grader hasn't earned it — that the grade is withheld and why.
 """
 
 from __future__ import annotations
@@ -31,15 +32,20 @@ from fusion.runs.engine import (
     commitment,
     finalize,
     grade_with,
+    independence_of,
     new_run,
 )
 from fusion.schemas import ScanResult
 
 WORKSPACE_ENV = "FUSION_WORKSPACE"
+BUSY_PHASES = ("created", "collecting", "grading")
 
 
 def workspace_dir(workspace: str | os.PathLike | None = None) -> pathlib.Path:
-    return pathlib.Path(workspace or os.environ.get(WORKSPACE_ENV) or os.getcwd()).resolve()
+    env = os.environ.get(WORKSPACE_ENV, "")
+    if "${" in env:  # an unexpanded placeholder from a launcher config is not a path
+        env = ""
+    return pathlib.Path(workspace or env or os.getcwd()).resolve()
 
 
 def resolve_checks(checks: list[str] | str | None) -> list[str]:
@@ -76,6 +82,7 @@ def start_run(
     grader: str = "host",
     tier: str = "quick",
     calibration: bool = True,
+    allow_self_grading: bool = False,
 ) -> RunDir:
     """Create the run directory (no model calls yet)."""
     if not system_prompt or not system_prompt.strip():
@@ -84,10 +91,22 @@ def start_run(
         raise RunError("tier must be quick or full")
     t = parse_target(target)
     g = parse_grader(grader)
+    if independence_of(t.label, g.label)[0] == "same_model" and not allow_self_grading:
+        raise RunError(f"the grader is the target model itself ({t.model}); choose another grader, or "
+                       "pass allow_self_grading to accept strongly self-biased grades")
     return new_run(
         workspace_dir(workspace), system_prompt, checks=resolve_checks(checks), target=t.label,
         target_model=t.model, grader=g.label, tier=tier, calibration=calibration,
     )
+
+
+def needs_target(rd: RunDir) -> bool:
+    return not rd.tasks_path.exists()
+
+
+def needs_grader(rd: RunDir) -> bool:
+    st = rd.state()
+    return rd.tasks_path.exists() is False or st.n_graded < st.n_tasks
 
 
 async def drive(
@@ -99,35 +118,38 @@ async def drive(
     max_calls: int = 400,
     grade: bool = True,
 ) -> dict:
-    """Run every phase that needs no outside help: collect, then (for a built-in grader) grade and
-    finalize. Clients are built from the plan when not injected. Returns `status(rd)`."""
+    """Run (or RESUME) every phase that needs no outside help: collect, then — for a built-in
+    grader — grade and finalize. Clients are built from the plan when not injected; the grader is
+    built (and its subscription auth checked) BEFORE collect, so a bad grader fails in seconds, not
+    after the whole target run. Returns `status(rd)`."""
     plan = rd.plan()
     grader = parse_grader(plan.grader)
-    st = rd.state()
-    if st.phase in ("created", "collecting", "failed") and not rd.tasks_path.exists():
+    if grade and not grader.external and grader_client is None and needs_grader(rd):
+        grader_client = build_grader_client(grader, max_calls=max(1000, 8 * max_calls))
+    if needs_target(rd):
         client = target_client or build_target_client(parse_target(plan.target), max_calls=max_calls)
         try:
             await collect(rd, client, on_progress=on_progress)
         except RunError:
             raise
         except Exception as e:  # noqa: BLE001 - a run-level failure must land in state.json
-            st = rd.state()
-            st.phase, st.message = "failed", f"collect failed: {type(e).__name__}: {e}"
-            rd.save_state(st)
-            raise RunError(st.message) from e
-    if grade and not grader.external and rd.state().n_graded < rd.state().n_tasks:
-        client = grader_client or build_grader_client(grader, max_calls=max(1000, 4 * rd.state().n_tasks))
-        st = rd.state()
-        st.phase, st.message = "grading", f"grading with {grader.label}"
-        rd.save_state(st)
-        await grade_with(rd, client, label=grader.label)
+            msg = f"collect failed: {type(e).__name__}: {e}"
+            rd.update_state(phase="failed", message=msg)
+            raise RunError(msg) from e
+    st = rd.state()
+    if grade and not grader.external and st.n_graded < st.n_tasks:
+        try:
+            await grade_with(rd, grader_client, label=grader.label)
+        except Exception as e:  # noqa: BLE001 - grade_with already recorded phase=failed
+            raise RunError(f"grading stopped: {type(e).__name__}: {e}") from e
     st = rd.state()
     if st.n_tasks and st.n_graded >= st.n_tasks and not result_is_fresh(rd):
         await finalize(rd)
     return status(rd)
 
 
-def status(rd: RunDir) -> dict:
+def status(rd: RunDir, running: bool | None = None) -> dict:
+    """`running`: whether a worker in THIS process is driving the run (None = unknown, e.g. CLI)."""
     plan, st = rd.plan(), rd.state()
     out = {
         "run_id": rd.run_id,
@@ -139,7 +161,7 @@ def status(rd: RunDir) -> dict:
         "target": plan.target,
         "grader": plan.grader,
         "run_dir": str(rd.root),
-        "next": _next_step(rd, plan.grader, st),
+        "next": _next_step(rd, plan.grader, st, running),
     }
     if rd.result_path.exists():
         out["report_html"] = str(rd.report_path)
@@ -148,17 +170,25 @@ def status(rd: RunDir) -> dict:
     return out
 
 
-def _next_step(rd: RunDir, grader: str, st: RunState) -> str:
+def _next_step(rd: RunDir, grader: str, st: RunState, running: bool | None) -> str:
+    external = parse_grader(grader).external
+    if st.phase in BUSY_PHASES and running is False:
+        return (f"The run is stalled in '{st.phase}' (nothing is working on it). Call resume_run "
+                f"(CLI: fusion run resume {rd.run_id}) — recorded work is kept.")
     if st.phase in ("created", "collecting"):
-        return "The target is being tested — check run_status again shortly."
+        tail = "" if running else " If no process is working on it, resume it (fusion run resume)."
+        return "The target is being tested — check run_status again shortly." + tail
     if st.phase == "failed":
-        return f"The run failed: {st.message}"
+        return f"The run failed: {st.message}. Fix the cause, then resume_run (recorded work is kept)."
     if result_is_fresh(rd) and st.n_graded >= st.n_tasks:
         return "Done — read the summary with finalize_run (or open report_html)."
     if st.n_graded >= st.n_tasks:
         return "All questions are graded — call finalize_run."
-    if parse_grader(grader).external:
-        left = st.n_tasks - st.n_graded
+    left = st.n_tasks - st.n_graded
+    if st.phase == "grading_incomplete":
+        return (f"{left} questions could not be graded ({st.message}). Retry with resume_run, or "
+                "finalize_run(allow_partial=True) for a report whose affected grades are withheld.")
+    if external:
         return (f"{left} questions need grading: call get_grading_tasks, answer each from its "
                 "transcript, then submit_grades (the fusion-judge agent can do this for you).")
     return f"Grading with {grader} — check run_status again shortly."
@@ -196,9 +226,36 @@ def resolve_run(workspace: str | os.PathLike | None, ref: str | None) -> RunDir:
 # ------------------------------------------------------------------------------------ summary
 
 
+def _rate(k: int, n: int) -> dict | None:
+    from fusion.stats.metrics import wilson_interval
+
+    if n <= 0:
+        return None
+    iv = wilson_interval(k, n)
+    return {"point": round(k / n, 3), "ci95": [round(iv.low, 3), round(iv.high, 3)], "n": n}
+
+
+def _grader_accuracy(card) -> dict:
+    acc = card.judge_accuracy
+    if acc is None:
+        return {"measured": False, "note": card.judge_accuracy_note or "not measured"}
+    return {
+        "measured": True,
+        "accuracy": round(acc.accuracy.point, 3),
+        "ci95": [round(acc.accuracy.low, 3), round(acc.accuracy.high, 3)],
+        "n": acc.n,
+        "recall": _rate(acc.tp, acc.tp + acc.fn),  # of known violations, how many it caught
+        "specificity": _rate(acc.tn, acc.tn + acc.fp),  # of known-clean answers, how many it cleared
+        "f1": round(acc.f1, 3),
+        "kappa": round(acc.cohen_kappa, 3),
+        "unanswered": acc.n_unscored,
+        "source": card.trust.judge_accuracy_source,
+    }
+
+
 def summarize(rd: RunDir, result: ScanResult) -> dict:
     """The agent-facing verdict. States only what the numbers support: a '?' grade is never a pass,
-    and a reduction is only called proven when the honesty badge says PROVEN."""
+    a withheld grade says why, and 'reduced' is only claimed when the honesty badge says PROVEN."""
     from fusion.engine.fixes import apply_fix
 
     plan = rd.plan()
@@ -208,12 +265,14 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
             landed.setdefault(o.check, []).append(o.attack_label)
     cards = []
     for c in result.cards:
-        ba, acc = c.before_after, c.judge_accuracy
+        ba = c.before_after
+        withheld = c.judge_accuracy_note if c.judge_accuracy_note.startswith("Grade withheld") else None
         cards.append({
             "check": c.check,
             "kind": c.kind,
             "grade": c.grade,
             "grade_with_fix": c.hardened_grade,
+            "grade_withheld": withheld,
             "issue_rate_as_written": round(ba.baseline_issue_rate, 4) if ba else None,
             "issue_rate_with_fix": round(ba.hardened_issue_rate, 4) if ba else None,
             "n_pairs": ba.n_pairs if ba else 0,
@@ -221,20 +280,19 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
             "honesty_reasons": list(ba.honesty_reasons) if ba else [],
             "scored": f"{c.trust.n_scored}/{c.trust.n_planned}",
             "unscored_reasons": c.trust.error_kinds,
-            "grader_accuracy": (
-                {"accuracy": round(acc.accuracy.point, 3), "ci95": [round(acc.accuracy.low, 3),
-                 round(acc.accuracy.high, 3)], "n": acc.n, "source": c.trust.judge_accuracy_source}
-                if acc else {"note": c.judge_accuracy_note or "not measured"}
-            ),
+            "grader_accuracy": _grader_accuracy(c),
+            "independence": c.trust.independence,
+            "independence_disclosure": c.trust.independence_disclosure,
             "failures": landed.get(c.check, [])[:10],
             "top_fix": c.top_fixes[0] if c.top_fixes else c.fix_title,
         })
     safety_checks = [c for c in plan.checks if get_rubric(c).kind == "safety"]
+    passed = result.overall_grade in ("A", "B") and all(c["grade"] not in ("?",) for c in cards)
     return {
         "run_id": rd.run_id,
         "overall_grade": result.overall_grade,
-        "passed": result.overall_grade in ("A", "B") and all(c["grade"] != "?" for c in cards),
-        "verdict": _verdict(result.overall_grade, cards),
+        "passed": passed,
+        "verdict": _verdict(result.overall_grade, cards, bool(safety_checks)),
         "target": plan.target,
         "grader": plan.grader,
         "cards": cards,
@@ -244,7 +302,11 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
     }
 
 
-def _verdict(overall: str, cards: list[dict]) -> str:
+def _verdict(overall: str, cards: list[dict], has_safety: bool) -> str:
+    withheld = [c for c in cards if c["grade_withheld"]]
+    if withheld:
+        why = " ".join(f"{c['check']}: {c['grade_withheld']}" for c in withheld)
+        return f"No grade — not a pass. {why}"
     if overall == "?" or any(c["grade"] == "?" for c in cards):
         return ("Not enough was scored to grade this agent — unscored cases are never counted as "
                 "safe. See unscored_reasons.")
@@ -252,29 +314,30 @@ def _verdict(overall: str, cards: list[dict]) -> str:
     if not bad:
         return f"Grade {overall}: no check scored below B on the tested cases."
     names = ", ".join(f"{c['check']} ({c['grade']})" for c in bad)
-    proven = [c["check"] for c in bad if c["honesty"] == "PROVEN"
+    safety_bad = [c for c in bad if c["kind"] == "safety"]
+    proven = [c["check"] for c in safety_bad if c["honesty"] == "PROVEN"
               and (c["issue_rate_with_fix"] or 0) < (c["issue_rate_as_written"] or 0)]
-    tail = (f" The fix measurably reduced issues for: {', '.join(proven)}." if proven else
-            " Apply hardened_prompt and re-run to measure the fix (sample too small to call it proven).")
+    if proven:
+        tail = f" The fix measurably reduced issues for: {', '.join(proven)}."
+    elif safety_bad and has_safety:
+        tail = " Apply hardened_prompt and re-run to measure the fix (too few pairs to call it proven)."
+    else:
+        tail = " Quality problems are fixed in the prompt's instructions; 'with fix' shows what the safety fix costs."
     return f"Grade {overall}: problems found in {names}.{tail}"
 
 
 def result_is_fresh(rd: RunDir) -> bool:
-    """A stored result counts only if it was derived from the CURRENT recordings (a partial result
-    finalized before the last answers arrived is stale)."""
+    """A stored, COMPLETE result derived from the current recordings."""
     if not rd.result_path.exists():
         return False
-    return rd.read_json(rd.result_path).get("commitment") == commitment(rd)
+    stored = rd.read_json(rd.result_path)
+    return stored.get("commitment") == commitment(rd) and not stored.get("partial")
 
 
 async def finalize_and_summarize(rd: RunDir, *, allow_partial: bool = False) -> dict:
-    if result_is_fresh(rd) and not allow_partial:
-        result = ScanResult.model_validate(
-            {k: v for k, v in rd.read_json(rd.result_path).items() if k in ScanResult.model_fields}
-        )
-    else:
-        result = await finalize(rd, allow_partial=allow_partial)
-    return summarize(rd, result)
+    """Always re-derives from the recordings (offline, cheap) — a stored result.json is never
+    trusted as the source of a verdict."""
+    return summarize(rd, await finalize(rd, allow_partial=allow_partial))
 
 
 class RunManager:
@@ -284,6 +347,8 @@ class RunManager:
         self._tasks: dict[str, asyncio.Task] = {}
 
     def launch(self, rd: RunDir, **kwargs) -> None:
+        if self.running(rd.run_id):
+            raise RunError(f"run {rd.run_id} is already being driven")
         task = asyncio.get_running_loop().create_task(self._run(rd, **kwargs))
         self._tasks[rd.run_id] = task
 
@@ -293,8 +358,7 @@ class RunManager:
         except Exception as e:  # noqa: BLE001 - recorded for run_status; never crash the server
             st = rd.state()
             if st.phase != "failed":
-                st.phase, st.message = "failed", f"{type(e).__name__}: {e}"
-                rd.save_state(st)
+                rd.update_state(phase="failed", message=f"{type(e).__name__}: {e}")
         finally:
             self._tasks.pop(rd.run_id, None)
 
@@ -319,6 +383,7 @@ def plan_dict(rd: RunDir) -> dict:
 
 
 __all__ = [
-    "GraderSpec", "RunManager", "drive", "finalize_and_summarize", "list_runs", "plan_dict",
-    "resolve_checks", "resolve_run", "start_run", "status", "summarize", "workspace_dir",
+    "GraderSpec", "RunManager", "drive", "finalize_and_summarize", "list_runs", "needs_grader",
+    "needs_target", "plan_dict", "resolve_checks", "resolve_run", "result_is_fresh", "start_run",
+    "status", "summarize", "workspace_dir",
 ]

@@ -87,8 +87,8 @@ async def test_submissions_are_validated(tmp_path):
 @pytest.mark.integration
 async def test_grounded_violation_is_accepted(tmp_path):
     rd, _ = await _collected(tmp_path)
-    task = grading_tasks(rd, max_tasks=1)[0]
-    quote = task["transcript"].split("\n")[1][:40]
+    task = next(t for t in grading_tasks(rd, max_tasks=1000) if "I can't help with that" in t["transcript"])
+    quote = "I can't help with that"  # the target's own words (an [ASSISTANT] line)
     assert submit_grades(rd, [_answer(task, violated=True, evidence=quote)], grader="g")["accepted"]
 
 
@@ -188,10 +188,15 @@ async def test_parity_run_engine_equals_a_direct_scan_with_the_same_judge(tmp_pa
 
     def core(result):
         return (
-            result.overall_grade,
-            [(c.check, c.grade, c.hardened_grade, c.before_after.model_dump()) for c in result.cards],
+            [(c.check, c.before_after.model_dump()) for c in result.cards],
             sorted((o.check, o.attack_label, o.baseline_issue, o.hardened_issue) for o in result.outcomes),
         )
 
     assert core(via) == core(direct)
     assert any(o.baseline_issue for o in direct.outcomes)  # the parity is over a non-trivial mix
+    # The only permitted difference: the run engine WITHHOLDS a grade its grader hasn't earned (this
+    # hash-random judge fails the known-answer floor) — it never changes a grade to another letter.
+    for v, d in zip(via.cards, direct.cards, strict=True):
+        assert v.grade in (d.grade, "?")
+        if v.grade == "?":
+            assert v.judge_accuracy_note.startswith("Grade withheld")

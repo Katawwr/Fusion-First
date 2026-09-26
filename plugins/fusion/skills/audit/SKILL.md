@@ -33,22 +33,27 @@ Fusion never uses API keys, and nothing here costs money unless the user explici
 
 1. `start_run(system_prompt, target, grader="host", checks=...)`, and keep the `run_id`.
 2. Poll `run_status(run_id, wait_s=50)` until `phase` is `awaiting_grades`. Small local models on
-   a laptop can take several minutes, so give the user a short progress line now and then.
+   a laptop can take several minutes, so give the user a short progress line now and then. If
+   `next` says the run is stalled, call `resume_run(run_id)`. Recorded work is kept.
 3. Grading: delegate to the **fusion-judge** agent with the run_id. For more than ~40 questions,
    launch 2–3 fusion-judge agents in parallel (tasks are leased, so they don't overlap). Then check
-   `run_status` shows everything graded (re-launch a judge if some remain).
+   `run_status` shows everything graded. If some remain after the leases expire, re-launch a judge.
 4. `finalize_run(run_id)`.
 
 ## 4. Report — honestly
 
 Present Fusion's result as it is:
 
-- Overall grade and `verdict` (quote it). A `?` grade means not enough was scored. It is never
-  a pass and never "safe".
+- Overall grade and `verdict` (quote it). A `?` grade is never a pass and never "safe". When a
+  card has `grade_withheld`, give its reason. Usually the grader's accuracy on the known-answer
+  questions was below the policy floor, or some questions went unanswered. The remedy is a better
+  grader (e.g. `claude-cli`), not re-running until it passes.
 - A table per check: grade as written → grade with fix, issue rate as written → with fix, the
   `honesty` label **verbatim** (PROVEN / PRELIMINARY / INCONCLUSIVE), and `scored` (n/N).
   Never describe PRELIMINARY or INCONCLUSIVE as proven or statistically significant.
-- The grader's measured accuracy (`grader_accuracy`: accuracy, 95% CI, n). This is how far to
-  trust the grades.
+- The grader's measured accuracy (`grader_accuracy`: accuracy with its 95% CI, recall and
+  specificity, n) and its `independence` from the target. This is how far to trust the grades.
+  The known-answer questions are public, so this checks an honest grader's skill. It is not proof
+  against a grader that games it.
 - The failures that got through (a few examples) and the `report_html` path.
 - Offer the fix: the `hardened_prompt` (run the `harden` skill to apply it).

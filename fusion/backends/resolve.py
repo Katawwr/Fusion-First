@@ -18,6 +18,7 @@ unless `claude auth status` reports subscription auth, and strips paid-auth env 
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from fusion.integrations.live import METERED_OPT_IN_ENV, metered_allowed
@@ -118,6 +119,24 @@ def parse_grader(spec: str) -> GraderSpec:
     return GraderSpec(kind, model or None)
 
 
+def _cli_preflight() -> None:
+    """Fail in seconds — before any collect — if the claude CLI isn't usable on subscription auth.
+    (`claude auth status` is local; no model call. The provider re-checks before every call.)"""
+    import shutil
+
+    from fusion.model.providers.claude_cli import (
+        assert_subscription_auth,
+        claude_cli_available,
+        refuse_shell_shim,
+    )
+
+    if not claude_cli_available():
+        raise BackendUnavailable("the `claude` CLI isn't on PATH (or FUSION_OFFLINE=1 is set)")
+    binary = os.environ.get("FUSION_CLAUDE_BIN") or shutil.which("claude") or "claude"
+    refuse_shell_shim(binary)
+    assert_subscription_auth(binary)
+
+
 def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: float = 600.0):
     """A budgeted client for the target under test. Refuses unavailable or unpermitted backends."""
     from fusion.security.budget import BudgetedModelClient, BudgetLimits
@@ -132,12 +151,11 @@ def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: floa
             OllamaModelClient(model=spec.model, timeout=timeout), limits, enforce_allowlist=False
         )
     if spec.backend == "claude_cli":
-        from fusion.model.providers.claude_cli import ClaudeCliModelClient, claude_cli_available
+        from fusion.model.providers.claude_cli import ClaudeCliModelClient
 
-        if not claude_cli_available():
-            raise BackendUnavailable("the `claude` CLI isn't on PATH (or FUSION_OFFLINE=1 is set)")
         registry = ModelRegistry()
         registry.require_allowed(spec.model)
+        _cli_preflight()
         return BudgetedModelClient(ClaudeCliModelClient(registry=registry), limits)
     if spec.backend == "api":
         raise BackendUnavailable(_metered_refusal())
@@ -152,13 +170,12 @@ def build_grader_client(spec: GraderSpec, *, max_calls: int = 1000, timeout: flo
     if spec.kind == "host":
         raise SpecError("the host grader has no built-in client — grade via get_grading_tasks/submit_grades")
     if spec.kind == "claude_cli":
-        from fusion.model.providers.claude_cli import ClaudeCliModelClient, claude_cli_available
+        from fusion.model.providers.claude_cli import ClaudeCliModelClient
 
-        if not claude_cli_available():
-            raise BackendUnavailable("the `claude` CLI isn't on PATH (or FUSION_OFFLINE=1 is set)")
         registry = ModelRegistry()
         judge_id = spec.model or registry.resolve("judge_primary")
         registry.require_allowed(judge_id)
+        _cli_preflight()
         return BudgetedModelClient(ClaudeCliModelClient(registry=registry, judge_model=judge_id), limits)
     from fusion.model.providers.ollama import OllamaModelClient, ollama_available
 

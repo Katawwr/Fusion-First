@@ -68,6 +68,11 @@ class JudgeUndecided(IsolatableError):
     """A grader (e.g. a deterministic verifier) could not decide this case — unscored, not guessed."""
 
 
+class NotGraded(JudgeUndecided):
+    """A run's question was never answered by its grader (partial finalize). Unscored, and a card
+    with any such question is never graded: skipping the damning questions must not raise a grade."""
+
+
 class ScanAborted(FatalRunError):
     """A scan stopped early; `code` is a stable machine-readable reason for the UI/API."""
 
@@ -84,6 +89,7 @@ class ErrorKind(str, Enum):
     JUDGE_TIMEOUT = "judge_timeout"
     JUDGE_PARSE = "judge_parse"
     UNDECIDABLE = "undecidable"
+    NOT_GRADED = "not_graded"
     RATE_LIMITED = "rate_limited"
     QUOTA_EXHAUSTED = "quota_exhausted"
     PROMPT_TOO_LONG = "prompt_too_long"
@@ -121,6 +127,8 @@ def classify(exc: BaseException, stage: str = "judge") -> ErrorKind:
         return ErrorKind.MODEL_NOT_ALLOWED
     if name == "JudgeParseError":
         return ErrorKind.JUDGE_PARSE
+    if isinstance(exc, NotGraded):
+        return ErrorKind.NOT_GRADED
     if isinstance(exc, JudgeUndecided):
         return ErrorKind.UNDECIDABLE
     timeout = isinstance(exc, (TimeoutError, ProviderTimeout))

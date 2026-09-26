@@ -21,6 +21,7 @@ import json
 import os
 import pathlib
 import tempfile
+import time
 from dataclasses import dataclass
 
 from fusion.errors import FatalRunError
@@ -57,7 +58,14 @@ class Cassette:
         try:
             with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
                 f.write(blob)
-            os.replace(tmp, p)
+            for attempt in range(12):  # Windows: a reader / AV / OneDrive may hold the file briefly
+                try:
+                    os.replace(tmp, p)
+                    break
+                except PermissionError:
+                    if attempt == 11:
+                        raise
+                    time.sleep(0.025 * (1 + attempt % 4))
         except BaseException:
             try:
                 os.unlink(tmp)

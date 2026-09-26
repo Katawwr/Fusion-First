@@ -188,3 +188,25 @@ async def test_live_smoke_returns_text():
     req = _target_req(messages=[{"role": "user", "content": "Reply with exactly: PONG"}])
     resp = await c.complete(req)
     assert "PONG" in resp.text.upper()
+
+
+@pytest.mark.unit
+def test_windows_shell_shims_are_refused():
+    """A prompt with `"` and `&` passed through a .cmd/.bat shim would be re-parsed by cmd.exe and
+    could run commands; only a native executable may receive the prompt under test."""
+    from fusion.model.providers.claude_cli import (
+        ClaudeCliModelClient,
+        ClaudeCliUnavailable,
+        refuse_shell_shim,
+    )
+
+    for shim in (r"C:\npm\claude.cmd", r"C:\npm\CLAUDE.BAT"):
+        with pytest.raises(ClaudeCliUnavailable, match="shell shim"):
+            refuse_shell_shim(shim, os_name="nt")
+    refuse_shell_shim(r"C:\Users\x\.local\bin\claude.exe", os_name="nt")  # native: fine
+    refuse_shell_shim("/usr/local/bin/claude.cmd", os_name="posix")  # no cmd.exe on posix
+    import os
+
+    if os.name == "nt":
+        with pytest.raises(ClaudeCliUnavailable, match="shell shim"):
+            ClaudeCliModelClient(binary=r"C:\npm\claude.cmd")._resolve_binary()

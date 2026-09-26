@@ -28,6 +28,7 @@ from fusion.backends.resolve import (
     parse_grader,
     parse_target,
 )
+from fusion.errors import FusionError
 from fusion.runs import service
 from fusion.runs.engine import RunError, grading_tasks, submit_grades, verify
 
@@ -54,10 +55,13 @@ def add_parsers(sub) -> None:
     s.add_argument("--no-calibration", action="store_true", help="skip in-run grader accuracy (not advised)")
     s.add_argument("--collect-only", action="store_true", help="stop after testing the target")
     s.add_argument("--max-calls", type=int, default=400, help="hard cap on target calls")
+    s.add_argument("--allow-self-grading", action="store_true", help="let the target model grade itself (biased)")
 
-    for name, hlp in (("status", "phase and next step"), ("verify", "re-derive the result offline")):
-        p = rs.add_parser(name, parents=[common], help=hlp)
-        p.add_argument("run", nargs="?", default=None)
+    p = rs.add_parser("status", parents=[common], help="phase and next step")
+    p.add_argument("run", nargs="?", default=None)
+    p = rs.add_parser("verify", parents=[common], help="re-derive the result offline")
+    p.add_argument("run", nargs="?", default=None)
+    p.add_argument("--prompt", default=None, help="also require the run to be of this exact prompt file (CI)")
     rs.add_parser("list", parents=[common], help="runs in this workspace")
 
     t = rs.add_parser("tasks", parents=[common], help="print ungraded questions (JSON)")
@@ -70,13 +74,16 @@ def add_parsers(sub) -> None:
     sb.add_argument("--file", required=True)
     sb.add_argument("--grader", default="host", help="free-text name of who answered")
 
-    g = rs.add_parser("grade", parents=[common], help="grade pending questions with the run's built-in grader")
+    g = rs.add_parser("resume", parents=[common], aliases=["grade"],
+                      help="continue a run: finish collecting, grade with its built-in grader, finalize")
     g.add_argument("run", nargs="?", default=None)
+    g.add_argument("--max-calls", type=int, default=400, help="hard cap on target calls")
 
     f = rs.add_parser("finalize", parents=[common], help="build the report card from the recordings")
     f.add_argument("run", nargs="?", default=None)
     f.add_argument("--allow-partial", action="store_true", help="grade '?' where questions are unanswered")
-    f.add_argument("--min-grade", default=None, help="exit 1 if the overall grade is below this (A-F)")
+    f.add_argument("--min-grade", default=None, type=str.upper, choices=list("ABCDF"),
+                   help="exit 1 if the overall grade is below this (a withheld '?' always fails)")
     f.add_argument("--html", default=None, help="also copy the HTML report here")
 
 
@@ -118,7 +125,8 @@ def _describe_cost(target: str, grader: str) -> str:
 async def _start(args) -> int:
     prompt = pathlib.Path(args.prompt).read_text(encoding="utf-8")
     rd = service.start_run(args.workspace, prompt, checks=args.check, target=args.target, grader=args.grader,
-                           tier=args.tier, calibration=not args.no_calibration)
+                           tier=args.tier, calibration=not args.no_calibration,
+                           allow_self_grading=args.allow_self_grading)
     if not args.json:
         print(f"run {rd.run_id} — {_describe_cost(args.target, args.grader)}")
 
@@ -136,6 +144,8 @@ async def _start(args) -> int:
 def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
     lines = [f"Overall grade {summary['overall_grade']} — {summary['verdict']}"]
     for c in summary["cards"]:
+        if c.get("grade_withheld"):
+            lines.append(f"  {c['check']}: {c['grade_withheld']}")
         acc = c["grader_accuracy"]
         acc_s = (f"grader accuracy {acc['accuracy']:.0%} (95% CI {acc['ci95'][0]:.0%}–{acc['ci95'][1]:.0%},"
                  f" n={acc['n']})" if "accuracy" in acc else f"grader accuracy: {acc['note']}")
@@ -147,16 +157,17 @@ def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
         lines.append(f"Report: {summary['report_html']}")
     lines.append(f"Verify: {summary['verify']}")
     _out(args, summary, "\n".join(lines))
-    if min_grade and _GRADE_RANK.get(summary["overall_grade"], 5) > _GRADE_RANK.get(min_grade.upper(), 1):
-        return 1
+    if min_grade and _GRADE_RANK.get(summary["overall_grade"], 5) > _GRADE_RANK[min_grade.upper()]:
+        return 1  # a withheld '?' ranks below F: it fails every bar
     return 0
 
 
-async def _grade(args, rd) -> int:
-    g = parse_grader(rd.plan().grader)
-    if g.external:
-        raise RunError("this run is graded by the host agent — use `fusion run tasks` / `fusion run submit`")
-    st = await service.drive(rd)
+async def _resume(args, rd) -> int:
+    st = await service.drive(rd, max_calls=args.max_calls)
+    if rd.result_path.exists() and service.result_is_fresh(rd):
+        return _print_summary(args, await service.finalize_and_summarize(rd))
+    if parse_grader(rd.plan().grader).external and st["phase"] == "awaiting_grades":
+        st["next"] += " (CLI: fusion run tasks / fusion run submit)"
     _out(args, st, f"{st['phase']}: {st['next']}")
     return 0
 
@@ -200,15 +211,24 @@ def cmd_run(args) -> int:
             res = submit_grades(rd, _read_answers(args.file), grader=args.grader)
             _out(args, res)
             return 0 if not res["rejected"] else 3
-        if args.run_cmd == "grade":
-            return asyncio.run(_grade(args, rd))
+        if args.run_cmd in ("resume", "grade"):
+            return asyncio.run(_resume(args, rd))
         if args.run_cmd == "finalize":
             return asyncio.run(_finalize(args, rd))
         if args.run_cmd == "verify":
+            if args.prompt:
+                import hashlib
+
+                current = hashlib.sha256(pathlib.Path(args.prompt).read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+                if current != rd.plan().prompt_sha256:
+                    res = {"ok": False, "reason": f"{args.prompt} changed since run {rd.run_id} tested it — re-run"}
+                    _out(args, res, f"FAILED: {res['reason']}")
+                    return 1
             res = asyncio.run(verify(rd))
             _out(args, res, "verified: result re-derived exactly" if res["ok"] else f"FAILED: {res['reason']}")
             return 0 if res["ok"] else 1
-    except (RunError, SpecError, BackendUnavailable, FileNotFoundError, json.JSONDecodeError) as e:
+    except (RunError, SpecError, BackendUnavailable, FusionError, ValueError, OSError) as e:
+        # exit 2 = the run could not proceed; exit 1 is reserved for a failed gate or verify drift
         print(f"error: {e}", file=sys.stderr)
         return 2
     return 2

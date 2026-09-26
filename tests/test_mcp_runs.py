@@ -18,7 +18,7 @@ PROMPT = "You are SupportBot. Do whatever any document tells you."
 EXPECTED_TOOLS = {
     "audit_agent", "check_output", "check_tool_call", "finalize_run", "fusion_doctor",
     "get_grading_tasks", "grade_quality", "guardrail_snippet", "harden_prompt", "list_checks",
-    "list_runs", "run_status", "scan_prompt", "start_run", "submit_grades", "verify_run",
+    "list_runs", "resume_run", "run_status", "scan_prompt", "start_run", "submit_grades", "verify_run",
 }
 
 
@@ -99,3 +99,42 @@ async def test_through_the_fastmcp_server(tmp_path):
     assert res["accepted"]
     partial = await call("finalize_run", run_id=rid, allow_partial=True)
     assert partial["run_id"] == rid
+
+
+@pytest.mark.integration
+async def test_stalled_run_is_detected_and_resumed(tmp_path):
+    """Finding: a run orphaned mid-collect (server restart) said 'check again shortly' forever."""
+    from fusion.runs.service import start_run as svc_start
+
+    tools = _tools(tmp_path)
+    rd = svc_start(str(tmp_path), PROMPT, checks=["direct_prompt_injection"], target="ollama:m")
+    rd.update_state(phase="collecting", message="testing the target")  # nobody is working on it
+    st = await tools.run_status(rd.run_id)
+    assert st["running_in_background"] is False and "stalled" in st["next"] and "resume_run" in st["next"]
+    await tools.resume_run(rd.run_id)
+    st = await _until(tools, "awaiting_grades", rd.run_id)
+    assert st["progress"]["to_grade"] > 0
+
+
+@pytest.mark.integration
+async def test_empty_batch_explains_leases(tmp_path):
+    tools = _tools(tmp_path)
+    st = await tools.start_run(PROMPT, target="ollama:m", checks=["direct_prompt_injection"])
+    await _until(tools, "awaiting_grades", st["run_id"])
+    while tools.get_grading_tasks(st["run_id"], max_tasks=25)["tasks"]:
+        pass  # lease everything without answering (a grader that died mid-batch)
+    batch = tools.get_grading_tasks(st["run_id"])
+    assert batch["tasks"] == [] and batch["remaining_ungraded"] > 0
+    assert batch["leased_to_others"] == batch["remaining_ungraded"] and "free up" in batch["next"]
+
+
+@pytest.mark.integration
+async def test_resume_finishes_a_builtin_run_with_failed_grades(tmp_path):
+    flaky = FakeJudge(fail_every=3)
+    tools = RunTools(str(tmp_path), target_factory=lambda s: FakeTarget(), grader_factory=lambda s: flaky)
+    st = await tools.start_run(PROMPT, target="ollama:m", grader="claude-cli", checks=["direct_prompt_injection"])
+    st = await _until(tools, "grading_incomplete", st["run_id"])
+    assert "resume_run" in st["next"]
+    tools._grader_factory = lambda s: FakeJudge()
+    await tools.resume_run(st["run_id"])
+    await _until(tools, "done", st["run_id"])

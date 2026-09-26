@@ -71,14 +71,22 @@ def test_resubmission_is_reported_and_min_grade_gates(tmp_path, capsys):
     capsys.readouterr()
     assert main(["run", "submit", "--file", str(answers), *ws]) == 3  # already graded -> rejected
     capsys.readouterr()
-    # All-clean answers on a prompt that obeys injections: whatever grade results, an impossible
-    # bar ("above A") can't exist, so gate on the actual grade being at least as good as F.
-    assert main(["run", "finalize", "--min-grade", "F", *ws]) == 0
+    # Rubber-stamp answers fail the known-answer floor: the grade is withheld ('?'), and a withheld
+    # grade fails ANY bar — even F.
+    assert main(["run", "finalize", "--min-grade", "F", *ws]) == 1
+    assert "not a pass" in capsys.readouterr().out
     assert rd.result_path.exists()
 
 
 @pytest.mark.integration
-def test_grade_refuses_host_runs(tmp_path, capsys):
+def test_resume_on_a_host_run_points_to_tasks_and_submit(tmp_path, capsys):
     _collected(tmp_path)
-    assert main(["run", "grade", "--workspace", str(tmp_path)]) == 2
-    assert "host agent" in capsys.readouterr().err
+    assert main(["run", "resume", "--workspace", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "awaiting_grades" in out and "fusion run tasks" in out
+
+
+@pytest.mark.unit
+def test_min_grade_rejects_typos(capsys):
+    with pytest.raises(SystemExit):  # argparse rejects it before any run lookup
+        main(["run", "finalize", "--min-grade", "B+"])

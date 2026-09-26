@@ -80,7 +80,7 @@ _PAID_AUTH_ENV_VARS = (
 
 # (binary, config dir) -> monotonic time of the last verified subscription-auth PASS.
 _AUTH_OK: dict[tuple[str, str], float] = {}
-AUTH_TTL_S = 600.0  # re-verify every 10 minutes so a long-lived server notices an auth switch
+AUTH_TTL_S = 60.0  # re-verify every minute so a long-lived server notices an auth switch quickly
 
 
 class ClaudeCliUnavailable(FusionProviderError):
@@ -173,6 +173,22 @@ def assert_subscription_auth(binary: str, runner: Callable[..., object] | None =
     _AUTH_OK[key] = time.monotonic()
 
 
+_SHELL_SHIMS = (".cmd", ".bat")
+
+
+def refuse_shell_shim(binary: str, os_name: str | None = None) -> None:
+    """Refuse a Windows .cmd/.bat launcher. The prompt under test is passed on the command line
+    (`--system-prompt`); cmd.exe re-parses a shim's arguments with its own quoting rules, so a
+    prompt containing `"` and `&` would execute commands (the BatBadBut class) and a newline would
+    silently cut the command line. A native executable parses argv safely."""
+    if (os_name or os.name) == "nt" and str(binary).lower().endswith(_SHELL_SHIMS):
+        raise ClaudeCliUnavailable(
+            f"the claude CLI resolved to a shell shim ({binary}); Fusion won't pass untrusted prompts "
+            "through cmd.exe. Install the native claude.exe (run `claude install`) or point "
+            "FUSION_CLAUDE_BIN at it."
+        )
+
+
 def claude_cli_available(binary: str | None = None) -> bool:
     """True if a `claude` binary can be located (PATH or FUSION_CLAUDE_BIN) and real calls are
     permitted (FUSION_OFFLINE is not set)."""
@@ -263,6 +279,7 @@ class ClaudeCliModelClient:
         b = self._binary or os.environ.get("FUSION_CLAUDE_BIN") or shutil.which("claude")
         if not b:
             raise ClaudeCliUnavailable("`claude` CLI not found on PATH (set FUSION_CLAUDE_BIN)")
+        refuse_shell_shim(b)
         return b
 
     def _cli_model(self, request: ModelRequest) -> str:

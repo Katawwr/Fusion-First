@@ -84,7 +84,7 @@ async def test_partial_finalize_never_passes(tmp_path):
     await drive(rd, target_client=FakeTarget())
     summary = await finalize_and_summarize(rd, allow_partial=True)
     assert summary["overall_grade"] == "?" and summary["passed"] is False
-    assert "never counted as safe" in summary["verdict"]
+    assert "not a pass" in summary["verdict"] and "never graded" in summary["verdict"]
 
 
 @pytest.mark.integration

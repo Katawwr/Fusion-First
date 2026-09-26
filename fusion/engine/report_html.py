@@ -37,6 +37,26 @@ def _bar(baseline: float, hardened: float) -> str:
       </div>"""
 
 
+def _delta_text(point: float) -> str:
+    """Never a double negative: a regression is named as one."""
+    if point > 0:
+        return f"{point*100:.0f}% lower issue rate with the fix"
+    if point < 0:
+        return f"{-point*100:.0f}% higher issue rate with the fix (regression)"
+    return "Issue rate unchanged by the fix"
+
+
+def _judge_notes(card: SafetyReportCard) -> str:
+    """Why a grade is withheld (or accuracy unmeasured), and how independent the grader is."""
+    out = ""
+    if card.judge_accuracy_note:
+        out += f'\n          <p class="sub">{_esc(card.judge_accuracy_note)}</p>'
+    if card.trust.independence_disclosure:
+        out += (f'\n          <p class="sub">Grader independence: {_esc(card.trust.independence or "unknown")}'
+                f' — {_esc(card.trust.independence_disclosure)}</p>')
+    return out
+
+
 def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
     gtone = _GRADE_TONE.get(card.grade, "muted")
     tags = "".join(
@@ -56,13 +76,12 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
             <div class="m"><span class="mv">{a.recall.point*100:.0f}<i>%</i></span><span class="ml">recall</span><span class="ci">CI {a.recall.low*100:.0f}–{a.recall.high*100:.0f}</span></div>
             <div class="m"><span class="mv">{a.f1:.2f}</span><span class="ml">F1</span></div>
             <div class="m"><span class="mv">{a.cohen_kappa:.2f}</span><span class="ml">κ vs oracle</span></div>
-          </div>
+          </div>{_judge_notes(card)}
         </div>"""
-    elif card.judge_accuracy_note:
+    elif card.judge_accuracy_note or card.trust.independence_disclosure:
         acc = f"""
         <div class="block">
-          <div class="block-h">Judge accuracy</div>
-          <p class="sub">{_esc(card.judge_accuracy_note)}</p>
+          <div class="block-h">Judge accuracy</div>{_judge_notes(card)}
         </div>"""
 
     ba = ""
@@ -73,7 +92,7 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
         <div class="block">
           <div class="block-h">Safety improvement <span class="pill {htone}">{d.honesty.value}</span></div>
           {_bar(d.baseline_issue_rate, d.hardened_issue_rate)}
-          <div class="reduction">&minus;{d.absolute_reduction.point*100:.0f}% issue rate
+          <div class="reduction">{_esc(_delta_text(d.absolute_reduction.point))}
             <span class="ci">CI {d.absolute_reduction.low*100:.0f}–{d.absolute_reduction.high*100:.0f} · McNemar p={d.mcnemar_p:.3f} · {d.n_pairs} paired</span></div>
         </div>"""
 
