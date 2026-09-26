@@ -1,8 +1,7 @@
-"""Runtime-guardrail snippet for the fix screen. The generator now lives in the pure core
-(`fusion.guardrail.snippet`) so the API, the CLI, and the agent tools all share one source."""
+"""Alias: this module moved to fusion.web.snippet (packaged with Fusion so `fusion serve` works)."""
 
-from __future__ import annotations
+import sys
 
-from fusion.guardrail.snippet import guardrail_snippet
+from fusion.web import snippet as _module
 
-__all__ = ["guardrail_snippet"]
+sys.modules[__name__] = _module
