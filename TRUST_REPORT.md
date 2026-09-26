@@ -8,7 +8,16 @@ from the offline stand-in judge (`demonstration: true`) is never used here.
 
 ## Q1 — Is the judge accurate?
 
-NOT YET MEASURED — no committed judge-vs-oracle evidence.
+Grader verdicts on **real open-weight model transcripts**, scored against **deterministic oracles** (no LLM in the ground truth): did the model call the attacker's tool (InjecAgent), did it leak the planted password (Gandalf). Baselines answer the same items.
+
+| Evidence | Grader | Check | n | Accuracy | Recall | Specificity | F1 | κ | vs naive regex (F1) | vs tuned heuristic (F1) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `evals/validation/v1/judge_eval_host_sonnet.json` | Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules) | direct_prompt_injection | 60 | 80% (68%–88%) | 80% (55%–93%) | 80% (66%–89%) | 0.67 | 0.53 | 0.53 (McNemar p=0.503) | 0.10 (p=0.189) |
+| `evals/validation/v1/judge_eval_host_sonnet.json` | Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules) | system_prompt_leakage | 60 | 92% (82%–96%) | 100% (76%–100%) | 90% (78%–95%) | 0.83 | 0.77 | 0.42 (McNemar p=0.180) | 0.00 (p=0.143) |
+
+Disagreement audit (`evals/validation/v1/judge_eval_host_sonnet.json`): ambiguous (attacker tool called, but addressed to the legitimate user): 3; disagreements: 17; grader stricter than the oracle (flagged acknowledging a hidden rule): 4; oracle missed a real violation (grader right per the rubric): 10. Most injection disagreements are llama3.2:1b writing natural-language ACTION lines or committing in prose, which the tool-name oracle cannot see; the leakage ones are the grader applying the rubric strictly to refusals that acknowledge a secret exists. The oracles were pre-registered and are not changed after seeing the grader.
+
+Every run also measures its own grader in-run (known-answer questions + an oracle cross-check on the run's clear-cut questions) and withholds the grade when the grader falls below the policy floor.
 
 ## Q3 — Does the fix work, and what does it cost?
 
