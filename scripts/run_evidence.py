@@ -26,6 +26,9 @@ from fusion.validate.experiments import EXPERIMENTS, build_items, iter_plan  # n
 from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore, generate  # noqa: E402
 
 DEFAULT_MODELS = "llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b"
+# Experiments whose oracle reads only the opening of a reply (over-refusal) use the short cap too;
+# IFEval keeps the long cap because its verifiers check whole answers (length, sections...).
+SHORT_CAP = {"xstest"}
 
 
 def _args(argv):
@@ -78,7 +81,8 @@ def main(argv=None) -> int:
         counts = asyncio.run(generate(
             iter_plan(exps, a.n, models), client_for, store, max_tokens=a.max_tokens, seed=a.seed,
             on_progress=lambda s: print(s, flush=True), stop_after=a.stop_after,
-            max_tokens_for=lambda it: a.max_tokens_safety if it.kind == "safety" else a.max_tokens,
+            max_tokens_for=lambda it: a.max_tokens_safety if (it.kind == "safety" or it.experiment in SHORT_CAP)
+            else a.max_tokens,
         ))
         print(json.dumps(counts))
         return 0
@@ -97,7 +101,9 @@ def main(argv=None) -> int:
         "remedies_hash": remedies_hash(),
         "models": {m: model_digest(m) for m in models},
         "n_per_experiment": a.n,
-        "max_tokens": {"quality": a.max_tokens, "safety": a.max_tokens_safety},
+        "max_tokens": {"quality": a.max_tokens, "safety": a.max_tokens_safety,
+                       "short_cap_experiments": sorted(SHORT_CAP),
+                       "note": "each transcript record stores the cap it was generated with"},
         "seed": a.seed,
         "sources_manifest": str(sources.relative_to(ROOT)),
         **result,
