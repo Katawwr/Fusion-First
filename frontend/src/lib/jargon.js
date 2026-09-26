@@ -45,6 +45,14 @@ export const QUALITY_CHECKS = {
   },
 };
 
+// Safety or quality — one lookup for labels/tooltips anywhere a check id is shown.
+export function metaFor(check) {
+  if (QUALITY_CHECKS[check]) return { owasp: "Quality", ...QUALITY_CHECKS[check] };
+  return checkMeta(check);
+}
+
+export const isQualityCheck = (check) => Boolean(QUALITY_CHECKS[check]);
+
 export function qualityMeta(check) {
   return (
     QUALITY_CHECKS[check] || {

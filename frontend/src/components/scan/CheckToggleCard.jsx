@@ -1,17 +1,21 @@
 import React from "react";
 import { Check } from "lucide-react";
 import CheckIcon from "../ui/CheckIcon";
-import { checkMeta } from "../../lib/jargon";
+import { metaFor } from "../../lib/jargon";
 
 // A test framed as a plain question. Selection is quiet: a hairline accent border and a small
 // filled check, never a saturated slab, so four selected cards do not shout over the page.
-export default function CheckToggleCard({ check, enabled, onToggle }) {
-  const meta = checkMeta(check);
+export default function CheckToggleCard({ check, enabled, onToggle, disabled = false, disabledReason = "" }) {
+  const meta = metaFor(check);
+  const on = enabled && !disabled;
   return (
     <button
       type="button"
-      onClick={() => onToggle(check)}
-      aria-pressed={enabled}
+      onClick={() => !disabled && onToggle(check)}
+      aria-pressed={on}
+      aria-disabled={disabled}
+      disabled={disabled}
+      title={disabled ? disabledReason : undefined}
       style={{
         display: "grid",
         gridTemplateColumns: "auto 1fr auto",
@@ -22,18 +26,18 @@ export default function CheckToggleCard({ check, enabled, onToggle }) {
         padding: "1.15rem",
         textAlign: "left",
         borderRadius: "1rem",
-        border: `1px solid ${enabled ? "var(--accent)" : "var(--border)"}`,
+        border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
         background: "var(--surface)",
-        boxShadow: enabled ? "var(--shadow-sm)" : "none",
-        opacity: enabled ? 1 : 0.62,
-        cursor: "pointer",
+        boxShadow: on ? "var(--shadow-sm)" : "none",
+        opacity: on ? 1 : disabled ? 0.45 : 0.62,
+        cursor: disabled ? "not-allowed" : "pointer",
         transition: "border-color .18s ease, opacity .18s ease, box-shadow .18s ease",
       }}
       onMouseEnter={(e) => {
-        if (!enabled) e.currentTarget.style.opacity = "0.85";
+        if (!on && !disabled) e.currentTarget.style.opacity = "0.85";
       }}
       onMouseLeave={(e) => {
-        if (!enabled) e.currentTarget.style.opacity = "0.62";
+        if (!on && !disabled) e.currentTarget.style.opacity = "0.62";
       }}
     >
       <CheckIcon check={check} size={36} />
@@ -75,6 +79,11 @@ export default function CheckToggleCard({ check, enabled, onToggle }) {
         >
           {meta.scenario}
         </span>
+        {disabled && disabledReason && (
+          <span style={{ display: "block", marginTop: "0.4rem", fontSize: "0.8125rem", color: "var(--warn)" }}>
+            {disabledReason}
+          </span>
+        )}
       </span>
 
       <span

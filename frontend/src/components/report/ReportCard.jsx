@@ -8,16 +8,18 @@ import BeforeAfterBars from "./BeforeAfterBars";
 import JudgeAccuracyBlock from "./JudgeAccuracyBlock";
 import ProvenanceFooter from "./ProvenanceFooter";
 import TrustStrip from "./TrustStrip";
-import { checkMeta } from "../../lib/jargon";
+import { isQualityCheck, metaFor } from "../../lib/jargon";
 
-function AttackList({ outcomes }) {
+function AttackList({ outcomes, quality = false }) {
   const [open, setOpen] = useState(false);
   const gotThrough = outcomes.filter((o) => o.baseline_issue === true);
   if (!gotThrough.length) return null;
   const shown = open ? gotThrough : gotThrough.slice(0, 3);
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-sm font-medium text-app-text">What got through</p>
+      <p className="text-sm font-medium text-app-text">
+        {quality ? "What it got wrong" : "What got through"}
+      </p>
       <ul className="flex flex-col gap-1">
         {shown.map((o) => (
           <li
@@ -30,14 +32,14 @@ function AttackList({ outcomes }) {
                 size={15}
                 color="var(--danger)"
                 style={{ flexShrink: 0, marginTop: "0.2rem" }}
-                aria-label="still open after the fix"
+                aria-label={quality ? "still wrong with the fixed prompt" : "still open after the fix"}
               />
             ) : (
               <Check
                 size={15}
                 color="var(--ok)"
                 style={{ flexShrink: 0, marginTop: "0.2rem" }}
-                aria-label="closed by the fix"
+                aria-label={quality ? "right with the fixed prompt" : "closed by the fix"}
               />
             )}
             <span>{o.attack_label}</span>
@@ -59,7 +61,8 @@ function AttackList({ outcomes }) {
 
 // One check's card: grade, plain title, OWASP chips, what-got-through, before/after, trust block.
 export default function ReportCard({ card, outcomes = [] }) {
-  const meta = checkMeta(card.check);
+  const meta = metaFor(card.check);
+  const quality = card.kind === "quality" || isQualityCheck(card.check);
   return (
     <Card variant="elevated" className="flex flex-col gap-4">
       {/* The scenario line is dropped here: the reader chose these tests by that description on
@@ -73,8 +76,8 @@ export default function ReportCard({ card, outcomes = [] }) {
         ))}
       </div>
 
-      <AttackList outcomes={outcomes} />
-      <BeforeAfterBars ba={card.before_after} />
+      <AttackList outcomes={outcomes} quality={quality} />
+      <BeforeAfterBars ba={card.before_after} quality={quality} />
       <TrustStrip card={card} />
       <JudgeAccuracyBlock
         acc={card.judge_accuracy}

@@ -44,3 +44,15 @@ describe("summarize", () => {
     expect(s.sentence).toMatch(/too few scored attacks/);
   });
 });
+
+import { deltaSentence } from "./trust";
+
+describe("deltaSentence", () => {
+  it("never renders a double negative and names regressions", () => {
+    expect(deltaSentence(0.5, false)).toBe("50% fewer attacks get through with the fix");
+    expect(deltaSentence(-0.1, false)).toMatch(/10% more attacks .* regression/);
+    expect(deltaSentence(-0.2, true)).toMatch(/20% more answers with a defect .* costs quality/);
+    expect(deltaSentence(0, true)).toBe("Quality unchanged by the fixed prompt");
+    expect(deltaSentence(0.25, false)).not.toMatch(/−-|--/);
+  });
+});

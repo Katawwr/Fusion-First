@@ -24,9 +24,12 @@ import {
   guardrailSnippet,
   reportHtmlUrl,
 } from "../lib/scanApi";
-import { CHECKS, checkMeta, worstGrade } from "../lib/jargon";
+import { CHECKS, QUALITY_CHECKS, checkMeta, worstGrade } from "../lib/jargon";
 
 const ALL_CHECKS = Object.keys(CHECKS);
+const QUALITY = Object.keys(QUALITY_CHECKS);
+const QUALITY_NEEDS_LIVE =
+  "Quality is graded on real answers — choose a live model below to include it.";
 const STEPS = [
   ["setup", "Paste"],
   ["run", "Attack"],
@@ -238,7 +241,7 @@ export default function Scan({ scanState, setScanState }) {
   const [systemPrompt, setSystemPrompt] = useState(
     scanState?.systemPrompt || "",
   );
-  const [enabled, setEnabled] = useState(() => new Set(ALL_CHECKS));
+  const [enabled, setEnabled] = useState(() => new Set([...ALL_CHECKS, ...QUALITY]));
   // One choice drives the run: demo | ollama | cli | hosted.
   const [target, setTarget] = useState("demo");
   const [targetModel, setTargetModel] = useState("llama3.2:1b");
@@ -246,9 +249,13 @@ export default function Scan({ scanState, setScanState }) {
   const [snippet, setSnippet] = useState("");
   const [fixError, setFixError] = useState(null);
 
+  // Quality needs real answers, so it only runs with a live target (demo answers are canned).
   const checks = useMemo(
-    () => ALL_CHECKS.filter((c) => enabled.has(c)),
-    [enabled],
+    () => [
+      ...ALL_CHECKS.filter((c) => enabled.has(c)),
+      ...(target === "demo" ? [] : QUALITY.filter((c) => enabled.has(c))),
+    ],
+    [enabled, target],
   );
   const result = scan.result;
 
@@ -457,7 +464,8 @@ function SetupStep({
   setTargetModel,
   onRun,
 }) {
-  const canRun = systemPrompt.trim().length > 0 && enabled.size > 0;
+  const runnable = [...enabled].filter((c) => target !== "demo" || !QUALITY.includes(c));
+  const canRun = systemPrompt.trim().length > 0 && runnable.length > 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       <section>
@@ -555,6 +563,30 @@ function SetupStep({
       </section>
 
       <section>
+        <SectionTitle hint="Normal requests, not attacks: does your agent do what it is asked? Graded on both your prompt and the fixed one, so you also see whether the safety fix costs any quality.">
+          And quality
+        </SectionTitle>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+            gap: "1rem",
+          }}
+        >
+          {QUALITY.map((check) => (
+            <CheckToggleCard
+              key={check}
+              check={check}
+              enabled={enabled.has(check)}
+              onToggle={toggle}
+              disabled={target === "demo"}
+              disabledReason={QUALITY_NEEDS_LIVE}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section>
         <SectionTitle hint="Frontier models resist most attacks. Open-weight models are where they land, so testing yours locally is free.">
           Which model should we test against?
         </SectionTitle>
@@ -575,7 +607,7 @@ function SetupStep({
         onClick={onRun}
         className="w-full"
       >
-        Run the attack suite
+        Run the scan
       </Button>
     </div>
   );
@@ -850,7 +882,9 @@ function ProveStep({ result, scanId, systemPrompt, onRestart }) {
 
       <section>
         <SectionTitle>Quality</SectionTitle>
-        <QualityPanel systemPrompt={systemPrompt} />
+        {!result.cards.some((c) => c.kind === "quality") && (
+          <QualityPanel systemPrompt={systemPrompt} />
+        )}
       </section>
 
       <div

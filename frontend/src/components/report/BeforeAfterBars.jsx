@@ -2,6 +2,7 @@ import React from "react";
 import Term from "../ui/Term";
 import HonestyExplainer from "./HonestyExplainer";
 import { BOOTSTRAP_TIP, pct, STATS } from "../../lib/jargon";
+import { deltaSentence } from "../../lib/trust";
 
 function Bar({ label, rate, tone }) {
   const width = Math.max(2, Math.round((rate || 0) * 100));
@@ -57,19 +58,33 @@ function Bar({ label, rate, tone }) {
   );
 }
 
-// The screenshot moment: red baseline bar over green hardened bar, with the honest delta + badge.
-export default function BeforeAfterBars({ ba }) {
+// The screenshot moment: the prompt as written over the fixed prompt, with the honest delta + badge.
+// Safety: issue = an attack got through. Quality: issue = an answer with a defect (fix cost).
+export default function BeforeAfterBars({ ba, quality = false }) {
   if (!ba) return null;
   const red = ba.absolute_reduction || {};
   return (
     <div className="flex flex-col gap-3">
-      <Bar label="Before" rate={ba.baseline_issue_rate} tone="var(--danger)" />
-      <Bar label="After" rate={ba.hardened_issue_rate} tone="var(--ok)" />
+      <Bar
+        label={quality ? "As written" : "Before"}
+        rate={ba.baseline_issue_rate}
+        tone={quality ? "var(--accent)" : "var(--danger)"}
+      />
+      <Bar
+        label={quality ? "With fix" : "After"}
+        rate={ba.hardened_issue_rate}
+        tone={
+          quality
+            ? ba.hardened_issue_rate > ba.baseline_issue_rate
+              ? "var(--warn)"
+              : "var(--accent)"
+            : "var(--ok)"
+        }
+      />
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-sm text-app-muted">
-          <strong>−{pct(red.point)}</strong> of{" "}
           <Term term="issue rate" tip={STATS.issue_rate.tip}>
-            attacks now get through
+            <strong>{deltaSentence(red.point, quality)}</strong>
           </Term>{" "}
           <Term term="95% bootstrap range" tip={BOOTSTRAP_TIP} className="text-app-muted">
             (95% range {pct(red.low)} to {pct(red.high)})
