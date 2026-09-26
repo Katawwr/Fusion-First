@@ -144,7 +144,7 @@ async def drive(
             raise RunError(f"grading stopped: {type(e).__name__}: {e}") from e
     st = rd.state()
     if st.n_tasks and st.n_graded >= st.n_tasks and not result_is_fresh(rd):
-        await finalize(rd)
+        await finalize_and_summarize(rd)
     return status(rd)
 
 
@@ -340,8 +340,29 @@ def result_is_fresh(rd: RunDir) -> bool:
 
 async def finalize_and_summarize(rd: RunDir, *, allow_partial: bool = False) -> dict:
     """Always re-derives from the recordings (offline, cheap) — a stored result.json is never
-    trusted as the source of a verdict."""
+    trusted as the source of a verdict. Log runs return their own summary shape (kind='logs')."""
+    from fusion.runs.logs import finalize_logs, is_log_run
+
+    if is_log_run(rd):
+        return await finalize_logs(rd, allow_partial=allow_partial)
     return summarize(rd, await finalize(rd, allow_partial=allow_partial))
+
+
+async def verify_any(rd: RunDir) -> dict:
+    """verify() for attack runs; for log runs, re-derive and compare the stored result."""
+    from fusion.runs.engine import verify
+    from fusion.runs.logs import finalize_logs, is_log_run
+
+    if not is_log_run(rd):
+        return await verify(rd)
+    if not rd.result_path.exists():
+        return {"ok": False, "reason": "no result yet — finalize first"}
+    stored = rd.read_json(rd.result_path)
+    if stored.get("commitment") != commitment(rd):
+        return {"ok": False, "reason": "inputs changed since the result was produced (commitment mismatch)"}
+    fresh = await finalize_logs(rd, allow_partial=bool(stored.get("partial")), write=False)
+    ok = fresh == stored
+    return {"ok": ok, "reason": "" if ok else "the stored result differs from what the recordings produce"}
 
 
 class RunManager:

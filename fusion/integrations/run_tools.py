@@ -18,6 +18,7 @@ Plain async functions returning JSON-serialisable dicts, so they're testable wit
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 
 from fusion.backends.resolve import (
@@ -28,7 +29,7 @@ from fusion.backends.resolve import (
     parse_target,
 )
 from fusion.runs import service
-from fusion.runs.engine import MIN_EVIDENCE_CHARS, grading_tasks, lease_info, submit_grades, verify
+from fusion.runs.engine import MIN_EVIDENCE_CHARS, grading_tasks, lease_info, submit_grades
 
 DEFAULT_LEASE_S = 600.0
 MAX_TASKS_PER_CALL = 25
@@ -150,7 +151,25 @@ class RunTools:
 
     async def verify_run(self, run_id: str | None = None, workspace: str | None = None) -> dict:
         rd = service.resolve_run(self._ws(workspace), run_id)
-        return {"run_id": rd.run_id, **(await verify(rd))}
+        return {"run_id": rd.run_id, **(await service.verify_any(rd))}
+
+    async def grade_transcripts(self, transcripts: list[dict] | str, checks: list[str] | None = None,
+                                grader: str = "host", workspace: str | None = None) -> dict:
+        from fusion.runs.logs import new_log_run, parse_transcripts
+
+        text = transcripts if isinstance(transcripts, str) else json.dumps(transcripts)
+        g = parse_grader(grader)
+        client = None if g.external else self._grader_factory(g.label)
+        parsed = parse_transcripts(text)
+        rd = await new_log_run(service.workspace_dir(self._ws(workspace)), parsed,
+                               checks=service.resolve_checks(checks), grader=g.label)
+        if client is not None:
+            self.manager.launch(rd, grader_client=client)
+            return service.status(rd, running=True)
+        out = service.status(rd, running=False)
+        out["next"] = (f"{out['progress']['to_grade']} questions to grade: call get_grading_tasks / "
+                       "submit_grades (or the fusion-judge agent), then finalize_run.")
+        return out
 
     def list_runs(self, workspace: str | None = None) -> dict:
         return {"runs": service.list_runs(self._ws(workspace))}

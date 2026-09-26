@@ -116,6 +116,16 @@ def build_server(runs: RunTools | None = None):
         return await runs.verify_run(run_id, workspace)
 
     @mcp.tool()
+    async def grade_transcripts(transcripts: list[dict], checks: list[str] | None = None, grader: str = "host",
+                                workspace: str | None = None) -> dict:
+        """Grade EXISTING agent transcripts (your logs) for safety and/or quality — no attacks, no API
+        key. transcripts: Fusion {id, steps}, OpenAI {id, messages} or Anthropic {id, system, messages}
+        objects. Then grade via get_grading_tasks / submit_grades (grader='host') and call
+        finalize_run: issue rate per check with a 95% interval, flagged transcripts with evidence,
+        and the grader's measured accuracy (grades withheld if it doesn't clear the floor)."""
+        return await runs.grade_transcripts(transcripts, checks, grader, workspace)
+
+    @mcp.tool()
     def list_runs(workspace: str | None = None) -> dict:
         """Runs in this workspace (newest first) with their phase."""
         return runs.list_runs(workspace)

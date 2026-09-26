@@ -30,7 +30,7 @@ from fusion.backends.resolve import (
 )
 from fusion.errors import FusionError
 from fusion.runs import service
-from fusion.runs.engine import RunError, grading_tasks, submit_grades, verify
+from fusion.runs.engine import RunError, grading_tasks, submit_grades
 
 _GRADE_RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "F": 4, "?": 5}
 
@@ -63,6 +63,12 @@ def add_parsers(sub) -> None:
     p.add_argument("run", nargs="?", default=None)
     p.add_argument("--prompt", default=None, help="also require the run to be of this exact prompt file (CI)")
     rs.add_parser("list", parents=[common], help="runs in this workspace")
+
+    lg = rs.add_parser("logs", parents=[common], help="grade EXISTING agent transcripts (no attacks)")
+    lg.add_argument("--file", required=True, help="JSON list or JSON lines: Fusion / OpenAI / Anthropic format")
+    lg.add_argument("--check", default="all", help="all | quality | everything | comma list of checks")
+    lg.add_argument("--grader", default="host", help="host | claude-cli[:model] | ollama-prob:<model>")
+    lg.add_argument("--no-calibration", action="store_true", help="skip grader accuracy (grades withheld)")
 
     t = rs.add_parser("tasks", parents=[common], help="print ungraded questions (JSON)")
     t.add_argument("run", nargs="?", default=None)
@@ -172,7 +178,50 @@ async def _resume(args, rd) -> int:
     return 0
 
 
+async def _logs(args) -> int:
+    from fusion.runs.logs import new_log_run, parse_transcripts
+
+    g = parse_grader(args.grader)
+    grader_client = None
+    if not g.external:
+        from fusion.backends.resolve import build_grader_client
+
+        grader_client = build_grader_client(g)  # pre-flight before any work
+    transcripts = parse_transcripts(pathlib.Path(args.file).read_text(encoding="utf-8"))
+    rd = await new_log_run(service.workspace_dir(args.workspace), transcripts,
+                           checks=service.resolve_checks(args.check), grader=g.label,
+                           calibration=not args.no_calibration)
+    if not args.json:
+        print(f"run {rd.run_id} — {len(transcripts)} transcripts, {rd.state().n_tasks} questions")
+    st = await service.drive(rd, grader_client=grader_client)
+    if st["phase"] == "done":
+        return _print_logs_summary(args, await service.finalize_and_summarize(rd))
+    if g.external:
+        st["next"] += " (CLI: fusion run tasks / fusion run submit, then fusion run finalize)"
+    _out(args, st, f"{st['phase']}: {st['next']}")
+    return 0
+
+
+def _print_logs_summary(args, res: dict, min_grade: str | None = None) -> int:
+    lines = [f"Overall grade {res['overall_grade']} over graded transcripts"]
+    for check, c in res["checks"].items():
+        iv = c["issue_rate"]
+        lines.append(f"  {check:26} {c['grade']}  {c['flagged']}/{c['n_transcripts']} flagged "
+                     f"({iv['point']:.0%}, 95% CI {iv['ci95'][0]:.0%}–{iv['ci95'][1]:.0%})")
+        if c["grade_withheld"]:
+            lines.append(f"    {c['grade_withheld']}")
+    _out(args, res, "\n".join(lines))
+    if min_grade and _GRADE_RANK.get(res["overall_grade"], 5) > _GRADE_RANK[min_grade.upper()]:
+        return 1
+    return 0
+
+
 async def _finalize(args, rd) -> int:
+    from fusion.runs.logs import is_log_run
+
+    if is_log_run(rd):
+        return _print_logs_summary(args, await service.finalize_and_summarize(
+            rd, allow_partial=args.allow_partial), args.min_grade)
     summary = await service.finalize_and_summarize(rd, allow_partial=args.allow_partial)
     if args.html and rd.report_path.exists():
         pathlib.Path(args.html).write_text(rd.report_path.read_text(encoding="utf-8"), encoding="utf-8")
@@ -193,6 +242,8 @@ def cmd_run(args) -> int:
     try:
         if args.run_cmd == "start":
             return asyncio.run(_start(args))
+        if args.run_cmd == "logs":
+            return asyncio.run(_logs(args))
         if args.run_cmd == "list":
             runs = service.list_runs(args.workspace)
             _out(args, runs, "\n".join(f"{r['run_id']}  {r['phase']:16} {r['target']}  grader={r['grader']}"
@@ -224,7 +275,7 @@ def cmd_run(args) -> int:
                     res = {"ok": False, "reason": f"{args.prompt} changed since run {rd.run_id} tested it — re-run"}
                     _out(args, res, f"FAILED: {res['reason']}")
                     return 1
-            res = asyncio.run(verify(rd))
+            res = asyncio.run(service.verify_any(rd))
             _out(args, res, "verified: result re-derived exactly" if res["ok"] else f"FAILED: {res['reason']}")
             return 0 if res["ok"] else 1
     except (RunError, SpecError, BackendUnavailable, FusionError, ValueError, OSError) as e:
