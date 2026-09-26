@@ -31,11 +31,11 @@ def main() -> int:
     lines.append(f"  unit tests: {'PASS' if code == 0 else 'FAIL'} ({tail[-1] if tail else 'no output'})")
 
     code, out = _run(
-        [sys.executable, "scripts/fusion_cli.py", "eval", "--check", "direct_prompt_injection"],
+        [sys.executable, "scripts/fusion_cli.py", "eval", "--check", "all"],
         timeout=120,
     )
-    summary = next((ln for ln in out.splitlines() if ln.startswith("[eval:")), out.strip()[:200])
-    lines.append(f"  {summary}")
+    evals = [ln for ln in out.splitlines() if ln.startswith("[eval:")] or [out.strip()[:200]]
+    lines.extend(f"  {ln}" for ln in evals)
 
     print("\n".join(lines))
     return 0

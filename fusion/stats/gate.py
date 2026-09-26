@@ -22,11 +22,60 @@ EVALS_DIR = data_root() / "evals"
 DEFAULT_MARGIN = 0.05  # allowed slack before a metric drop counts as a regression
 
 
-def load_policy(check: str) -> dict:
+class PolicyError(ValueError):
+    """evals/policy.yaml is malformed. A typo'd key would otherwise be silently ignored and the gate
+    would run at the built-in default instead of the bar the user meant to set."""
+
+
+_POLICY_KEYS = {
+    "min_judge_f1": "rate",
+    "min_judge_accuracy": "rate",
+    "regression_margin": "rate",
+    "require_before_after_honesty": "honesty",
+    "max_unscored_rate": "rate",
+    "min_baseline_issue_rate": "rate",
+}
+_HONESTY = ("PROVEN", "PRELIMINARY", "INCONCLUSIVE")
+
+
+def _validate_block(block: dict, where: str) -> None:
+    if not isinstance(block, dict):
+        raise PolicyError(f"{where} must be a mapping")
+    unknown = sorted(set(block) - set(_POLICY_KEYS))
+    if unknown:
+        raise PolicyError(f"{where}: unknown key(s) {unknown}; valid keys: {sorted(_POLICY_KEYS)}")
+    for key, value in block.items():
+        if _POLICY_KEYS[key] == "rate":
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0.0 <= value <= 1.0:
+                raise PolicyError(f"{where}.{key} must be a number in [0, 1], got {value!r}")
+        elif value not in _HONESTY:
+            raise PolicyError(f"{where}.{key} must be one of {_HONESTY}, got {value!r}")
+
+
+def validate_policy(data: dict) -> None:
+    from fusion.judge.rubric import REGISTRY
+
+    if not isinstance(data, dict):
+        raise PolicyError("policy.yaml must be a mapping")
+    unknown_top = sorted(set(data) - {"defaults", "checks"})
+    if unknown_top:
+        raise PolicyError(f"unknown top-level key(s) {unknown_top}; expected 'defaults' and 'checks'")
+    _validate_block(data.get("defaults") or {}, "defaults")
+    checks = data.get("checks") or {}
+    if not isinstance(checks, dict):
+        raise PolicyError("checks must be a mapping of check name -> thresholds")
+    for check, block in checks.items():
+        if check not in REGISTRY:
+            raise PolicyError(f"checks.{check}: unknown check; valid: {sorted(REGISTRY)}")
+        _validate_block(block or {}, f"checks.{check}")
+
+
+def load_policy(check: str, path: pathlib.Path | None = None) -> dict:
     """Load the user-configured acceptance gate (evals/policy.yaml).
 
     Fusion measures autonomously; the user sets the bar. Returns the merged defaults + per-check
-    overrides. Falls back to built-in defaults if the file is absent."""
+    overrides. Falls back to built-in defaults if the file is absent; a malformed file raises
+    PolicyError (fail closed) instead of silently gating at the defaults."""
     builtin = {
         "min_judge_f1": 0.60,
         "min_judge_accuracy": 0.60,
@@ -34,10 +83,11 @@ def load_policy(check: str) -> dict:
         "require_before_after_honesty": "PRELIMINARY",
         "max_unscored_rate": 0.10,
     }
-    path = EVALS_DIR / "policy.yaml"
+    path = path or EVALS_DIR / "policy.yaml"
     if not path.exists():
         return builtin
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    validate_policy(data)
     merged = {**builtin, **(data.get("defaults") or {})}
     merged.update((data.get("checks") or {}).get(check) or {})
     return merged

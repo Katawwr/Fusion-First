@@ -1,8 +1,9 @@
 """PreToolUse hook: block `modal deploy` when the accuracy eval gate is red.
 
 Reads the tool call JSON on stdin. If it is a Bash `modal deploy`, run the eval gate strictly;
-a real regression exits 2 (which Claude Code treats as 'deny this tool call'). Everything else
-is allowed through (exit 0). The gate is advisory only while no baseline exists yet.
+a real regression exits 2 (which Claude Code treats as 'deny this tool call'). Every check is
+gated (`--check all`). If the gate itself cannot run, the deploy is BLOCKED (fail closed): an
+unverifiable build must not ship. Everything else is allowed through (exit 0).
 """
 
 from __future__ import annotations
@@ -30,18 +31,19 @@ def main() -> int:
 
     try:
         p = subprocess.run(
-            [sys.executable, "scripts/fusion_cli.py", "eval", "--check", "direct_prompt_injection"],
+            [sys.executable, "scripts/fusion_cli.py", "eval", "--check", "all"],
             cwd=ROOT,
             capture_output=True,
             text=True,
             timeout=180,
             encoding="utf-8",
         )
-    except Exception as e:  # noqa: BLE001 - do not hard-fail the deploy on hook error
-        print(f"pre-deploy gate could not run ({e}); allowing deploy", file=sys.stderr)
-        return 0
+    except Exception as e:  # noqa: BLE001 - fail closed: an unverifiable deploy is refused
+        print(f"BLOCKED: pre-deploy gate could not run ({e}); refusing deploy until it can.", file=sys.stderr)
+        return 2
 
-    summary = next((ln for ln in p.stdout.splitlines() if ln.startswith("[eval:")), p.stdout.strip())
+    evals = [ln for ln in p.stdout.splitlines() if ln.startswith("[eval:")]
+    summary = "; ".join(evals) or p.stdout.strip()
     if p.returncode != 0:
         print(f"BLOCKED: accuracy gate is red, refusing deploy.\n{summary}", file=sys.stderr)
         return 2  # deny the tool call
