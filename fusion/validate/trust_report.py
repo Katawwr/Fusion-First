@@ -134,6 +134,41 @@ def _limits() -> list[str]:
     ]
 
 
+def evidence_json(root: pathlib.Path | None = None) -> dict:
+    """The same evidence, structured for the website's /trust page (frontend/src/content/evidence.json).
+    Values are raw rates in [0, 1]; the page formats them."""
+    root = root or data_root()
+    judge = []
+    for f in sorted((root / "evals/validation/v1").glob("judge_eval_*.json")):
+        rel = str(f.relative_to(root)).replace("\\", "/")
+        d = _load(root, rel)
+        if not d:
+            continue
+        for check, b in sorted(d["checks"].items()):
+            g = b["grader"]
+            judge.append({
+                "evidence": rel, "grader": d["grader"], "check": check, "n": g["n"],
+                "accuracy": g["accuracy"], "recall": g["recall"], "specificity": g["specificity"],
+                "f1": g["f1"], "kappa": g["kappa"],
+                "baselines": {name: {"f1": b[name]["f1"], "mcnemar_p": b[name]["vs_grader"]["mcnemar_p"]}
+                              for name in ("naive_regex", "tuned_heuristic") if "f1" in b.get(name, {})},
+                "audit": (d.get("audit") or {}).get("summary"),
+            })
+    guard = []
+    for v in ("v1", "v2"):
+        rel = f"evals/guard_bench/claude_code_heldout_{v}.json"
+        d = _load(root, rel)
+        if d:
+            guard.append({"set": v, "evidence": rel, "benign_n": d["benign"]["n"],
+                          "over_block": d["benign"]["over_block"], "attack_n": d["malicious"]["n"],
+                          "recall": d["malicious"]["recall"],
+                          "recall_sensitivity": (d.get("sensitivity_test_tld_as_public") or {}).get("recall"),
+                          "status": d["status"].split(".")[0]})
+    fix = _load(root, "evals/validation/v1/evidence_oracle.json")
+    return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
+            "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
+
+
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_q1(root), *_q3(root), *_guard(root), *_limits()]
@@ -143,7 +178,9 @@ def render(root: pathlib.Path | None = None) -> str:
 def main() -> None:  # pragma: no cover
     root = data_root()
     (root / "TRUST_REPORT.md").write_text(render(root), encoding="utf-8", newline="\n")
-    print("wrote TRUST_REPORT.md")
+    (root / "frontend/src/content/evidence.json").write_text(
+        json.dumps(evidence_json(root), indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    print("wrote TRUST_REPORT.md and frontend/src/content/evidence.json")
 
 
 if __name__ == "__main__":  # pragma: no cover

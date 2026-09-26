@@ -24,3 +24,14 @@ def test_demo_evidence_never_reaches_the_report(tmp_path):
         '{"demonstration": true, "benign": {"n": 1}}', encoding="utf-8")
     out = render(tmp_path)
     assert "NOT YET MEASURED" in out and "| v1 |" not in out
+
+
+@pytest.mark.unit
+def test_website_evidence_matches_its_sources():
+    import json
+
+    from fusion.validate.trust_report import evidence_json
+
+    committed = json.loads((ROOT / "frontend/src/content/evidence.json").read_text(encoding="utf-8"))
+    assert committed == json.loads(json.dumps(evidence_json(ROOT))), \
+        "regenerate with: python -m fusion.validate.trust_report"

@@ -19,6 +19,7 @@ import Report from "./pages/Report";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Use from "./pages/Use";
+import Trust from "./pages/Trust";
 
 export default function App() {
   const location = useLocation();
@@ -52,6 +53,7 @@ export default function App() {
           {/* Preserve inbound links/SEO from the old tool route. */}
           <Route path="/test" element={<Navigate to="/scan" replace />} />
           <Route path="/use" element={<Use />} />
+          <Route path="/trust" element={<Trust />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
 

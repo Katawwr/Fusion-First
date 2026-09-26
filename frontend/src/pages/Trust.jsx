@@ -1,0 +1,156 @@
+import React from "react";
+import evidence from "../content/evidence.json";
+import { interval } from "../lib/evidence";
+
+// Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
+// committed evidence files (python -m fusion.validate.trust_report) and checked by a test — the
+// page can't show a number the evidence doesn't back.
+
+const CHECK_NAMES = {
+  direct_prompt_injection: "Prompt injection",
+  system_prompt_leakage: "System-prompt / secret leakage",
+  excessive_agency: "Excessive agency",
+  data_exfiltration: "Data exfiltration",
+  instruction_following: "Instruction following",
+};
+
+function Section({ title, children }) {
+  return (
+    <section className="mb-12">
+      <h2 className="mb-3 text-xl font-semibold text-app-text">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Table({ head, rows }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-app-border">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-surface-2 text-app-muted">
+          <tr>
+            {head.map((h) => (
+              <th key={h} className="px-3 py-2 font-medium">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} className="border-t border-app-border text-app-text">
+              {r.map((c, j) => (
+                <td key={j} className="px-3 py-2 align-top">
+                  {c}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function NotYet({ what }) {
+  return (
+    <p className="rounded-lg border border-dashed border-app-border p-4 text-sm text-app-muted">
+      Not yet measured: {what}. Nothing is estimated in its place.
+    </p>
+  );
+}
+
+export default function Trust() {
+  const judge = evidence.judge_accuracy || [];
+  const guard = evidence.guard_heldout || [];
+  return (
+    <main style={{ maxWidth: "1000px", margin: "0 auto", padding: "clamp(2rem, 6vw, 3.5rem) 1rem" }}>
+      <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
+        How far to trust Fusion
+      </h1>
+      <p className="mb-10 text-app-muted" style={{ maxWidth: "700px", lineHeight: 1.6 }}>
+        Fusion grades other AI agents, so it has to be graded too. These are its own measured results,
+        with 95% intervals, from committed evidence. Where something hasn't been measured yet, it says
+        so. Small samples mean wide intervals: read the ranges, not just the headline number.
+      </p>
+
+      <Section title="Is the judge accurate?">
+        {judge.length === 0 ? (
+          <NotYet what="grader accuracy against deterministic oracles" />
+        ) : (
+          <>
+            <p className="mb-3 text-sm text-app-muted">
+              Grader verdicts on real open-weight model transcripts, scored against deterministic oracles
+              (no AI in the answer key), next to simple rule-based checks on the same items.
+            </p>
+            <Table
+              head={["Check", "Grader", "n", "Accuracy", "Recall", "Specificity", "Regex baseline F1", "Grader F1"]}
+              rows={judge.map((j) => [
+                CHECK_NAMES[j.check] || j.check,
+                j.grader,
+                j.n,
+                interval(j.accuracy),
+                interval(j.recall),
+                interval(j.specificity),
+                j.baselines?.naive_regex ? j.baselines.naive_regex.f1.toFixed(2) : "—",
+                j.f1.toFixed(2),
+              ])}
+            />
+            {judge.some((j) => j.audit) && (
+              <p className="mt-3 text-xs text-app-subtle">
+                Every disagreement with the oracle was also read and classified. Most were cases the
+                oracle can't see, such as a small model writing an action in plain words instead of a
+                tool call. That reading is an AI's, not ground truth, so the table above is unchanged by it.
+              </p>
+            )}
+          </>
+        )}
+      </Section>
+
+      <Section title="Does the fix work, and what does it cost?">
+        {evidence.fix_efficacy ? (
+          <Table
+            head={["Experiment", "Model", "Pairs", "As written", "With fix", "Badge"]}
+            rows={evidence.fix_efficacy.map((c) => [
+              c.experiment,
+              c.model,
+              c.n_paired,
+              interval(c.baseline_rate),
+              interval(c.hardened_rate),
+              c.before_after?.honesty || "—",
+            ])}
+          />
+        ) : (
+          <NotYet what="the as-written vs fixed prompt comparison on local open-weight models (the run is in progress)" />
+        )}
+      </Section>
+
+      <Section title="Runtime guard for Claude Code">
+        {guard.length === 0 ? (
+          <NotYet what="the guard hook on held-out tool calls" />
+        ) : (
+          <>
+            <p className="mb-3 text-sm text-app-muted">
+              Tool calls written by independent agents who never saw the rules; each set is scored once.
+            </p>
+            <Table
+              head={["Set", "Benign calls", "Prompted", "Attacks", "Caught", "Status"]}
+              rows={guard.map((g) => [
+                g.set,
+                g.benign_n,
+                interval(g.over_block),
+                g.attack_n,
+                interval(g.recall) + (g.recall_sensitivity ? ` · ${interval(g.recall_sensitivity)} adjusted` : ""),
+                g.status,
+              ])}
+            />
+            <p className="mt-3 text-xs text-app-subtle">
+              It asks before the common exfiltration, destruction and remote-code patterns and misses much of
+              the long tail. It is defense in depth, not a sandbox.
+            </p>
+          </>
+        )}
+      </Section>
+    </main>
+  );
+}

@@ -1,0 +1,136 @@
+{
+  "fix_efficacy": null,
+  "generated_from": "evals/ (non-demonstration evidence only)",
+  "guard_heldout": [
+    {
+      "attack_n": 60,
+      "benign_n": 80,
+      "evidence": "evals/guard_bench/claude_code_heldout_v1.json",
+      "over_block": {
+        "ci95": [
+          0.027,
+          0.138
+        ],
+        "point": 0.0625
+      },
+      "recall": {
+        "ci95": [
+          0.524,
+          0.758
+        ],
+        "point": 0.65
+      },
+      "recall_sensitivity": null,
+      "set": "v1",
+      "status": "PRE-TUNING"
+    },
+    {
+      "attack_n": 70,
+      "benign_n": 100,
+      "evidence": "evals/guard_bench/claude_code_heldout_v2.json",
+      "over_block": {
+        "ci95": [
+          0.022,
+          0.112
+        ],
+        "point": 0.05
+      },
+      "recall": {
+        "ci95": [
+          0.23,
+          0.444
+        ],
+        "point": 0.3286
+      },
+      "recall_sensitivity": {
+        "ci95": [
+          0.497,
+          0.719
+        ],
+        "point": 0.6143
+      },
+      "set": "v2",
+      "status": "HELD OUT at rules_git_sha"
+    }
+  ],
+  "judge_accuracy": [
+    {
+      "accuracy": {
+        "high": 0.8817149467710251,
+        "low": 0.6821819419437211,
+        "point": 0.8
+      },
+      "audit": {
+        "ambiguous (attacker tool called, but addressed to the legitimate user)": 3,
+        "disagreements": 17,
+        "grader stricter than the oracle (flagged acknowledging a hidden rule)": 4,
+        "oracle missed a real violation (grader right per the rubric)": 10
+      },
+      "baselines": {
+        "naive_regex": {
+          "f1": 0.5294,
+          "mcnemar_p": 0.503445
+        },
+        "tuned_heuristic": {
+          "f1": 0.0952,
+          "mcnemar_p": 0.189247
+        }
+      },
+      "check": "direct_prompt_injection",
+      "evidence": "evals/validation/v1/judge_eval_host_sonnet.json",
+      "f1": 0.6667,
+      "grader": "Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules)",
+      "kappa": 0.5294,
+      "n": 60,
+      "recall": {
+        "high": 0.9295245065301844,
+        "low": 0.5481455128483065,
+        "point": 0.8
+      },
+      "specificity": {
+        "high": 0.8910387319216871,
+        "low": 0.6617703088385799,
+        "point": 0.8
+      }
+    },
+    {
+      "accuracy": {
+        "high": 0.9638795433982692,
+        "low": 0.8193105798166558,
+        "point": 0.9166666666666666
+      },
+      "audit": {
+        "ambiguous (attacker tool called, but addressed to the legitimate user)": 3,
+        "disagreements": 17,
+        "grader stricter than the oracle (flagged acknowledging a hidden rule)": 4,
+        "oracle missed a real violation (grader right per the rubric)": 10
+      },
+      "baselines": {
+        "naive_regex": {
+          "f1": 0.4211,
+          "mcnemar_p": 0.179565
+        },
+        "tuned_heuristic": {
+          "f1": 0.0,
+          "mcnemar_p": 0.143463
+        }
+      },
+      "check": "system_prompt_leakage",
+      "evidence": "evals/validation/v1/judge_eval_host_sonnet.json",
+      "f1": 0.8276,
+      "grader": "Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules)",
+      "kappa": 0.7748,
+      "n": 60,
+      "recall": {
+        "high": 1.0,
+        "low": 0.7575059933447592,
+        "point": 1.0
+      },
+      "specificity": {
+        "high": 0.9546782809581869,
+        "low": 0.7783257830561368,
+        "point": 0.8958333333333334
+      }
+    }
+  ]
+}
