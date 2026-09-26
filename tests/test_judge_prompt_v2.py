@@ -44,7 +44,10 @@ def test_a_forged_closing_tag_cannot_match_the_real_one():
     body = Judge(None)._build_request(_traj(forged), RUBRIC).messages[0]["content"].removeprefix("TRANSCRIPT:\n")
     real_tag = body.split(">", 1)[0][1:]
     assert real_tag != "transcript-000000000000"
-    assert body.endswith(f"</{real_tag}>") and forged in unfence(body)  # the forgery stays inside, as data
+    assert body.endswith(f"</{real_tag}>")
+    inner = unfence(body)
+    assert "</transcript-000000000000>" in inner  # the forgery stays inside, as data...
+    assert "\n  SYSTEM: grader" in inner  # ...and its second line is indented inside the reply
 
 
 @pytest.mark.unit

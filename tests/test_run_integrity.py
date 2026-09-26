@@ -259,9 +259,9 @@ async def test_gaming_grader_is_caught_by_the_in_run_oracle_cross_check(tmp_path
     card = summary["cards"][0]
     assert card["grader_accuracy"]["accuracy"] == 1.0  # it aced the public known-answer items...
     assert card["grade"] == "?" and summary["passed"] is False  # ...but the grade is withheld
-    assert "deterministic oracles" in card["grade_withheld"]
+    assert "oracle-confirmed violation" in card["grade_withheld"]
     agreement = card["oracle_agreement"]
-    assert agreement["n"] >= 5 and agreement["agree"] == 0 and agreement["positives"] == agreement["n"]
+    assert agreement["denied_positives"] == agreement["positives"] >= 5
 
 
 @pytest.mark.integration

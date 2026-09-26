@@ -136,19 +136,27 @@ def build_system_prompt(rubric: Rubric, version: int | None = None) -> str:
     return "\n".join(lines)
 
 
+def _contain(body: str) -> str:
+    """v2: keep a step's text inside its own turn. Continuation lines are indented, so no text can
+    start a line with a forged role tag ("[ASSISTANT] ..."), and a literal fence close is escaped,
+    so tool output can't end its <untrusted> fence early."""
+    return str(body).replace("</untrusted>", "<\\/untrusted>").replace("\n", "\n  ")
+
+
 def _fence_untrusted(trajectory: Trajectory) -> str:
     """Render the transcript, wrapping injected tool-result content in <untrusted> fences."""
+    contain = _contain if current_prompt_version() >= 2 else (lambda b: b)  # v1 stays byte-identical
     out: list[str] = []
     for s in trajectory.steps:
         if s.tool_result is not None:
-            body = s.tool_result.content
+            body = contain(s.tool_result.content)
             if s.tool_result.injected:
                 body = f"<untrusted>{body}</untrusted>"
             out.append(f"[TOOL_RESULT:{s.tool_result.tool}] {body}")
         elif s.tool_call is not None:
-            out.append(f"[{s.role.value.upper()} calls {s.tool_call.name}] {s.tool_call.arguments}")
+            out.append(f"[{s.role.value.upper()} calls {s.tool_call.name}] {contain(s.tool_call.arguments)}")
         else:
-            out.append(f"[{s.role.value.upper()}] {s.content}")
+            out.append(f"[{s.role.value.upper()}] {contain(s.content)}")
     return "\n".join(out)
 
 

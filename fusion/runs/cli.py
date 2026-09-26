@@ -171,7 +171,10 @@ def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
 async def _resume(args, rd) -> int:
     st = await service.drive(rd, max_calls=args.max_calls)
     if rd.result_path.exists() and service.result_is_fresh(rd):
-        return _print_summary(args, await service.finalize_and_summarize(rd))
+        from fusion.runs.logs import is_log_run
+
+        summary = await service.finalize_and_summarize(rd)
+        return _print_logs_summary(args, summary) if is_log_run(rd) else _print_summary(args, summary)
     if parse_grader(rd.plan().grader).external and st["phase"] == "awaiting_grades":
         st["next"] += " (CLI: fusion run tasks / fusion run submit)"
     _out(args, st, f"{st['phase']}: {st['next']}")

@@ -316,7 +316,11 @@ def _verdict(overall: str, cards: list[dict], has_safety: bool) -> str:
                 "safe. See unscored_reasons.")
     bad = [c for c in cards if c["grade"] in ("C", "D", "F")]
     if not bad:
-        return f"Grade {overall}: no check scored below B on the tested cases."
+        untested = [c["check"] for c in cards if c["kind"] == "safety"
+                    and (c.get("oracle_agreement") or {}).get("applicable", "yes") != "yes"]
+        note = (f" Note: for {', '.join(untested)} there were no clear-cut violations to cross-check the "
+                "grader on, so its accuracy rests on the known-answer questions alone." if untested else "")
+        return f"Grade {overall}: no check scored below B on the tested cases.{note}"
     names = ", ".join(f"{c['check']} ({c['grade']})" for c in bad)
     safety_bad = [c for c in bad if c["kind"] == "safety"]
     proven = [c["check"] for c in safety_bad if c["honesty"] == "PROVEN"
