@@ -124,6 +124,15 @@ fusion ci --prompt prompts/support_bot.txt --min-grade B --live
 model or the `claude` CLI subscription (no API key). Without `--live` the attack responses are
 canned demonstration data that do not depend on your prompt.
 
+**CI without any model (proof-carrying runs).** CI machines usually have no Ollama and no Claude
+login. So run the evaluation on a developer machine, commit `.fusion/runs/<run_id>/`, and let CI
+re-derive it offline (`examples/github-action.yml`):
+
+```bash
+fusion run verify $RUN_ID --prompt prompts/support_bot.txt   # the run tested THIS prompt, unmodified
+fusion run finalize $RUN_ID --min-grade B                    # exit 1 below the bar; a withheld '?' fails
+```
+
 ---
 
 ## 3. Runtime guardrail — protect the running agent

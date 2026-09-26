@@ -41,7 +41,16 @@ def _content_commands():
                     yield "integrations.json", line[len("fusion "):]
 
 
-CASES = list(_commands()) + list(_content_commands())
+def _example_commands():
+    """Commands inside the shipped CI / pre-commit examples."""
+    for rel in ("integrations/examples/github-action.yml", "integrations/examples/pre-commit-config.yaml"):
+        for line in (ROOT / rel).read_text(encoding="utf-8").splitlines():
+            line = line.split(" #")[0].strip().lstrip("#").strip()
+            if line.startswith("fusion ") and not line.startswith("fusion-"):
+                yield rel, line[len("fusion "):]
+
+
+CASES = list(_commands()) + list(_content_commands()) + list(_example_commands())
 
 
 @pytest.mark.unit
