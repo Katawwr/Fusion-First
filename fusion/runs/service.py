@@ -259,6 +259,9 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
     from fusion.engine.fixes import apply_fix
 
     plan = rd.plan()
+    gates = {}
+    if rd.result_path.exists():
+        gates = {g["check"]: g for g in rd.read_json(rd.result_path).get("grader_gate", [])}
     landed: dict[str, list[str]] = {}
     for o in result.outcomes:
         if o.baseline_issue:
@@ -281,6 +284,7 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
             "scored": f"{c.trust.n_scored}/{c.trust.n_planned}",
             "unscored_reasons": c.trust.error_kinds,
             "grader_accuracy": _grader_accuracy(c),
+            "oracle_agreement": (gates.get(c.check) or {}).get("oracle_agreement"),
             "independence": c.trust.independence,
             "independence_disclosure": c.trust.independence_disclosure,
             "failures": landed.get(c.check, [])[:10],

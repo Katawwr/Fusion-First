@@ -17,10 +17,13 @@ server cannot call (MCP sampling is unsupported in Claude Code and deprecated in
                 GRADED when that accuracy clears the policy floor (evals/policy.yaml) and every
                 question was answered. Otherwise its grade is withheld ('?') and says why.
 
-Honest limits (also stated on the card): the known-answer questions come from a public gold set and
-can be told apart from the run's own questions, so in-run accuracy checks an honest grader's skill;
-it is not proof against a grader that deliberately games it. `verify` proves the stored result is
-exactly what the recordings produce; it cannot detect someone who edits a recording and re-finalizes.
+Two accuracy checks, because each alone has a gap: the known-answer questions come from a public gold
+set (they measure skill on hard cases, but a grader can tell them apart from the run's own
+questions), and the in-run ORACLE CROSS-CHECK (`fusion.runs.oracle_check`) re-labels the run's own
+clear-cut transcripts with deterministic oracles — questions that can't be told apart, whose answer
+key never ships. A grader that aces the public set while rubber-stamping the real questions fails
+the second. `verify` proves the stored result is exactly what the recordings produce; it cannot
+detect someone who edits a recording and re-finalizes.
 
 Everything lives in `<workspace>/.fusion/runs/<run_id>/`.
 """
@@ -686,12 +689,16 @@ def _in_run_accuracy(judge_client, plan: RunPlan):
     return provider
 
 
-def _gate(result: ScanResult) -> tuple[ScanResult, list[dict]]:
-    """Withhold a card's grade ('?') unless every question was answered and the grader's measured
-    accuracy clears the policy floor. Rates stay visible; only the grade — what gates — is withheld."""
+def _gate(result: ScanResult, agreement: dict | None = None) -> tuple[ScanResult, list[dict]]:
+    """Withhold a card's grade ('?') unless every question was answered, the grader's accuracy on
+    the known-answer questions clears the policy floor, and the grader agrees with deterministic
+    oracles on this run's own clear-cut questions. Rates stay visible; only the grade is withheld."""
     from fusion.engine.user_scan import _worst_grade
     from fusion.errors import ErrorKind
+    from fusion.runs.oracle_check import gate_reason
     from fusion.stats.gate import load_policy
+
+    agreement = agreement or {}
 
     cards, gates = [], []
     for card in result.cards:
@@ -710,7 +717,12 @@ def _gate(result: ScanResult) -> tuple[ScanResult, list[dict]]:
             if acc.accuracy.point < policy["min_judge_accuracy"]:
                 reasons.append(f"grader accuracy {acc.accuracy.point:.2f} on known-answer questions is "
                                f"below the policy floor {policy['min_judge_accuracy']:.2f}")
-        gates.append({"check": card.check, "graded": not reasons, "reasons": reasons})
+        oracle_reason = gate_reason(agreement.get(card.check))
+        if oracle_reason:
+            reasons.append(oracle_reason)
+        agg = agreement.get(card.check)
+        gates.append({"check": card.check, "graded": not reasons, "reasons": reasons,
+                      "oracle_agreement": agg.as_dict() if agg else None})
         if reasons:
             note = "Grade withheld: " + "; ".join(reasons) + "."
             card = card.model_copy(update={"grade": "?", "hardened_grade": "?", "judge_accuracy_note": note})
@@ -754,7 +766,10 @@ async def finalize(rd: RunDir, *, allow_partial: bool = False, write: bool = Tru
             raise RunError(f"{ev.code}: {ev.message}")
     if result is None:
         raise RunError("the replayed scan produced no result")
-    result, gates = _gate(result)
+    from fusion.runs.oracle_check import oracle_agreement
+
+    agreement = await oracle_agreement(plan, snap.prompt, snap.target, snap.judge)
+    result, gates = _gate(result, agreement)
     if write:
         partial = n_graded < snap.n_tasks
         payload = {**result.model_dump(mode="json"), "run": asdict(plan), "commitment": snap.commitment,
