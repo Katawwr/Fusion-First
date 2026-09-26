@@ -31,7 +31,7 @@ const useCases = [
     problem:
       'From a vague "sort out my account," the agent cancels a subscription and issues store credit, consequential actions nobody actually asked for.',
     solution:
-      "The runaway-actions test flags every unprompted consequential call, and the fix makes the bot confirm the exact action and target before it moves.",
+      "The runaway-actions test flags every unprompted consequential call, and the suggested fix asks the bot to confirm the exact action and target before it moves, re-tested so you see whether it holds.",
     testType: "Excessive Agency · LLM06",
   },
   {

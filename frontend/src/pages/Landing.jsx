@@ -14,7 +14,7 @@ export default function Landing() {
         <title>Fusion First: Prove your AI agent is safe and good</title>
         <meta
           name="description"
-          content="Fusion First automatically red-teams your AI agent for safety, grades its quality, and hands you a one-click fix. Every number carries a confidence interval and is checked against ground truth. Built for open-weight models, where the risks are real. Free demo, no signup."
+          content="Fusion First automatically red-teams your AI agent for safety, grades its quality, and measures a fix on your own model. Every number carries a confidence interval and is checked against ground truth. Built for open-weight models, where the risks are real. Free demo, no signup."
         />
         <meta
           name="keywords"
@@ -50,7 +50,7 @@ export default function Landing() {
             "@type": "SoftwareApplication",
             name: "Fusion First",
             description:
-              "A proof-grade evaluation engine for AI agents, safety and quality. Red-teams your agent, grades its quality against a calibrated judge, and ships a one-click fix. Built for open-weight models.",
+              "A proof-grade evaluation engine for AI agents, safety and quality. Red-teams your agent, grades its quality against a calibrated judge, and measures whether a fix actually helps. Built for open-weight models.",
             applicationCategory: "DeveloperApplication",
             operatingSystem: "Web",
             offers: {

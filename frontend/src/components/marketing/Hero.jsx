@@ -115,8 +115,8 @@ export default function Hero() {
             }}
           >
             Connect your agent or paste its prompt. Fusion red-teams it for
-            safety, grades its quality, and hands you the
-            fix. Every number carries a confidence interval and is checked
+            safety, grades its quality, and re-tests a fix on your model so you
+            see whether it helps. Every number carries a confidence interval and is checked
             against a known-answer set. Built for the open-weight models where
             the risks are real.
           </p>

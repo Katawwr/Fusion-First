@@ -42,9 +42,9 @@ const features = [
   },
   {
     icon: RefreshCw,
-    title: "One fix, two layers",
+    title: "A fix, measured, plus a guardrail",
     description:
-      "A hardened system prompt plus a runtime guardrail that blocks leaked secrets and unauthorized actions even when the model slips. Copy, paste, done, the fix works everywhere your agent runs.",
+      "A hardened system prompt, re-tested on your model so you can see whether it actually helps (on small models it may not), plus a runtime guardrail that blocks leaked secrets and unauthorized actions even when the model slips.",
   },
 ];
 
