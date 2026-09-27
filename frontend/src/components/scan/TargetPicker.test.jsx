@@ -73,9 +73,17 @@ describe("TargetPicker", () => {
     expect(screen.queryByRole("radio", { name: /Hosted/ })).toBeNull();
   });
 
-  it("keeps the local options selectable while capabilities are unknown", () => {
+  it("offers no live backend until the server says it can run it", () => {
     pick({ capabilities: null });
-    expect(option("Open-weight model")).toBeEnabled();
-    expect(option("^Claude")).toBeEnabled();
+    expect(option("Open-weight model")).toBeDisabled();
+    expect(option("^Claude")).toBeDisabled();
+    expect(option("Demo scan")).toBeEnabled();
+    expect(screen.queryByRole("radio", { name: /Hosted/ })).toBeNull();
+  });
+
+  it("does not offer an Ollama that has no models pulled", () => {
+    pick({ capabilities: { ...READY, ollama_models: [] } });
+    expect(option("Open-weight model")).toBeDisabled();
+    expect(option("Open-weight model")).toHaveTextContent(/ollama pull/);
   });
 });

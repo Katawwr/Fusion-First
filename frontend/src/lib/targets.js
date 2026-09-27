@@ -1,26 +1,37 @@
 // Which backends the scan page offers, from what this server says it can actually run
-// (/api/version → backends; null while unknown). A backend it can't run is shown disabled with the
-// reason — never offered and left to fail at scan time.
+// (/api/version → backends; null while unknown). A backend it can't run — or hasn't yet said it can
+// run — is shown disabled with the reason: never offered and left to fail at scan time.
 
 const RUN_LOCALLY =
   "Runs when you use Fusion on your own machine: pip install fusion-safety, then fusion serve.";
+const WAITING = "Waiting for this server to say what it can run.";
 
 // Server reasons are written for a terminal (`code` in backticks); show them as plain text.
 const plain = (text) => String(text || "").replace(/`/g, "");
 
+const DEMO = {
+  id: "demo",
+  title: "Demo scan",
+  note: "Instant, no signup. Recorded runs that show the full flow.",
+};
+
 export function targetOptions(capabilities) {
   const caps = capabilities || null;
-  const local = caps ? caps.local_backends_enabled : true;
-  const cliOff = caps && !caps.cli;
+  if (!caps) {
+    return [
+      DEMO,
+      { id: "ollama", title: "Open-weight model", note: WAITING, disabled: true },
+      { id: "cli", title: "Claude", note: WAITING, disabled: true },
+    ];
+  }
+  const local = caps.local_backends_enabled;
+  const cliOff = !caps.cli;
+  const noOllama = !caps.ollama;
+  const noModels = caps.ollama && (caps.ollama_models || []).length === 0;
   // A web scan of an open-weight model is graded by Claude through the CLI, so it needs both.
-  const noOllama = caps && !caps.ollama;
-  const ollamaOff = noOllama || cliOff;
+  const ollamaOff = noOllama || noModels || cliOff;
   const options = [
-    {
-      id: "demo",
-      title: "Demo scan",
-      note: "Instant, no signup. Recorded runs that show the full flow.",
-    },
+    DEMO,
     {
       id: "ollama",
       title: "Open-weight model",
@@ -30,10 +41,12 @@ export function targetOptions(capabilities) {
           ? RUN_LOCALLY
           : noOllama
             ? "Ollama isn't running on this machine. Start it with ollama serve."
-            : "Claude grades these scans through your claude CLI, which can't run here " +
-              `(${plain(caps.cli_reason) || "not ready"}). To grade with a local model instead, use the ` +
-              "command line: fusion run start --grader ollama-prob:qwen2.5:7b.",
-      disabled: Boolean(ollamaOff),
+            : noModels
+              ? "No models are installed in Ollama yet. Pull one first: ollama pull llama3.2:1b."
+              : "Claude grades these scans through your claude CLI, which can't run here " +
+                `(${plain(caps.cli_reason) || "not ready"}). To grade with a local model instead, use the ` +
+                "command line: fusion run start --grader ollama-prob:qwen2.5:7b.",
+      disabled: ollamaOff,
     },
     {
       id: "cli",
@@ -43,16 +56,16 @@ export function targetOptions(capabilities) {
         : local
           ? `Not available: ${plain(caps.cli_reason) || "the claude CLI can't run here"}.`
           : RUN_LOCALLY,
-      disabled: Boolean(cliOff),
+      disabled: cliOff,
     },
   ];
   // Hosted scans (the operator's keys) only make sense on a hosted server, never on your machine.
-  if (!caps || !caps.local_backends_enabled) {
+  if (!local) {
     options.push({
       id: "hosted",
       title: "Hosted real scan",
-      note: caps && caps.api ? "Your prompt, our keys." : "Coming soon.",
-      disabled: !(caps && caps.api),
+      note: caps.api ? "Your prompt, our keys." : "Coming soon.",
+      disabled: !caps.api,
     });
   }
   return options;
