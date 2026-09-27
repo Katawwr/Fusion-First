@@ -187,6 +187,27 @@ def test_the_runtime_guardrail_on_real_attacks_is_reported(tmp_path):
 
 
 @pytest.mark.unit
+def test_the_value_ledger_is_reported_with_its_caveat(tmp_path):
+    import json
+
+    def t(found, fix, guard, either, neither, caused):
+        return {"found": found, "fix_removed": fix, "guard_stopped": guard, "either": either, "neither": neither,
+                "fix_caused": caused, "either_rate": _rate(either, found)}
+
+    ev = {"demonstration": False, "total": t(69, 36, 54, 64, 5, 21),
+          "by_model": {"m1": t(11, 4, 10, 10, 1, 9), "m2": t(13, 5, 12, 13, 0, 3)},
+          "fix_refusal_cost": {"safe_requests_newly_refused": 21, "safe_requests_newly_answered": 5, "pairs": 120},
+          "note": "guard measured on the prompt as written"}
+    (tmp_path / "evals/validation/v1").mkdir(parents=True)
+    (tmp_path / "evals/validation/v1/value_ledger.json").write_text(json.dumps(ev), encoding="utf-8")
+    out = render(tmp_path)
+    assert "Value ledger" in out
+    rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
+    assert "| 69 | 36 | 21 | 54 | 64 | 5 |" in rows["all models"]
+    assert "guard measured on the prompt as written" in out
+
+
+@pytest.mark.unit
 def test_website_evidence_matches_its_sources():
     import json
 

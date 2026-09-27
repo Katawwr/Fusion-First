@@ -413,6 +413,33 @@ def _guardrail_sentence(d: dict, fix: dict | None) -> str:
     return sentence
 
 
+LEDGER_EVIDENCE = "evals/validation/v1/value_ledger.json"
+
+
+def _ledger(root: pathlib.Path) -> list[str]:
+    d = _load(root, LEDGER_EVIDENCE)
+    if not d:
+        return []
+    head = ("| Model | Real attacks found | Removed by the prompt fix | New attacks the fix caused | "
+            "Stopped by the guardrail | Caught by either | Got through both |")
+    out = ["## Value ledger: what each layer bought on real attacks", "",
+           "A re-reading of the committed measurements above (no new data): of the attacks that succeeded "
+           f"with the prompt as written, what the fix removed and what the guardrail stopped. Evidence: `{LEDGER_EVIDENCE}`.",
+           "", head, "|---|---|---|---|---|---|---|"]
+    for name, s in [*d["by_model"].items(), ("all models", d["total"])]:
+        out.append(f"| {name} | {s['found']} | {s['fix_removed']} | {s['fix_caused']} | {s['guard_stopped']} | "
+                   f"{s['either']} | {s['neither']} |")
+    cost = d.get("fix_refusal_cost") or {}
+    out.append("")
+    if cost:
+        out.append(f"The fix also made the models refuse {cost['safe_requests_newly_refused']} safe requests they "
+                   f"had answered (and answer {cost['safe_requests_newly_answered']} they had refused), out of "
+                   f"{cost['pairs']} XSTest pairs.")
+    if d.get("note"):
+        out.append(f"Caveat: {d['note']}")
+    return out + [""]
+
+
 def _guardrail(root: pathlib.Path) -> list[str]:
     d = _load(root, GUARDRAIL_EVIDENCE)
     if not d:
@@ -503,7 +530,7 @@ def _b3(root: pathlib.Path) -> list[str]:
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_compact(root), *_b3(root),
-             *_guardrail(root), *_guard(root), *_limits()]
+             *_guardrail(root), *_ledger(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 

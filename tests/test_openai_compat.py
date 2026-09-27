@@ -143,8 +143,12 @@ async def test_a_redirect_is_refused_and_never_followed(monkeypatch, code):
 
     seen_by_elsewhere = []
 
+    def _drain(handler):  # read the body before replying, as real servers do (else Windows resets the socket)
+        handler.rfile.read(int(handler.headers.get("Content-Length") or 0))
+
     class Elsewhere(http.server.BaseHTTPRequestHandler):
         def do_POST(self):  # noqa: N802
+            _drain(self)
             seen_by_elsewhere.append(dict(self.headers))
             self.send_response(200)
             self.end_headers()
@@ -163,6 +167,7 @@ async def test_a_redirect_is_refused_and_never_followed(monkeypatch, code):
 
     class Redirector(http.server.BaseHTTPRequestHandler):
         def do_POST(self):  # noqa: N802
+            _drain(self)
             self.send_response(code)
             self.send_header("Location", f"http://127.0.0.1:{other.server_port}/v1/chat/completions")
             self.end_headers()

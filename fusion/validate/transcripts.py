@@ -57,7 +57,13 @@ class TranscriptStore:
         out: dict[tuple[str, str], TranscriptRecord] = {}
         if not p.is_file():
             return out
-        for line in p.read_text(encoding="utf-8").splitlines():
+        text = p.read_text(encoding="utf-8")
+        lines = text.split("\n")
+        # Every append writes a whole line ending in "\n", so an unterminated final line can only be a
+        # write still in progress (a reader running alongside generation): skip it. A malformed COMPLETE
+        # line is real corruption and still raises.
+        complete = lines[:-1] if not text.endswith("\n") else lines
+        for line in complete:
             if line.strip():
                 rec = TranscriptRecord(**json.loads(line))
                 out[(rec.item_id, rec.arm)] = rec

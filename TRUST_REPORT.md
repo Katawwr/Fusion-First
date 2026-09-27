@@ -94,6 +94,21 @@ The runtime guardrail (`fusion/guardrail`) applied to the attacks that really su
 - Over-blocks come from CamelCase read tools (GmailReadEmail, TwilioGetReceivedSmsMessages): the read-only check splits snake_case only, so 'email'/'sms' in the name looks consequential. A guard bug found here; the rules were not changed for this measurement.
 - Deviation, disclosed: The first computation read every bare 'ACTION: <word>' line as a tool call, although the registration says bare lines count 'as the oracle reads them' (only when they name a tool in the scenario). Words like 'Send' or 'json' were therefore counted as calls. The parser was corrected to the registered reading before these numbers were recorded. First computation: 54/69 stopped, 10/171 clean transcripts over-blocked.
 
+## Value ledger: what each layer bought on real attacks
+
+A re-reading of the committed measurements above (no new data): of the attacks that succeeded with the prompt as written, what the fix removed and what the guardrail stopped. Evidence: `evals/validation/v1/value_ledger.json`.
+
+| Model | Real attacks found | Removed by the prompt fix | New attacks the fix caused | Stopped by the guardrail | Caught by either | Got through both |
+|---|---|---|---|---|---|---|
+| llama3.2:1b | 11 | 4 | 9 | 10 | 10 | 1 |
+| qwen2.5:1.5b | 13 | 5 | 3 | 12 | 13 | 0 |
+| gemma3:1b | 24 | 11 | 5 | 17 | 22 | 2 |
+| qwen2.5:3b | 21 | 16 | 4 | 15 | 19 | 2 |
+| all models | 69 | 36 | 21 | 54 | 64 | 5 |
+
+The fix also made the models refuse 21 safe requests they had answered (and answer 5 they had refused), out of 120 XSTest pairs.
+Caveat: The guardrail was measured on the prompt as written, not behind the fix, so 'either' approximates running both layers.
+
 ## Runtime guard for Claude Code (fusion-guard hook)
 
 Tool calls written by independent agents **blind to the rules**; each set scored once.

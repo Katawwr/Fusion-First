@@ -203,3 +203,17 @@ def test_compact_fix_arm_and_fresh_disjoint_items():
     assert len(fresh) == 30 and not v1 & {i.item_id for i in fresh}
     plan = list(iter_plan(["gandalf"], 2, ["m"], arms=("baseline", "hardened", "compact")))
     assert [arm for _, _, arm in plan] == ["baseline", "hardened", "compact"] * 2
+
+
+@pytest.mark.unit
+def test_a_half_written_last_line_is_skipped_not_fatal(tmp_path):
+    """A reader can run while generation appends: the unterminated final line is the only one an
+    in-progress append can leave, so it is skipped; every complete record still loads."""
+    from fusion.validate.transcripts import TranscriptRecord
+
+    store = TranscriptStore(tmp_path)
+    store.append(TranscriptRecord(experiment="gandalf", item_id="a", model="m1", arm="baseline",
+                                  system_sha256="x", response="ok", truncated=False))
+    with store.path("gandalf", "m1").open("a", encoding="utf-8") as f:
+        f.write('{"experiment": "gandalf", "item_id": "b", "mod')  # cut mid-write
+    assert list(store.load("gandalf", "m1")) == [("a", "baseline")]
