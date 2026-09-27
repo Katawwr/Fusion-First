@@ -93,7 +93,7 @@ def test_live_clients_ollama_target_is_cross_family(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
     monkeypatch.setattr(
-        "fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True
+        "fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok")
     )
     target, judge, judge_id, choice = live.build_live_clients("llama3.2", prefer="ollama")
     assert judge_id == "claude-sonnet-5"
@@ -209,3 +209,17 @@ def test_default_address_is_the_ipv4_loopback(monkeypatch):
     ollama.ollama_models()
     assert hosts and set(hosts) == {"127.0.0.1"}
     assert urllib.parse.urlsplit(OllamaModelClient()._base_url).hostname == "127.0.0.1"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("prefer", ["ollama", "cli", "auto"])
+def test_a_logged_out_cli_fails_before_anything_runs(monkeypatch, prefer):
+    """Installed but not logged in: refuse up front, not after the target has already answered."""
+    import fusion.integrations.live as live
+
+    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True)
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready",
+                        lambda *a, **k: (False, "the `claude` CLI is not logged in"))
+    with pytest.raises(live.LiveUnavailable, match="not logged in"):
+        live.build_live_clients("llama3.2:1b", prefer=prefer)

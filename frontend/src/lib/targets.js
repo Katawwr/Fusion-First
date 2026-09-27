@@ -5,11 +5,16 @@
 const RUN_LOCALLY =
   "Runs when you use Fusion on your own machine: pip install fusion-safety, then fusion serve.";
 
+// Server reasons are written for a terminal (`code` in backticks); show them as plain text.
+const plain = (text) => String(text || "").replace(/`/g, "");
+
 export function targetOptions(capabilities) {
   const caps = capabilities || null;
   const local = caps ? caps.local_backends_enabled : true;
-  const ollamaOff = caps && !caps.ollama;
   const cliOff = caps && !caps.cli;
+  // A web scan of an open-weight model is graded by Claude through the CLI, so it needs both.
+  const noOllama = caps && !caps.ollama;
+  const ollamaOff = noOllama || cliOff;
   const options = [
     {
       id: "demo",
@@ -21,9 +26,13 @@ export function targetOptions(capabilities) {
       title: "Open-weight model",
       note: !ollamaOff
         ? "Runs locally through Ollama. Free, and where attacks actually land."
-        : local
-          ? "Ollama isn't running on this machine. Start it with ollama serve."
-          : RUN_LOCALLY,
+        : !local
+          ? RUN_LOCALLY
+          : noOllama
+            ? "Ollama isn't running on this machine. Start it with ollama serve."
+            : "Claude grades these scans through your claude CLI, which can't run here " +
+              `(${plain(caps.cli_reason) || "not ready"}). To grade with a local model instead, use the ` +
+              "command line: fusion run start --grader ollama-prob:qwen2.5:7b.",
       disabled: Boolean(ollamaOff),
     },
     {
@@ -32,7 +41,7 @@ export function targetOptions(capabilities) {
       note: !cliOff
         ? "Uses this machine's Claude CLI subscription. No API key needed."
         : local
-          ? `Not available: ${caps.cli_reason || "the claude CLI can't run here"}.`
+          ? `Not available: ${plain(caps.cli_reason) || "the claude CLI can't run here"}.`
           : RUN_LOCALLY,
       disabled: Boolean(cliOff),
     },

@@ -201,8 +201,8 @@ def test_live_kwargs_use_cli_when_no_key(monkeypatch):
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("FUSION_TARGET_BACKEND", "cli")
-    monkeypatch.setattr(
-        "fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True
+    monkeypatch.setattr(  # present AND on subscription auth
+        "fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok")
     )
     kw = live.build_live_scan_kwargs()
     assert kw["demonstration"] is False

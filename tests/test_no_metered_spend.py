@@ -25,7 +25,7 @@ def ambient_keys(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-ambient")
     monkeypatch.delenv("FUSION_TARGET_BACKEND", raising=False)
     monkeypatch.delenv(live.METERED_OPT_IN_ENV, raising=False)
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True)
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
     monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
 
 
@@ -61,7 +61,8 @@ def test_opt_in_alone_does_not_make_auto_metered(ambient_keys, monkeypatch):
 
 @pytest.mark.unit
 def test_no_cli_and_ambient_keys_fails_closed_not_metered(ambient_keys, monkeypatch):
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: False)
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready",
+                        lambda *a, **k: (False, "the `claude` CLI isn't installed here"))
     for prefer in (None, "auto", "cli", "ollama"):
         with pytest.raises(live.LiveUnavailable):
             live.build_live_clients("llama3.2:1b", prefer=prefer)
@@ -84,7 +85,7 @@ def test_web_app_keyless_backends_ignore_server_keys(monkeypatch, backend):
     from app.settings import Settings
 
     monkeypatch.delenv(live.METERED_OPT_IN_ENV, raising=False)
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True)
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
     monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
     settings = Settings(anthropic_api_key="sk-ant-fake", openai_api_key="sk-fake", allow_local_backends=True)
     if backend is None:
@@ -104,7 +105,7 @@ def test_web_app_local_backends_are_off_by_default(monkeypatch, backend):
     from app.clients import LiveUnavailable, build_scan_kwargs
     from app.settings import Settings
 
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True)
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
     monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
     with pytest.raises(LiveUnavailable, match="FUSION_ALLOW_LOCAL_BACKENDS"):
         build_scan_kwargs("live", Settings(), backend=backend)

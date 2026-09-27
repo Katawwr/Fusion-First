@@ -36,15 +36,24 @@ def metered_allowed(prefer: str) -> bool:
 
 def _cli_judge(limits, registry: ModelRegistry, judge_id: str):
     """A Claude judge over the subscription CLI (the guarded, keyless path)."""
-    from fusion.model.providers.claude_cli import ClaudeCliModelClient, claude_cli_available
+    from fusion.model.providers.claude_cli import ClaudeCliModelClient
     from fusion.security.budget import BudgetedModelClient
 
-    if not claude_cli_available():
-        raise LiveUnavailable(
-            "a Claude judge needs the `claude` CLI (subscription) on PATH — metered API keys are "
-            f"never used unless you pass --backend api and set {METERED_OPT_IN_ENV}=1"
-        )
+    _require_cli("grading uses Claude through the `claude` CLI (subscription)")
     return BudgetedModelClient(ClaudeCliModelClient(registry=registry, judge_model=judge_id), limits)
+
+
+def _require_cli(purpose: str) -> None:
+    """Refuse BEFORE anything runs unless the CLI can really make calls (found, permitted, on
+    subscription auth) — never after the target has already answered."""
+    from fusion.model.providers import claude_cli
+
+    ready, reason = claude_cli.claude_cli_ready()
+    if not ready:
+        raise LiveUnavailable(
+            f"{purpose}, and it can't run here: {reason}. Metered API keys are never used unless you "
+            f"pass --backend api and set {METERED_OPT_IN_ENV}=1"
+        )
 
 
 def build_live_clients(
@@ -87,13 +96,10 @@ def build_live_clients(
         return target, judge, judge_id, choice
 
     if prefer in ("auto", "cli"):
-        from fusion.model.providers.claude_cli import ClaudeCliModelClient, claude_cli_available
+        from fusion.model.providers.claude_cli import ClaudeCliModelClient
 
-        if not claude_cli_available():
-            raise LiveUnavailable(
-                "no keyless live backend: install/log in to the `claude` CLI (subscription) or use "
-                "--backend ollama with a local model"
-            )
+        _require_cli("this live backend runs Claude through the `claude` CLI (subscription); "
+                     "or use --backend ollama with a local model")
         # No cross-family judge over the CLI (it cannot serve OpenAI) → same-family cross-tier.
         choice = registry.choose_judge_with_disclosure(target_model, cross_family_available=False)
         target = BudgetedModelClient(ClaudeCliModelClient(registry=registry), limits)

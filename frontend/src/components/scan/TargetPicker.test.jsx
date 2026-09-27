@@ -14,6 +14,8 @@ const LOCAL = {
   api: false,
 };
 
+const READY = { ...LOCAL, cli: true, cli_reason: "ok" };
+
 const HOSTED_DEMO = {
   demo: true,
   cli: false,
@@ -42,12 +44,19 @@ describe("TargetPicker", () => {
   it("disables a backend the server can't run, and says why", () => {
     pick({ capabilities: LOCAL });
     expect(option("^Claude")).toBeDisabled();
-    expect(screen.getByText(/not logged in/)).toBeInTheDocument();
-    expect(option("Open-weight model")).toBeEnabled();
+    expect(screen.getAllByText(/not logged in/).length).toBeGreaterThan(0);
+  });
+
+  it("needs a working grader for an open-weight scan (Claude grades it)", () => {
+    pick({ capabilities: LOCAL });
+    expect(option("Open-weight model")).toBeDisabled();
+    expect(option("Open-weight model")).toHaveTextContent(/grade/i);
+    pick({ capabilities: READY });
+    expect(screen.getAllByRole("radio", { name: /Open-weight model/ }).at(-1)).toBeEnabled();
   });
 
   it("offers the models Ollama actually has", () => {
-    pick({ capabilities: LOCAL, target: "ollama" });
+    pick({ capabilities: READY, target: "ollama" });
     const select = screen.getByRole("combobox", { name: /Ollama model/ });
     expect([...select.options].map((o) => o.value)).toEqual(["qwen2.5:3b", "llama3.2:1b"]);
   });
@@ -60,7 +69,7 @@ describe("TargetPicker", () => {
   });
 
   it("never offers a hosted scan on a local server", () => {
-    pick({ capabilities: LOCAL });
+    pick({ capabilities: READY });
     expect(screen.queryByRole("radio", { name: /Hosted/ })).toBeNull();
   });
 
