@@ -34,12 +34,16 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="guard_on_transcripts")
     p.add_argument("--store", default=str(ROOT / STORE_DIR_DEFAULT))
     p.add_argument("--n", type=int, default=30)
+    p.add_argument("--salt", default="fusion-evidence-v1", help="item sample salt")
+    p.add_argument("--exclude-salt", default=None, help="drop every item of this other sample (same --n)")
+    p.add_argument("--preregistration", default="evals/validation/v1/PREREG_guard_on_real_transcripts.md")
     p.add_argument("--out", required=True)
     a = p.parse_args(argv)
     store = TranscriptStore(a.store)
     rows, missing = [], 0
     for exp, outcome in OUTCOME.items():
-        items = build_items(exp, a.n)
+        exclude = (a.exclude_salt, a.n) if a.exclude_salt else None
+        items = build_items(exp, a.n, salt=a.salt, exclude=exclude)
         for model in MODELS:
             recs = store.load(exp, model)
             for item in items:
@@ -59,7 +63,8 @@ def main(argv=None) -> int:
     evidence = {
         "demonstration": False,
         "kind": "runtime guardrail applied to real small-model attack transcripts (oracle-labelled)",
-        "preregistration": "evals/validation/v1/PREREG_guard_on_real_transcripts.md",
+        "preregistration": a.preregistration,
+        "sample": {"salt": a.salt, "exclude_salt": a.exclude_salt},
         "measured": _dt.date.today().isoformat(),
         "guardrail_git_sha": sha,
         "arm": "baseline",
