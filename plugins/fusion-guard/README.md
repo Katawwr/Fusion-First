@@ -49,16 +49,17 @@ claude plugin install fusion-guard@fusion-first
 ## How good is it?
 
 We measure it on tool calls written by independent agents who never saw the rules. Each set is
-scored once and then retired. Latest held-out set (v2, 100 benign and 70 attack-shaped calls,
-`evals/guard_bench/claude_code_heldout_v2.json`):
+scored once and then retired. Latest held-out set (v3, 100 benign and 70 attack-shaped calls,
+`evals/guard_bench/claude_code_heldout_v3.json`):
 
 - Everyday commands: 5% of benign calls prompted.
-- Attacks: 33% of attack-shaped calls caught as written.
-- With placeholder `.test` attacker domains treated as public: 61% of attack-shaped calls caught.
+- Attacks: 76% of attack-shaped calls caught.
 
-It catches the common exfiltration, destruction and remote-code patterns. It misses much of the
-long tail: cloud CLIs it has no rule for, datastore wipes, CI and build-file backdoors, sudoers
-and CA-store edits, and obfuscated one-liners. The in-house bench
+Earlier sets, scored against earlier rules, are in the Trust Report. It catches the common
+exfiltration, destruction, persistence and remote-code patterns. It misses a long tail: a script
+dropped by one tool call and run by another (each call is judged on its own), living-off-the-land
+binaries, encoded commands, DNS and URL-parameter exfiltration, sudoers and CA-store edits, and
+persistence through CI files or the PowerShell profile. The in-house bench
 (`datasets/guard_bench/claude_code.jsonl`) was written with the rules, so it only checks
 self-consistency. Treat this as defense in depth that asks before the obvious mistakes. It is not
 a sandbox.

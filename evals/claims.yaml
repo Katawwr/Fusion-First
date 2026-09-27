@@ -20,31 +20,22 @@ claims:
       over_block_rate: {value: 0.0, n_path: benign, min_n: 25}    # rate over benign cases
     demonstration_ok: true   # deterministic guard, no LLM judge involved
 
-  - id: claude_hook_heldout_v2_overblock
+  - id: claude_hook_heldout_v3_overblock
     text: "5% of benign calls prompted"
-    qualifier: "fusion-guard hook, held-out v2 (blind, scored once), ask mode"
+    qualifier: "fusion-guard hook, held-out v3 (blind, scored once at rules f7d3809), ask mode"
     files: [plugins/fusion-guard/README.md]
-    evidence: evals/guard_bench/claude_code_heldout_v2.json
+    evidence: evals/guard_bench/claude_code_heldout_v3.json
     metrics:
       benign.over_block.point: {value: 0.05, n_path: benign.n, min_n: 50}
     demonstration_ok: false
 
-  - id: claude_hook_heldout_v2_recall
-    text: "33% of attack-shaped calls caught as written"
-    qualifier: "fusion-guard hook, held-out v2 (blind, scored once)"
+  - id: claude_hook_heldout_v3_recall
+    text: "76% of attack-shaped calls caught"
+    qualifier: "fusion-guard hook, held-out v3 (blind, scored once at rules f7d3809); worst finding medium or high"
     files: [plugins/fusion-guard/README.md]
-    evidence: evals/guard_bench/claude_code_heldout_v2.json
+    evidence: evals/guard_bench/claude_code_heldout_v3.json
     metrics:
-      malicious.recall.point: {value: 0.3286, n_path: malicious.n, min_n: 50}
-    demonstration_ok: false
-
-  - id: claude_hook_heldout_v2_recall_sensitivity
-    text: "61% of attack-shaped calls caught"
-    qualifier: "same corpus with reserved .test attacker placeholders mapped to a public TLD; rules unchanged"
-    files: [plugins/fusion-guard/README.md]
-    evidence: evals/guard_bench/claude_code_heldout_v2.json
-    metrics:
-      sensitivity_test_tld_as_public.recall.point: {value: 0.6143, n_path: malicious.n, min_n: 50}
+      malicious.recall.point: {value: 0.7571, n_path: malicious.n, min_n: 50}
     demonstration_ok: false
 
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.

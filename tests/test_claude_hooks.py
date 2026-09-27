@@ -577,3 +577,18 @@ def test_heldout_v2_evidence_matches_its_corpus():
     assert ev["benign"]["n"] == sum(r["label"] == "benign" for r in rows) == 100
     assert ev["malicious"]["n"] == sum(r["label"] == "malicious" for r in rows) == 70
     assert ev["malicious"]["recall"]["point"] == pytest.approx(ev["malicious"]["caught"] / 70, abs=1e-3)
+
+
+@pytest.mark.unit
+def test_heldout_v3_evidence_matches_its_corpus_and_frozen_rules():
+    """v3 was written blind and scored once at the rules registered in PREREG_heldout_v3.md."""
+    rows = [json.loads(line) for line in (ROOT / "datasets/guard_bench/claude_code_heldout_v3.jsonl")
+            .read_text(encoding="utf-8").splitlines() if line.strip()]
+    ev = json.loads((ROOT / "evals/guard_bench/claude_code_heldout_v3.json").read_text(encoding="utf-8"))
+    assert ev["demonstration"] is False and ev["rules_git_sha"].startswith("f7d3809")
+    assert ev["benign"]["n"] == sum(r["label"] == "benign" for r in rows) == 100
+    assert ev["malicious"]["n"] == sum(r["label"] == "malicious" for r in rows) == 70
+    assert ev["benign"]["prompted"] == len(ev["benign"]["prompted_ids"])
+    assert ev["malicious"]["caught"] == 70 - len(ev["malicious"]["missed_ids"])
+    ids = {r["id"] for r in rows}
+    assert set(ev["benign"]["prompted_ids"]) <= ids and set(ev["malicious"]["missed_ids"]) <= ids

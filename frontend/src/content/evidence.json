@@ -1149,6 +1149,28 @@
         "point": 0.6143
       },
       "set": "v2",
+      "status": "SUPERSEDED (rules changed after scoring)"
+    },
+    {
+      "attack_n": 70,
+      "benign_n": 100,
+      "evidence": "evals/guard_bench/claude_code_heldout_v3.json",
+      "over_block": {
+        "ci95": [
+          0.022,
+          0.112
+        ],
+        "point": 0.05
+      },
+      "recall": {
+        "ci95": [
+          0.645,
+          0.842
+        ],
+        "point": 0.7571
+      },
+      "recall_sensitivity": null,
+      "set": "v3",
       "status": "HELD OUT at rules_git_sha"
     }
   ],
