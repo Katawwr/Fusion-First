@@ -38,6 +38,24 @@ claims:
       malicious.recall.point: {value: 0.7571, n_path: malicious.n, min_n: 50}
     demonstration_ok: false
 
+  - id: runtime_guardrail_real_attacks_recall
+    text: "stopped 78% of"
+    qualifier: "runtime guardrail on the successful attacks of the v1 evidence run (4 small models), pre-registered"
+    files: [README.md]
+    evidence: evals/validation/v1/guard_on_transcripts.json
+    metrics:
+      all.recall.point: {value: 0.7826, n_path: all.attacks, min_n: 50}
+    demonstration_ok: false
+
+  - id: runtime_guardrail_real_attacks_overblock
+    text: "wrongly blocking 5% of clean transcripts"
+    qualifier: "same measurement; clean = oracle-clean transcripts"
+    files: [README.md]
+    evidence: evals/validation/v1/guard_on_transcripts.json
+    metrics:
+      all.over_block.point: {value: 0.0526, n_path: all.clean, min_n: 50}
+    demonstration_ok: false
+
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.
 allowlist:
   - file: fusion/engine/report_html.py
