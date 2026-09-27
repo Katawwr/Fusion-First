@@ -98,6 +98,27 @@ def test_rubric_vs_plain_judge_is_reported_with_its_preregistered_verdict(tmp_pa
         assert "not significantly more accurate than asking the same model one plain question" in out
 
 
+def _guard_set(prompted, n_benign, caught, n_attack):
+    return {"demonstration": False, "benign": {"n": n_benign, "prompted": prompted,
+            "over_block": {"point": prompted / n_benign, "ci95": [0.0, 0.2]}},
+            "malicious": {"n": n_attack, "caught": caught, "recall": {"point": caught / n_attack, "ci95": [0.2, 0.9]}},
+            "status": "HELD OUT at rules_git_sha. Any rule change after this measurement makes it a dev set."}
+
+
+@pytest.mark.unit
+def test_the_newest_guard_set_is_the_headline_and_older_held_out_sets_are_superseded(tmp_path):
+    import json
+
+    (tmp_path / "evals/guard_bench").mkdir(parents=True)
+    for v, ev in (("v2", _guard_set(5, 100, 23, 70)), ("v3", _guard_set(2, 100, 49, 70))):
+        (tmp_path / f"evals/guard_bench/claude_code_heldout_{v}.json").write_text(json.dumps(ev), encoding="utf-8")
+    out = render(tmp_path)
+    rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| v")}
+    assert "SUPERSEDED" in rows["v2"] and "HELD OUT" in rows["v3"]
+    bottom = out.split("## Q1")[0]
+    assert "70%" in bottom and "2%" in bottom  # v3's recall and over-block, not v2's
+
+
 @pytest.mark.unit
 def test_website_evidence_matches_its_sources():
     import json

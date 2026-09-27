@@ -128,8 +128,7 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
                    + "Every report card therefore measures the fix on the user's own model instead of assuming it helps.")
     else:
         out.append("- **Fixing effectively?** Not yet measured.")
-    guard = _load(root, "evals/guard_bench/claude_code_heldout_v2.json") or _load(
-        root, "evals/guard_bench/claude_code_heldout_v1.json")
+    guard = _guard_headline(root)
     if guard:
         out.append(f"- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on "
                    f"{_iv(guard['benign']['over_block'])} of benign calls and caught {_iv(guard['malicious']['recall'])} "
@@ -259,16 +258,40 @@ def _q3(root: pathlib.Path) -> list[str]:
     return out
 
 
+def _guard_sets(root: pathlib.Path) -> list[tuple[str, dict]]:
+    """Every scored held-out set, oldest first."""
+    found = []
+    for i in range(1, 10):
+        d = _load(root, f"evals/guard_bench/claude_code_heldout_v{i}.json")
+        if d:
+            found.append((f"v{i}", d))
+    return found
+
+
+def _guard_status(v: str, d: dict, sets: list[tuple[str, dict]]) -> str:
+    """A held-out set stays the honest number only until a newer one is scored against changed rules."""
+    status = d["status"].split(".")[0]
+    newest_held_out = next((sv for sv, sd in reversed(sets) if sd["status"].startswith("HELD OUT")), None)
+    if status.startswith("HELD OUT") and v != newest_held_out:
+        return "SUPERSEDED (rules changed after scoring)"
+    return status
+
+
+def _guard_headline(root: pathlib.Path) -> dict | None:
+    sets = _guard_sets(root)
+    return next((d for _, d in reversed(sets) if d["status"].startswith("HELD OUT")), sets[-1][1] if sets else None)
+
+
 def _guard(root: pathlib.Path) -> list[str]:
     out = ["## Runtime guard for Claude Code (fusion-guard hook)", ""]
     rows = []
-    for v in ("v1", "v2"):
-        d = _load(root, f"evals/guard_bench/claude_code_heldout_{v}.json")
-        if d:
-            sens = d.get("sensitivity_test_tld_as_public")
-            rows.append(
-                f"| {v} | {d['benign']['n']} | {_iv(d['benign']['over_block'])} | {d['malicious']['n']} | "
-                f"{_iv(d['malicious']['recall'])} | {_iv(sens['recall']) if sens else '—'} | {d['status'].split('.')[0]} |")
+    sets = _guard_sets(root)
+    for v, d in sets:
+        sens = d.get("sensitivity_test_tld_as_public")
+        rows.append(
+            f"| {v} | {d['benign']['n']} | {_iv(d['benign']['over_block'])} | {d['malicious']['n']} | "
+            f"{_iv(d['malicious']['recall'])} | {_iv(sens['recall']) if sens else '—'} | "
+            f"{_guard_status(v, d, sets)} |")
     if not rows:
         return out + ["NOT YET MEASURED.", ""]
     return out + [
@@ -319,15 +342,13 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
                 "audit": (d.get("audit") or {}).get("summary"),
             })
     guard = []
-    for v in ("v1", "v2"):
-        rel = f"evals/guard_bench/claude_code_heldout_{v}.json"
-        d = _load(root, rel)
-        if d:
-            guard.append({"set": v, "evidence": rel, "benign_n": d["benign"]["n"],
-                          "over_block": d["benign"]["over_block"], "attack_n": d["malicious"]["n"],
-                          "recall": d["malicious"]["recall"],
-                          "recall_sensitivity": (d.get("sensitivity_test_tld_as_public") or {}).get("recall"),
-                          "status": d["status"].split(".")[0]})
+    sets = _guard_sets(root)
+    for v, d in sets:
+        guard.append({"set": v, "evidence": f"evals/guard_bench/claude_code_heldout_{v}.json",
+                      "benign_n": d["benign"]["n"], "over_block": d["benign"]["over_block"],
+                      "attack_n": d["malicious"]["n"], "recall": d["malicious"]["recall"],
+                      "recall_sensitivity": (d.get("sensitivity_test_tld_as_public") or {}).get("recall"),
+                      "status": _guard_status(v, d, sets)})
     fix = _load(root, "evals/validation/v1/evidence_oracle.json")
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
