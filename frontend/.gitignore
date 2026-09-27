@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Playwright end-to-end output
+test-results
+playwright-report
+blob-report

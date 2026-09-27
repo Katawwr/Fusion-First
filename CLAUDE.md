@@ -88,6 +88,7 @@ python -m fusion.cli import-promptfoo results.json                   # honest st
 python -m fusion.validate.trust_report                               # regenerate TRUST_REPORT.md
 claude plugin validate plugins/fusion                                # plugin manifest check
 python -m fusion.cli serve                                           # local web app, 127.0.0.1:8765
+npm --prefix frontend run build && npm --prefix frontend run test:e2e   # Playwright E2E on `fusion serve` (offline)
 npm --prefix frontend run build && python -m pip wheel . --no-deps --no-build-isolation -w dist  # wheel bundles corpora + frontend/dist
 ```
 
