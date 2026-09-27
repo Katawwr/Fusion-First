@@ -84,6 +84,25 @@ def test_equal_judges_do_not_allow_the_claim():
     assert out["decision"]["claim_allowed"] is False
 
 
+@pytest.mark.integration
+def test_committed_b3_evidence_is_rederivable():
+    """The published B3 comparison re-derives exactly from committed transcripts, oracles, the rubric
+    judge's recorded answers and the plain judge's recorded answers — no model involved."""
+    import pathlib
+
+    from fusion.validate.judge_eval import ArtifactDir, _verdicts, collect_items
+    from fusion.validate.transcripts import TranscriptStore
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    v1 = root / "evals/validation/v1"
+    committed = json.loads((v1 / "b3_rubric_vs_plain_judge.json").read_text(encoding="utf-8"))
+    items = collect_items(["injecagent", "gandalf"], ["llama3.2:1b"], 30, TranscriptStore(v1 / "transcripts"))
+    answers = json.loads((v1 / "b3_rubric_vs_plain_judge/b3_answers.json").read_text(encoding="utf-8"))
+    fresh = score_b3(items, answers, _verdicts(ArtifactDir(v1 / "judge_eval_host_sonnet"), items))
+    for key in ("by_check", "pooled", "sensitivity_unanswered_as_wrong", "decision"):
+        assert json.loads(json.dumps(fresh[key])) == committed[key], key
+
+
 @pytest.mark.unit
 def test_unanswered_b3_items_are_excluded_counted_and_stress_tested():
     labels = [True, False] * 10

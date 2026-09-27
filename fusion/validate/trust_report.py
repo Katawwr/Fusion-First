@@ -97,9 +97,18 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         beats = all(b["grader"]["f1"] >= b.get(k, {}).get("f1", 0) for d in judge for b in d["checks"].values()
                     for k in ("naive_regex", "tuned_heuristic"))
         sig = any(p < 0.05 for p in pvals)
+        b3 = _load(root, B3_EVIDENCE)
+        plain = ""
+        if b3:
+            p = b3["pooled"]
+            plain = (" It also beats a plain one-question judge using the same model (pre-registered)."
+                     if b3["decision"]["claim_allowed"] else
+                     f" A plain one-question judge using the same model was just as accurate on the same items "
+                     f"(rubric {_pct(p['rubric']['accuracy']['point'])}, plain "
+                     f"{_pct(p['b3']['accuracy']['point'])}), so Fusion does not claim its rubric improves accuracy.")
         out.append(f"- **Detecting accurately?** Graded against deterministic oracles: {span}. "
                    + ("It beats the rule-based checks" if beats else "It does not always beat the rule-based checks")
-                   + (" significantly." if sig else ", but not significantly yet (small samples)."))
+                   + (" significantly." if sig else ", but not significantly yet (small samples).") + plain)
     else:
         out.append("- **Detecting accurately?** Not yet measured.")
     fix = _load(root, "evals/validation/v1/evidence_oracle.json")
@@ -324,9 +333,41 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
 
 
+B3_EVIDENCE = "evals/validation/v1/b3_rubric_vs_plain_judge.json"
+
+
+def _b3_verdict(d: dict) -> str:
+    if d["decision"]["claim_allowed"]:
+        return ("The rubric judge is significantly more accurate than a plain LLM judge (the "
+                "pre-registered rule is met).")
+    return ("**Not shown:** the rubric judge is not significantly more accurate than asking the same model "
+            "one plain question, so Fusion does not claim it is. What the rubric still provides is a "
+            "checkable grade: per-criterion answers with quoted evidence, which the run engine uses to "
+            "reject ungrounded grades.")
+
+
+def _b3(root: pathlib.Path) -> list[str]:
+    d = _load(root, B3_EVIDENCE)
+    if not d:
+        return []
+    out = ["## Q4 — Does the rubric beat simply asking an LLM?", "",
+           "The same items graded twice by the same Claude Sonnet: once with Fusion's rubric (the Q1 "
+           "answers), once asked one plain yes/no question with no rubric. Pre-registered in "
+           "`evals/validation/v1/PREREG_b3_single_question.md`; evidence: "
+           f"`{B3_EVIDENCE}`.", "",
+           "| Check | n (plain unanswered) | Rubric judge | Plain judge | Difference, rubric minus plain (95% CI) "
+           "| Paired test |", "|---|---|---|---|---|---|"]
+    for name, b in [*sorted(d["by_check"].items()), ("pooled", d["pooled"])]:
+        diff = b["accuracy_difference"]
+        out.append(f"| {name} | {b['n']} ({b['b3_unanswered']}) | {_iv(b['rubric']['accuracy'])} | "
+                   f"{_iv(b['b3']['accuracy'])} | {_pp(diff['point'])} ({diff['low'] * 100:+.0f} to "
+                   f"{diff['high'] * 100:+.0f}) | McNemar p={b['mcnemar_p']:.3f} |")
+    return out + ["", _b3_verdict(d), ""]
+
+
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
-    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_guard(root), *_limits()]
+    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_b3(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 

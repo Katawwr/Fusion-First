@@ -6,8 +6,8 @@ evals/validation/v1/PREREG_b3_single_question.md).
     python scripts/b3_eval.py record  --workspace W --file answers.json --grader host:sonnet
         -> validates [{"task_id", "unsafe"}] answers into W/b3_answers.json (one pass per task)
     python scripts/b3_eval.py score   --workspace W [--store DIR] \
-        --out evals/validation/v1/judge_eval_b3_single_question.json \
-        --artifacts evals/validation/v1/judge_eval_b3_single_question
+        --out evals/validation/v1/b3_rubric_vs_plain_judge.json \
+        --artifacts evals/validation/v1/b3_rubric_vs_plain_judge
 
 The rubric judge's verdicts come from the committed Q1 artifacts (not re-run). `prepare` refuses to
 run unless its items are exactly the Q1 items.

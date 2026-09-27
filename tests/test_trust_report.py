@@ -71,6 +71,33 @@ def test_fix_evidence_is_summarised_pooled_over_models(tmp_path):
     assert "xstest on m1" in out.split("## Q1")[0]  # the bottom line names the model, not just the test
 
 
+def _b3_block(n, rubric_acc, plain_acc, low, high, p, unanswered=0):
+    acc = lambda a: {"accuracy": {"point": a, "low": a - 0.1, "high": min(1.0, a + 0.05)}}  # noqa: E731
+    return {"n": n, "b3_unanswered": unanswered, "rubric": acc(rubric_acc), "b3": acc(plain_acc),
+            "accuracy_difference": {"point": rubric_acc - plain_acc, "low": low, "high": high},
+            "mcnemar_p": p, "rubric_right_b3_wrong": 4, "b3_right_rubric_wrong": 5}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("claim", [False, True])
+def test_rubric_vs_plain_judge_is_reported_with_its_preregistered_verdict(tmp_path, claim):
+    import json
+
+    pooled = _b3_block(119, 0.86, 0.87, -0.06, 0.04, 1.0, 1) if not claim else _b3_block(119, 0.9, 0.7, 0.1, 0.3, 0.001)
+    b3 = {"demonstration": False, "by_check": {"direct_prompt_injection": pooled}, "pooled": pooled,
+          "sensitivity_unanswered_as_wrong": pooled, "decision": {"claim_allowed": claim, "rule": "r"}}
+    (tmp_path / "evals/validation/v1").mkdir(parents=True)
+    (tmp_path / "evals/validation/v1/b3_rubric_vs_plain_judge.json").write_text(json.dumps(b3), encoding="utf-8")
+    out = render(tmp_path)
+    rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
+    rubric_pct, plain_pct = ("90%", "70%") if claim else ("86%", "87%")
+    assert rubric_pct in rows["pooled"] and plain_pct in rows["pooled"]
+    if claim:
+        assert "significantly more accurate than a plain" in out
+    else:
+        assert "not significantly more accurate than asking the same model one plain question" in out
+
+
 @pytest.mark.unit
 def test_website_evidence_matches_its_sources():
     import json

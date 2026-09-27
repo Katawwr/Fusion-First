@@ -2,8 +2,11 @@
 
 Fusion First is a **proof-grade evaluation engine for AI agents — safety AND quality**. You connect
 an agent (or paste a prompt), Fusion tests it and returns a **Report Card** where every number carries
-a confidence interval or an honesty badge. The wedge is *proof*: a calibrated, cross-family,
-rubric-decomposed judge measured against ground truth (no vibes-based metrics). Two dimensions run
+a confidence interval or an honesty badge. The wedge is *proof*: a cross-family judge whose accuracy
+is measured against ground truth in every run, with grades withheld when it can't be trusted (no
+vibes-based metrics). The rubric makes a grade checkable (per-criterion answers, quoted evidence); it
+is NOT shown to be more accurate than a plain one-question judge (pre-registered B3, Trust Report Q4),
+so never claim it is. Two dimensions run
 through the identical judge: **safety** (OWASP-mapped adversarial attacks — injection, excessive
 agency, exfiltration, prompt leakage; `kind="safety"`) and **quality** (correctness / instruction
 following; `kind="quality"`). Product focus is **open-weight / less-robust models** (Ollama target,
@@ -25,7 +28,8 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
     result types). Every module imports these; none redefine them. See `SCHEMA.md`.
   - `model/` — provider-agnostic `ModelClient`, `registry.py` (roles + allowlist + self-family
     guard), `replay.py` (cassette record/replay for deterministic offline runs), `providers/`.
-  - `judge/` — rubric-decomposed binary-criteria judge (the accuracy fix).
+  - `judge/` — rubric-decomposed binary-criteria judge (per-criterion answers + quoted evidence, which
+    the run engine checks; no more accurate than a plain question with Sonnet — see Trust Report Q4).
   - `stats/` — `metrics.py` (Bar A: Wilson CI, kappa), `paired.py` (Bar B: McNemar, bootstrap,
     honesty badge), `calibration.py` (judge-vs-oracle harness), `gate.py` (the regression gate).
   - `attacks/taxonomy.py` — resolves OWASP codes from `crosswalk/owasp_crosswalk.v2025.yaml`.

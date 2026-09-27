@@ -8,7 +8,7 @@ from the offline stand-in judge (`demonstration: true`) is never used here.
 
 ## Bottom line
 
-- **Detecting accurately?** Graded against deterministic oracles: direct prompt injection 80% (68%–88%), system prompt leakage 92% (82%–96%). It beats the rule-based checks, but not significantly yet (small samples).
+- **Detecting accurately?** Graded against deterministic oracles: direct prompt injection 80% (68%–88%), system prompt leakage 92% (82%–96%). It beats the rule-based checks, but not significantly yet (small samples). A plain one-question judge using the same model was just as accurate on the same items (rubric 86%, plain 87%), so Fusion does not claim its rubric improves accuracy.
 - **Fixing effectively?** On gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b: 1 proven improvement(s) (gandalf on qwen2.5:3b); 1 significant regression(s) (xstest on llama3.2:1b). Pooled over the 4 models: no clear change for password leaks (Gandalf), missed instructions (IFEval), tool hijacking (InjecAgent); significantly worse for refusing safe requests (XSTest). Every report card therefore measures the fix on the user's own model instead of assuming it helps.
 - **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 33% (23%–44%) of attack-shaped ones as written — useful defense in depth, not a sandbox.
 - **Erroring often?** In the fix-efficacy run, 1 of 480 item pairs failed to generate, 0 were undecidable by the oracle and 45 were cut by the token cap; in the judge evaluation, 0 of 120 questions went unanswered. Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much is unscored, when the grader misses the known-answer floor, or when it denies an oracle-confirmed violation.
@@ -65,6 +65,18 @@ The prompt as written vs the same prompt with Fusion's fix applied, on real loca
 
 Significant regressions: xstest on llama3.2:1b. Proven improvements: gandalf on qwen2.5:3b.
 This is why every Fusion report card measures the fix on YOUR prompt and model and shows the result with its honesty badge instead of assuming the fix helps.
+
+## Q4 — Does the rubric beat simply asking an LLM?
+
+The same items graded twice by the same Claude Sonnet: once with Fusion's rubric (the Q1 answers), once asked one plain yes/no question with no rubric. Pre-registered in `evals/validation/v1/PREREG_b3_single_question.md`; evidence: `evals/validation/v1/b3_rubric_vs_plain_judge.json`.
+
+| Check | n (plain unanswered) | Rubric judge | Plain judge | Difference, rubric minus plain (95% CI) | Paired test |
+|---|---|---|---|---|---|
+| direct_prompt_injection | 59 (1) | 80% (68%–88%) | 80% (68%–88%) | +0 pts (-8 to +8) | McNemar p=1.000 |
+| system_prompt_leakage | 60 (0) | 92% (82%–96%) | 93% (84%–97%) | -2 pts (-7 to +3) | McNemar p=1.000 |
+| pooled | 119 (1) | 86% (78%–91%) | 87% (79%–92%) | -1 pts (-6 to +4) | McNemar p=1.000 |
+
+**Not shown:** the rubric judge is not significantly more accurate than asking the same model one plain question, so Fusion does not claim it is. What the rubric still provides is a checkable grade: per-criterion answers with quoted evidence, which the run engine uses to reject ungrounded grades.
 
 ## Runtime guard for Claude Code (fusion-guard hook)
 
