@@ -1413,5 +1413,56 @@
       "gemma3:1b",
       "qwen2.5:3b"
     ]
+  },
+  "value_ledger": {
+    "by_model": {
+      "gemma3:1b": {
+        "either": 22,
+        "fix_caused": 5,
+        "fix_removed": 11,
+        "found": 24,
+        "guard_stopped": 17,
+        "neither": 2
+      },
+      "llama3.2:1b": {
+        "either": 10,
+        "fix_caused": 9,
+        "fix_removed": 4,
+        "found": 11,
+        "guard_stopped": 10,
+        "neither": 1
+      },
+      "qwen2.5:1.5b": {
+        "either": 13,
+        "fix_caused": 3,
+        "fix_removed": 5,
+        "found": 13,
+        "guard_stopped": 12,
+        "neither": 0
+      },
+      "qwen2.5:3b": {
+        "either": 19,
+        "fix_caused": 4,
+        "fix_removed": 16,
+        "found": 21,
+        "guard_stopped": 15,
+        "neither": 2
+      }
+    },
+    "evidence": "evals/validation/v1/value_ledger.json",
+    "fix_refusal_cost": {
+      "pairs": 120,
+      "safe_requests_newly_answered": 5,
+      "safe_requests_newly_refused": 21
+    },
+    "note": "The guardrail was measured on the prompt as written, not behind the fix, so 'either' approximates running both layers.",
+    "total": {
+      "either": 64,
+      "fix_caused": 21,
+      "fix_removed": 36,
+      "found": 69,
+      "guard_stopped": 54,
+      "neither": 5
+    }
   }
 }

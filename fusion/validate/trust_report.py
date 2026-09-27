@@ -381,9 +381,18 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
             "by_attack_type": {g: {**{k: s[k] for k in keep}, "name": _ATTACK_TYPE_NAMES.get(g, g)}
                                for g, s in sorted(runtime["by_attack_type"].items())},
         }
+    ledger = _load(root, LEDGER_EVIDENCE)
+    counts = ("found", "fix_removed", "fix_caused", "guard_stopped", "either", "neither")
+    value_ledger = None if not ledger else {
+        "evidence": LEDGER_EVIDENCE,
+        "total": {k: ledger["total"][k] for k in counts},
+        "by_model": {m: {k: s[k] for k in counts} for m, s in ledger["by_model"].items()},
+        "fix_refusal_cost": ledger.get("fix_refusal_cost"),
+        "note": ledger.get("note"),
+    }
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
-            "runtime_guardrail": runtime_guardrail,
+            "runtime_guardrail": runtime_guardrail, "value_ledger": value_ledger,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
 
 

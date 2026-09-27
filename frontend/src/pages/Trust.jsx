@@ -226,6 +226,32 @@ export default function Trust() {
         </Section>
       )}
 
+      {evidence.value_ledger && (
+        <Section title="What each layer bought on real attacks">
+          <p className="mb-3 text-sm text-app-muted">
+            The results above, read item by item: of the attacks that got through with the prompt as
+            written, what the prompt fix removed and what the guardrail stopped.
+          </p>
+          <Table
+            head={["Model", "Attacks found", "Fix removed", "New attacks the fix caused", "Guardrail stopped", "Either", "Neither"]}
+            rows={[
+              ...Object.entries(evidence.value_ledger.by_model).map(([m, s]) => [
+                m, s.found, s.fix_removed, s.fix_caused, s.guard_stopped, s.either, s.neither,
+              ]),
+              (() => {
+                const t = evidence.value_ledger.total;
+                return ["All models", t.found, t.fix_removed, t.fix_caused, t.guard_stopped, t.either, t.neither];
+              })(),
+            ]}
+          />
+          <p className="mt-3 text-xs text-app-subtle">
+            {evidence.value_ledger.fix_refusal_cost &&
+              `The fix also made the models refuse ${evidence.value_ledger.fix_refusal_cost.safe_requests_newly_refused} safe requests they had answered. `}
+            {evidence.value_ledger.note}
+          </p>
+        </Section>
+      )}
+
       <Section title="Runtime guard for Claude Code">
         {guard.length === 0 ? (
           <NotYet what="the guard hook on held-out tool calls" />

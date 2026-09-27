@@ -45,6 +45,10 @@ describe("Trust page", () => {
       expect(screen.getByRole("heading", { name: /runtime guardrail stop real attacks/i })).toBeInTheDocument();
       expect(screen.getAllByText(interval(evidence.runtime_guardrail.all.recall)).length).toBeGreaterThan(0);
     }
+    if (evidence.value_ledger) {
+      expect(screen.getByRole("heading", { name: /what each layer bought/i })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "All models" })).toBeInTheDocument();
+    }
     for (const p of evidence.fix_pooled || []) {
       expect(screen.getAllByText(new RegExp(`^${p.experiment} \\(all models\\)$`)).length).toBe(1);
     }

@@ -205,6 +205,10 @@ def test_the_value_ledger_is_reported_with_its_caveat(tmp_path):
     rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
     assert "| 69 | 36 | 21 | 54 | 64 | 5 |" in rows["all models"]
     assert "guard measured on the prompt as written" in out
+    from fusion.validate.trust_report import evidence_json
+
+    site = evidence_json(tmp_path)["value_ledger"]
+    assert site["total"]["fix_caused"] == 21 and site["by_model"]["m2"]["either"] == 13
 
 
 @pytest.mark.unit
