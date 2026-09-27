@@ -23,6 +23,18 @@ from fusion.offline import offline
 API_KEY_ENV = "FUSION_TARGET_API_KEY"
 
 
+class _NoRedirects(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect. The stdlib would re-send the request, bearer key included, to whatever
+    host the redirect names: a host the zero-spend gate never checked. A chat-completions endpoint has
+    no reason to redirect, so a redirect is an error that names where it pointed."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None  # the default error handler then raises HTTPError(code)
+
+
+_OPENER = urllib.request.build_opener(_NoRedirects)
+
+
 class OpenAICompatUnavailable(FusionProviderError):
     """The server could not answer (not running, wrong URL or model, or a network error)."""
 
@@ -52,9 +64,14 @@ class OpenAICompatModelClient:
         req = urllib.request.Request(f"{self._base_url}/chat/completions",
                                      data=json.dumps(payload).encode("utf-8"), headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+            with _OPENER.open(req, timeout=self._timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
+            if 300 <= e.code < 400:
+                raise OpenAICompatUnavailable(
+                    f"{self._base_url} answered with a redirect (HTTP {e.code}) to "
+                    f"{e.headers.get('Location', 'an unnamed location')}; refusing to follow it — point the "
+                    "target at the final server URL") from e
             body = ""
             try:
                 body = e.read().decode("utf-8", "replace")[:200]

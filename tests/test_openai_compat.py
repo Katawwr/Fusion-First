@@ -25,7 +25,7 @@ def _fake_server(monkeypatch, reply: dict, sent: list):
         return _Resp(json.dumps(reply).encode("utf-8"))
 
     monkeypatch.delenv("FUSION_OFFLINE", raising=False)
-    monkeypatch.setattr(openai_compat.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(openai_compat._OPENER, "open", urlopen)
 
 
 def _req(**kw):
@@ -81,7 +81,7 @@ async def test_an_unreachable_server_is_a_clear_error(monkeypatch):
         raise urllib.error.URLError("connection refused")
 
     monkeypatch.delenv("FUSION_OFFLINE", raising=False)
-    monkeypatch.setattr(openai_compat.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(openai_compat._OPENER, "open", urlopen)
     with pytest.raises(OpenAICompatUnavailable, match="127.0.0.1:8000"):
         await OpenAICompatModelClient("http://127.0.0.1:8000/v1", "m").complete(_req())
 
@@ -131,3 +131,55 @@ def test_the_stored_label_round_trips_and_independence_is_disclosed():
     assert independence_of(label, "ollama-prob:qwen2.5:7b")[0] == "cross_family"
     qwen = parse_target("openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct").label
     assert independence_of(qwen, "ollama-prob:qwen2.5:7b")[0] == "same_family_cross_tier"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("code", [301, 302, 303, 307, 308])
+async def test_a_redirect_is_refused_and_never_followed(monkeypatch, code):
+    """A 307 from the (local, allowed) server must not re-send the body or the bearer key anywhere
+    else: that would bypass the zero-spend gate and leak FUSION_TARGET_API_KEY."""
+    import http.server
+    import threading
+
+    seen_by_elsewhere = []
+
+    class Elsewhere(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            seen_by_elsewhere.append(dict(self.headers))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(REPLY).encode())
+
+        def do_GET(self):  # noqa: N802 — urllib turns a POST into a GET on 301/302/303
+            seen_by_elsewhere.append(dict(self.headers))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(REPLY).encode())
+
+        def log_message(self, *a):
+            pass
+
+    other = http.server.HTTPServer(("127.0.0.1", 0), Elsewhere)
+
+    class Redirector(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            self.send_response(code)
+            self.send_header("Location", f"http://127.0.0.1:{other.server_port}/v1/chat/completions")
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    local = http.server.HTTPServer(("127.0.0.1", 0), Redirector)
+    for srv in (other, local):
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        monkeypatch.delenv("FUSION_OFFLINE", raising=False)
+        monkeypatch.setenv("FUSION_TARGET_API_KEY", "sk-must-not-travel")
+        client = OpenAICompatModelClient(f"http://127.0.0.1:{local.server_port}/v1", "m", timeout=10)
+        with pytest.raises(OpenAICompatUnavailable, match="redirect"):
+            await client.complete(_req())
+        assert seen_by_elsewhere == []
+    finally:
+        for srv in (other, local):
+            srv.shutdown()
