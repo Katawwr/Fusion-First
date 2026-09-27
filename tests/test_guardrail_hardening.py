@@ -76,3 +76,21 @@ def test_fold_and_normalized_views_helpers():
     assert "ignore" in fold("іgnоrе")  # confusables -> ascii
     views = normalized_views("secret AKIA IOSF ODNN 7EXAMPLE here")
     assert any("AKIAIOSFODNN7EXAMPLE" in v for v in views)  # de-spaced view present
+
+
+# CamelCase tool names put the service first (Gmail + Read + Email): the verb decides, not the prefix.
+# Found by the guard-on-real-transcripts measurement (GmailReadEmail was blocked as consequential).
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["GmailReadEmail", "GmailSearchEmails", "TwilioGetReceivedSmsMessages",
+                                  "VenmoListLinkedAccounts", "gmailReadEmail", "list_transfers", "get_weather"])
+def test_read_tools_are_not_treated_as_consequential(name):
+    g = Guardrail(GuardConfig(require_authorization=True))
+    assert not g.guard_tool_call(name, {}, user_request="summarize what came in today").blocked
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["GmailSendEmail", "BankManagerTransferFunds", "The23andMeShareData",
+                                  "SlackPostMessage", "wire_transfer", "send_email"])
+def test_consequential_tools_still_need_authorization_whatever_the_case(name):
+    g = Guardrail(GuardConfig(require_authorization=True))
+    assert g.guard_tool_call(name, {"to": "x"}, user_request="summarize what came in today").blocked

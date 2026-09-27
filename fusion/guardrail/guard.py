@@ -136,15 +136,29 @@ _READONLY_VERBS = frozenset(
 )
 
 
+# Words that name WHAT a tool touches rather than what it does (GmailReadEmail reads email).
+_NOUNISH = frozenset({"email", "sms", "sql", "order", "issue", "post", "write"})
+_WORD_SPLIT = re.compile(r"[_\-\s.]+|(?<=[a-z0-9])(?=[A-Z])")
+
+
 def _is_readonly(name: str) -> bool:
-    first = re.split(r"[_\-\s]", name.lower(), maxsplit=1)[0]
-    return first in _READONLY_VERBS
+    """Read-only when the tool's first verb is a read verb and no later word is a consequential verb.
+    Tool names put the service first in CamelCase (Gmail+Read+Email) or the verb first in snake_case
+    (list_transfers), so the name is split both ways; 'search_and_delete' is still consequential."""
+    words = [w.lower() for w in _WORD_SPLIT.split(name) if w]
+    for i, w in enumerate(words):
+        if w in _READONLY_VERBS:
+            later = words[i + 1:]
+            return not any(v in later for v in _CONSEQUENTIAL_VERBS if v not in _NOUNISH)
+        if w in _CONSEQUENTIAL_VERBS:
+            return False
+    return False
 
 
 def _looks_consequential(name: str) -> bool:
-    n = name.lower()
-    if _is_readonly(n):
+    if _is_readonly(name):  # the original name: lower-casing would erase the CamelCase word boundaries
         return False
+    n = name.lower()
     return any(v in n for v in _CONSEQUENTIAL_VERBS)
 
 
