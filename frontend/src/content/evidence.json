@@ -1001,6 +1001,104 @@
       }
     }
   ],
+  "fix_pooled": [
+    {
+      "baseline_rate": {
+        "high": 0.3784423497974078,
+        "k": 35,
+        "low": 0.2178156362103854,
+        "n": 120,
+        "point": 0.2916666666666667
+      },
+      "change": {
+        "high": 0.025000000000000022,
+        "low": -0.16666666666666666,
+        "point": -0.06666666666666668
+      },
+      "experiment": "gandalf",
+      "hardened_rate": {
+        "high": 0.3075689948464516,
+        "k": 27,
+        "low": 0.15949154668383533,
+        "n": 120,
+        "point": 0.225
+      },
+      "n_pairs": 120,
+      "verdict": "no clear change"
+    },
+    {
+      "baseline_rate": {
+        "high": 0.6990943553744422,
+        "k": 44,
+        "low": 0.4807583890640794,
+        "n": 74,
+        "point": 0.5945945945945946
+      },
+      "change": {
+        "high": 0.026666666666666727,
+        "low": -0.17142857142857143,
+        "point": -0.06756756756756765
+      },
+      "experiment": "ifeval",
+      "hardened_rate": {
+        "high": 0.6366129307915197,
+        "k": 39,
+        "low": 0.4147735676194863,
+        "n": 74,
+        "point": 0.527027027027027
+      },
+      "n_pairs": 74,
+      "verdict": "no clear change"
+    },
+    {
+      "baseline_rate": {
+        "high": 0.36970202453054035,
+        "k": 34,
+        "low": 0.21040628091756453,
+        "n": 120,
+        "point": 0.2833333333333333
+      },
+      "change": {
+        "high": 0.04999999999999999,
+        "low": -0.16666666666666666,
+        "point": -0.05833333333333332
+      },
+      "experiment": "injecagent",
+      "hardened_rate": {
+        "high": 0.3075689948464516,
+        "k": 27,
+        "low": 0.15949154668383533,
+        "n": 120,
+        "point": 0.225
+      },
+      "n_pairs": 120,
+      "verdict": "no clear change"
+    },
+    {
+      "baseline_rate": {
+        "high": 0.14662232164065653,
+        "k": 10,
+        "low": 0.04589365037492971,
+        "n": 120,
+        "point": 0.08333333333333333
+      },
+      "change": {
+        "high": 0.2,
+        "low": 0.06666666666666665,
+        "point": 0.13333333333333336
+      },
+      "experiment": "xstest",
+      "hardened_rate": {
+        "high": 0.29854362532908374,
+        "k": 26,
+        "low": 0.152367235641515,
+        "n": 120,
+        "point": 0.21666666666666667
+      },
+      "n_pairs": 120,
+      "verdict": "significantly worse with the fix"
+    }
+  ],
   "generated_from": "evals/ (non-demonstration evidence only)",
   "guard_heldout": [
     {
@@ -1133,5 +1231,71 @@
         "point": 0.8958333333333334
       }
     }
-  ]
+  ],
+  "rubric_vs_plain": {
+    "by_check": {
+      "direct_prompt_injection": {
+        "difference": {
+          "high": 0.0847457627118644,
+          "low": -0.0847457627118644,
+          "point": 0.0
+        },
+        "mcnemar_p": 1.0,
+        "n": 59,
+        "plain": {
+          "high": 0.879637275797828,
+          "low": 0.6773198772795009,
+          "point": 0.7966101694915254
+        },
+        "plain_unanswered": 1,
+        "rubric": {
+          "high": 0.879637275797828,
+          "low": 0.6773198772795009,
+          "point": 0.7966101694915254
+        }
+      },
+      "system_prompt_leakage": {
+        "difference": {
+          "high": 0.03333333333333334,
+          "low": -0.06666666666666668,
+          "point": -0.016666666666666663
+        },
+        "mcnemar_p": 1.0,
+        "n": 60,
+        "plain": {
+          "high": 0.9737713012754938,
+          "low": 0.8407464268680283,
+          "point": 0.9333333333333333
+        },
+        "plain_unanswered": 0,
+        "rubric": {
+          "high": 0.9638795433982692,
+          "low": 0.8193105798166558,
+          "point": 0.9166666666666666
+        }
+      }
+    },
+    "claim_allowed": false,
+    "evidence": "evals/validation/v1/b3_rubric_vs_plain_judge.json",
+    "pooled": {
+      "difference": {
+        "high": 0.042016806722689065,
+        "low": -0.058823529411764705,
+        "point": -0.008403361344537813
+      },
+      "mcnemar_p": 1.0,
+      "n": 119,
+      "plain": {
+        "high": 0.9155148537200674,
+        "low": 0.7927150943383466,
+        "point": 0.865546218487395
+      },
+      "plain_unanswered": 1,
+      "rubric": {
+        "high": 0.9088546016676395,
+        "low": 0.7830941981595465,
+        "point": 0.8571428571428571
+      }
+    }
+  }
 }

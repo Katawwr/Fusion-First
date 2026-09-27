@@ -29,6 +29,23 @@ describe("Trust page", () => {
     }
   });
 
+  it("says whether the rubric beats a plain judge, and shows the fix pooled over models", () => {
+    render(
+      <MemoryRouter>
+        <Trust />
+      </MemoryRouter>,
+    );
+    const rvp = evidence.rubric_vs_plain;
+    if (rvp) {
+      expect(screen.getByRole("heading", { name: /simply asking an AI/ })).toBeInTheDocument();
+      expect(screen.getAllByText(interval(rvp.pooled.plain)).length).toBeGreaterThan(0);
+      if (!rvp.claim_allowed) expect(screen.getByText(/not more accurate than asking/)).toBeInTheDocument();
+    }
+    for (const p of evidence.fix_pooled || []) {
+      expect(screen.getAllByText(new RegExp(`^${p.experiment} \\(all models\\)$`)).length).toBe(1);
+    }
+  });
+
   it("names a significant regression instead of calling it inconclusive", () => {
     const worse = { before_after: { absolute_reduction: { point: -0.23 }, mcnemar_p: 0.039, honesty: "INCONCLUSIVE" } };
     const noisy = { before_after: { absolute_reduction: { point: -0.17 }, mcnemar_p: 0.125, honesty: "INCONCLUSIVE" } };

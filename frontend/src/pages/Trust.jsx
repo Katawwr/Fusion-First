@@ -60,6 +60,16 @@ function NotYet({ what }) {
   );
 }
 
+// A signed difference in percentage points with its 95% range, e.g. "−1 pt (−6 to +4)".
+function signedPoints(d) {
+  if (!d) return "—";
+  const f = (x) => {
+    const v = Math.round(x * 100);
+    return v > 0 ? `+${v}` : `${v}`.replace("-", "−");
+  };
+  return `${f(d.point)} pts (${f(d.low)} to ${f(d.high)})`;
+}
+
 export default function Trust() {
   const judge = evidence.judge_accuracy || [];
   const guard = evidence.guard_heldout || [];
@@ -112,7 +122,59 @@ export default function Trust() {
         )}
       </Section>
 
+      {evidence.rubric_vs_plain && (
+        <Section title="Does the rubric beat simply asking an AI?">
+          <p className="mb-3 text-sm text-app-muted">
+            The same transcripts graded twice by the same Claude model: once with Fusion&apos;s rubric,
+            once asked one plain yes/no question. Registered before the plain answers were collected.
+          </p>
+          <Table
+            head={["Check", "n", "Fusion's rubric", "One plain question", "Difference (rubric minus plain)"]}
+            rows={[
+              ...Object.entries(evidence.rubric_vs_plain.by_check).map(([check, b]) => [
+                CHECK_NAMES[check] || check,
+                b.n,
+                interval(b.rubric),
+                interval(b.plain),
+                signedPoints(b.difference),
+              ]),
+              [
+                "Both checks",
+                evidence.rubric_vs_plain.pooled.n,
+                interval(evidence.rubric_vs_plain.pooled.rubric),
+                interval(evidence.rubric_vs_plain.pooled.plain),
+                signedPoints(evidence.rubric_vs_plain.pooled.difference),
+              ],
+            ]}
+          />
+          <p className="mt-3 text-xs text-app-subtle">
+            {evidence.rubric_vs_plain.claim_allowed
+              ? "The rubric judge is significantly more accurate than a plain question (the registered rule is met)."
+              : "Not shown: the rubric is not more accurate than asking the same model one plain question, so we don't claim it is. What it adds is a checkable grade: an answer per criterion, quoting the agent's own words, which lets a run reject grades that aren't grounded in the transcript."}
+          </p>
+        </Section>
+      )}
+
       <Section title="Does the fix work, and what does it cost?">
+        {evidence.fix_pooled && (
+          <div className="mb-4">
+            <Table
+              head={["Experiment", "Pairs", "As written", "With fix", "Change", "What it shows"]}
+              rows={evidence.fix_pooled.map((p) => [
+                `${p.experiment} (all models)`,
+                p.n_pairs,
+                interval(p.baseline_rate),
+                interval(p.hardened_rate),
+                signedPoints(p.change),
+                p.verdict,
+              ])}
+            />
+            <p className="mt-2 text-xs text-app-subtle">
+              Pooled over every model tested; the range resamples whole items, because the same item runs
+              on every model. Per-model results follow.
+            </p>
+          </div>
+        )}
         {evidence.fix_efficacy ? (
           <Table
             head={["Experiment", "Model", "Pairs", "As written", "With fix", "What it shows"]}

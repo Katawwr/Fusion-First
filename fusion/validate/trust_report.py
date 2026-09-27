@@ -350,7 +350,26 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
                       "recall_sensitivity": (d.get("sensitivity_test_tld_as_public") or {}).get("recall"),
                       "status": _guard_status(v, d, sets)})
     fix = _load(root, "evals/validation/v1/evidence_oracle.json")
+    fix_pooled = []
+    if fix and len(fix.get("models", {})) > 1:
+        for exp, p in (fix.get("pooled") or {}).items():
+            ci = _pooled_ci(p)  # reduction; the site shows the change in issue rate (fix minus as written)
+            fix_pooled.append({"experiment": exp, "n_pairs": p["n_pairs"], "baseline_rate": p["baseline_rate"],
+                               "hardened_rate": p["hardened_rate"],
+                               "change": {"point": -ci["point"], "low": -ci["high"], "high": -ci["low"]},
+                               "verdict": _pooled_verdict(ci).replace("*", "")})
+    b3 = _load(root, B3_EVIDENCE)
+    rubric_vs_plain = None
+    if b3:
+        def _pair(b: dict) -> dict:
+            return {"n": b["n"], "plain_unanswered": b["b3_unanswered"], "rubric": b["rubric"]["accuracy"],
+                    "plain": b["b3"]["accuracy"], "difference": b["accuracy_difference"], "mcnemar_p": b["mcnemar_p"]}
+
+        rubric_vs_plain = {"evidence": B3_EVIDENCE, "claim_allowed": b3["decision"]["claim_allowed"],
+                           "pooled": _pair(b3["pooled"]),
+                           "by_check": {c: _pair(b) for c, b in sorted(b3["by_check"].items())}}
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
+            "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
 
 

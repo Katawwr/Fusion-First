@@ -69,6 +69,11 @@ def test_fix_evidence_is_summarised_pooled_over_models(tmp_path):
     assert "no clear change" in rows["gandalf (pooled)"]
     assert "significantly better with the fix" in rows["injecagent (pooled)"]
     assert "xstest on m1" in out.split("## Q1")[0]  # the bottom line names the model, not just the test
+    from fusion.validate.trust_report import evidence_json
+
+    pooled = {p["experiment"]: p for p in evidence_json(tmp_path)["fix_pooled"]}
+    assert pooled["xstest"]["verdict"] == "significantly worse with the fix"
+    assert pooled["xstest"]["change"]["point"] == pytest.approx(8 / 60)  # issue-rate change, fix minus as written
 
 
 def _b3_block(n, rubric_acc, plain_acc, low, high, p, unanswered=0):
@@ -96,6 +101,11 @@ def test_rubric_vs_plain_judge_is_reported_with_its_preregistered_verdict(tmp_pa
         assert "significantly more accurate than a plain" in out
     else:
         assert "not significantly more accurate than asking the same model one plain question" in out
+    from fusion.validate.trust_report import evidence_json
+
+    site = evidence_json(tmp_path)["rubric_vs_plain"]
+    assert site["claim_allowed"] is claim and site["pooled"]["n"] == 119
+    assert site["pooled"]["rubric"]["point"] == pytest.approx(0.86 if not claim else 0.9)
 
 
 def _guard_set(prompted, n_benign, caught, n_attack):
