@@ -128,6 +128,9 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
                    + "Every report card therefore measures the fix on the user's own model instead of assuming it helps.")
     else:
         out.append("- **Fixing effectively?** Not yet measured.")
+    runtime = _load(root, GUARDRAIL_EVIDENCE)
+    if runtime:
+        out.append(_guardrail_sentence(runtime, fix))
     guard = _guard_headline(root)
     if guard:
         out.append(f"- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on "
@@ -368,12 +371,67 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
         rubric_vs_plain = {"evidence": B3_EVIDENCE, "claim_allowed": b3["decision"]["claim_allowed"],
                            "pooled": _pair(b3["pooled"]),
                            "by_check": {c: _pair(b) for c, b in sorted(b3["by_check"].items())}}
+    runtime = _load(root, GUARDRAIL_EVIDENCE)
+    runtime_guardrail = None
+    if runtime:
+        keep = ("attacks", "stopped", "recall", "clean", "over_blocked", "over_block")
+        runtime_guardrail = {
+            "evidence": GUARDRAIL_EVIDENCE, "models": runtime.get("models", []),
+            "all": {k: runtime["all"][k] for k in keep},
+            "by_attack_type": {g: {**{k: s[k] for k in keep}, "name": _ATTACK_TYPE_NAMES.get(g, g)}
+                               for g, s in sorted(runtime["by_attack_type"].items())},
+        }
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
+            "runtime_guardrail": runtime_guardrail,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
 
 
 B3_EVIDENCE = "evals/validation/v1/b3_rubric_vs_plain_judge.json"
+GUARDRAIL_EVIDENCE = "evals/validation/v1/guard_on_transcripts.json"
+_ATTACK_TYPE_NAMES = {"gandalf:leak": "password leaks (Gandalf)",
+                      "injecagent:ds": "tool hijack, data stealing (InjecAgent)",
+                      "injecagent:dh": "tool hijack, direct harm (InjecAgent)"}
+
+
+_ATTACK_TYPE_SHORT = {"gandalf:leak": "password leaks", "injecagent:ds": "data-stealing tool hijacks",
+                      "injecagent:dh": "direct-harm tool hijacks"}
+
+
+def _guardrail_sentence(d: dict, fix: dict | None) -> str:
+    a = d["all"]
+    ranked = sorted(d["by_attack_type"].items(), key=lambda kv: -kv[1]["recall"]["point"])
+    parts = [f"{_pct(s['recall']['point'])} of {_ATTACK_TYPE_SHORT.get(k, k)}" for k, s in ranked]
+    listed = ", ".join(parts[:-1]) + f" and {parts[-1]}" if len(parts) > 1 else "".join(parts)
+    sentence = (f"- **Runtime guardrail in your agent?** On real attacks that succeeded against "
+                f"{len(d.get('models', []))} small open-weight models it stopped {a['stopped']} of {a['attacks']}, "
+                f"{_iv(a['recall'])}: {listed}. It wrongly blocked {_iv(a['over_block'])} of clean transcripts.")
+    pooled = (fix or {}).get("pooled") or {}
+    same = [pooled[e] for e in ("injecagent", "gandalf") if e in pooled]
+    if same and all(_pooled_verdict(_pooled_ci(p)) == "no clear change" for p in same):
+        sentence += " On the same attacks the prompt fix gave no clear reduction."
+    return sentence
+
+
+def _guardrail(root: pathlib.Path) -> list[str]:
+    d = _load(root, GUARDRAIL_EVIDENCE)
+    if not d:
+        return []
+    out = ["## Runtime guardrail on real attacks (pre-registered)", "",
+           "The runtime guardrail (`fusion/guardrail`) applied to the attacks that really succeeded against "
+           "the small models in the Q3 run (prompt as written), re-scored by the same oracles. Registered in "
+           f"`evals/validation/v1/PREREG_guard_on_real_transcripts.md`; evidence: `{GUARDRAIL_EVIDENCE}`.", "",
+           "| Attack | Real attacks | Stopped | Clean transcripts | Wrongly blocked |", "|---|---|---|---|---|"]
+    for k, s in sorted(d["by_attack_type"].items()):
+        out.append(f"| {_ATTACK_TYPE_NAMES.get(k, k)} | {s['attacks']} | {_iv(s['recall'])} | {s['clean']} | "
+                   f"{_iv(s['over_block'])} |")
+    a = d["all"]
+    out.append(f"| all | {a['attacks']} | {_iv(a['recall'])} | {a['clean']} | {_iv(a['over_block'])} |")
+    out.append("")
+    out += [f"- {f}" for f in d.get("findings", [])]
+    if d.get("deviation_note"):
+        out.append(f"- Deviation, disclosed: {d['deviation_note']}")
+    return out + [""]
 COMPACT_EVIDENCE = "evals/validation/v1/compact_fix.json"
 
 
@@ -444,8 +502,8 @@ def _b3(root: pathlib.Path) -> list[str]:
 
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
-    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_compact(root), *_b3(root), *_guard(root),
-             *_limits()]
+    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_compact(root), *_b3(root),
+             *_guardrail(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 

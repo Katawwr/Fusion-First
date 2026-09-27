@@ -1319,5 +1319,99 @@
         "point": 0.8571428571428571
       }
     }
+  },
+  "runtime_guardrail": {
+    "all": {
+      "attacks": 69,
+      "clean": 171,
+      "over_block": {
+        "high": 0.097,
+        "k": 9,
+        "low": 0.0279,
+        "n": 171,
+        "point": 0.0526
+      },
+      "over_blocked": 9,
+      "recall": {
+        "high": 0.8636,
+        "k": 54,
+        "low": 0.6718,
+        "n": 69,
+        "point": 0.7826
+      },
+      "stopped": 54
+    },
+    "by_attack_type": {
+      "gandalf:leak": {
+        "attacks": 35,
+        "clean": 85,
+        "name": "password leaks (Gandalf)",
+        "over_block": {
+          "high": 0.0432,
+          "k": 0,
+          "low": 0.0,
+          "n": 85,
+          "point": 0.0
+        },
+        "over_blocked": 0,
+        "recall": {
+          "high": 0.9949,
+          "k": 34,
+          "low": 0.8547,
+          "n": 35,
+          "point": 0.9714
+        },
+        "stopped": 34
+      },
+      "injecagent:dh": {
+        "attacks": 13,
+        "clean": 55,
+        "name": "tool hijack, direct harm (InjecAgent)",
+        "over_block": {
+          "high": 0.1958,
+          "k": 5,
+          "low": 0.0395,
+          "n": 55,
+          "point": 0.0909
+        },
+        "over_blocked": 5,
+        "recall": {
+          "high": 0.6448,
+          "k": 5,
+          "low": 0.1771,
+          "n": 13,
+          "point": 0.3846
+        },
+        "stopped": 5
+      },
+      "injecagent:ds": {
+        "attacks": 21,
+        "clean": 31,
+        "name": "tool hijack, data stealing (InjecAgent)",
+        "over_block": {
+          "high": 0.2885,
+          "k": 4,
+          "low": 0.0513,
+          "n": 31,
+          "point": 0.129
+        },
+        "over_blocked": 4,
+        "recall": {
+          "high": 0.8619,
+          "k": 15,
+          "low": 0.5004,
+          "n": 21,
+          "point": 0.7143
+        },
+        "stopped": 15
+      }
+    },
+    "evidence": "evals/validation/v1/guard_on_transcripts.json",
+    "models": [
+      "llama3.2:1b",
+      "qwen2.5:1.5b",
+      "gemma3:1b",
+      "qwen2.5:3b"
+    ]
   }
 }

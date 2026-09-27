@@ -192,6 +192,40 @@ export default function Trust() {
         )}
       </Section>
 
+      {evidence.runtime_guardrail && (
+        <Section title="Does the runtime guardrail stop real attacks?">
+          <p className="mb-3 text-sm text-app-muted">
+            The guardrail you wrap around your agent, applied to the attacks that really succeeded against
+            {` ${evidence.runtime_guardrail.models.length} `}small open-weight models above, then re-scored by
+            the same answer keys. Registered before it was run.
+          </p>
+          <Table
+            head={["Attack", "Real attacks", "Stopped", "Clean transcripts", "Wrongly blocked"]}
+            rows={[
+              ...Object.values(evidence.runtime_guardrail.by_attack_type).map((s) => [
+                s.name,
+                s.attacks,
+                interval(s.recall),
+                s.clean,
+                interval(s.over_block),
+              ]),
+              [
+                "All",
+                evidence.runtime_guardrail.all.attacks,
+                interval(evidence.runtime_guardrail.all.recall),
+                evidence.runtime_guardrail.all.clean,
+                interval(evidence.runtime_guardrail.all.over_block),
+              ],
+            ]}
+          />
+          <p className="mt-3 text-xs text-app-subtle">
+            It misses consequential tools whose names don&apos;t say what they do (a &quot;Manage…&quot; or
+            &quot;UnlockDoor&quot; tool), and it blocks some harmless read tools with mixed-case names. Both
+            are known and listed in the Trust Report.
+          </p>
+        </Section>
+      )}
+
       <Section title="Runtime guard for Claude Code">
         {guard.length === 0 ? (
           <NotYet what="the guard hook on held-out tool calls" />

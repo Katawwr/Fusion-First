@@ -41,6 +41,10 @@ describe("Trust page", () => {
       expect(screen.getAllByText(interval(rvp.pooled.plain)).length).toBeGreaterThan(0);
       if (!rvp.claim_allowed) expect(screen.getByText(/not more accurate than asking/)).toBeInTheDocument();
     }
+    if (evidence.runtime_guardrail) {
+      expect(screen.getByRole("heading", { name: /runtime guardrail stop real attacks/i })).toBeInTheDocument();
+      expect(screen.getAllByText(interval(evidence.runtime_guardrail.all.recall)).length).toBeGreaterThan(0);
+    }
     for (const p of evidence.fix_pooled || []) {
       expect(screen.getAllByText(new RegExp(`^${p.experiment} \\(all models\\)$`)).length).toBe(1);
     }

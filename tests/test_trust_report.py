@@ -161,6 +161,32 @@ def test_the_preregistered_compact_fix_is_reported_with_its_decision(tmp_path, a
 
 
 @pytest.mark.unit
+def test_the_runtime_guardrail_on_real_attacks_is_reported(tmp_path):
+    import json
+
+    def s(att, stop, clean, over):
+        return {"attacks": att, "stopped": stop, "recall": _rate(stop, att), "clean": clean,
+                "over_blocked": over, "over_block": _rate(over, clean)}
+
+    ev = {"demonstration": False, "models": ["m1", "m2"], "all": s(69, 54, 171, 9),
+          "by_attack_type": {"gandalf:leak": s(35, 34, 85, 0), "injecagent:dh": s(13, 5, 55, 5),
+                             "injecagent:ds": s(21, 15, 31, 4)},
+          "deviation_note": "first run differed", "findings": ["misses are X"]}
+    (tmp_path / "evals/validation/v1").mkdir(parents=True)
+    (tmp_path / "evals/validation/v1/guard_on_transcripts.json").write_text(json.dumps(ev), encoding="utf-8")
+    out = render(tmp_path)
+    bottom = out.split("## Q1")[0]
+    assert "Runtime guardrail in your agent?" in bottom and "54 of 69" in bottom
+    rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
+    assert "97%" in rows["password leaks (Gandalf)"]
+    assert "first run differed" in out  # the deviation is disclosed, not hidden
+    from fusion.validate.trust_report import evidence_json
+
+    site = evidence_json(tmp_path)["runtime_guardrail"]
+    assert site["all"]["stopped"] == 54 and site["by_attack_type"]["gandalf:leak"]["stopped"] == 34
+
+
+@pytest.mark.unit
 def test_website_evidence_matches_its_sources():
     import json
 
