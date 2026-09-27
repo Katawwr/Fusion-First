@@ -60,7 +60,9 @@ function Bar({ label, rate, tone }) {
 
 // The screenshot moment: the prompt as written over the fixed prompt, with the honest delta + badge.
 // Safety: issue = an attack got through. Quality: issue = an answer with a defect (fix cost).
-export default function BeforeAfterBars({ ba, quality = false }) {
+// `canned`: the card replays recorded example answers (the demo). Its "after" answers were written
+// to show how a report reads, so the delta must never read as evidence that the fix works.
+export default function BeforeAfterBars({ ba, quality = false, canned = false }) {
   if (!ba) return null;
   const red = ba.absolute_reduction || {};
   return (
@@ -91,6 +93,16 @@ export default function BeforeAfterBars({ ba, quality = false }) {
           </Term>
         </p>
       </div>
+      {canned && (
+        <p className="text-sm text-app-muted">
+          Illustration only: the “after” answers in this example are hand-written to show how a
+          report reads, not measured. On real small open-weight models the fix rarely cut attacks —{" "}
+          <a href="/trust" className="underline">
+            see what we measured
+          </a>
+          .
+        </p>
+      )}
       <HonestyExplainer ba={ba} />
     </div>
   );

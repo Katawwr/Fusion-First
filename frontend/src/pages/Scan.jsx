@@ -882,7 +882,10 @@ function ProveStep({ result, scanId, systemPrompt, onRestart }) {
                     {checkMeta(check).label}
                   </span>
                 </div>
-                <BeforeAfterBars ba={card.before_after} />
+                <BeforeAfterBars
+                  ba={card.before_after}
+                  canned={card.trust?.execution === "canned"}
+                />
               </Card>
             );
           })}

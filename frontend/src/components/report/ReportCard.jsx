@@ -77,7 +77,11 @@ export default function ReportCard({ card, outcomes = [] }) {
       </div>
 
       <AttackList outcomes={outcomes} quality={quality} />
-      <BeforeAfterBars ba={card.before_after} quality={quality} />
+      <BeforeAfterBars
+        ba={card.before_after}
+        quality={quality}
+        canned={card.trust?.execution === "canned"}
+      />
       <TrustStrip card={card} />
       <JudgeAccuracyBlock
         acc={card.judge_accuracy}
