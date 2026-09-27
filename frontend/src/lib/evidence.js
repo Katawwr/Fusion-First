@@ -24,3 +24,16 @@ export function fixVerdict(cell) {
   if (point > 0) return { text: `Better with the fix, not proven (${ba.honesty || "—"})`, tone: "muted" };
   return { text: "No change", tone: "muted" };
 }
+
+// The landing page's guardrail sentence. Its numbers come from the generated evidence (the
+// pre-registered measurement on real attacks), never from the page source; unmeasured, it claims none.
+export function guardrailDescription(runtime) {
+  const base =
+    "A hardened system prompt, re-tested on your model so you can see whether it actually helps (on the small open-weight models we measured, it rarely cut attacks and made them refuse more safe requests), plus a runtime guardrail that blocks leaked secrets and unauthorized actions even when the model slips.";
+  if (!runtime?.all) return base;
+  return (
+    `${base} On the attacks that really got through those models, the guardrail stopped ` +
+    `${pct(runtime.all.recall.point)} of the real attacks, wrongly blocking ` +
+    `${pct(runtime.all.over_block.point)} of clean conversations.`
+  );
+}
