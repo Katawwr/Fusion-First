@@ -7,6 +7,7 @@ import CheckIcon from "../components/ui/CheckIcon";
 import DemoBanner from "../components/ui/DemoBanner";
 import CheckToggleCard from "../components/scan/CheckToggleCard";
 import TargetPicker from "../components/scan/TargetPicker";
+import { targetOptions } from "../lib/targets";
 import RunProgress from "../components/scan/RunProgress";
 import CheckLane from "../components/scan/CheckLane";
 import AttackFeedRow from "../components/scan/AttackFeedRow";
@@ -236,15 +237,23 @@ function QuietButton({ onClick, children, icon: Icon, iconRight = false }) {
 
 export default function Scan({ scanState, setScanState }) {
   const scan = useScanStream();
-  const { liveAvailable } = useScanQuota();
+  const { backends } = useScanQuota();
   const [step, setStep] = useState("setup");
   const [systemPrompt, setSystemPrompt] = useState(
     scanState?.systemPrompt || "",
   );
   const [enabled, setEnabled] = useState(() => new Set([...ALL_CHECKS, ...QUALITY]));
   // One choice drives the run: demo | ollama | cli | hosted.
-  const [target, setTarget] = useState("demo");
-  const [targetModel, setTargetModel] = useState("llama3.2:1b");
+  const [chosenTarget, setTarget] = useState("demo");
+  const [chosenModel, setTargetModel] = useState("llama3.2:1b");
+  // What this server can actually run decides what stays selected: a backend it can't run falls
+  // back to the demo, and the open-weight model is one that is installed.
+  const target = targetOptions(backends).some((o) => o.id === chosenTarget && !o.disabled)
+    ? chosenTarget
+    : "demo";
+  const installed = backends?.ollama_models || [];
+  const targetModel =
+    installed.length && !installed.includes(chosenModel) ? installed[0] : chosenModel;
   const [hardened, setHardened] = useState(null);
   const [snippet, setSnippet] = useState("");
   const [fixError, setFixError] = useState(null);
@@ -348,7 +357,7 @@ export default function Scan({ scanState, setScanState }) {
           setSystemPrompt={setSystemPrompt}
           enabled={enabled}
           toggle={toggle}
-          liveAvailable={liveAvailable}
+          capabilities={backends}
           target={target}
           setTarget={setTarget}
           targetModel={targetModel}
@@ -457,7 +466,7 @@ function SetupStep({
   setSystemPrompt,
   enabled,
   toggle,
-  liveAvailable,
+  capabilities,
   target,
   setTarget,
   targetModel,
@@ -594,7 +603,7 @@ function SetupStep({
           <TargetPicker
             target={target}
             onChange={setTarget}
-            liveAvailable={liveAvailable}
+            capabilities={capabilities}
             targetModel={targetModel}
             setTargetModel={setTargetModel}
           />

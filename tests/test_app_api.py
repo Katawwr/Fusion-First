@@ -206,3 +206,16 @@ def test_create_app_builds_with_no_keys_in_settings():
     # The offline guarantee: the factory constructs without any provider key present.
     app = create_app(settings=Settings(anthropic_api_key=None, openai_api_key=None))
     assert app.title == "Fusion First API"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("ready", [(False, "the `claude` CLI is not logged in"), (True, "ok")])
+def test_version_reports_whether_the_cli_can_actually_run(monkeypatch, ready):
+    """A logged-out CLI must not be offered as a live backend (it would only fail at scan time)."""
+    from fusion.model.providers import claude_cli
+
+    monkeypatch.setattr(claude_cli, "claude_cli_ready", lambda *a, **k: ready)
+    app = create_app(settings=Settings(version="test", allow_local_backends=True))
+    b = TestClient(app).get("/api/version").json()["backends"]
+    assert b["cli"] is ready[0]
+    assert b["cli_reason"] == ready[1]

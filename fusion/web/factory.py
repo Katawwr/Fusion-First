@@ -36,6 +36,7 @@ from fusion.web.snippet import guardrail_snippet
 from fusion.web.sse import sse_error, sse_frame, stream_with_heartbeat
 
 _FENCE_TOKENS = ("<untrusted>", "</untrusted>")
+CLI_STATUS_TTL_S = 30.0  # how long a `claude auth status` answer is reused by /api/version
 
 
 log = logging.getLogger(__name__)
@@ -99,19 +100,37 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
 
     # ----------------------------------------------------------------- meta
 
+    cli_cache: dict = {}  # `claude auth status` spawns a process; the answer is reused briefly
+
+    async def _cli_ready() -> tuple[bool, str]:
+        import asyncio
+        import time
+
+        from fusion.model.providers import claude_cli
+
+        if not settings.allow_local_backends:
+            return False, "local backends are off on this server"
+        now = time.monotonic()
+        if cli_cache and now - cli_cache["at"] < CLI_STATUS_TTL_S:
+            return cli_cache["value"]
+        value = await asyncio.to_thread(claude_cli.claude_cli_ready)
+        cli_cache.update(at=now, value=value)
+        return value
+
     async def _backends() -> dict:
         """Which live backends THIS server can actually run (not merely whether a key exists)."""
         import asyncio
 
         from fusion.integrations.live import METERED_OPT_IN_ENV
-        from fusion.model.providers.claude_cli import claude_cli_available
         from fusion.model.providers.ollama import ollama_available, ollama_models
 
         local = settings.allow_local_backends
         ollama_ok = local and await asyncio.to_thread(ollama_available)
+        cli_ok, cli_reason = await _cli_ready()
         return {
             "demo": True,
-            "cli": bool(local and claude_cli_available()),
+            "cli": bool(cli_ok),
+            "cli_reason": cli_reason,
             "ollama": bool(ollama_ok),
             "api": bool(os.environ.get(METERED_OPT_IN_ENV) == "1" and settings.anthropic_api_key),
             "ollama_models": (

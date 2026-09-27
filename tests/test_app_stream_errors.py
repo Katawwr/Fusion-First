@@ -107,7 +107,8 @@ async def test_heartbeat_relay_cancels_the_producer_when_the_client_leaves():
 
 @pytest.mark.integration
 def test_version_reports_real_backends(monkeypatch):
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_available", lambda binary=None: True)
+    # "cli" means the CLI can actually run here (found AND on subscription auth), not just installed.
+    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
     monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: False)
     off = TestClient(create_app(settings=Settings(version="t"))).get("/api/version").json()
     assert off["backends"]["cli"] is False and off["live_available"] is False

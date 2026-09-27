@@ -165,3 +165,30 @@ async def test_complete_refuses_before_spawning_when_auth_is_paid(monkeypatch):
     with pytest.raises(PaidAuthRefused):
         await client.complete(req)
     assert spawned == []
+
+
+@pytest.mark.unit
+def test_cli_ready_reports_a_logged_out_cli_as_not_ready(monkeypatch):
+    from fusion.model.providers.claude_cli import claude_cli_ready
+
+    monkeypatch.delenv("FUSION_OFFLINE", raising=False)
+    ready, reason = claude_cli_ready("claude", runner=_runner({"loggedIn": False, "authMethod": "none"}, returncode=1))
+    assert ready is False and "not logged in" in reason
+
+
+@pytest.mark.unit
+def test_cli_ready_on_subscription_auth(monkeypatch):
+    from fusion.model.providers.claude_cli import claude_cli_ready
+
+    monkeypatch.delenv("FUSION_OFFLINE", raising=False)
+    assert claude_cli_ready("claude", runner=_runner(_SUB)) == (True, "ok")
+
+
+@pytest.mark.unit
+def test_cli_ready_is_false_offline_without_running_anything(monkeypatch):
+    from fusion.model.providers.claude_cli import claude_cli_ready
+
+    monkeypatch.setenv("FUSION_OFFLINE", "1")
+    calls = []
+    ready, _ = claude_cli_ready("claude", runner=_runner(_SUB, calls=calls))
+    assert ready is False and calls == []

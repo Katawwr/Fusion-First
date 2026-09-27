@@ -1,4 +1,18 @@
 import React from "react";
+import { targetOptions } from "../../lib/targets";
+
+const MODEL_FIELD = {
+  width: "100%",
+  maxWidth: "20rem",
+  borderRadius: "0.65rem",
+  border: "1px solid var(--border)",
+  background: "var(--surface-2)",
+  padding: "0.55rem 0.8rem",
+  fontFamily: "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
+  fontSize: "0.8125rem",
+  color: "var(--text)",
+  outline: "none",
+};
 
 /**
  * One question, one answer: which model do we run the attacks against?
@@ -10,33 +24,12 @@ import React from "react";
 export default function TargetPicker({
   target,
   onChange,
-  liveAvailable,
+  capabilities = null,
   targetModel,
   setTargetModel,
 }) {
-  const OPTIONS = [
-    {
-      id: "demo",
-      title: "Demo scan",
-      note: "Instant, no signup. Recorded runs that show the full flow.",
-    },
-    {
-      id: "ollama",
-      title: "Open-weight model",
-      note: "Runs locally through Ollama. Free, and where attacks actually land.",
-    },
-    {
-      id: "cli",
-      title: "Claude",
-      note: "Uses the server's Claude CLI subscription. No API key needed.",
-    },
-    {
-      id: "hosted",
-      title: "Hosted real scan",
-      note: liveAvailable ? "Your prompt, our keys." : "Coming soon.",
-      disabled: !liveAvailable,
-    },
-  ];
+  const OPTIONS = targetOptions(capabilities);
+  const models = (capabilities && capabilities.ollama_models) || [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -117,25 +110,28 @@ export default function TargetPicker({
 
             {opt.id === "ollama" && on && (
               <div style={{ padding: "0.75rem 0 0.25rem 2.6rem" }}>
-                <input
-                  value={targetModel}
-                  onChange={(e) => setTargetModel(e.target.value)}
-                  placeholder="llama3.2:1b"
-                  aria-label="Ollama model name"
-                  style={{
-                    width: "100%",
-                    maxWidth: "20rem",
-                    borderRadius: "0.65rem",
-                    border: "1px solid var(--border)",
-                    background: "var(--surface-2)",
-                    padding: "0.55rem 0.8rem",
-                    fontFamily:
-                      "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
-                    fontSize: "0.8125rem",
-                    color: "var(--text)",
-                    outline: "none",
-                  }}
-                />
+                {models.length > 0 ? (
+                  <select
+                    value={models.includes(targetModel) ? targetModel : models[0]}
+                    onChange={(e) => setTargetModel(e.target.value)}
+                    aria-label="Ollama model"
+                    style={MODEL_FIELD}
+                  >
+                    {models.map((m) => (
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={targetModel}
+                    onChange={(e) => setTargetModel(e.target.value)}
+                    placeholder="llama3.2:1b"
+                    aria-label="Ollama model name"
+                    style={MODEL_FIELD}
+                  />
+                )}
                 <p
                   style={{
                     marginTop: "0.5rem",
@@ -144,8 +140,14 @@ export default function TargetPicker({
                     lineHeight: 1.55,
                   }}
                 >
-                  Run <code>ollama serve</code> and{" "}
-                  <code>ollama pull {targetModel || "llama3.2:1b"}</code> first.
+                  {models.length > 0 ? (
+                    <>The models installed in your Ollama. </>
+                  ) : (
+                    <>
+                      Run <code>ollama serve</code> and{" "}
+                      <code>ollama pull {targetModel || "llama3.2:1b"}</code> first.{" "}
+                    </>
+                  )}
                   Graded by Claude, a different model family entirely.
                 </p>
               </div>

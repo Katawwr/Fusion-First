@@ -197,6 +197,20 @@ def claude_cli_available(binary: str | None = None) -> bool:
     return bool(binary or os.environ.get("FUSION_CLAUDE_BIN") or shutil.which("claude"))
 
 
+def claude_cli_ready(binary: str | None = None, runner: Callable[..., object] | None = None) -> tuple[bool, str]:
+    """(ready, reason): the CLI can make real calls here — it is found, calls are permitted AND
+    `claude auth status` reports subscription auth. Merely finding the binary is not enough: a
+    logged-out CLI offered as a backend would only fail at scan time."""
+    if not claude_cli_available(binary):
+        return False, "the `claude` CLI isn't installed here (or FUSION_OFFLINE=1 is set)"
+    b = binary or os.environ.get("FUSION_CLAUDE_BIN") or shutil.which("claude") or "claude"
+    try:
+        assert_subscription_auth(b, runner=runner)
+    except ClaudeCliUnavailable as e:
+        return False, str(e)
+    return True, "ok"
+
+
 # Error-text markers. Quota is checked FIRST: a usage-limit reply must stop the run (never retried,
 # so it can't roll into metered overage); only transient throttling gets backoff.
 _QUOTA_MARKERS = ("usage limit", "limit reached", "limit will reset", "resets at", "out of extra usage", "quota")

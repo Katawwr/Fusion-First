@@ -6,6 +6,7 @@ import { API_URL } from "../lib/scanApi";
 export function useScanQuota() {
   const [quota, setQuota] = useState({
     liveAvailable: false,
+    backends: null, // what this server can actually run (/api/version → backends); null = unknown
     freePerDay: 3,
     loading: true,
   });
@@ -18,6 +19,7 @@ export function useScanQuota() {
         if (alive && d) {
           setQuota({
             liveAvailable: !!d.live_available,
+            backends: d.backends || null,
             freePerDay: 3,
             loading: false,
           });
