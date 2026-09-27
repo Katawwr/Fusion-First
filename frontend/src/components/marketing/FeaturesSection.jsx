@@ -44,7 +44,7 @@ const features = [
     icon: RefreshCw,
     title: "A fix, measured, plus a guardrail",
     description:
-      "A hardened system prompt, re-tested on your model so you can see whether it actually helps (on small models it may not), plus a runtime guardrail that blocks leaked secrets and unauthorized actions even when the model slips.",
+      "A hardened system prompt, re-tested on your model so you can see whether it actually helps (on the small open-weight models we measured, it rarely cut attacks and made them refuse more safe requests), plus a runtime guardrail that blocks leaked secrets and unauthorized actions even when the model slips.",
   },
 ];
 

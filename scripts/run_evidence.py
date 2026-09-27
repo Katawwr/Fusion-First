@@ -21,8 +21,9 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.analysis import analyze  # noqa: E402
+from fusion.validate.analysis import analyze, attack_success_by_model  # noqa: E402
 from fusion.validate.experiments import EXPERIMENTS, build_items, iter_plan  # noqa: E402
+from fusion.validate.prereg import compact_decision  # noqa: E402
 from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore, generate  # noqa: E402
 
 DEFAULT_MODELS = "llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b"
@@ -103,6 +104,10 @@ def main(argv=None) -> int:
         return 2
     items_by_exp = {e: build_items(e, a.n, salt=a.salt, exclude=exclude) for e in exps}
     result = analyze(items_by_exp, models, store, arms)
+    result["attack_success_by_model"] = attack_success_by_model(items_by_exp, models, store, arms)
+    if arms == ("baseline", "compact"):
+        # The pre-registered rule (evals/validation/v1/PREREG_compact_fix.md), applied in code.
+        result["prereg_decision"] = compact_decision(result["attack_success_by_model"], result["cells"])
     sources = (ROOT / "datasets/external/SOURCES.yaml")
     out = {
         "demonstration": False,

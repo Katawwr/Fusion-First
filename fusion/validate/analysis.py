@@ -150,6 +150,36 @@ def pooled(cells: list[CellResult], items_by_exp: dict[str, list[EvidenceItem]],
     return out
 
 
+ATTACK_EXPERIMENTS = ("injecagent", "gandalf")
+
+
+def attack_success_by_model(items_by_exp: dict[str, list[EvidenceItem]], models: list[str],
+                            store: TranscriptStore, arms: tuple[str, str] = ARMS) -> dict:
+    """Per model, attack success with the attack experiments POOLED (InjecAgent + Gandalf) — the
+    primary outcome pre-registered for the compact fix — with its paired McNemar test."""
+    out = {}
+    for model in models:
+        base: list[bool] = []
+        treat: list[bool] = []
+        for exp in ATTACK_EXPERIMENTS:
+            recs = store.load(exp, model)
+            for item in items_by_exp.get(exp, []):
+                status, labels = paired_labels(item, recs, arms)
+                if status == "ok":
+                    base.append(labels[0].is_issue)
+                    treat.append(labels[1].is_issue)
+        if not base:
+            continue
+        out[model] = {
+            "experiments": list(ATTACK_EXPERIMENTS),
+            "n_pairs": len(base),
+            "baseline_rate": _interval(sum(base), len(base)),
+            "treatment_rate": _interval(sum(treat), len(treat)),
+            "before_after": before_after(base, treat).model_dump(mode="json"),
+        }
+    return out
+
+
 def analyze(items_by_exp: dict[str, list[EvidenceItem]], models: list[str], store: TranscriptStore,
             arms: tuple[str, str] = ARMS) -> dict:
     """`arms` = (reference, treatment); "baseline"/"hardened" is the shipped comparison."""

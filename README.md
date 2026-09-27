@@ -3,8 +3,10 @@
 **An offline test-and-prove engine for agentic AI safety.** Connect an agent (or paste a system
 prompt); Fusion builds an OWASP-mapped attack suite, runs **baseline vs hardened**, and returns a
 **Safety Report Card** where every number carries a confidence interval or an honesty badge — then
-re-tests a suggested fix on your own model (so you see whether it helps; on small models it may
-not) and gives you a runtime guardrail that holds even when the model slips.
+re-tests a suggested fix on your own model (so you see whether it helps: on the small open-weight
+models we measured it rarely cut attacks and made them refuse more safe requests — see the
+[Trust Report](TRUST_REPORT.md)) and gives you a runtime guardrail that holds even when the model
+slips.
 
 Covers the OWASP LLM Top 10 (2025) + Agentic AI (2026) risks:
 `direct_prompt_injection` (LLM01), `excessive_agency` (LLM06), `data_exfiltration` (LLM02),

@@ -45,6 +45,44 @@ def _iv(d: dict | None) -> str:
     return f"{_pct(point)} ({_pct(lo)}–{_pct(hi)})"
 
 
+PLAIN_EXPERIMENT = {
+    "injecagent": "tool hijacking (InjecAgent)",
+    "gandalf": "password leaks (Gandalf)",
+    "xstest": "refusing safe requests (XSTest)",
+    "ifeval": "missed instructions (IFEval)",
+}
+
+
+def _pooled_ci(p: dict) -> dict:
+    """The REDUCTION (as written minus with fix), resampling whole items across models."""
+    return p.get("reduction_cluster_ci") or p["before_after"]["absolute_reduction"]
+
+
+def _pooled_verdict(ci: dict) -> str:
+    if ci["low"] > 0:
+        return "significantly better with the fix"
+    if ci["high"] < 0:
+        return "**significantly worse with the fix**"
+    return "no clear change"
+
+
+def _pp(x: float) -> str:
+    return f"{x * 100:+.0f} pts"
+
+
+def _pooled_sentence(fix: dict) -> str:
+    pooled = fix.get("pooled") or {}
+    if len(fix.get("models", {})) < 2 or not pooled:
+        return ""
+    groups: dict[str, list[str]] = {}
+    for exp, p in pooled.items():
+        groups.setdefault(_pooled_verdict(_pooled_ci(p)).replace("*", ""), []).append(
+            PLAIN_EXPERIMENT.get(exp, exp))
+    parts = [f"{verdict.replace(' with the fix', '')} for {', '.join(names)}"
+             for verdict, names in sorted(groups.items())]
+    return f"Pooled over the {len(fix['models'])} models: " + "; ".join(parts) + ". "
+
+
 def _bottom_line(root: pathlib.Path) -> list[str]:
     """Four plain answers, each derived by rule from the evidence (never typed by hand)."""
     out = ["## Bottom line", ""]
@@ -72,11 +110,13 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         proven = [c for c in cells if c["before_after"].get("honesty") == "PROVEN"
                   and c["before_after"]["absolute_reduction"]["point"] > 0]
         models = ", ".join(sorted(fix.get("models", {})))
+        named = lambda cs: ", ".join(f"{c['experiment']} on {c['model']}" for c in cs)  # noqa: E731
         out.append(f"- **Fixing effectively?** On {models}: "
-                   + (f"{len(proven)} proven improvement(s)" if proven else "no proven improvement from the prompt fix")
-                   + (f"; {len(worse)} significant regression(s) ("
-                      + ", ".join(f"{c['experiment']}" for c in worse) + ")" if worse else "")
-                   + ". Every report card therefore measures the fix on the user's own model instead of assuming it helps.")
+                   + (f"{len(proven)} proven improvement(s) ({named(proven)})" if proven
+                      else "no proven improvement from the prompt fix")
+                   + (f"; {len(worse)} significant regression(s) ({named(worse)})" if worse else "")
+                   + ". " + _pooled_sentence(fix)
+                   + "Every report card therefore measures the fix on the user's own model instead of assuming it helps.")
     else:
         out.append("- **Fixing effectively?** Not yet measured.")
     guard = _load(root, "evals/guard_bench/claude_code_heldout_v2.json") or _load(
@@ -167,8 +207,20 @@ def _q3(root: pathlib.Path) -> list[str]:
             f"({models}), over held-out items from external benchmarks. Issue = oracle-confirmed attack "
             "success (InjecAgent: the attacker's tool was called; Gandalf: the planted password leaked) or "
             "an oracle-confirmed cost (XSTest: a SAFE request refused; IFEval: an instruction not followed). "
-            "Lower is better in every row. Evidence: `evals/validation/v1/evidence_oracle.json`.",
-            "", "| Experiment | Model | Pairs | As written | With fix | Paired test | What it shows |",
+            "Lower is better in every row. Evidence: `evals/validation/v1/evidence_oracle.json`.", ""]
+    pooled = d.get("pooled") or {}
+    if len(d.get("models", {})) > 1 and pooled:
+        out += ["**Pooled over all models.** The interval resamples whole items, because the same item "
+                "runs on every model, so pooled pairs are not independent.", "",
+                "| Experiment | Pairs | As written | With fix | Change in issue rate (95% CI) | What it shows |",
+                "|---|---|---|---|---|---|"]
+        for exp, p in pooled.items():
+            ci = _pooled_ci(p)
+            out.append(f"| {exp} (pooled) | {p['n_pairs']} | {_iv(p['baseline_rate'])} | "
+                       f"{_iv(p['hardened_rate'])} | {_pp(-ci['point'])} ({-ci['high'] * 100:+.0f} to "
+                       f"{-ci['low'] * 100:+.0f}) | {_pooled_verdict(ci)} |")
+        out += ["", "**Per model:**", ""]
+    out += ["| Experiment | Model | Pairs | As written | With fix | Paired test | What it shows |",
             "|---|---|---|---|---|---|---|"]
     regressions, wins = [], []
     for c in d.get("cells", []):
