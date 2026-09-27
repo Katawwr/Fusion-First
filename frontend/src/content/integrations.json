@@ -35,6 +35,11 @@
           "code": "fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b\nfusion run finalize --min-grade B"
         },
         {
+          "label": "Or test your own model server (vLLM, LM Studio, llama.cpp)",
+          "lang": "bash",
+          "code": "fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader ollama-prob:qwen2.5:7b"
+        },
+        {
           "label": "Apply the tested fix",
           "lang": "bash",
           "code": "fusion harden --prompt agent.txt --write"

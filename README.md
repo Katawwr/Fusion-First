@@ -47,6 +47,7 @@ claude plugin marketplace add /path/to/fusion && claude plugin install fusion@fu
 fusion doctor                                                    # what can run here, keyless
 fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
 fusion run start --prompt agent.txt --target ollama:llama3.2:1b  # grader=host: stops for grading
+fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader ollama-prob:qwen2.5:7b  # your own vLLM / LM Studio / llama.cpp server
 fusion run tasks > tasks.json;  fusion run submit --file answers.json
 fusion run finalize --min-grade B                               # exit 1 below the bar
 fusion run verify                                               # re-derive offline; exit 1 on drift

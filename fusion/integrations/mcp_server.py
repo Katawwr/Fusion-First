@@ -65,7 +65,9 @@ def build_server(runs: RunTools | None = None):
     async def start_run(system_prompt: str, target: str, grader: str = "host", checks: list[str] | None = None,
                         tier: str = "quick", workspace: str | None = None, allow_self_grading: bool = False) -> dict:
         """Start a keyless evaluation of an agent's system prompt. target: 'ollama:<model>' (local,
-        free, e.g. ollama:llama3.2:1b) or 'claude-cli:<model>' (your Claude subscription). grader:
+        free, e.g. ollama:llama3.2:1b), 'claude-cli:<model>' (your Claude subscription), or
+        'openai-compat:<url>#<model>' (your own model server, e.g. vLLM or LM Studio; a public endpoint
+        needs FUSION_ALLOW_API_SPEND=1). grader:
         'host' (you grade via get_grading_tasks/submit_grades), 'claude-cli', or
         'ollama-prob:<model>'. checks: safety check names, 'all' (default: all safety), 'quality',
         or 'everything'. The target is tested in the background — poll run_status."""

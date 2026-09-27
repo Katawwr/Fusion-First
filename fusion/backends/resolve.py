@@ -4,6 +4,11 @@ Specs are plain strings so they read the same on the CLI, in MCP tool calls and 
 
   target  ollama:<model>        a local open-weight model (free)            e.g. ollama:llama3.2:1b
           claude-cli:<model>    a Claude model over the `claude` CLI subscription (no API key)
+          openai-compat:<url>#<model>
+                                YOUR model server (vLLM, LM Studio, llama.cpp, Ollama /v1...), e.g.
+                                openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct. Local and
+                                private-network servers are free; a public endpoint may be a metered
+                                API, so it needs FUSION_ALLOW_API_SPEND=1
           api:<model>           METERED — only with FUSION_ALLOW_API_SPEND=1 (never used by default)
           <model>               bare id: an allowlisted Claude id → claude-cli, anything else → ollama
 
@@ -24,7 +29,7 @@ from dataclasses import dataclass
 from fusion.integrations.live import METERED_OPT_IN_ENV, metered_allowed
 from fusion.model.registry import ModelRegistry
 
-TARGET_BACKENDS = ("ollama", "claude_cli", "api")
+TARGET_BACKENDS = ("ollama", "claude_cli", "openai_compat", "api")
 GRADER_KINDS = ("host", "claude_cli", "ollama_prob", "ollama_json")
 
 _TARGET_PREFIXES = {
@@ -32,6 +37,8 @@ _TARGET_PREFIXES = {
     "claude-cli": "claude_cli",
     "claude_cli": "claude_cli",
     "cli": "claude_cli",
+    "openai-compat": "openai_compat",
+    "openai_compat": "openai_compat",
     "api": "api",
 }
 _GRADER_PREFIXES = {
@@ -56,11 +63,14 @@ class SpecError(ValueError):
 
 @dataclass(frozen=True)
 class TargetSpec:
-    backend: str  # ollama | claude_cli | api
+    backend: str  # ollama | claude_cli | openai_compat | api
     model: str
+    base_url: str | None = None  # openai_compat only
 
     @property
     def label(self) -> str:
+        if self.base_url:
+            return f"{self.backend.replace('_', '-')}:{self.base_url}#{self.model}"
         return f"{self.backend.replace('_', '-')}:{self.model}"
 
 
@@ -94,6 +104,8 @@ def parse_target(spec: str, registry: ModelRegistry | None = None) -> TargetSpec
     if not spec:
         raise SpecError("empty target spec (try ollama:llama3.2:1b)")
     backend, model = _split(spec, _TARGET_PREFIXES)
+    if backend == "openai_compat":
+        return _parse_openai_compat(spec, model)
     if backend is None:
         registry = registry or ModelRegistry()
         is_claude = registry.allowlist.get(model) == "anthropic"
@@ -103,6 +115,37 @@ def parse_target(spec: str, registry: ModelRegistry | None = None) -> TargetSpec
     if backend == "ollama" and model.lower().startswith(("claude", "gpt-")):
         raise SpecError(f"'{model}' is a hosted model id, not an Ollama model")
     return TargetSpec(backend, model)
+
+
+def _parse_openai_compat(spec: str, rest: str) -> TargetSpec:
+    from urllib.parse import urlsplit
+
+    url, sep, model = rest.rpartition("#")
+    if not sep or not url or not model.strip():
+        raise SpecError(f"target '{spec}' needs a server URL and a model: openai-compat:<url>#<model>, e.g. "
+                        "openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct")
+    parts = urlsplit(url.strip())
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise SpecError(f"'{url}' is not an http(s) server URL")
+    return TargetSpec("openai_compat", model.strip(), url.strip().rstrip("/"))
+
+
+_PRIVATE_SUFFIXES = (".localhost", ".local", ".lan", ".internal", ".home.arpa", ".intranet")
+
+
+def _private_endpoint(url: str) -> bool:
+    """True for a server on this machine or a private network (no metered provider lives there)."""
+    import ipaddress
+    from urllib.parse import urlsplit
+
+    host = (urlsplit(url).hostname or "").lower().rstrip(".")
+    if host == "localhost" or host.endswith(_PRIVATE_SUFFIXES) or (host and "." not in host and ":" not in host):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_loopback or ip.is_link_local
 
 
 def parse_grader(spec: str) -> GraderSpec:
@@ -157,6 +200,15 @@ def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: floa
         registry.require_allowed(spec.model)
         _cli_preflight()
         return BudgetedModelClient(ClaudeCliModelClient(registry=registry), limits)
+    if spec.backend == "openai_compat":
+        from fusion.model.providers.openai_compat import OpenAICompatModelClient
+
+        if not _private_endpoint(spec.base_url or "") and not metered_allowed("api"):
+            raise BackendUnavailable(
+                f"{spec.base_url} is a public endpoint and may be a metered API, so it is off by default: "
+                f"set {METERED_OPT_IN_ENV}=1 to allow it (local and private-network servers need nothing)")
+        return BudgetedModelClient(OpenAICompatModelClient(spec.base_url, spec.model, timeout=timeout), limits,
+                                   enforce_allowlist=False)
     if spec.backend == "api":
         raise BackendUnavailable(_metered_refusal())
     raise SpecError(f"unknown target backend '{spec.backend}'")

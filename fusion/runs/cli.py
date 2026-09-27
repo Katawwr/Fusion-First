@@ -49,7 +49,7 @@ def add_parsers(sub) -> None:
     s = rs.add_parser("start", parents=[common], help="create a run and test the target")
     s.add_argument("--prompt", required=True, help="system-prompt file of the agent under test")
     s.add_argument("--check", default="all", help="all | quality | everything | comma list of checks")
-    s.add_argument("--target", required=True, help="ollama:<model> | claude-cli:<model>")
+    s.add_argument("--target", required=True, help="ollama:<model> | claude-cli:<model> | openai-compat:<url>#<model>")
     s.add_argument("--grader", default="host", help="host | claude-cli[:model] | ollama-prob:<model>")
     s.add_argument("--tier", default="quick", choices=["quick", "full"])
     s.add_argument("--no-calibration", action="store_true", help="skip in-run grader accuracy (not advised)")
