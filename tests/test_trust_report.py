@@ -129,6 +129,37 @@ def test_the_newest_guard_set_is_the_headline_and_older_held_out_sets_are_supers
     assert "70%" in bottom and "2%" in bottom  # v3's recall and over-block, not v2's
 
 
+def _attack(k_base, k_fix, n, p, fixed, broke):
+    return {"n_pairs": n, "baseline_rate": _rate(k_base, n), "treatment_rate": _rate(k_fix, n),
+            "before_after": {"mcnemar_p": p, "discordant_b": fixed, "discordant_c": broke}}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("adopt", [False, True])
+def test_the_preregistered_compact_fix_is_reported_with_its_decision(tmp_path, adopt):
+    import json
+
+    per_model = {"m1": {"attack_lower": adopt, "attack_higher": False, "over_refusal_noninferior": True,
+                        "both_primary": adopt},
+                 "m2": {"attack_lower": False, "attack_higher": False, "over_refusal_noninferior": False,
+                        "both_primary": False}}
+    ev = {"demonstration": False, "arms": ["baseline", "compact"], "models": {"m1": "d", "m2": "d"},
+          "attack_success_by_model": {"m1": _attack(20, 8, 60, 0.004 if adopt else 0.3, 13, 1),
+                                      "m2": _attack(12, 11, 60, 1.0, 3, 2)},
+          "cells": [{"experiment": "xstest", "model": "m1", "noninferior": True,
+                     "quality_drop": {"point": 0.03, "low": -0.03, "high": 0.08}},
+                    {"experiment": "xstest", "model": "m2", "noninferior": False,
+                     "quality_drop": {"point": 0.1, "low": 0.03, "high": 0.17}}],
+          "prereg_decision": {"adopt": adopt, "rule": "r", "per_model": per_model}}
+    (tmp_path / "evals/validation/v1").mkdir(parents=True)
+    (tmp_path / "evals/validation/v1/compact_fix.json").write_text(json.dumps(ev), encoding="utf-8")
+    out = render(tmp_path)
+    assert "Pre-registered: a compact fix for small models" in out
+    rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| m")}
+    assert "33%" in rows["m1"] and "13%" in rows["m1"]  # attacks as written -> with the compact block
+    assert ("ADOPTED" if adopt else "NOT ADOPTED") in out
+
+
 @pytest.mark.unit
 def test_website_evidence_matches_its_sources():
     import json

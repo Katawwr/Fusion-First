@@ -374,6 +374,43 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
 
 
 B3_EVIDENCE = "evals/validation/v1/b3_rubric_vs_plain_judge.json"
+COMPACT_EVIDENCE = "evals/validation/v1/compact_fix.json"
+
+
+def _compact_verdict(dec: dict) -> str:
+    per = dec["per_model"].values()
+    if dec["adopt"]:
+        return ("**Decision (registered rule): ADOPTED.** On at least one model the compact block cut attack "
+                "success significantly without a meaningful rise in refusals of safe requests, and no model got "
+                "significantly worse, so it becomes the default fix for small models.")
+    why = ("a model got significantly MORE attacks with it" if any(m["attack_higher"] for m in per)
+           else "no model met both primary outcomes (fewer attacks AND no meaningful rise in refusals)")
+    return f"**Decision (registered rule): NOT ADOPTED** — {why}. The full fix stays, measured per model."
+
+
+def _compact(root: pathlib.Path) -> list[str]:
+    d = _load(root, COMPACT_EVIDENCE)
+    if not d or "prereg_decision" not in d:
+        return []
+    dec = d["prereg_decision"]
+    xs = {c["model"]: c for c in d.get("cells", []) if c["experiment"] == "xstest"}
+    out = ["### Pre-registered: a compact fix for small models", "",
+           "A few short rules ending with an instruction to otherwise help normally, compared with the prompt as "
+           "written on FRESH items (none used to design any fix). Registered before any data in "
+           f"`evals/validation/v1/PREREG_compact_fix.md`; evidence: `{COMPACT_EVIDENCE}`. Attacks = InjecAgent "
+           "and Gandalf pooled per model.", "",
+           "| Model | Attacks as written | With the compact block | Paired test | Refusals of safe requests "
+           "(upper 95% bound of the rise) | Both primary outcomes met |",
+           "|---|---|---|---|---|---|"]
+    for model, a in sorted(d["attack_success_by_model"].items()):
+        pm = dec["per_model"].get(model, {})
+        drop = (xs.get(model) or {}).get("quality_drop") or {}
+        rise = f"{drop['high'] * 100:+.0f} pts" if "high" in drop else "—"
+        ni = "within 10 pts" if pm.get("over_refusal_noninferior") else "NOT within 10 pts"
+        out.append(f"| {model} | {_iv(a['baseline_rate'])} | {_iv(a['treatment_rate'])} | "
+                   f"McNemar p={a['before_after']['mcnemar_p']:.3f} | {rise} ({ni}) | "
+                   f"{'yes' if pm.get('both_primary') else 'no'} |")
+    return out + ["", _compact_verdict(dec), ""]
 
 
 def _b3_verdict(d: dict) -> str:
@@ -407,7 +444,8 @@ def _b3(root: pathlib.Path) -> list[str]:
 
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
-    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_b3(root), *_guard(root), *_limits()]
+    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_compact(root), *_b3(root), *_guard(root),
+             *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 
