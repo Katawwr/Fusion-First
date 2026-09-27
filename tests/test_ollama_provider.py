@@ -182,3 +182,30 @@ def test_seed_and_logprobs_change_the_cache_key_only_when_set():
     assert base.cache_key() == _r(seed=None, logprobs=None).cache_key()
     assert base.cache_key() != _r(seed=1).cache_key()
     assert base.cache_key() != _r(logprobs=5).cache_key()
+
+
+@pytest.mark.unit
+def test_default_address_is_the_ipv4_loopback(monkeypatch):
+    """`localhost` resolves to ::1 first on Windows; Ollama listens on IPv4, so every request paid a
+    ~2 s fallback (measured 2.1 s vs 1 ms). The probes and the client must dial 127.0.0.1."""
+    import io
+    import urllib.parse
+
+    from fusion.model.providers import ollama
+
+    monkeypatch.delenv("FUSION_OFFLINE", raising=False)
+    hosts = []
+
+    class _Resp(io.BytesIO):  # what urlopen returns: a readable context manager with a status
+        status = 200
+
+    def fake_urlopen(req, timeout=None):
+        url = req if isinstance(req, str) else req.full_url
+        hosts.append(urllib.parse.urlsplit(url).hostname)
+        return _Resp(b'{"models": []}')
+
+    monkeypatch.setattr(ollama.urllib.request, "urlopen", fake_urlopen)
+    ollama.ollama_available()
+    ollama.ollama_models()
+    assert hosts and set(hosts) == {"127.0.0.1"}
+    assert urllib.parse.urlsplit(OllamaModelClient()._base_url).hostname == "127.0.0.1"

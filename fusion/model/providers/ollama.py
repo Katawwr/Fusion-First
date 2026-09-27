@@ -28,7 +28,9 @@ from fusion.errors import FusionProviderError, PromptTooLong
 from fusion.model.client import ModelRequest, ModelResponse
 from fusion.offline import offline
 
-DEFAULT_OLLAMA_URL = "http://localhost:11434"
+# The IPv4 loopback, not `localhost`: on Windows `localhost` resolves to ::1 first and Ollama listens
+# on IPv4, so each request (a new connection every time) paid a ~2 s fallback.
+DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
 DEFAULT_NUM_CTX = 8192
 # Conservative characters-per-token for the up-front context check (English ≈ 4, code/JSON ≈ 3).
 _CHARS_PER_TOKEN = 3.0

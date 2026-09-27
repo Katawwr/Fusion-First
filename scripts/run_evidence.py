@@ -80,7 +80,7 @@ def main(argv=None) -> int:
         from fusion.model.providers.ollama import OllamaModelClient, ollama_available
 
         if not ollama_available():
-            print("Ollama is not reachable at localhost:11434 — start `ollama serve`.")
+            print("Ollama is not reachable at 127.0.0.1:11434 — start `ollama serve`.")
             return 2
 
         def client_for(model: str):

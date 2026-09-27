@@ -69,7 +69,7 @@ def build_live_clients(
 
         if not ollama_available():
             raise LiveUnavailable(
-                "Ollama target requested but no server answered at localhost:11434 — run "
+                "Ollama target requested but no server answered at 127.0.0.1:11434 — run "
                 "`ollama serve` and `ollama pull <model>` (e.g. llama3.2:1b)"
             )
         # Open-weight target ids aren't on the Anthropic allowlist → don't enforce it for the target.

@@ -146,7 +146,7 @@ def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: floa
         from fusion.model.providers.ollama import OllamaModelClient, ollama_available
 
         if not ollama_available():
-            raise BackendUnavailable("Ollama isn't answering at localhost:11434 — run `ollama serve`")
+            raise BackendUnavailable("Ollama isn't answering at 127.0.0.1:11434 — run `ollama serve`")
         return BudgetedModelClient(
             OllamaModelClient(model=spec.model, timeout=timeout), limits, enforce_allowlist=False
         )
@@ -180,7 +180,7 @@ def build_grader_client(spec: GraderSpec, *, max_calls: int = 1000, timeout: flo
     from fusion.model.providers.ollama import OllamaModelClient, ollama_available
 
     if not ollama_available():
-        raise BackendUnavailable("Ollama isn't answering at localhost:11434 — run `ollama serve`")
+        raise BackendUnavailable("Ollama isn't answering at 127.0.0.1:11434 — run `ollama serve`")
     ollama = BudgetedModelClient(
         OllamaModelClient(model=spec.model, timeout=timeout), limits, enforce_allowlist=False
     )
