@@ -316,11 +316,11 @@ export default function Scan({ scanState, setScanState }) {
   const HEADERS = {
     setup: {
       title: "Scan your agent",
-      lead: "Paste the instructions you give your agent. We run the attack suite against it, grade what gets through, and hand you the fix.",
+      lead: "Paste the instructions you give your agent. We run the attack suite against it, grade what gets through, and test a fix on your model.",
     },
     run: {
       title: "Running the attack suite",
-      lead: "Every response is read by a calibrated examiner and marked against a written rubric.",
+      lead: "Every response is read by a measured examiner and marked against a written rubric.",
     },
     report: {
       title: "Your report card",
@@ -659,7 +659,7 @@ function RunStep({ scan, checks, onCancel }) {
       </div>
 
       <section>
-        <SectionTitle hint="A calibrated examiner reads every response and marks it against a written rubric. Your report shows how reliable that examiner is.">
+        <SectionTitle hint="An examiner whose accuracy is measured reads every response and marks it against a written rubric. Your report shows how reliable that examiner is.">
           Live attack feed
         </SectionTitle>
         <Card>

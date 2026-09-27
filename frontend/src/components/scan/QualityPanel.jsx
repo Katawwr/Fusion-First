@@ -40,7 +40,7 @@ export default function QualityPanel({ systemPrompt }) {
         <span className="font-semibold text-app-text">{meta.label}</span>
       </div>
       <p className="mb-3 text-sm text-app-muted">
-        {meta.scenario} The same calibrated examiner, graded on normal requests
+        {meta.scenario} The same measured examiner, graded on normal requests
         instead of attacks.
       </p>
 

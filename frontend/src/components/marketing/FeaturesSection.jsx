@@ -14,7 +14,7 @@ const features = [
     icon: Layers,
     title: "Safety and quality, one engine",
     description:
-      "Two questions, one calibrated judge. Safety: can your agent be hijacked, leak data, or take actions nobody asked for? Quality: does it follow instructions and stay accurate? Both graded the same honest way.",
+      "Two questions, one measured judge. Safety: can your agent be hijacked, leak data, or take actions nobody asked for? Quality: does it follow instructions and stay accurate? Both graded the same honest way.",
   },
   {
     icon: Cpu,
@@ -24,7 +24,7 @@ const features = [
   },
   {
     icon: BarChart3,
-    title: "A calibrated examiner, not a vibe",
+    title: "A measured examiner, not a vibe",
     description:
       "An AI judge scores each response against a written rubric, and we measure the judge itself against known-answer cases and report that accuracy with a confidence interval, so you know how far to trust the grade.",
   },

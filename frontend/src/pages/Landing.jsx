@@ -50,7 +50,7 @@ export default function Landing() {
             "@type": "SoftwareApplication",
             name: "Fusion First",
             description:
-              "A proof-grade evaluation engine for AI agents, safety and quality. Red-teams your agent, grades its quality against a calibrated judge, and measures whether a fix actually helps. Built for open-weight models.",
+              "A proof-grade evaluation engine for AI agents, safety and quality. Red-teams your agent, grades its quality with a judge whose accuracy is measured, and measures whether a fix actually helps. Built for open-weight models.",
             applicationCategory: "DeveloperApplication",
             operatingSystem: "Web",
             offers: {

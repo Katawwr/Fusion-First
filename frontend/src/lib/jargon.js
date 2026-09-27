@@ -34,7 +34,7 @@ export const CHECKS = {
   },
 };
 
-// The quality dimension, graded on normal inputs (not attacks), through the same calibrated judge.
+// The quality dimension, graded on normal inputs (not attacks), through the same measured judge.
 export const QUALITY_CHECKS = {
   instruction_following: {
     label: "Instruction-following test",
