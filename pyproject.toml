@@ -70,7 +70,8 @@ include = ["fusion*"]
 # Corpora copied into fusion/_bundled/ by setup.py's build step (see that file) so a bare install
 # has datasets/cassettes/crosswalk/evals without a source checkout.
 [tool.setuptools.package-data]
-fusion = ["_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_bundled/**/*.yml"]
+fusion = ["_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_bundled/**/*.yml",
+          "_bundled/web/**/*"]  # the built web app for `fusion serve`
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

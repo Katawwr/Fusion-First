@@ -550,6 +550,13 @@ def build_parser() -> argparse.ArgumentParser:
     ph.add_argument("--check", default="all")
     ph.add_argument("--out", default=None, help="write hardened prompt here (default: stdout)")
     ph.add_argument("--write", action="store_true", help="edit the prompt file in place")
+
+    psv = sub.add_parser("serve", help="run the Fusion web app on this machine (127.0.0.1 only)")
+    psv.add_argument("--port", type=int, default=8765)
+    psv.add_argument("--host", default="127.0.0.1", help="loopback only: 127.0.0.1 or localhost")
+    psv.add_argument("--dist", default=None, help="built frontend dir (default: frontend/dist or the bundled copy)")
+    psv.add_argument("--no-open", action="store_true", help="don't open a browser tab")
+    psv.add_argument("--demo-only", action="store_true", help="keep live backends (Ollama, claude CLI) off")
     return p
 
 
@@ -598,6 +605,23 @@ def _cmd_doctor(args) -> int:
     return cmd_doctor(args)
 
 
+def _cmd_serve(args) -> int:
+    try:
+        from fusion.web.serve import ServeError, serve
+    except ImportError as e:
+        print(f"fusion serve needs the web extras: pip install \"fusion-safety[serve]\" ({e})")
+        return 2
+    try:
+        serve(host=args.host, port=args.port, dist=args.dist, open_browser=not args.no_open,
+              local_backends=not args.demo_only)
+    except ServeError as e:
+        print(f"error: {e}")
+        return 2
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     # Windows consoles default to cp1252; force UTF-8 so output never mojibakes.
     for stream in (sys.stdout, sys.stderr):
@@ -623,6 +647,7 @@ def main(argv: list[str] | None = None) -> int:
         "hook": _cmd_hook,
         "import-promptfoo": _cmd_import_promptfoo,
         "doctor": _cmd_doctor,
+        "serve": _cmd_serve,
     }
     if getattr(args, "backend", None):
         import os

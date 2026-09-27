@@ -17,12 +17,11 @@ Covers the OWASP LLM Top 10 (2025) + Agentic AI (2026) risks:
 ```bash
 pip install fusion-safety            # core (keyless): runs, harden, runtime guardrail, CLI
 pip install "fusion-safety[mcp]"     # + MCP server (fusion-mcp) for AI coding agents
+pip install "fusion-safety[serve]"   # + this web app on your machine (fusion serve)
 ```
 
-> The `fusion` command, the runtime guardrail, `harden`, and the `check_output` / `check_tool_call`
-> protect tools work from a bare install. The attack-suite commands (`scan`, `ci`, `guard-bench`,
-> `prove`) read the committed corpora (`datasets/`, `cassettes/`, `crosswalk/`, `evals/`); run those
-> from a source checkout until the data ships bundled in the package.
+> A bare install carries what it needs: the committed corpora (`datasets/`, `cassettes/`,
+> `crosswalk/`, `evals/`) and the built web app are bundled into the package at build time.
 
 How far to trust Fusion itself (judge accuracy against deterministic oracles, guard held-out
 results, what isn't measured yet) is in [`TRUST_REPORT.md`](TRUST_REPORT.md), which is generated
@@ -75,6 +74,17 @@ from fusion.guardrail.client import GuardedModelClient
 guard = Guardrail(GuardConfig(allowlisted_domains=["your-co.com"], secret_values=["sk-..."], system_prompt=SYSTEM_PROMPT))
 client = GuardedModelClient(your_model_client, guard)   # responses + tool calls now gated
 ```
+
+**4. This web app, on your machine**
+
+```bash
+pip install "fusion-safety[serve]"
+fusion serve                        # opens http://127.0.0.1:8765; --demo-only keeps live models off
+```
+
+It listens on 127.0.0.1 only, answers only requests addressed to 127.0.0.1 or localhost, and every
+request that runs anything must carry a random per-launch token held by the page it served — so no
+website you visit can drive your local models or your `claude` subscription.
 
 See `integrations/README.md` for the full agentic/CI workflow. Offline runs report `DEMONSTRATION`
 numbers from a deterministic stand-in judge on canned responses. Use `--live` for real numbers: it

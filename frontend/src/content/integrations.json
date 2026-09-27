@@ -52,6 +52,18 @@
       ]
     },
     {
+      "id": "serve",
+      "title": "This web app, on your machine",
+      "body": "The same scan wizard, driving your local models. It only listens on 127.0.0.1, and every request that runs anything must carry a random token that only the page it opened holds, so no website you visit can use your models.",
+      "steps": [
+        {
+          "label": "Run it",
+          "lang": "bash",
+          "code": "pip install \"fusion-safety[serve]\"\nfusion serve"
+        }
+      ]
+    },
+    {
       "id": "mcp",
       "title": "Any MCP client",
       "body": "Cursor, Windsurf or your own agent: the fusion-mcp server exposes the same run tools (start_run, get_grading_tasks, submit_grades, finalize_run) plus one-shot scan, harden and runtime-check tools.",

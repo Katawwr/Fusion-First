@@ -1,10 +1,11 @@
 // Client for the Fusion API (FastAPI + SSE).
 // Targets VITE_API_URL when set, else SAME-ORIGIN ('' → relative /api/... paths). Same-origin means
 // a misconfigured deploy 404s loudly against its own host instead of silently hitting the wrong app.
-import { ApiError, apiFetch, apiJson } from "./http";
+// A page served by `fusion serve` is always same-origin, whatever the build baked in.
+import { ApiError, apiFetch, apiJson, servedByFusion } from "./http";
 import { createSseParser } from "./sse";
 
-export const API_URL = import.meta.env.VITE_API_URL || "";
+export const API_URL = servedByFusion() ? "" : import.meta.env.VITE_API_URL || "";
 
 const json = (body) => ({
   method: "POST",

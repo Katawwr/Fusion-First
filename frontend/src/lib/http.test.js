@@ -49,3 +49,41 @@ describe("apiFetch", () => {
     await expect(apiFetch("/api/x")).rejects.toBe(abort);
   });
 });
+
+// `fusion serve` puts a per-launch token in the page; its API refuses writes without it.
+describe("launch token", () => {
+  const sentHeaders = (fetchMock) => new Headers(fetchMock.mock.calls[0][1].headers);
+  const okFetch = () => vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.head.innerHTML = "";
+  });
+
+  it("sends the page's token to its own API and keeps the other headers", async () => {
+    document.head.innerHTML = '<meta name="fusion-token" content="abc123">';
+    const f = okFetch();
+    vi.stubGlobal("fetch", f);
+    await apiFetch("/api/harden", { method: "POST", headers: { "Content-Type": "application/json" } });
+    expect(sentHeaders(f).get("X-Fusion-Token")).toBe("abc123");
+    expect(sentHeaders(f).get("Content-Type")).toBe("application/json");
+  });
+
+  it.each(["https://api.example.com/api/harden", "//api.example.com/api/harden"])(
+    "never sends the token to another origin (%s)",
+    async (url) => {
+      document.head.innerHTML = '<meta name="fusion-token" content="abc123">';
+      const f = okFetch();
+      vi.stubGlobal("fetch", f);
+      await apiFetch(url, { method: "POST" });
+      expect(sentHeaders(f).get("X-Fusion-Token")).toBeNull();
+    },
+  );
+
+  it("adds nothing when the page has no token (hosted site, dev server)", async () => {
+    const f = okFetch();
+    vi.stubGlobal("fetch", f);
+    await apiFetch("/api/harden", { method: "POST" });
+    expect(sentHeaders(f).get("X-Fusion-Token")).toBeNull();
+  });
+});

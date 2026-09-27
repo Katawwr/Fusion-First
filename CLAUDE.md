@@ -51,7 +51,9 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
 - `plugins/fusion/` — Claude Code plugin (skills audit/grade/harden/setup/guard, `fusion-judge`
   agent limited to the grading tools); `plugins/fusion-guard/` — opt-in hooks. Marketplace:
   `.claude-plugin/marketplace.json`. `tests/test_plugin.py` pins tool names against the server.
-- `app/` — thin Modal + FastAPI wrappers (the only place `modal` may appear). WIP.
+  - `web/` — the pure FastAPI layer (`factory.py`, SSE, settings) and `serve.py` (`fusion serve`).
+- `app/` — the Modal wrapper (`modal_app.py`, the only place `modal` may appear) plus alias shims
+  re-exporting `fusion/web`.
 - `backend/main.py` — the legacy 6,664-line monolith being decomposed. Do not add features here.
 - `datasets/gold/`, `datasets/probes/` — jsonl gold set + paired probes (diffable, in git).
 - `cassettes/` — committed deterministic model responses keyed by request hash.
@@ -81,7 +83,14 @@ python -m fusion.cli run logs --file logs.jsonl --check everything   # grade exi
 python -m fusion.cli import-promptfoo results.json                   # honest stats on promptfoo output
 python -m fusion.validate.trust_report                               # regenerate TRUST_REPORT.md
 claude plugin validate plugins/fusion                                # plugin manifest check
+python -m fusion.cli serve                                           # local web app, 127.0.0.1:8765
+npm --prefix frontend run build && python -m pip wheel . --no-deps --no-build-isolation -w dist  # wheel bundles corpora + frontend/dist
 ```
+
+`fusion serve` (`fusion/web/serve.py`) has three locks, each pinned by `tests/test_serve.py`: loopback
+bind, Host allowlist (DNS rebinding), and a per-launch token injected into the served page and
+required on every non-GET `/api/` call. A page it serves always calls its own origin
+(`frontend/src/lib/scanApi.js`), whatever `VITE_API_URL` the build baked in.
 
 Checks: `direct_prompt_injection`, `excessive_agency`, `data_exfiltration`, `system_prompt_leakage`
 (use `--check all` to run every one). Each ships a remedy in `fusion/engine/fixes.py`; `harden`

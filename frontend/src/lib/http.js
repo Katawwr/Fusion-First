@@ -47,10 +47,31 @@ export async function errorFromResponse(resp) {
   return new ApiError(message, { status: resp.status, code, detail: body });
 }
 
+// `fusion serve` injects a per-launch token into the page it serves, and its API refuses any write
+// without it — so no other website can drive this machine's models. The token only ever goes to
+// the page's own origin.
+function launchToken() {
+  if (typeof document === "undefined") return "";
+  return document.querySelector('meta[name="fusion-token"]')?.getAttribute("content") || "";
+}
+
+// True when this page was served by `fusion serve` — its API is then always the page's own origin.
+export function servedByFusion() {
+  return Boolean(launchToken());
+}
+
+function withLaunchToken(url, options) {
+  const token = launchToken();
+  if (!token || new URL(url, window.location.href).origin !== window.location.origin) return options;
+  const headers = new Headers(options.headers || {});
+  headers.set("X-Fusion-Token", token);
+  return { ...options, headers };
+}
+
 export async function apiFetch(url, options = {}) {
   let resp;
   try {
-    resp = await fetch(url, options);
+    resp = await fetch(url, withLaunchToken(url, options));
   } catch (e) {
     if (e && e.name === "AbortError") throw e;
     throw new ApiError("Can't reach the Fusion server. Is it running?", {

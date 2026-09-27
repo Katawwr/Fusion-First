@@ -20,6 +20,12 @@
       }
     },
     {
+      "name": "serve",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "fusion.cli", "serve", "--no-open", "--port", "8765"],
+      "port": 8765
+    },
+    {
       "name": "frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
