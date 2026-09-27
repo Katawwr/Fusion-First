@@ -16,6 +16,7 @@ import ReportOverview from "../components/report/ReportOverview";
 import ReportCard from "../components/report/ReportCard";
 import GradeBadge from "../components/report/GradeBadge";
 import BeforeAfterBars from "../components/report/BeforeAfterBars";
+import ProveHeadline from "../components/report/ProveHeadline";
 import DiffView from "../components/fix/DiffView";
 import CodeSnippet from "../components/fix/CodeSnippet";
 import CopyButton from "../components/ui/CopyButton";
@@ -800,65 +801,11 @@ function ProveStep({ result, scanId, systemPrompt, onRestart }) {
   );
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-      <Card variant="elevated">
-        <div style={{ textAlign: "center" }}>
-          <p
-            style={{
-              fontSize: "0.75rem",
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: "var(--subtle)",
-            }}
-          >
-            Safety, before and after
-          </p>
-          <div
-            style={{
-              margin: "1.5rem 0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "2rem",
-            }}
-          >
-            <div>
-              <GradeBadge grade={baselineGrade} size="lg" />
-              <p
-                style={{
-                  marginTop: "0.65rem",
-                  fontSize: "0.9375rem",
-                  color: "var(--muted)",
-                }}
-              >
-                your prompt
-              </p>
-            </div>
-            <ArrowRight
-              size={28}
-              color="var(--accent)"
-              style={{ marginBottom: "1.75rem" }}
-              aria-hidden
-            />
-            <div>
-              <GradeBadge grade={hardenedGrade} size="lg" />
-              <p
-                style={{
-                  marginTop: "0.65rem",
-                  fontSize: "0.9375rem",
-                  color: "var(--muted)",
-                }}
-              >
-                hardened
-              </p>
-            </div>
-          </div>
-          <p style={{ color: "var(--muted)", margin: 0 }}>
-            The same attacks, run against your original and hardened agent. An
-            apples-to-apples measurement.
-          </p>
-        </div>
-      </Card>
+      <ProveHeadline
+        baselineGrade={baselineGrade}
+        hardenedGrade={hardenedGrade}
+        canned={result.cards.some((c) => c.trust?.execution === "canned")}
+      />
 
       <section>
         <SectionTitle>Test by test</SectionTitle>
