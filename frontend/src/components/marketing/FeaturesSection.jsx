@@ -20,9 +20,9 @@ const features = [
   },
   {
     icon: Cpu,
-    title: "Open-weight models",
+    title: "Any model or workflow",
     description:
-      "Test Llama, Mistral or Qwen locally through Ollama; Claude, a different model family, grades the transcripts.",
+      "Ollama and any Hugging Face GGUF, your own vLLM or TGI server, OpenAI, Anthropic and other hosted APIs with your key, or any agent through a command adapter.",
   },
   {
     icon: BarChart3,

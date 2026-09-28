@@ -83,7 +83,7 @@ def test_doctor_offline_recommends_the_host_grader():
     d = doctor()
     assert d["offline"] is True and d["zero_spend"] is True
     assert d["backends"]["claude_cli"]["available"] is False
-    assert d["backends"]["api"]["available"] is False
+    assert d["backends"]["hosted"]["available"] is False  # metered providers need the opt-in
     assert d["recommended"]["grader"] == "host"
     json.dumps(d)  # plain JSON for MCP/CLI
 
@@ -114,7 +114,7 @@ def test_doctor_recommends_the_local_grader_only_if_it_met_its_registered_floor(
                                                                                 expected):
     _local_only(monkeypatch, ["llama3.2:1b", "qwen2.5:7b"])
     _local_grader_evidence(tmp_path, acc, f1)
-    monkeypatch.setenv("FUSION_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("fusion.validate.prereg._evidence_root", lambda: tmp_path)
     d = doctor()
     assert d["recommended"]["grader"] == expected
     if expected == "host":  # says why, and that it can still be chosen explicitly
@@ -124,7 +124,7 @@ def test_doctor_recommends_the_local_grader_only_if_it_met_its_registered_floor(
 @pytest.mark.unit
 def test_doctor_does_not_recommend_an_unmeasured_local_grader(monkeypatch, tmp_path):
     _local_only(monkeypatch, ["llama3.2:1b", "qwen2.5:3b"])
-    monkeypatch.setenv("FUSION_DATA_DIR", str(tmp_path))  # no grader evidence at all
+    monkeypatch.setattr("fusion.validate.prereg._evidence_root", lambda: tmp_path)  # no grader evidence at all
     d = doctor()
     assert d["recommended"]["grader"] == "host"
     assert any("qwen2.5:3b" in h and "not been measured" in h for h in d["hints"])

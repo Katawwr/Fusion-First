@@ -54,6 +54,27 @@
       ]
     },
     {
+      "id": "models",
+      "title": "Any model or workflow",
+      "steps": [
+        {
+          "label": "Any Hugging Face GGUF, locally",
+          "lang": "bash",
+          "code": "ollama pull hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:Q4_K_M\nfusion run start --prompt agent.txt --target ollama:hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:Q4_K_M --grader claude-cli"
+        },
+        {
+          "label": "Hosted API with your key (metered: set FUSION_ALLOW_API_SPEND=1)",
+          "lang": "bash",
+          "code": "fusion run start --prompt agent.txt --target openai:gpt-4o-mini --grader claude-cli\nfusion run start --prompt agent.txt --target hf:meta-llama/Llama-3.1-8B-Instruct --grader claude-cli"
+        },
+        {
+          "label": "Any workflow: a program that reads a JSON request on stdin",
+          "lang": "bash",
+          "code": "fusion run start --prompt agent.txt --target \"cmd:python fusion_adapter.py\" --grader claude-cli"
+        }
+      ]
+    },
+    {
       "id": "serve",
       "title": "Local web app",
       "steps": [

@@ -19,9 +19,10 @@ describe("Use page", () => {
     expect(screen.getByText(/claude plugin install fusion@fusion-first/)).toBeInTheDocument();
   });
 
-  it("never asks for an API key", () => {
-    const text = JSON.stringify(content).toLowerCase();
-    expect(text).not.toMatch(/api[_ ]key\s*[:=]|anthropic_api_key|openai_api_key/);
+  it("names key variables but never embeds a key", () => {
+    const text = JSON.stringify(content);
+    expect(text).not.toMatch(/(api[_ ]?key|token)\s*[:=]\s*["']?[\w-]{6,}/i);
+    expect(text).not.toMatch(/\bsk-[\w-]{6,}/);
   });
 
   it("never presents a local model as the grader", () => {

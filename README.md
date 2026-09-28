@@ -20,11 +20,21 @@ pip install "fusion-safety[serve]"   # + local web app (fusion serve)
 
 The wheel bundles the corpora (`datasets/`, `cassettes/`, `crosswalk/`, `evals/`) and the web app.
 
-## Use (no API key)
+## Use
 
-Target: a local open-weight model via Ollama, an OpenAI-compatible server, or Claude via the `claude`
-CLI subscription. Grader: Claude, either the calling agent (`host`) or the `claude` CLI. Each run
-measures its grader on known-answer questions and withholds the grade ('?') if it falls short.
+Any model or workflow can be the target:
+
+| Target | Runs | Cost |
+|---|---|---|
+| `ollama:<model>` | a local model; any Hugging Face GGUF as `ollama:hf.co/<user>/<repo>` | free |
+| `openai-compat:<url>#<model>` | your own server: vLLM, TGI, LM Studio, llama.cpp | free if local |
+| `claude-cli:<model>` | Claude via the `claude` CLI | subscription |
+| `openai:` `hf:` `anthropic:` `openrouter:` `together:` `groq:` `fireworks:` `mistral-api:` `deepseek:` + `<model>` | a hosted API with your key (`OPENAI_API_KEY`, `HF_TOKEN`, ...) | metered; needs `FUSION_ALLOW_API_SPEND=1` |
+| `cmd:<command>` | any workflow: a program that reads a JSON request on stdin and prints the reply (template: `integrations/examples/fusion_adapter.py`) | yours |
+| `python:<name>` | a Python function, via `fusion.targets.FunctionModelClient` | yours |
+
+Grader: `host` (the calling agent), `claude-cli`, or any chat target above. Each run measures its
+grader on known-answer questions and withholds the grade ('?') if it falls short.
 
 **1. Claude Code plugin** (recommended): see `plugins/fusion/README.md`.
 
@@ -40,6 +50,8 @@ fusion doctor                                                    # available bac
 fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli
 fusion run start --prompt agent.txt --target ollama:llama3.2:1b  # grader=host: pauses for grading
 fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader claude-cli  # vLLM / LM Studio / llama.cpp
+fusion run start --prompt agent.txt --target hf:meta-llama/Llama-3.1-8B-Instruct --grader openai:gpt-4o  # hosted, your keys
+fusion run start --prompt agent.txt --target "cmd:python fusion_adapter.py" --grader claude-cli  # any workflow
 fusion run tasks > tasks.json;  fusion run submit --file answers.json
 fusion run finalize --min-grade B                               # exit 1 below the bar
 fusion run verify                                               # re-derive offline; exit 1 on drift

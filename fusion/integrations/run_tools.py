@@ -22,12 +22,14 @@ import json
 from collections.abc import Callable
 
 from fusion.backends.resolve import (
+    BackendUnavailable,
     build_grader_client,
     build_target_client,
     doctor,
     parse_grader,
     parse_target,
 )
+from fusion.model.providers.command import remote_commands_allowed
 from fusion.runs import service
 from fusion.runs.engine import MIN_EVIDENCE_CHARS, grading_tasks, lease_info, submit_grades
 
@@ -47,6 +49,17 @@ HOW_TO_ANSWER = (
 )
 
 
+def _refuse_remote_commands(target, grader) -> None:
+    """cmd: runs a program on the user's machine; over MCP only with FUSION_ALLOW_CMD_TARGETS=1. Checked
+    before any client is built, so the refusal is the first error the agent sees."""
+    from fusion.model.providers.command import ALLOW_REMOTE_ENV
+
+    grader_cmd = grader.kind == "target" and parse_target(grader.model or "").backend == "command"
+    if (target.backend == "command" or grader_cmd) and not remote_commands_allowed():
+        raise BackendUnavailable(f"cmd: targets and graders run a program on this machine, so an agent can't "
+                                 f"start them over MCP unless the user sets {ALLOW_REMOTE_ENV}=1")
+
+
 class RunTools:
     def __init__(
         self,
@@ -57,8 +70,11 @@ class RunTools:
     ):
         self.workspace = workspace
         self.manager = service.RunManager()
-        self._target_factory = target_factory or (lambda spec: build_target_client(parse_target(spec)))
-        self._grader_factory = grader_factory or (lambda spec: build_grader_client(parse_grader(spec)))
+        # An agent over MCP can't start a program on this machine unless the user allowed it.
+        self._target_factory = target_factory or (lambda spec: build_target_client(
+            parse_target(spec), allow_command=remote_commands_allowed()))
+        self._grader_factory = grader_factory or (lambda spec: build_grader_client(
+            parse_grader(spec), allow_command=remote_commands_allowed()))
 
     def _ws(self, workspace: str | None) -> str | None:
         return workspace or self.workspace
@@ -89,6 +105,7 @@ class RunTools:
         allow_self_grading: bool = False,
     ) -> dict:
         t, g = parse_target(target), parse_grader(grader)
+        _refuse_remote_commands(t, g)
         # Resolve every backend BEFORE creating the run.
         clients = {"target_client": self._target_factory(t.label)}
         if not g.external:

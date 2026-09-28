@@ -64,13 +64,16 @@ def build_server(runs: RunTools | None = None):
     @mcp.tool()
     async def start_run(system_prompt: str, target: str, grader: str = "host", checks: list[str] | None = None,
                         tier: str = "quick", workspace: str | None = None, allow_self_grading: bool = False) -> dict:
-        """Start a keyless evaluation of an agent's system prompt. target: 'ollama:<model>' (local,
-        free, e.g. ollama:llama3.2:1b), 'claude-cli:<model>' (your Claude subscription), or
-        'openai-compat:<url>#<model>' (your own model server, e.g. vLLM or LM Studio; a public endpoint
-        needs FUSION_ALLOW_API_SPEND=1). grader:
-        'host' (you grade via get_grading_tasks/submit_grades), 'claude-cli', or
-        'ollama-prob:<model>'. checks: safety check names, 'all' (default: all safety), 'quality',
-        or 'everything'. The target is tested in the background — poll run_status."""
+        """Start an evaluation of an agent's system prompt. target: 'ollama:<model>' (local, free,
+        e.g. ollama:llama3.2:1b or ollama:hf.co/<user>/<repo>), 'claude-cli:<model>' (Claude
+        subscription), 'openai-compat:<url>#<model>' (your own server: vLLM, TGI, LM Studio...), or a
+        hosted provider with the user's key: 'openai:<model>', 'hf:<model>', 'anthropic:<model>',
+        'openrouter:', 'together:', 'groq:', 'fireworks:', 'mistral-api:', 'deepseek:' (metered: needs
+        FUSION_ALLOW_API_SPEND=1). 'cmd:<command>' is refused here unless FUSION_ALLOW_CMD_TARGETS=1.
+        grader: 'host' (you grade via get_grading_tasks/submit_grades), 'claude-cli',
+        'ollama-prob:<model>', or any chat target spec. checks: safety check names, 'all' (default:
+        all safety), 'quality', or 'everything'. The target is tested in the background — poll
+        run_status."""
         return await runs.start_run(system_prompt, target, grader, checks, tier, workspace, allow_self_grading)
 
     @mcp.tool()

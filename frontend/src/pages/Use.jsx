@@ -9,7 +9,7 @@ export default function Use() {
   return (
     <main style={{ maxWidth: "960px", margin: "0 auto", padding: "clamp(2rem, 6vw, 3.5rem) 1rem" }}>
       <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
-        Run Fusion locally
+        Use Fusion
       </h1>
       <div style={{ height: "1.25rem" }} />
       <nav aria-label="On this page" className="mb-8 flex flex-wrap gap-2">

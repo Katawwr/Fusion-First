@@ -78,15 +78,19 @@ def local_grader_decision(evidence: dict) -> dict:
 LOCAL_GRADER_EVIDENCE = {"qwen2.5:7b": "evals/validation/v1/judge_eval_prob_qwen7b.json"}
 
 
+def _evidence_root():
+    from fusion._data import data_root
+
+    return data_root()
+
+
 def local_grader_status(model: str) -> dict:
     """Did committed, non-demonstration evidence show `model` (as the `ollama-prob` grader) meeting
     its registered floor? An unmeasured model never qualifies — `fusion doctor` won't recommend it."""
     import json
 
-    from fusion._data import data_root
-
     rel = LOCAL_GRADER_EVIDENCE.get(model)
-    path = data_root() / rel if rel else None
+    path = _evidence_root() / rel if rel else None
     evidence = json.loads(path.read_text(encoding="utf-8")) if path and path.is_file() else None
     if not evidence or evidence.get("demonstration") is not False:
         return {"model": model, "measured": False, "meets_floor": False, "evidence": None}

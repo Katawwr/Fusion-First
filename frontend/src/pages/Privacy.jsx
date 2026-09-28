@@ -83,9 +83,9 @@ export default function Privacy() {
                   </Item>
                   <Item title="Local use (CLI, MCP server, local web app)">
                     Your prompts and results stay on your machine. Live tests call only the
-                    backends you choose: a local open-weight model via Ollama and/or the Claude
-                    CLI signed in to your own subscription (governed by Anthropic's terms).
-                    Fusion never uses a metered API key unless you explicitly opt in.
+                    backends you choose: local models (Ollama, your own servers), the Claude CLI on
+                    your subscription, a command you supply, or a hosted API with your own key
+                    after you opt in (FUSION_ALLOW_API_SPEND=1). Each provider&apos;s terms apply.
                   </Item>
                   <Item title="Stored in your browser">
                     Only your light/dark theme preference (localStorage). No tracking cookies.

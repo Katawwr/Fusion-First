@@ -44,8 +44,11 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
     floor on blind known-answer questions AND agrees with `oracle_check.py` on the run's own
     clear-cut transcripts), `logs.py` (grade existing transcripts), `service.py` (shared by CLI +
     MCP; resume, stalled-run detection), `cli.py`.
-  - `backends/resolve.py` — target/grader spec strings (`ollama:<m>`, `claude-cli:<m>`, `host`,
-    `ollama-prob:<m>`) -> budgeted clients; `doctor()`. Never selects a metered path.
+  - `backends/resolve.py` — target/grader spec strings (`ollama:<m>`, `claude-cli:<m>`,
+    `openai-compat:<url>#<m>`, hosted presets `openai:`/`hf:`/`anthropic:`/... from `presets.py`, `cmd:<command>`,
+    `python:<name>`, `host`, `ollama-prob:<m>`; any chat target can grade) -> budgeted clients; `doctor()`.
+    Never selects a metered path: hosted providers need `FUSION_ALLOW_API_SPEND=1` plus the user's key;
+    `cmd:` is refused over MCP unless `FUSION_ALLOW_CMD_TARGETS=1`.
   - `validate/` — oracles, IFEval-lite, baselines, importers, evidence experiments, claims registry,
     `judge_eval.py` (grader vs deterministic oracles on real transcripts), `trust_report.py`
     (GENERATES `TRUST_REPORT.md` + `frontend/src/content/evidence.json` from `evals/`; a test

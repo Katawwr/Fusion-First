@@ -9,15 +9,28 @@ Specs are plain strings so they read the same on the CLI, in MCP tool calls and 
                                 openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct. Local and
                                 private-network servers are free; a public endpoint may be a metered
                                 API, so it needs FUSION_ALLOW_API_SPEND=1
-          api:<model>           METERED — only with FUSION_ALLOW_API_SPEND=1 (never used by default)
+          openai:<model> hf:<model> openrouter:<model> together:<model> groq:<model>
+          fireworks:<model> mistral-api:<model> deepseek:<model>
+                                a hosted provider (fusion.backends.presets), with the user's own key
+                                (OPENAI_API_KEY, HF_TOKEN, ...). METERED: needs FUSION_ALLOW_API_SPEND=1
+          anthropic:<model>     the Anthropic API with ANTHROPIC_API_KEY. METERED, same opt-in
+          cmd:<command line>    ANY workflow: a program reading one JSON request on stdin and printing the
+                                reply (fusion.model.providers.command). CLI / Python API only by default
+          python:<name>         an in-process Python function (fusion.targets.FunctionModelClient),
+                                passed to fusion.runs.service.drive(target_client=...)
           <model>               bare id: an allowlisted Claude id → claude-cli, anything else → ollama
+                                (Hugging Face GGUF models too: ollama:hf.co/<user>/<repo>)
 
   grader  host                  the calling agent grades (MCP get_grading_tasks / submit_grades)
           claude-cli[:<model>]  Claude over the CLI subscription (default: the judge_primary role)
           ollama-prob:<model>   the local probability judge (token log-probabilities)
           ollama:<model>        a local model answering the JSON rubric (weakest; measured in-run)
+          <any chat target>     openai:, hf:, anthropic:, openai-compat:, cmd: ... answering the JSON
+                                rubric. Every run measures its grader and withholds the grade below
+                                the policy floor, so any grader is safe to try.
 
-ZERO SPEND: nothing here ever selects a metered provider on its own. The claude CLI provider refuses
+ZERO SPEND: nothing here ever selects a metered provider on its own; hosted providers need the
+explicit opt-in AND the user's own key. The claude CLI provider refuses
 unless `claude auth status` reports subscription auth, and strips paid-auth env vars from the child.
 """
 
@@ -29,8 +42,10 @@ from dataclasses import dataclass
 from fusion.integrations.live import METERED_OPT_IN_ENV, metered_allowed
 from fusion.model.registry import ModelRegistry
 
-TARGET_BACKENDS = ("ollama", "claude_cli", "openai_compat", "api")
-GRADER_KINDS = ("host", "claude_cli", "ollama_prob", "ollama_json")
+TARGET_BACKENDS = ("ollama", "claude_cli", "openai_compat", "anthropic", "command", "python", "api")
+GRADER_KINDS = ("host", "claude_cli", "ollama_prob", "ollama_json", "target")
+CHAT_GRADER_BACKENDS = ("openai_compat", "anthropic", "command")  # target specs that can also grade
+OPAQUE_BACKENDS = ("command", "python")  # Fusion can't tell which model these run
 
 _TARGET_PREFIXES = {
     "ollama": "ollama",
@@ -63,12 +78,18 @@ class SpecError(ValueError):
 
 @dataclass(frozen=True)
 class TargetSpec:
-    backend: str  # ollama | claude_cli | openai_compat | api
-    model: str
+    backend: str  # ollama | claude_cli | openai_compat | anthropic | command | python | api
+    model: str  # for command: the command line; for python: a name
     base_url: str | None = None  # openai_compat only
+    key_env: str | None = None  # a provider preset's key variable
+    provider: str | None = None  # a provider preset's name (openai, hf, ...)
 
     @property
     def label(self) -> str:
+        if self.provider:
+            return f"{self.provider}:{self.model}"
+        if self.backend == "command":
+            return f"cmd:{self.model}"
         if self.base_url:
             return f"{self.backend.replace('_', '-')}:{self.base_url}#{self.model}"
         return f"{self.backend.replace('_', '-')}:{self.model}"
@@ -76,11 +97,13 @@ class TargetSpec:
 
 @dataclass(frozen=True)
 class GraderSpec:
-    kind: str  # host | claude_cli | ollama_prob | ollama_json
-    model: str | None = None
+    kind: str  # host | claude_cli | ollama_prob | ollama_json | target
+    model: str | None = None  # for target: the target spec label (openai:gpt-4o, cmd:..., ...)
 
     @property
     def label(self) -> str:
+        if self.kind == "target":
+            return self.model or ""
         return self.kind if self.model is None else f"{self.kind}:{self.model}"
 
     @property
@@ -99,10 +122,33 @@ def _split(spec: str, prefixes: dict[str, str]) -> tuple[str | None, str]:
     return None, spec
 
 
+def _parse_open(spec: str) -> TargetSpec | None:
+    """Provider presets, anthropic:, cmd: and python: — or None for the other spec forms."""
+    from fusion.backends.presets import ALIASES, PROVIDERS
+
+    head, sep, rest = spec.partition(":")
+    name = ALIASES.get(head.lower(), head.lower())
+    if not sep or name not in (*PROVIDERS, "anthropic", "cmd", "command", "python"):
+        return None
+    value = rest.strip()
+    if not value:
+        example = "a command line" if name in ("cmd", "command") else "<model>"
+        raise SpecError(f"target '{spec}' is missing {example}, e.g. {name}:{example}")
+    if name in PROVIDERS:
+        url, key_env = PROVIDERS[name]
+        return TargetSpec("openai_compat", value, url, key_env=key_env, provider=name)
+    if name in ("cmd", "command"):
+        return TargetSpec("command", value)
+    return TargetSpec(name, value)  # anthropic | python
+
+
 def parse_target(spec: str, registry: ModelRegistry | None = None) -> TargetSpec:
     spec = (spec or "").strip()
     if not spec:
         raise SpecError("empty target spec (try ollama:llama3.2:1b)")
+    open_spec = _parse_open(spec)
+    if open_spec is not None:
+        return open_spec
     backend, model = _split(spec, _TARGET_PREFIXES)
     if backend == "openai_compat":
         return _parse_openai_compat(spec, model)
@@ -154,8 +200,16 @@ def parse_grader(spec: str) -> GraderSpec:
         return GraderSpec("host")
     kind, model = _split(spec, _GRADER_PREFIXES)
     if kind is None:
+        try:
+            t = parse_target(spec)
+        except SpecError:
+            t = None
+        if t is not None and t.backend in CHAT_GRADER_BACKENDS and ":" in spec:
+            return GraderSpec("target", t.label)
         raise SpecError(
-            f"unknown grader '{spec}' (use host, claude-cli[:model], ollama-prob:<model>, ollama:<model>)"
+            f"unknown grader '{spec}' (use host, claude-cli[:model], ollama-prob:<model>, ollama:<model>, or a "
+            "chat target such as openai:<model>, hf:<model>, anthropic:<model>, openai-compat:<url>#<model>, "
+            "cmd:<command>)"
         )
     if kind in ("ollama_prob", "ollama_json") and not model:
         raise SpecError(f"grader '{spec}' needs a model, e.g. ollama-prob:qwen2.5:7b")
@@ -180,8 +234,23 @@ def _cli_preflight() -> None:
     assert_subscription_auth(binary)
 
 
-def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: float = 600.0):
-    """A budgeted client for the target under test. Refuses unavailable or unpermitted backends."""
+def _require_spend_opt_in(what: str) -> None:
+    if not metered_allowed("api"):
+        raise BackendUnavailable(f"{what} is a metered API (your money), so it is off by default: set "
+                                 f"{METERED_OPT_IN_ENV}=1 to allow it")
+
+
+def _require_key(env: str, provider: str) -> str:
+    key = os.environ.get(env)
+    if not key:
+        raise BackendUnavailable(f"set {env} to your {provider} API key")
+    return key
+
+
+def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: float = 600.0,
+                        allow_command: bool = True):
+    """A budgeted client for the target under test. Refuses unavailable or unpermitted backends.
+    `allow_command=False` (the MCP server, unless FUSION_ALLOW_CMD_TARGETS=1) refuses cmd: targets."""
     from fusion.security.budget import BudgetedModelClient, BudgetLimits
 
     limits = BudgetLimits(max_calls=max_calls)
@@ -201,26 +270,54 @@ def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: floa
         _cli_preflight()
         return BudgetedModelClient(ClaudeCliModelClient(registry=registry), limits)
     if spec.backend == "openai_compat":
-        from fusion.model.providers.openai_compat import OpenAICompatModelClient
+        from fusion.model.providers.openai_compat import API_KEY_ENV, OpenAICompatModelClient
 
         if not _private_endpoint(spec.base_url or "") and not metered_allowed("api"):
             raise BackendUnavailable(
                 f"{spec.base_url} is a public endpoint and may be a metered API, so it is off by default: "
                 f"set {METERED_OPT_IN_ENV}=1 to allow it (local and private-network servers need nothing)")
-        return BudgetedModelClient(OpenAICompatModelClient(spec.base_url, spec.model, timeout=timeout), limits,
-                                   enforce_allowlist=False)
+        if spec.key_env:
+            _require_key(spec.key_env, spec.provider or "provider")
+        client = OpenAICompatModelClient(spec.base_url, spec.model, timeout=timeout,
+                                         api_key_env=spec.key_env or API_KEY_ENV)
+        return BudgetedModelClient(client, limits, enforce_allowlist=False)
+    if spec.backend == "anthropic":
+        from fusion.backends.presets import ANTHROPIC_KEY_ENV
+        from fusion.model.providers.anthropic import AnthropicModelClient
+
+        _require_spend_opt_in(f"anthropic:{spec.model}")
+        key = _require_key(ANTHROPIC_KEY_ENV, "Anthropic")
+        registry = ModelRegistry()
+        registry.allowlist.setdefault(spec.model, "anthropic")  # the user named this model explicitly
+        client = _PinnedModel(AnthropicModelClient(api_key=key, registry=registry, timeout=timeout), spec.model)
+        return BudgetedModelClient(client, limits, enforce_allowlist=False)
+    if spec.backend == "command":
+        from fusion.model.providers.command import ALLOW_REMOTE_ENV, CommandModelClient
+
+        if not allow_command:
+            raise BackendUnavailable(f"cmd: targets run a program on this machine, so they are off here: set "
+                                     f"{ALLOW_REMOTE_ENV}=1 to allow them (the CLI always allows them)")
+        return BudgetedModelClient(CommandModelClient(spec.model, timeout=timeout), limits, enforce_allowlist=False)
+    if spec.backend == "python":
+        raise SpecError("python: targets run in-process: pass target_client=fusion.targets.FunctionModelClient(fn) "
+                        "to fusion.runs.service.drive")
     if spec.backend == "api":
         raise BackendUnavailable(_metered_refusal())
     raise SpecError(f"unknown target backend '{spec.backend}'")
 
 
-def build_grader_client(spec: GraderSpec, *, max_calls: int = 1000, timeout: float = 600.0):
-    """A judge client for a BUILT-IN grader. `host` has no client: the calling agent grades."""
+def build_grader_client(spec: GraderSpec, *, max_calls: int = 1000, timeout: float = 600.0,
+                        allow_command: bool = True):
+    """A judge client for a BUILT-IN grader. `host` has no client: the calling agent grades. A chat
+    target used as a grader answers the JSON rubric; the run's calibration measures it like any other."""
     from fusion.security.budget import BudgetedModelClient, BudgetLimits
 
     limits = BudgetLimits(max_calls=max_calls)
     if spec.kind == "host":
         raise SpecError("the host grader has no built-in client — grade via get_grading_tasks/submit_grades")
+    if spec.kind == "target":
+        return build_target_client(parse_target(spec.model or ""), max_calls=max_calls, timeout=timeout,
+                                   allow_command=allow_command)
     if spec.kind == "claude_cli":
         from fusion.model.providers.claude_cli import ClaudeCliModelClient
 
@@ -254,9 +351,8 @@ class _PinnedModel:
 
 
 def _metered_refusal() -> str:
-    if metered_allowed("api"):
-        return "metered API targets aren't supported by the run engine; use ollama: or claude-cli:"
-    return f"api: targets spend money on a metered key and are disabled (needs {METERED_OPT_IN_ENV}=1)"
+    return ("api: is retired for runs: it is metered, so name the provider instead (anthropic:<model>, openai:<model>, "
+            f"hf:<model>, ...), which spends your own key and needs {METERED_OPT_IN_ENV}=1")
 
 
 # ------------------------------------------------------------------------------------ doctor
@@ -315,8 +411,9 @@ def doctor(*, check_auth: bool = True, auth_runner=None) -> dict:
             "ollama": ollama,
             "host": {"available": True, "roles": ["grader"],
                      "note": "the calling agent grades via MCP get_grading_tasks / submit_grades"},
-            "api": {"available": False, "roles": [],
-                    "note": f"metered; disabled unless {METERED_OPT_IN_ENV}=1 and chosen explicitly"},
+            "hosted": _hosted_backends(),
+            "command": {"available": True, "roles": ["target", "grader"], "spec": "cmd:<command>",
+                        "over_mcp": _remote_commands_allowed()},
         },
         "recommended": {
             "target": f"ollama:{target_model}" if target_model else None,
@@ -324,6 +421,28 @@ def doctor(*, check_auth: bool = True, auth_runner=None) -> dict:
         },
         "hints": hints,
     }
+
+
+def _hosted_backends() -> dict:
+    """Hosted providers: which keys are present (never their values) and whether spending is allowed."""
+    from fusion.backends.presets import ANTHROPIC_KEY_ENV, PROVIDERS
+
+    keys = {name: env for name, (_, env) in PROVIDERS.items()} | {"anthropic": ANTHROPIC_KEY_ENV}
+    opt_in = metered_allowed("api")
+    return {
+        "available": opt_in,
+        "roles": ["target", "grader"],
+        "spend_opt_in": opt_in,
+        "providers": {name: {"spec": f"{name}:<model>", "key_env": env, "key_set": bool(os.environ.get(env))}
+                      for name, env in keys.items()},
+        "note": f"metered (your key); off unless {METERED_OPT_IN_ENV}=1",
+    }
+
+
+def _remote_commands_allowed() -> bool:
+    from fusion.model.providers.command import remote_commands_allowed
+
+    return remote_commands_allowed()
 
 
 def _local_grader_hint(status: dict) -> str:

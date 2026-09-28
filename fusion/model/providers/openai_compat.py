@@ -4,7 +4,8 @@ vLLM, LM Studio, llama.cpp's server, text-generation-inference, Ollama's /v1, an
 Dependency-free (stdlib urllib, run off the event loop) and modal-free. Whether an endpoint may be used
 without the metered opt-in is decided by the resolver (`fusion.backends.resolve`): local and private
 network servers are free to use; a public endpoint may be a metered API and needs FUSION_ALLOW_API_SPEND=1.
-An optional bearer key is read from FUSION_TARGET_API_KEY (never logged, never stored in a run).
+An optional bearer key is read from FUSION_TARGET_API_KEY, or from a provider preset's own variable
+(never logged, never stored in a run).
 """
 
 from __future__ import annotations
@@ -40,10 +41,11 @@ class OpenAICompatUnavailable(FusionProviderError):
 
 
 class OpenAICompatModelClient:
-    def __init__(self, base_url: str, model: str, *, timeout: float = 600.0):
+    def __init__(self, base_url: str, model: str, *, timeout: float = 600.0, api_key_env: str = API_KEY_ENV):
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
+        self._api_key_env = api_key_env  # a provider preset reads its own variable (OPENAI_API_KEY, HF_TOKEN...)
 
     def _payload(self, request: ModelRequest) -> dict:
         messages: list[dict] = []
@@ -58,7 +60,7 @@ class OpenAICompatModelClient:
 
     def _post(self, payload: dict) -> dict:
         headers = {"Content-Type": "application/json"}
-        key = os.environ.get(API_KEY_ENV)
+        key = os.environ.get(self._api_key_env)
         if key:
             headers["Authorization"] = f"Bearer {key}"
         req = urllib.request.Request(f"{self._base_url}/chat/completions",
