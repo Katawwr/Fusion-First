@@ -130,3 +130,19 @@ appends idempotent guardrails to a system prompt. The branded, theme-aware HTML 
   Ollama. Never set API keys; never run `claude auth login|logout|setup-token` (not even `--help`) —
   they can change the CLI's login and are denied in `.claude/settings.json`. `claude auth status` is
   fine. Never run `pytest -m live` against the CLI without the user's go-ahead.
+
+## Context handoff (automatic)
+
+At 85% of the 1M-token context window, `scripts/hooks/context_handoff.py` (PostToolUse, Stop and
+UserPromptSubmit in `.claude/settings.json`) tells Claude to hand off; again at 93%. When it does:
+
+1. Confirm with `get_usage`. Finish or checkpoint the current step; start no new long job.
+2. Update HANDOFF.md (state, what this session did, in-flight work including running Ollama jobs and
+   subagents, next steps, open decisions) and commit it.
+3. Start routine `fusion-continue-a` with `run_scheduled_task` (`fusion-continue-b` when `-a` is the run
+   in progress). It opens a new session that reads HANDOFF.md and CLAUDE.md and continues. If neither
+   starts, ask the user to open a chat with: "Read HANDOFF.md and CLAUDE.md, then continue."
+4. Reply with the new session's link and do no further work in the old session.
+
+Settings: `CONTEXT_HANDOFF_WINDOW` (default 1000000), `CONTEXT_HANDOFF_PCT` (85), `CONTEXT_HANDOFF_OFF=1`.
+Hooks load when a session starts; edits to them apply to new sessions.

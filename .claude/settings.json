@@ -22,6 +22,19 @@
         "hooks": [
           { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/post_edit_lint.py\"" }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/context_handoff.py\"", "timeout": 10 }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/context_handoff.py\"", "timeout": 10 }
+        ]
       }
     ],
     "PreToolUse": [
@@ -35,7 +48,8 @@
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/stop_gate.py\"" }
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/stop_gate.py\"" },
+          { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/hooks/context_handoff.py\"", "timeout": 10 }
         ]
       }
     ]
