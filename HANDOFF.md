@@ -10,7 +10,11 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pl
   build, Playwright E2E (10, desktop + phone), `fusion prove --check all --gate`.
 - `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
   (`python -m fusion.validate.trust_report`); tests fail on drift.
-- GPU queue: empty.
+- GPU queue: the pre-registered Llama Guard comparison (`PREREG_guard_vs_llama_guard.md`, amended before
+  data) — `python scripts/guard_vs_llama_guard.py --out evals/validation/v1/guard_vs_llama_guard.json`
+  (resumable; verdicts in `evals/validation/v1/guard_vs_llama_guard/raw.jsonl`). The report and /trust
+  sections are already committed; commit the evidence + raw verdicts, regenerate the Trust Report.
+  Don't change `fusion/guardrail/` before that commit (the evidence pins rules a6fa0f5).
 
 ## Non-negotiables
 
@@ -51,19 +55,17 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pl
   `cmd:`/`python:` never from the web page; over MCP only with `FUSION_ALLOW_CMD_TARGETS=1`.
   Live smoke: `cmd:` adapter → llama3.2:1b collected 8/8.
 
+- Also: built-in graders' malformed answers stay pending (finalize no longer aborts); `prove --gate`;
+  web scan: Quick/Full attack set, JSON download, report survives refresh, Prove re-run with an edited
+  prompt (live only); `og-image.png`.
+
 ## Next
 
 1. **Guardrail long tail** (rules unfrozen). Measured misses: consequential tools with no known verb
    (`Manage…`, `Create…`, `Give…`); the read step of data-stealing hijacks (the guard gates sends).
    Any rule change: new prereg, fresh transcripts (new salt; baseline arm, InjecAgent + Gandalf,
    4 models ≈ 240 generations, ~30–40 min GPU at current speed), score once.
-2. UI bugs: Prove step renders an empty "Quality" heading when the scan had quality cards
-   (`ProveStep`, `Scan.jsx`); the quality card shows the OWASP tooltip; live quality results use
-   attack wording in the feed/lanes.
-3. F4: web Prove re-run with an edited prompt (`ProveStep` replays the scan).
-4. F2: Quick/Full tier selector (`Scan.jsx` hardcodes quick), JSON download, session persistence.
 5. Judge qualification wiring (`fusion/judge/ledger.py` unused; no `evals/judges/`).
-6. `og-image.png` missing (referenced by `Landing.jsx`).
 7. promptfoo comparator (B4); garak hitlog ingest; `live.py` / web clients via the resolver.
 
 ## Tooling notes
