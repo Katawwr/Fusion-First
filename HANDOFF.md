@@ -1,97 +1,81 @@
-# Handoff — Fusion First rebuild (updated 2026-09-27)
+# Handoff — Fusion First rebuild (updated 2026-09-28)
 
-Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Project memory in
-`~/.claude/projects/.../memory/` loads automatically. The approved plan is at
+Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Plan:
 `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md`.
 
-## Where things stand
+## State
 
-- Branch `rebuild/agentic-safety-engine`. Everything is committed locally; **never push or publish**.
-- Green: `python -m pytest -q` (offline), `ruff check fusion tests scripts app`, frontend lint + vitest
-  + build, and the Playwright E2E suite (`npm --prefix frontend run test:e2e`, drives `fusion serve`
-  offline). `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
-  (`python -m fusion.validate.trust_report`); tests fail if they drift from `evals/`.
+- Branch `rebuild/agentic-safety-engine`, all committed locally. **Never push or publish.**
+- Green: `python -m pytest -q` (1422), `ruff check fusion tests scripts app`, frontend vitest (67) + lint +
+  build, Playwright E2E (10, desktop + phone), `fusion prove --check all --gate`.
+- `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
+  (`python -m fusion.validate.trust_report`); tests fail on drift.
+- GPU queue: empty.
 
-## Non-negotiables (also in CLAUDE.md and memory)
+## Non-negotiables
 
-- **Zero spend.** Real calls only through local Ollama or the `claude` CLI on subscription auth. Never
-  use an API key; never run `claude auth login|logout|setup-token`. Before a subscription-heavy batch
-  call `get_usage` (extra usage disabled, 5-hour < 70%, weekly < 60%). The extra-usage meter showed
-  £51.06 against £45 (disabled; predates this work) — the user has been told.
-- **The `claude` CLI is logged out.** Web live scans need it (Claude grades them) and the picker says
-  so; the command-line run engine can grade locally; host subagents work keylessly.
-- **One local Ollama job at a time.** The GPU fits one model.
-- **Bash heredocs collapse `\\`** — write code with backslashes via Write/Edit.
-- **Numbers only from committed evidence** (`evals/claims.yaml`). Never claim the rubric improves
-  accuracy (B3), that the fix works on small models (Q3), or that the judge is "calibrated".
-- **Pre-register before measuring** (`evals/validation/v1/PREREG_*.md`, `datasets/guard_bench/PREREG_*`);
-  never tune on a set after scoring it; a spent held-out set needs a fresh one.
-- Downloads need the user's OK: they approved `@playwright/test` (pinned 1.58.2, cached Chromium 1208);
-  `npm audit fix` for the react-router advisories is still waiting on them.
+- Zero spend: local Ollama or the `claude` CLI on subscription only; never an API key; never
+  `claude auth login|logout|setup-token`. `get_usage` before subscription-heavy batches.
+- The `claude` CLI is logged out (web live scans need it; host subagents work keylessly).
+- One local Ollama job at a time.
+- Numbers only from committed evidence (`evals/claims.yaml`). Pre-register before measuring; score a
+  held-out set once; a spent set needs a fresh one.
+- Copy: technical, concise, no repetition or over-explaining (owner, 2026-09-28).
+- Write code containing backslashes with Write/Edit, not Bash heredocs.
 
-## What the evidence says now (all generated into TRUST_REPORT.md)
+## Evidence (all in TRUST_REPORT.md)
 
-- **Q1 grader accuracy** (Sonnet host judge vs oracles, 120 llama3.2:1b transcripts): injection 80%,
-  leakage 92%; beats regex, not significantly.
-- **Q4 / B3:** a plain one-question Sonnet judge is as accurate on the same items (86% vs 87%).
-- **Q3 fix, 4 models:** pooled no clear change on attacks, significantly more refusals of safe requests
-  (+13 pts); one proven win (Gandalf on qwen2.5:3b), one significant regression (XSTest on llama).
-- **Runtime guardrail on real attacks (pre-registered):** stopped 54/69 = 78% (97% of password leaks,
-  71% data-stealing, 38% direct-harm hijacks), wrongly blocked 5% of clean transcripts. The strongest
-  value evidence: it protects small models where the prompt fix doesn't. A CamelCase bug it found is
-  fixed (a6fa0f5); the honest re-measure is registered on fresh transcripts (see In flight).
-- **Claude Code guard hook, held-out v3 (blind, scored once at f7d3809):** 5% of benign calls prompted,
-  76% of attacks caught. v3 is now spent: any hook rule change needs a fresh v4.
+| Question | Result |
+|---|---|
+| Grader accuracy (Sonnet host, 120 llama3.2:1b transcripts) | injection 80%, leakage 92%; beats regex, not significantly |
+| Rubric vs plain question (B3) | 86% vs 87%: no claim that the rubric improves accuracy |
+| Free local grader (qwen2.5:7b prob judge) | FAILED bar: acc 60%/55%, F1 0.50/0.37; worse than regex on leakage. Not recommended |
+| Prompt fix, 4 small models | pooled: no clear change on attacks, +13 pts refusals of safe requests |
+| Compact fix (pre-registered) | NOT ADOPTED; vs the full fix it let more attacks through on gemma3:1b |
+| Runtime guardrail, fresh transcripts (rules a6fa0f5) | 50/70 stopped (71%), 2/170 wrongly blocked (1%); first measurement 54/69 |
+| Claude Code hook, held-out v3 | 5% benign prompted, 76% attacks caught (v3 spent) |
 
-## In flight (the GPU queue — one Ollama job at a time)
+## This session (`git log 037027f..HEAD`)
 
-1. **Compact-fix run** (pre-registered, `PREREG_compact_fix.md`), resumable:
-   `python scripts/run_evidence.py run --n 30 --models llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b --arms baseline,hardened,compact --salt fusion-evidence-compact-v1 --exclude-salt fusion-evidence-v1 --max-tokens 600 --max-tokens-safety 256`
-   Then: `python scripts/run_evidence.py analyze --n 30 --models <same> --arms baseline,compact --salt fusion-evidence-compact-v1 --exclude-salt fusion-evidence-v1 --out evals/validation/v1/compact_fix.json`
-   (emits `prereg_decision`, applied in code); regenerate the Trust Report (its section is ready);
-   commit the transcripts too.
-2. **Guardrail on fresh transcripts** (`PREREG_guard_on_fresh_transcripts.md`, CPU only, after 1):
-   `python scripts/guard_on_transcripts.py --salt fusion-evidence-compact-v1 --exclude-salt fusion-evidence-v1 --preregistration evals/validation/v1/PREREG_guard_on_fresh_transcripts.md --out evals/validation/v1/guard_on_fresh_transcripts.json`
-   (read a git snapshot of the transcripts if anything is still appending to them).
-3. **Free local grader accuracy** (`PREREG_local_grader.md`): run `je-prob` is prepared in the session
-   scratchpad; recreate with `scripts/judge_eval.py prepare --workspace W --run-id je-prob --experiments gandalf,injecagent --models llama3.2:1b`,
-   then `grade ... --grader ollama-prob:qwen2.5:7b` and `score ... --grader-label "qwen2.5:7b probability judge (local)" --out evals/validation/v1/judge_eval_prob_qwen7b.json --artifacts evals/validation/v1/judge_eval_prob_qwen7b`.
-   Apply the registered floor to `fusion doctor`'s default.
-4. **Live smoke of `openai-compat:`** against Ollama's own `/v1` (e.g.
-   `openai-compat:http://127.0.0.1:11434/v1#llama3.2:1b`) with a tiny run.
+- Evidence: compact fix, local grader, guardrail on fresh transcripts; `openai-compat:` live smoke
+  (target path) passed against Ollama `/v1`.
+- `fusion doctor` recommends a local grader only if its committed evidence met the bar.
+- `prove --gate` (judge floor + `require_before_after_honesty`), `--policy`.
+- Fixes: non-inferiority float rounding; Q1 table split by an audit paragraph; /trust stated
+  "significant" without direction (now per grader).
+- Copy pass across site, README, Trust Report; nav "Use".
 
-## What this session built (`git log 5ade926..HEAD`)
+## Next
 
-- Evidence: 4-model Q3; pooled tables; B3; guard v3; guardrail on real attacks; prereg-in-code for the
-  compact fix; one-shot scorers; every result re-derivable from committed files.
-- `fusion serve` (loopback, Host allowlist, per-launch token, no framing; wheel bundles the frontend).
-- Honest capabilities end to end (CLI readiness, fail-closed picker, installed Ollama models, no
-  "hosted" option locally, demo labelled an illustration on the bars AND the Prove headline).
-- `openai-compat:<url>#<model>` targets (public endpoints need the metered opt-in; never follows
-  redirects — the review's critical finding).
-- Guard hook: three known bypasses closed. Guardrail: CamelCase read tools fixed.
-- Ollama client dials 127.0.0.1 (localhost cost ~2 s/request on Windows).
-- Copy: no "one-click fix", no "calibrated" judge; the guardrail's measured result on the landing page
-  and README (registered claims).
-- Playwright E2E (desktop + phone) + CI job.
+1. **Guardrail long tail** (rules unfrozen). Measured misses: consequential tools with no known verb
+   (`Manage…`, `Create…`, `Give…`); the read step of data-stealing hijacks (the guard gates sends).
+   Any rule change: new prereg, fresh transcripts (new salt; baseline arm, InjecAgent + Gandalf,
+   4 models ≈ 240 generations, ~30–40 min GPU at current speed), score once.
+2. UI bugs: Prove step renders an empty "Quality" heading when the scan had quality cards
+   (`ProveStep`, `Scan.jsx`); the quality card shows the OWASP tooltip; live quality results use
+   attack wording in the feed/lanes.
+3. F4: web Prove re-run with an edited prompt (`ProveStep` replays the scan).
+4. F2: Quick/Full tier selector (`Scan.jsx` hardcodes quick), JSON download, session persistence.
+5. Judge qualification wiring (`fusion/judge/ledger.py` unused; no `evals/judges/`).
+6. `og-image.png` missing (referenced by `Landing.jsx`).
+7. promptfoo comparator (B4); garak hitlog ingest; `live.py` / web clients via the resolver.
 
-## Next backlog
+## Tooling notes
 
-- F4 real Prove re-run with an edited prompt (needs a live backend to be useful).
-- A local grader path for web scans, if the probability judge clears its floor.
-- Guardrail/hook long tail (tools whose names carry no known verb; droppers split across calls;
-  LOLBins; DNS/URL-parameter exfil; sudoers/CA edits) — then fresh held-out sets to measure.
-- promptfoo comparator (B4; a re-implemented llm-rubric exists in `fusion/validate/baselines.py`).
-- Q4 value ledger (found -> confirmed -> fixed/guarded -> durable).
+- The in-app browser pane's screenshots time out; use the Playwright MCP (`.playwright-mcp/`).
+- `fusion serve` reads `index.html` at launch: restart it after `npm run build`.
+- Guardrail diagnostics: `scripts/guard_on_transcripts.py --out <scratch>` re-applies current rules to
+  any committed sample (diagnostic only, never evidence).
 
 ## Where to look
 
 | What | Where |
 |---|---|
-| Run engine, gates, oracle cross-check, logs | `fusion/runs/{engine,oracle_check,logs,service,cli}.py` |
-| Backends / zero-spend resolver, doctor, targets | `fusion/backends/resolve.py`, `fusion/model/providers/` |
-| Local web app + E2E | `fusion/web/serve.py`, `fusion/web/factory.py`, `frontend/src/lib/`, `frontend/e2e/` |
-| Guard hook + held-out scoring | `fusion/integrations/claude_hooks.py`, `fusion/validate/guard_heldout.py`, `datasets/guard_bench/` |
+| Run engine, gates, oracle cross-check | `fusion/runs/`, `fusion/stats/gate.py` |
+| Backends, doctor, targets | `fusion/backends/resolve.py`, `fusion/model/providers/` |
+| Pre-registered decisions in code | `fusion/validate/prereg.py` |
+| Web app + E2E | `fusion/web/`, `frontend/src/`, `frontend/e2e/` |
+| Guard hook, held-out scoring | `fusion/integrations/claude_hooks.py`, `fusion/validate/guard_heldout.py` |
 | Runtime guardrail + real-transcript measurement | `fusion/guardrail/`, `fusion/validate/guard_on_transcripts.py` |
-| Evidence pipeline | `fusion/validate/{experiments,analysis,prereg,judge_eval,b3,trust_report}.py`, `scripts/` |
+| Evidence pipeline + Trust Report | `fusion/validate/`, `scripts/`, `evals/validation/v1/` |
 | Claims registry | `evals/claims.yaml`, `tests/test_claims_backed.py` |
