@@ -65,8 +65,8 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pl
    (`Manage…`, `Create…`, `Give…`); the read step of data-stealing hijacks (the guard gates sends).
    Any rule change: new prereg, fresh transcripts (new salt; baseline arm, InjecAgent + Gandalf,
    4 models ≈ 240 generations, ~30–40 min GPU at current speed), score once.
-5. Judge qualification wiring (`fusion/judge/ledger.py` unused; no `evals/judges/`).
-7. promptfoo comparator (B4); garak hitlog ingest; `live.py` / web clients via the resolver.
+2. Judge qualification wiring (`fusion/judge/ledger.py` unused; no `evals/judges/`).
+3. promptfoo comparator (B4); garak hitlog ingest; `live.py` / web clients via the resolver.
 
 ## Tooling notes
 
