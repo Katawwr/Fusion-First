@@ -12,6 +12,7 @@ import json
 import pathlib
 
 from fusion._data import data_root
+from fusion.validate.prereg import LOCAL_GRADER_EVIDENCE, local_grader_decision
 
 HEADER = """# Fusion First — Trust Report
 
@@ -83,20 +84,67 @@ def _pooled_sentence(fix: dict) -> str:
     return f"Pooled over the {len(fix['models'])} models: " + "; ".join(parts) + ". "
 
 
+def _judge_files(root: pathlib.Path) -> list[tuple[str, dict]]:
+    """Every committed, non-demonstration judge-vs-oracle evidence file, as (relative path, data)."""
+    out = []
+    for f in sorted((root / "evals/validation/v1").glob("judge_eval_*.json")):
+        rel = str(f.relative_to(root)).replace("\\", "/")
+        d = _load(root, rel)
+        if d:
+            out.append((rel, d))
+    return out
+
+
+_LOCAL_GRADER_FILES = set(LOCAL_GRADER_EVIDENCE.values())
+
+
+def _comparisons(checks: dict) -> list[tuple[float, bool]]:
+    """(McNemar p, is the grader the more accurate one?) per grader-vs-baseline comparison."""
+    out = []
+    for b in checks.values():
+        g = b["grader"]
+        for k in ("naive_regex", "tuned_heuristic"):
+            base = b.get(k, {})
+            if "vs_grader" not in base:
+                continue
+            base_acc = (base.get("accuracy") or {}).get("point")
+            better = g["accuracy"]["point"] > base_acc if base_acc is not None else g["f1"] > base.get("f1", 0)
+            out.append((base["vs_grader"]["mcnemar_p"], better))
+    return out
+
+
+def _check_span(d: dict) -> str:
+    return ", ".join(f"{c.replace('_', ' ')} {_iv(b['grader']['accuracy'])}" for c, b in sorted(d["checks"].items()))
+
+
+def _floor_text(dec: dict) -> str:
+    floors = {(c["floor"]["accuracy"], c["floor"]["f1"]) for c in dec["per_check"].values()}
+    if len(floors) == 1:
+        acc, f1 = floors.pop()
+        return f"accuracy at least {acc:.2f} and F1 at least {f1:.2f} on both checks"
+    return "; ".join(f"{c.replace('_', ' ')}: accuracy at least {v['floor']['accuracy']:.2f}, F1 at least "
+                     f"{v['floor']['f1']:.2f}" for c, v in dec["per_check"].items())
+
+
+def _local_verdict(dec: dict) -> str:
+    if dec["meets_floor"]:
+        return ("met, so it stays the default free grader (`fusion doctor` recommends it when the claude CLI "
+                "isn't available)")
+    return ("not met, so `fusion doctor` no longer recommends it by default (it can still be chosen explicitly; every "
+            "run measures its grader in-run and withholds the grade when it falls short)")
+
+
 def _bottom_line(root: pathlib.Path) -> list[str]:
     """Four plain answers, each derived by rule from the evidence (never typed by hand)."""
     out = ["## Bottom line", ""]
-    judge = [_load(root, str(f.relative_to(root)).replace("\\\\", "/"))
-             for f in sorted((root / "evals/validation/v1").glob("judge_eval_*.json"))]
-    judge = [d for d in judge if d]
-    if judge:
-        accs = [(c, b["grader"]["accuracy"]) for d in judge for c, b in sorted(d["checks"].items())]
-        span = ", ".join(f"{c.replace('_', ' ')} {_iv(a)}" for c, a in accs)
-        pvals = [b[k]["vs_grader"]["mcnemar_p"] for d in judge for b in d["checks"].values()
-                 for k in ("naive_regex", "tuned_heuristic") if "vs_grader" in b.get(k, {})]
-        beats = all(b["grader"]["f1"] >= b.get(k, {}).get("f1", 0) for d in judge for b in d["checks"].values()
+    judge = _judge_files(root)
+    primary = [d for rel, d in judge if rel not in _LOCAL_GRADER_FILES]
+    detect = []
+    if primary:
+        span = "; ".join(f"{d['grader']}: {_check_span(d)}" for d in primary)
+        beats = all(b["grader"]["f1"] >= b.get(k, {}).get("f1", 0) for d in primary for b in d["checks"].values()
                     for k in ("naive_regex", "tuned_heuristic"))
-        sig = any(p < 0.05 for p in pvals)
+        sig = any(p < 0.05 and better for d in primary for p, better in _comparisons(d["checks"]))
         b3 = _load(root, B3_EVIDENCE)
         plain = ""
         if b3:
@@ -106,11 +154,15 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
                      f" A plain one-question judge using the same model was just as accurate on the same items "
                      f"(rubric {_pct(p['rubric']['accuracy']['point'])}, plain "
                      f"{_pct(p['b3']['accuracy']['point'])}), so Fusion does not claim its rubric improves accuracy.")
-        out.append(f"- **Detecting accurately?** Graded against deterministic oracles: {span}. "
-                   + ("It beats the rule-based checks" if beats else "It does not always beat the rule-based checks")
-                   + (" significantly." if sig else ", but not significantly yet (small samples).") + plain)
-    else:
-        out.append("- **Detecting accurately?** Not yet measured.")
+        detect.append(f"Graded against deterministic oracles — {span}. "
+                      + ("It beats the rule-based checks" if beats else "It does not always beat the rule-based checks")
+                      + (" significantly." if sig else ", but not significantly yet (small samples).") + plain)
+    for rel, d in judge:
+        if rel in _LOCAL_GRADER_FILES:
+            dec = local_grader_decision(d)
+            detect.append(f"The free local grader ({d['grader']}), pre-registered: {_check_span(d)}. Its registered "
+                          f"bar ({_floor_text(dec)}): {_local_verdict(dec)}.")
+    out.append("- **Detecting accurately?** " + (" ".join(detect) if detect else "Not yet measured."))
     fix = _load(root, "evals/validation/v1/evidence_oracle.json")
     if fix:
         cells = fix.get("cells", [])
@@ -128,9 +180,15 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
                    + "Every report card therefore measures the fix on the user's own model instead of assuming it helps.")
     else:
         out.append("- **Fixing effectively?** Not yet measured.")
-    runtime = _load(root, GUARDRAIL_EVIDENCE)
+    compact = _load(root, COMPACT_EVIDENCE)
+    if compact and "prereg_decision" in compact:
+        adopted = compact["prereg_decision"]["adopt"]
+        out[-1] += (" A pre-registered compact version of the fix was adopted for small models (registered rule met)."
+                    if adopted else " A pre-registered compact version of the fix was not adopted: no model had "
+                    "significantly fewer attacks with it without a meaningful rise in refusals of safe requests.")
+    runtime, first, _ = _guardrail_measurements(root)
     if runtime:
-        out.append(_guardrail_sentence(runtime, fix))
+        out.append(_guardrail_sentence(runtime, fix, first))
     guard = _guard_headline(root)
     if guard:
         out.append(f"- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on "
@@ -146,8 +204,8 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         counts.append(f"in the fix-efficacy run, {unscored} of {items} item pairs failed to generate, "
                       f"{undecidable} were undecidable by the oracle and {truncated} were cut by the token cap")
     if judge:
-        unanswered = sum(b["grader"].get("unanswered", 0) for d in judge for b in d["checks"].values())
-        total = sum(b["grader"]["n"] + b["grader"].get("unanswered", 0) for d in judge for b in d["checks"].values())
+        unanswered = sum(b["grader"].get("unanswered", 0) for _, d in judge for b in d["checks"].values())
+        total = sum(b["grader"]["n"] + b["grader"].get("unanswered", 0) for _, d in judge for b in d["checks"].values())
         counts.append(f"in the judge evaluation, {unanswered} of {total} questions went unanswered")
     out.append("- **Erroring often?** " + ("; ".join(counts).capitalize() + ". " if counts else "")
                + "Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much "
@@ -156,11 +214,31 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
     return out + [""]
 
 
+def _significance(rows: list[tuple[str, dict]]) -> str:
+    comps = [c for _, d in rows for c in _comparisons(d["checks"])]
+    better = sum(1 for p, b in comps if p < 0.05 and b)
+    worse = sum(1 for p, b in comps if p < 0.05 and not b)
+    if better or worse:
+        return (f"{better + worse} of {len(comps)} grader-vs-baseline comparisons are significant at 0.05"
+                + (f" ({better} in the grader's favour, {worse} against it)." if worse else "."))
+    who = "the grader scores" if len(rows) == 1 else "the graders score"
+    return (f"None of the {len(comps)} grader-vs-baseline comparisons is significant at 0.05 yet — "
+            + (f"{who} higher, but these samples can't rule out chance." if all(b for _, b in comps)
+               else "these samples can't tell the graders and the rule-based baselines apart."))
+
+
+def _local_grader_paragraph(d: dict) -> list[str]:
+    dec = local_grader_decision(d)
+    result = "; ".join(f"{c.replace('_', ' ')}: accuracy {_pct(v['accuracy'])}, F1 "
+                       + ("—" if v["f1"] is None else f"{v['f1']:.2f}") for c, v in dec["per_check"].items())
+    return ["", f"**Free local grader (pre-registered).** `evals/validation/v1/PREREG_local_grader.md` fixed its bar "
+                f"before {d['grader']} answered any question: {_floor_text(dec)}. Result: {result}. Bar "
+                f"{_local_verdict(dec)}."]
+
+
 def _q1(root: pathlib.Path) -> list[str]:
     out = ["## Q1 — Is the judge accurate?", ""]
-    files = sorted((root / "evals/validation/v1").glob("judge_eval_*.json"))
-    rows = [(f, _load(root, str(f.relative_to(root)).replace("\\", "/"))) for f in files]
-    rows = [(f, d) for f, d in rows if d]
+    rows = _judge_files(root)
     if not rows:
         return out + ["NOT YET MEASURED — no committed judge-vs-oracle evidence.", ""]
     out += [
@@ -172,13 +250,10 @@ def _q1(root: pathlib.Path) -> list[str]:
         "| Evidence | Grader | Check | n (unanswered) | Accuracy | Recall | Specificity | F1 | κ | Naive regex F1 | Tuned heuristic F1 |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
-    pvals = []
-    for f, d in rows:
-        rel = str(f.relative_to(root)).replace("\\", "/")
+    for rel, d in rows:
         for check, b in sorted(d["checks"].items()):
             g = b["grader"]
             nr, th = b.get("naive_regex", {}), b.get("tuned_heuristic", {})
-            pvals += [x.get("vs_grader", {}).get("mcnemar_p") for x in (nr, th) if "vs_grader" in x]
             out.append(
                 f"| `{rel}` | {d['grader']} | {check} | {g['n']} ({g.get('unanswered', 0)}) | {_iv(g['accuracy'])} "
                 f"| {_iv(g['recall'])} | {_iv(g['specificity'])} | {g['f1']:.2f} | {g['kappa']:.2f} "
@@ -188,14 +263,13 @@ def _q1(root: pathlib.Path) -> list[str]:
             out += ["", f"Disagreement audit (`{rel}`) — {audit.get('method', 'an LLM reading, not ground truth')} "
                     + "; ".join(f"{k}: {v}" for k, v in audit["summary"].items())
                     + (f". {audit['note']}" if audit.get("note") else "")]
-    significant = [p for p in pvals if p is not None and p < 0.05]
+    for rel, d in rows:
+        if rel in _LOCAL_GRADER_FILES:
+            out += _local_grader_paragraph(d)
     out += [
         "",
         "How to read this: the paired McNemar test asks whether the grader and a baseline get different "
-        "ITEMS right (not whether their F1 differs). "
-        + (f"{len(significant)} of {len(pvals)} grader-vs-baseline comparisons are significant at 0.05."
-           if significant else f"None of the {len(pvals)} grader-vs-baseline comparisons is significant at 0.05 "
-           "yet — the grader scores higher, but these samples can't rule out chance."),
+        "ITEMS right (not whether their F1 differs). " + _significance(rows),
         "Each item appears twice (the prompt as written and with the fix), so the rows are not fully "
         "independent and the intervals are somewhat too narrow. The leakage oracle is itself a string match "
         "for the planted password; the baselines are generic and are not told the password.",
@@ -371,15 +445,20 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
         rubric_vs_plain = {"evidence": B3_EVIDENCE, "claim_allowed": b3["decision"]["claim_allowed"],
                            "pooled": _pair(b3["pooled"]),
                            "by_check": {c: _pair(b) for c, b in sorted(b3["by_check"].items())}}
-    runtime = _load(root, GUARDRAIL_EVIDENCE)
+    runtime, first, runtime_rel = _guardrail_measurements(root)
     runtime_guardrail = None
     if runtime:
         keep = ("attacks", "stopped", "recall", "clean", "over_blocked", "over_block")
+
+        def _summary(r: dict) -> dict:
+            return {"all": {k: r["all"][k] for k in keep},
+                    "by_attack_type": {g: {**{k: s[k] for k in keep}, "name": _ATTACK_TYPE_NAMES.get(g, g)}
+                                       for g, s in sorted(r["by_attack_type"].items())}}
+
         runtime_guardrail = {
-            "evidence": GUARDRAIL_EVIDENCE, "models": runtime.get("models", []),
-            "all": {k: runtime["all"][k] for k in keep},
-            "by_attack_type": {g: {**{k: s[k] for k in keep}, "name": _ATTACK_TYPE_NAMES.get(g, g)}
-                               for g, s in sorted(runtime["by_attack_type"].items())},
+            "evidence": runtime_rel, "models": runtime.get("models", []), **_summary(runtime),
+            "fresh": first is not None, "findings": runtime.get("findings", []),
+            "first_measurement": {"evidence": GUARDRAIL_EVIDENCE, **_summary(first)} if first else None,
         }
     ledger = _load(root, LEDGER_EVIDENCE)
     counts = ("found", "fix_removed", "fix_caused", "guard_stopped", "either", "neither")
@@ -390,7 +469,14 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
         "fix_refusal_cost": ledger.get("fix_refusal_cost"),
         "note": ledger.get("note"),
     }
+    local = next(((rel, d) for rel, d in _judge_files(root) if rel in _LOCAL_GRADER_FILES), None)
+    local_grader = None
+    if local:
+        dec = local_grader_decision(local[1])
+        local_grader = {"evidence": local[0], "grader": local[1]["grader"], "meets_floor": dec["meets_floor"],
+                        "rule": dec["rule"], "per_check": dec["per_check"]}
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
+            "local_grader": local_grader,
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "runtime_guardrail": runtime_guardrail, "value_ledger": value_ledger,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
@@ -398,6 +484,18 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
 
 B3_EVIDENCE = "evals/validation/v1/b3_rubric_vs_plain_judge.json"
 GUARDRAIL_EVIDENCE = "evals/validation/v1/guard_on_transcripts.json"
+GUARDRAIL_FRESH_EVIDENCE = "evals/validation/v1/guard_on_fresh_transcripts.json"
+
+
+def _guardrail_measurements(root: pathlib.Path) -> tuple[dict | None, dict | None, str]:
+    """(headline, first measurement or None, headline evidence path). A measurement that led to a rule
+    fix is a development number for the new rules, so the fresh re-measurement of the current rules
+    is the headline once it exists; the first one stays disclosed."""
+    first = _load(root, GUARDRAIL_EVIDENCE)
+    fresh = _load(root, GUARDRAIL_FRESH_EVIDENCE)
+    if fresh:
+        return fresh, first, GUARDRAIL_FRESH_EVIDENCE
+    return first, None, GUARDRAIL_EVIDENCE
 _ATTACK_TYPE_NAMES = {"gandalf:leak": "password leaks (Gandalf)",
                       "injecagent:ds": "tool hijack, data stealing (InjecAgent)",
                       "injecagent:dh": "tool hijack, direct harm (InjecAgent)"}
@@ -407,13 +505,21 @@ _ATTACK_TYPE_SHORT = {"gandalf:leak": "password leaks", "injecagent:ds": "data-s
                       "injecagent:dh": "direct-harm tool hijacks"}
 
 
-def _guardrail_sentence(d: dict, fix: dict | None) -> str:
+def _guardrail_sentence(d: dict, fix: dict | None, first: dict | None = None) -> str:
     a = d["all"]
     ranked = sorted(d["by_attack_type"].items(), key=lambda kv: -kv[1]["recall"]["point"])
     parts = [f"{_pct(s['recall']['point'])} of {_ATTACK_TYPE_SHORT.get(k, k)}" for k, s in ranked]
     listed = ", ".join(parts[:-1]) + f" and {parts[-1]}" if len(parts) > 1 else "".join(parts)
+    models = len(d.get("models", []))
+    if first:
+        f0 = first["all"]
+        return (f"- **Runtime guardrail in your agent?** On fresh real attacks that succeeded against {models} small "
+                f"open-weight models, measured once with the current rules (pre-registered), it stopped "
+                f"{a['stopped']} of {a['attacks']}, {_iv(a['recall'])}: {listed}. It wrongly blocked "
+                f"{_iv(a['over_block'])} of clean transcripts. The first measurement (earlier transcripts, older "
+                f"rules) stopped {f0['stopped']} of {f0['attacks']}.")
     sentence = (f"- **Runtime guardrail in your agent?** On real attacks that succeeded against "
-                f"{len(d.get('models', []))} small open-weight models it stopped {a['stopped']} of {a['attacks']}, "
+                f"{models} small open-weight models it stopped {a['stopped']} of {a['attacks']}, "
                 f"{_iv(a['recall'])}: {listed}. It wrongly blocked {_iv(a['over_block'])} of clean transcripts.")
     pooled = (fix or {}).get("pooled") or {}
     same = [pooled[e] for e in ("injecagent", "gandalf") if e in pooled]
@@ -449,15 +555,8 @@ def _ledger(root: pathlib.Path) -> list[str]:
     return out + [""]
 
 
-def _guardrail(root: pathlib.Path) -> list[str]:
-    d = _load(root, GUARDRAIL_EVIDENCE)
-    if not d:
-        return []
-    out = ["## Runtime guardrail on real attacks (pre-registered)", "",
-           "The runtime guardrail (`fusion/guardrail`) applied to the attacks that really succeeded against "
-           "the small models in the Q3 run (prompt as written), re-scored by the same oracles. Registered in "
-           f"`evals/validation/v1/PREREG_guard_on_real_transcripts.md`; evidence: `{GUARDRAIL_EVIDENCE}`.", "",
-           "| Attack | Real attacks | Stopped | Clean transcripts | Wrongly blocked |", "|---|---|---|---|---|"]
+def _guardrail_table(d: dict) -> list[str]:
+    out = ["| Attack | Real attacks | Stopped | Clean transcripts | Wrongly blocked |", "|---|---|---|---|---|"]
     for k, s in sorted(d["by_attack_type"].items()):
         out.append(f"| {_ATTACK_TYPE_NAMES.get(k, k)} | {s['attacks']} | {_iv(s['recall'])} | {s['clean']} | "
                    f"{_iv(s['over_block'])} |")
@@ -467,6 +566,29 @@ def _guardrail(root: pathlib.Path) -> list[str]:
     out += [f"- {f}" for f in d.get("findings", [])]
     if d.get("deviation_note"):
         out.append(f"- Deviation, disclosed: {d['deviation_note']}")
+    return out
+
+
+def _guardrail(root: pathlib.Path) -> list[str]:
+    d = _load(root, GUARDRAIL_EVIDENCE)
+    fresh = _load(root, GUARDRAIL_FRESH_EVIDENCE)
+    if not d and not fresh:
+        return []
+    out = ["## Runtime guardrail on real attacks (pre-registered)", ""]
+    if d:
+        out += ["The runtime guardrail (`fusion/guardrail`) applied to the attacks that really succeeded against "
+                "the small models in the Q3 run (prompt as written), re-scored by the same oracles. Registered in "
+                f"`evals/validation/v1/PREREG_guard_on_real_transcripts.md`; evidence: `{GUARDRAIL_EVIDENCE}`.", "",
+                *_guardrail_table(d)]
+    if fresh:
+        sha = (fresh.get("guardrail_git_sha") or "unknown")[:7]
+        salt = (fresh.get("sample") or {}).get("salt", "unknown")
+        out += (["", "### Re-measured on fresh transcripts (current rules)", ""] if d else []) + [
+            "A measurement that leads to a rule fix becomes a development number for the fixed rules, so the current "
+            f"rules (`fusion/guardrail` at `{sha}`) were applied once to fresh transcripts that no rule was written "
+            f"against: the prompt as written on new items (sample `{salt}`), with the same configuration, reading of "
+            f"tool calls and oracles. Registered in `{fresh.get('preregistration')}`; evidence: "
+            f"`{GUARDRAIL_FRESH_EVIDENCE}`.", "", *_guardrail_table(fresh)]
     return out + [""]
 COMPACT_EVIDENCE = "evals/validation/v1/compact_fix.json"
 
@@ -504,7 +626,39 @@ def _compact(root: pathlib.Path) -> list[str]:
         out.append(f"| {model} | {_iv(a['baseline_rate'])} | {_iv(a['treatment_rate'])} | "
                    f"McNemar p={a['before_after']['mcnemar_p']:.3f} | {rise} ({ni}) | "
                    f"{'yes' if pm.get('both_primary') else 'no'} |")
-    return out + ["", _compact_verdict(dec), ""]
+    return out + ["", _compact_verdict(dec), "", *_compact_secondary(root, d)]
+
+
+COMPACT_VS_FULL_EVIDENCE = "evals/validation/v1/compact_vs_full_fix.json"
+
+
+def _vs_full(ba: dict) -> str:
+    if ba["mcnemar_p"] >= 0.05:
+        return "no significant difference"
+    return ("significantly more with the compact block" if ba["discordant_c"] > ba["discordant_b"]
+            else "significantly fewer with the compact block")
+
+
+def _compact_secondary(root: pathlib.Path, primary: dict) -> list[str]:
+    """The registered secondary outcomes: compact vs the full fix (attacks, refusals of safe requests),
+    and the IFEval cost of the compact block (non-inferior to the prompt as written within 10 points)."""
+    d = _load(root, COMPACT_VS_FULL_EVIDENCE)
+    if not d:
+        return []
+    attacks = "; ".join(
+        f"{m} {_pct(a['baseline_rate']['point'])} → {_pct(a['treatment_rate']['point'])} "
+        f"(McNemar p={a['before_after']['mcnemar_p']:.3f}, {_vs_full(a['before_after'])})"
+        for m, a in sorted(d["attack_success_by_model"].items()))
+    refusals = "; ".join(f"{c['model']} {_pct(c['baseline_rate']['point'])} → {_pct(c['hardened_rate']['point'])}"
+                         for c in sorted(d.get("cells", []), key=lambda c: c["model"])
+                         if c["experiment"] == "xstest")
+    ifeval = ", ".join(f"{c['model']} {'yes' if c.get('noninferior') else 'no'}"
+                       for c in sorted(primary.get("cells", []), key=lambda c: c["model"])
+                       if c["experiment"] == "ifeval")
+    return [f"**Secondary outcomes (registered).** The full fix vs the compact block on the same fresh items "
+            f"(evidence: `{COMPACT_VS_FULL_EVIDENCE}`). Attacks, InjecAgent + Gandalf pooled, full fix → compact: "
+            f"{attacks}. Refusals of safe requests (XSTest), full fix → compact: {refusals}. Missed instructions "
+            f"(IFEval) with the compact block within 10 points of the prompt as written: {ifeval}.", ""]
 
 
 def _b3_verdict(d: dict) -> str:

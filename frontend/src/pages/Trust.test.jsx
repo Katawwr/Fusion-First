@@ -2,7 +2,7 @@ import React from "react";
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import Trust from "./Trust";
+import Trust, { GuardrailSection } from "./Trust";
 import { fixVerdict, interval, pct } from "../lib/evidence";
 import evidence from "../content/evidence.json";
 
@@ -52,6 +52,32 @@ describe("Trust page", () => {
     for (const p of evidence.fix_pooled || []) {
       expect(screen.getAllByText(new RegExp(`^${p.experiment} \\(all models\\)$`)).length).toBe(1);
     }
+  });
+
+  it("says which guardrail measurement it shows, and keeps the first one disclosed", () => {
+    const s = (attacks, stopped, clean, over) => ({
+      attacks, stopped, clean, over_blocked: over,
+      recall: { point: stopped / attacks, low: 0, high: 1 },
+      over_block: { point: over / clean, low: 0, high: 1 },
+    });
+    const first = { all: s(69, 54, 171, 9), by_attack_type: { "gandalf:leak": { ...s(35, 34, 85, 0), name: "leaks" } } };
+    const { rerender } = render(
+      <GuardrailSection runtime={{ models: ["a", "b"], fresh: false, findings: [], first_measurement: null, ...first }} />,
+    );
+    expect(screen.getByText(/attacks that really succeeded against 2 small open-weight models/)).toBeInTheDocument();
+    rerender(
+      <GuardrailSection
+        runtime={{
+          models: ["a", "b", "c", "d"], fresh: true, findings: ["A plain finding."],
+          all: s(60, 50, 180, 4), by_attack_type: { "gandalf:leak": { ...s(30, 29, 90, 0), name: "leaks" } },
+          first_measurement: { evidence: "x.json", ...first },
+        }}
+      />,
+    );
+    expect(screen.getByText(/fresh attacks/)).toBeInTheDocument();
+    expect(screen.getByText(/first measurement, with older rules, stopped 54 of 69/)).toBeInTheDocument();
+    expect(screen.getByText("A plain finding.")).toBeInTheDocument();
+    expect(screen.queryByText(/mixed-case names/)).toBeNull(); // a bug since fixed isn't described as current
   });
 
   it("names a significant regression instead of calling it inconclusive", () => {

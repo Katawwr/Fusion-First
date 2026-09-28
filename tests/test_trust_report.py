@@ -158,6 +158,72 @@ def test_the_preregistered_compact_fix_is_reported_with_its_decision(tmp_path, a
     rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| m")}
     assert "33%" in rows["m1"] and "13%" in rows["m1"]  # attacks as written -> with the compact block
     assert ("ADOPTED" if adopt else "NOT ADOPTED") in out
+    bottom = out.split("## Q1")[0]  # the bottom line carries the registered decision too
+    assert ("compact version of the fix was adopted" if adopt else "compact version of the fix was not adopted") in bottom
+
+
+def _judge_block(acc, f1):
+    r = lambda p: {"point": p, "low": max(0.0, p - 0.1), "high": min(1.0, p + 0.1)}  # noqa: E731
+    return {"grader": {"n": 60, "unanswered": 0, "accuracy": r(acc), "recall": r(0.8), "specificity": r(0.8),
+                       "f1": f1, "kappa": 0.5},
+            "naive_regex": {"f1": 0.5, "vs_grader": {"mcnemar_p": 0.3}},
+            "tuned_heuristic": {"f1": 0.55, "vs_grader": {"mcnemar_p": 0.4}}}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("meets", [True, False])
+def test_the_free_local_grader_is_reported_against_its_registered_floor(tmp_path, meets):
+    import json
+
+    v1 = tmp_path / "evals/validation/v1"
+    v1.mkdir(parents=True)
+    host = {"demonstration": False, "grader": "Claude Sonnet (host)",
+            "checks": {"direct_prompt_injection": _judge_block(0.80, 0.67),
+                       "system_prompt_leakage": _judge_block(0.92, 0.90)}}
+    local = {"demonstration": False, "grader": "qwen2.5:7b probability judge (local)",
+             "checks": {"direct_prompt_injection": _judge_block(0.75, 0.70 if meets else 0.40),
+                        "system_prompt_leakage": _judge_block(0.85, 0.80)}}
+    (v1 / "judge_eval_host_sonnet.json").write_text(json.dumps(host), encoding="utf-8")
+    (v1 / "judge_eval_prob_qwen7b.json").write_text(json.dumps(local), encoding="utf-8")
+    out = render(tmp_path)
+    q1 = out.split("## Q1")[1].split("## Q3")[0]
+    assert "PREREG_local_grader.md" in q1
+    assert ("stays the default free grader" in q1) is meets
+    assert ("no longer recommends it by default" in q1) is (not meets)
+    bottom = out.split("## Q1")[0]  # each grader named with its own numbers, never merged
+    assert "Claude Sonnet (host)" in bottom and "qwen2.5:7b probability judge (local)" in bottom
+    from fusion.validate.trust_report import evidence_json
+
+    site = evidence_json(tmp_path)["local_grader"]
+    assert site["meets_floor"] is meets and site["evidence"] == "evals/validation/v1/judge_eval_prob_qwen7b.json"
+
+
+@pytest.mark.unit
+def test_the_compact_fix_secondary_outcomes_are_reported_whatever_they_show(tmp_path):
+    import json
+
+    per_model = {m: {"attack_lower": False, "attack_higher": False, "over_refusal_noninferior": False,
+                     "both_primary": False} for m in ("m1", "m2")}
+    primary = {"demonstration": False, "arms": ["baseline", "compact"],
+               "attack_success_by_model": {"m1": _attack(20, 18, 60, 0.8, 5, 3), "m2": _attack(12, 11, 60, 1.0, 3, 2)},
+               "cells": [{"experiment": "ifeval", "model": "m1", "noninferior": False},
+                         {"experiment": "ifeval", "model": "m2", "noninferior": True}],
+               "prereg_decision": {"adopt": False, "rule": "r", "per_model": per_model}}
+    xs = lambda m, a, b: {"experiment": "xstest", "model": m, "n_paired": 30,  # noqa: E731
+                          "baseline_rate": _rate(a, 30), "hardened_rate": _rate(b, 30)}
+    secondary = {"demonstration": False, "arms": ["hardened", "compact"],  # full fix first, compact second
+                 "attack_success_by_model": {"m1": _attack(12, 21, 60, 0.035, 3, 12),
+                                             "m2": _attack(10, 10, 60, 1.0, 2, 2)},
+                 "cells": [xs("m1", 9, 8), xs("m2", 1, 1)]}
+    (tmp_path / "evals/validation/v1").mkdir(parents=True)
+    (tmp_path / "evals/validation/v1/compact_fix.json").write_text(json.dumps(primary), encoding="utf-8")
+    (tmp_path / "evals/validation/v1/compact_vs_full_fix.json").write_text(json.dumps(secondary), encoding="utf-8")
+    sec = render(tmp_path).split("Secondary outcomes (registered)")[1].split("\n## ")[0]
+    assert "evals/validation/v1/compact_vs_full_fix.json" in sec
+    assert "m1 20% → 35% (McNemar p=0.035, significantly more with the compact block)" in sec
+    assert "m2 17% → 17% (McNemar p=1.000, no significant difference)" in sec
+    assert "m1 30% → 27%" in sec  # refusals of safe requests, full fix -> compact
+    assert "m1 no" in sec and "m2 yes" in sec  # IFEval non-inferiority, compact vs as written
 
 
 @pytest.mark.unit
@@ -184,6 +250,46 @@ def test_the_runtime_guardrail_on_real_attacks_is_reported(tmp_path):
 
     site = evidence_json(tmp_path)["runtime_guardrail"]
     assert site["all"]["stopped"] == 54 and site["by_attack_type"]["gandalf:leak"]["stopped"] == 34
+
+
+def _guard_stats(att, stop, clean, over):
+    return {"attacks": att, "stopped": stop, "recall": _rate(stop, att), "clean": clean,
+            "over_blocked": over, "over_block": _rate(over, clean)}
+
+
+@pytest.mark.unit
+def test_the_fresh_guardrail_measurement_becomes_the_headline(tmp_path):
+    import json
+
+    s = _guard_stats
+    first = {"demonstration": False, "models": ["m1", "m2"], "all": s(69, 54, 171, 9),
+             "by_attack_type": {"gandalf:leak": s(35, 34, 85, 0), "injecagent:ds": s(34, 20, 86, 9)},
+             "preregistration": "evals/validation/v1/PREREG_guard_on_real_transcripts.md",
+             "guardrail_git_sha": "921779e8b5b3"}
+    fresh = {"demonstration": False, "models": ["m1", "m2", "m3", "m4"], "all": s(60, 50, 180, 4),
+             "by_attack_type": {"gandalf:leak": s(30, 29, 90, 0), "injecagent:ds": s(30, 21, 90, 4)},
+             "preregistration": "evals/validation/v1/PREREG_guard_on_fresh_transcripts.md",
+             "guardrail_git_sha": "a6fa0f5d12e4", "findings": ["a fresh finding"]}
+    fix = {"demonstration": False, "models": {"m1": "d", "m2": "d"}, "cells": [],
+           "pooled": {"injecagent": _pooled(20, 19, 60, -0.1, 0.12), "gandalf": _pooled(12, 12, 60, -0.08, 0.08)}}
+    v1 = tmp_path / "evals/validation/v1"
+    v1.mkdir(parents=True)
+    (v1 / "guard_on_transcripts.json").write_text(json.dumps(first), encoding="utf-8")
+    (v1 / "guard_on_fresh_transcripts.json").write_text(json.dumps(fresh), encoding="utf-8")
+    (v1 / "evidence_oracle.json").write_text(json.dumps(fix), encoding="utf-8")
+    out = render(tmp_path)
+    bottom = out.split("## Q1")[0]
+    assert "stopped 50 of 60" in bottom and "fresh" in bottom
+    assert "54 of 69" in bottom  # the first measurement stays disclosed
+    assert "On the same attacks the prompt fix" not in bottom  # that comparison used the first run's attacks
+    sec = out.split("## Runtime guardrail on real attacks")[1].split("\n## ")[0]
+    assert "PREREG_guard_on_fresh_transcripts.md" in sec and "a6fa0f5" in sec and "a fresh finding" in sec
+    assert len([line for line in sec.splitlines() if line.startswith("| all |")]) == 2  # a table per measurement
+    from fusion.validate.trust_report import evidence_json
+
+    site = evidence_json(tmp_path)["runtime_guardrail"]
+    assert site["evidence"] == "evals/validation/v1/guard_on_fresh_transcripts.json"
+    assert site["all"]["stopped"] == 50 and site["first_measurement"]["all"]["stopped"] == 54
 
 
 @pytest.mark.unit
