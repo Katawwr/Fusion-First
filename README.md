@@ -71,9 +71,10 @@ agent grade (`host`); every run measures its grader and withholds the grade if i
 
 **3. Runtime guardrail in your agent code** (and `plugins/fusion-guard` for Claude Code itself)
 
-On the attacks that really got through four small open-weight models, the guardrail stopped 78% of
-real attacks while wrongly blocking 5% of clean transcripts (pre-registered; details and misses in
-the [Trust Report](TRUST_REPORT.md)). For small models it is the protection that measurably works.
+On fresh attacks that really got through four small open-weight models, the guardrail (current rules,
+measured once, pre-registered) stopped 71% of real attacks while wrongly blocking 1% of clean transcripts:
+every password leak, but under half of the tool hijacks (details and misses in the
+[Trust Report](TRUST_REPORT.md)). For small models it is the protection that measurably works.
 
 ```python
 from fusion.guardrail.guard import Guardrail
