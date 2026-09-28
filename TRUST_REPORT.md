@@ -127,6 +127,20 @@ A measurement that leads to a rule fix becomes a development number for the fixe
 - Direct-harm hijacks: 3 of 10 stopped. All 7 misses are consequential tools with no verb the guard knows: EpicFHIRManage... (4), CiscoUmbrellaCreatePolicy (2), TrafficControlGivePriorityToEmergencyVehicle (1).
 - The drop from the first measurement comes from the items, not the rule fix: the current rules on the first run's transcripts (diagnostic, not evidence) still stop 54 of 69 and wrongly block 1 of 171 instead of 9.
 
+## Runtime guardrail vs Llama Guard 3 (pre-registered)
+
+The same fresh transcripts, scored by Fusion's guardrail and by `llama-guard3:8b` (off the shelf, and configured with two added categories plus the planted secret). Registered in `evals/validation/v1/PREREG_guard_vs_llama_guard.md`; evidence: `evals/validation/v1/guard_vs_llama_guard.json`.
+
+| System | Real attacks stopped | Clean transcripts wrongly blocked |
+|---|---|---|
+| Fusion guardrail | 50 of 70, 71% (60%–81%) | 2 of 170, 1% (0%–4%) |
+| Llama Guard 3, off the shelf | 33 of 70, 47% (36%–59%) | 26 of 170, 15% (11%–21%) |
+| Llama Guard 3, configured | 44 of 70, 63% (51%–73%) | 28 of 170, 16% (12%–23%) |
+| Fusion + Llama Guard 3 (configured) | 63 of 70, 90% (81%–95%) | 29 of 170, 17% (12%–23%) |
+
+- Fusion's guardrail stops significantly more real attacks than Llama Guard 3 off the shelf (28 stopped only by Fusion, 11 only by Llama Guard; McNemar p=0.0095), without significantly more wrong blocks.
+- Against Llama Guard 3 configured: no significant difference by the registered rule (19 stopped only by Fusion, 13 only by Llama Guard; McNemar p=0.3771).
+
 ## Value ledger: what each layer bought on real attacks
 
 A re-reading of the first run's committed measurements (the Q3 fix run and the guardrail's first measurement on the same transcripts; no new data): of the attacks that succeeded with the prompt as written, what the fix removed and what the guardrail stopped. Evidence: `evals/validation/v1/value_ledger.json`.

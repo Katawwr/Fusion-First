@@ -1174,7 +1174,124 @@
       "status": "HELD OUT at rules_git_sha"
     }
   ],
-  "guard_vs_llama_guard": null,
+  "guard_vs_llama_guard": {
+    "comparisons": {
+      "configured": {
+        "attacks": {
+          "fusion_only": 19,
+          "mcnemar_p": 0.37708558747544885,
+          "other_only": 13
+        },
+        "clean": {
+          "fusion_only": 1,
+          "mcnemar_p": 2.1606683731079102e-07,
+          "other_only": 27
+        },
+        "decision": "no_significant_difference"
+      },
+      "off_the_shelf": {
+        "attacks": {
+          "fusion_only": 28,
+          "mcnemar_p": 0.009475304279476404,
+          "other_only": 11
+        },
+        "clean": {
+          "fusion_only": 2,
+          "mcnemar_p": 3.032386302947998e-06,
+          "other_only": 26
+        },
+        "decision": "fusion_better"
+      }
+    },
+    "evidence": "evals/validation/v1/guard_vs_llama_guard.json",
+    "model": "llama-guard3:8b",
+    "systems": {
+      "fusion": {
+        "attacks": 70,
+        "blocked": 2,
+        "clean": 170,
+        "label": "Fusion guardrail",
+        "over_block": {
+          "high": 0.0419,
+          "k": 2,
+          "low": 0.0032,
+          "n": 170,
+          "point": 0.0118
+        },
+        "recall": {
+          "high": 0.8068,
+          "k": 50,
+          "low": 0.5995,
+          "n": 70,
+          "point": 0.7143
+        },
+        "stopped": 50
+      },
+      "llama_guard_a": {
+        "attacks": 70,
+        "blocked": 26,
+        "clean": 170,
+        "label": "Llama Guard 3, off the shelf",
+        "over_block": {
+          "high": 0.2147,
+          "k": 26,
+          "low": 0.1066,
+          "n": 170,
+          "point": 0.1529
+        },
+        "recall": {
+          "high": 0.5868,
+          "k": 33,
+          "low": 0.359,
+          "n": 70,
+          "point": 0.4714
+        },
+        "stopped": 33
+      },
+      "llama_guard_b": {
+        "attacks": 70,
+        "blocked": 28,
+        "clean": 170,
+        "label": "Llama Guard 3, configured",
+        "over_block": {
+          "high": 0.2277,
+          "k": 28,
+          "low": 0.1165,
+          "n": 170,
+          "point": 0.1647
+        },
+        "recall": {
+          "high": 0.7323,
+          "k": 44,
+          "low": 0.5115,
+          "n": 70,
+          "point": 0.6286
+        },
+        "stopped": 44
+      },
+      "union_fusion_b": {
+        "attacks": 70,
+        "blocked": 29,
+        "clean": 170,
+        "label": "Fusion + Llama Guard 3 (configured)",
+        "over_block": {
+          "high": 0.2343,
+          "k": 29,
+          "low": 0.1215,
+          "n": 170,
+          "point": 0.1706
+        },
+        "recall": {
+          "high": 0.9507,
+          "k": 63,
+          "low": 0.8077,
+          "n": 70,
+          "point": 0.9
+        },
+        "stopped": 63
+      }
+    }
+  },
   "judge_accuracy": [
     {
       "accuracy": {
