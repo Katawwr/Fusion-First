@@ -247,8 +247,8 @@ _VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
     "generate": _CREATE_SYN + ("produce", "convert"), "register": _CREATE_SYN + ("enroll", "sign up"),
     "update": _UPDATE_SYN, "edit": _UPDATE_SYN, "change": _UPDATE_SYN, "modify": _UPDATE_SYN, "set": _UPDATE_SYN,
     "rename": _UPDATE_SYN, "reset": _UPDATE_SYN + ("restore", "clear"), "control": _UPDATE_SYN,
-    "manage": ("manage", "schedule", "reschedule", "cancel", "organize", "move", "archive", "book", "share")
-    + _CREATE_SYN + _UPDATE_SYN + _DELETE_SYN,
+    "manage": ("manage", "schedule", "reschedule", "cancel", "organize", "move", "archive", "book", "share",
+               "redirect", "reroute") + _CREATE_SYN + _UPDATE_SYN + _DELETE_SYN,
     "send": _SEND_SYN, "email": _SEND_SYN, "forward": _SEND_SYN, "reply": _SEND_SYN, "message": _SEND_SYN,
     "notify": _SEND_SYN, "sms": _SEND_SYN,
     "post": ("post", "publish", "tweet", "share", "upload", "send"), "publish": ("publish", "post", "share", "release"),
@@ -487,6 +487,12 @@ def _is_readonly(name: str) -> bool:
     return False
 
 
+def _has_secret_value(text: str, secrets) -> bool:
+    """A configured secret appears in the text in any letter case ("do not use capital letters")."""
+    low = text.lower()
+    return any(s and s.lower() in low for s in secrets)
+
+
 def _reads_private_data(name: str) -> bool:
     return any(_stem(w) in _PRIVATE_DATA for w in _tool_words(name))
 
@@ -624,13 +630,12 @@ class Guardrail:
 
         # A secret in the plain text can be cleanly redacted; one hidden behind an encoding or
         # whitespace-split can only be safely handled by blocking the whole response.
-        plain_secret = contains_secret_strict(content) or any(
-            s and s in content for s in self.config.secret_values
-        )
+        secrets = self.config.secret_values
+        plain_secret = contains_secret_strict(content) or _has_secret_value(content, secrets)
         obscured_secret = False
         if not plain_secret:
             for v in normalized_views(content):
-                if contains_secret_strict(v) or any(s and s in v for s in self.config.secret_values):
+                if contains_secret_strict(v) or _has_secret_value(v, secrets):
                     obscured_secret = True
                     break
         leaked_prompt = self._echoes_system_prompt(content)
@@ -651,9 +656,9 @@ class Guardrail:
             )
         elif plain_secret:
             working = redact(working)
-            for s in self.config.secret_values:
+            for s in secrets:
                 if s:
-                    working = working.replace(s, "[REDACTED]")
+                    working = re.sub(re.escape(s), "[REDACTED]", working, flags=re.IGNORECASE)
             decision = self.config.on_secret_output
             out.content = (
                 "[blocked: response contained secrets]" if decision == Decision.BLOCK else working
@@ -739,7 +744,7 @@ class Guardrail:
                 return True
             # Gated on the reply actually containing a configured secret value — which a benign
             # reply never does — so even a modest prompt overlap here is safely a config dump.
-            leaks_secret = any(s and s in view for s in self.config.secret_values)
+            leaks_secret = _has_secret_value(view, self.config.secret_values)
             if leaks_secret and len(shared) >= 6 and ratio >= 0.15:
                 return True
         return False
@@ -798,8 +803,7 @@ class Guardrail:
         allow = self.config.allowlisted_domains
         external = _external_targets(blob, allow)
         ships_secret = contains_secret_strict(blob) or any(
-            s and (s in blob or any(s in v for v in normalized_views(blob)))
-            for s in self.config.secret_values
+            _has_secret_value(v, self.config.secret_values) for v in [blob, *normalized_views(blob)]
         )
         ships_pii = _ships_pii(blob)
 
