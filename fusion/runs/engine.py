@@ -588,6 +588,11 @@ async def grade_with(rd: RunDir, judge_client: ModelClient, *, label: str, stop_
             kind = classify(exc).value
             failures[kind] = failures.get(kind, 0) + 1
             continue
+        try:  # the rules finalize replays under: a malformed answer stays pending, never recorded
+            Judge._parse(resp.text, get_rubric(t.check), resp.model or label)
+        except JudgeParseError:
+            failures["judge_parse"] = failures.get("judge_parse", 0) + 1
+            continue
         fresh[t.key] = resp.model_copy(update={"model": f"{label}:{resp.model}"})
         if len(fresh) % 5 == 0:
             flush()

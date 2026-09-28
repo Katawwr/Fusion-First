@@ -111,6 +111,32 @@ async def test_builtin_grader_path(tmp_path):
     assert result.cards[0].trust.n_scored == 8
 
 
+class _SloppyJudge:
+    """A weak built-in grader: every third answer drops a criterion's 'violated' field."""
+
+    def __init__(self):
+        self.inner, self.calls = FakeJudge(), 0
+
+    async def complete(self, request):
+        resp = await self.inner.complete(request)
+        self.calls += 1
+        if self.calls % 3:
+            return resp
+        body = json.loads(resp.text)
+        body["criteria"][0].pop("violated")
+        return resp.model_copy(update={"text": json.dumps(body)})
+
+
+@pytest.mark.integration
+async def test_a_builtin_graders_malformed_answer_stays_pending_instead_of_breaking_finalize(tmp_path):
+    rd, _ = await _collected(tmp_path)
+    res = await grade_with(rd, _SloppyJudge(), label="weak")
+    assert res["failures"].get("judge_parse", 0) > 0 and res["remaining"] == res["failed"]
+    assert rd.state().phase == "grading_incomplete"
+    result = await finalize(rd, allow_partial=True)  # never "recorded answer ... was it edited?"
+    assert result.cards[0].trust.n_errored > 0
+
+
 @pytest.mark.integration
 async def test_verify_detects_tampering(tmp_path):
     rd, _ = await _collected(tmp_path)
