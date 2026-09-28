@@ -1,11 +1,11 @@
 {
-  "intro": "Real testing runs on your machine: the model under test is a local open-weight model (Ollama) or Claude on your own subscription, and the grader is your coding agent or a local model. No API key, nothing metered.",
+  "intro": "The model under test is a local open-weight model (Ollama) or Claude on your subscription. The grader is your coding agent or the claude CLI. No API key, nothing metered.",
   "sections": [
     {
       "id": "plugin",
       "title": "Claude Code plugin",
       "badge": "Recommended",
-      "body": "Claude Code attacks and tests your agent's prompt on a real model, grades the answers itself, and hands you the report card and the fix. Fusion mixes in questions with known answers, so every card shows how accurate the grading was in that run.",
+      "body": "Claude Code tests your agent's prompt on a real model, grades the answers itself, and returns the report card and the fix. Fusion mixes known-answer questions into the grading, so each card reports that run's grading accuracy.",
       "steps": [
         {
           "label": "Install",
@@ -13,7 +13,7 @@
           "code": "claude plugin marketplace add /path/to/fusion\nclaude plugin install fusion@fusion-first\nollama pull llama3.2:1b"
         },
         {
-          "label": "Then, inside Claude Code",
+          "label": "In Claude Code",
           "lang": "text",
           "code": "/fusion:audit prompts/support_bot.md ollama:llama3.2:1b\n/fusion:harden prompts/support_bot.md"
         }
@@ -22,35 +22,35 @@
     {
       "id": "cli",
       "title": "Command line",
-      "body": "The same engine without an agent. Claude grades through your claude CLI (on your subscription), or you answer the grading questions yourself with tasks and submit.",
+      "body": "The same engine without an agent. Claude grades through the claude CLI on your subscription, or you answer the grading questions yourself (fusion run tasks, then fusion run submit).",
       "steps": [
         {
-          "label": "See what can run here",
+          "label": "Check available backends",
           "lang": "bash",
           "code": "fusion doctor"
         },
         {
-          "label": "Test a prompt end to end",
+          "label": "Test a prompt",
           "lang": "bash",
           "code": "fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli\nfusion run finalize --min-grade B"
         },
         {
-          "label": "Or test your own model server (vLLM, LM Studio, llama.cpp)",
+          "label": "Test an OpenAI-compatible server (vLLM, LM Studio, llama.cpp)",
           "lang": "bash",
           "code": "fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader claude-cli"
         },
         {
-          "label": "Apply the tested fix",
+          "label": "Apply the fix",
           "lang": "bash",
           "code": "fusion harden --prompt agent.txt --write"
         },
         {
-          "label": "Grade your agent's existing logs (no attacks)",
+          "label": "Grade existing logs (no attacks)",
           "lang": "bash",
           "code": "fusion run logs --file logs.jsonl --check everything --grader claude-cli"
         },
         {
-          "label": "Already use promptfoo? Get intervals and a paired test on its results",
+          "label": "Add intervals and a paired test to promptfoo results",
           "lang": "bash",
           "code": "fusion import-promptfoo results.json"
         }
@@ -58,11 +58,11 @@
     },
     {
       "id": "serve",
-      "title": "This web app, on your machine",
-      "body": "The same scan wizard, driving your local models. It only listens on 127.0.0.1, and every request that runs anything must carry a random token that only the page it opened holds, so no website you visit can use your models.",
+      "title": "Local web app",
+      "body": "This site's scan wizard, driving your local models. It listens only on 127.0.0.1, and every request that runs anything must carry a per-launch token held only by the page it served, so other websites can't use your models.",
       "steps": [
         {
-          "label": "Run it",
+          "label": "Install and run",
           "lang": "bash",
           "code": "pip install \"fusion-safety[serve]\"\nfusion serve"
         }
@@ -71,7 +71,7 @@
     {
       "id": "mcp",
       "title": "Any MCP client",
-      "body": "Cursor, Windsurf or your own agent: the fusion-mcp server exposes the same run tools (start_run, get_grading_tasks, submit_grades, finalize_run) plus one-shot scan, harden and runtime-check tools.",
+      "body": "Cursor, Windsurf or your own agent: the fusion-mcp server exposes the run tools (start_run, get_grading_tasks, submit_grades, finalize_run) plus one-shot scan, harden and runtime-check tools.",
       "steps": [
         {
           "label": "MCP config",
@@ -83,7 +83,7 @@
     {
       "id": "ci",
       "title": "CI, offline",
-      "body": "Every run is recorded under .fusion/runs. Commit a run and CI re-derives its result offline, with no model or key. It checks the run tested the prompt you ship, and fails the build below your bar. A withheld grade always fails.",
+      "body": "Runs are recorded under .fusion/runs. CI re-derives a committed run offline (no model, no key), checks that it tested the prompt you ship, and fails the build below your bar. A withheld grade always fails.",
       "steps": [
         {
           "label": "In your pipeline",
@@ -95,7 +95,7 @@
     {
       "id": "guard",
       "title": "Runtime guard",
-      "body": "Prompt fixes reduce issues; the runtime guard catches what still slips through. Wrap your model client in code, or add the opt-in fusion-guard plugin so Claude Code asks before exfiltration, destructive commands or settings tampering. It never auto-allows.",
+      "body": "A second layer after the prompt fix: defense in depth, not a sandbox. Wrap your model client in code, or add the opt-in fusion-guard plugin so Claude Code asks before exfiltration, destructive commands or settings tampering. It never auto-allows.",
       "steps": [
         {
           "label": "In your agent's code",
@@ -103,7 +103,7 @@
           "code": "from fusion.guardrail.guard import Guardrail\nfrom fusion.guardrail.policy import GuardConfig\nfrom fusion.guardrail.client import GuardedModelClient\n\nguard = Guardrail(GuardConfig(allowlisted_domains=[\"your-co.com\"], system_prompt=SYSTEM_PROMPT))\nclient = GuardedModelClient(your_model_client, guard)"
         },
         {
-          "label": "For Claude Code itself",
+          "label": "For Claude Code",
           "lang": "bash",
           "code": "claude plugin install fusion-guard@fusion-first"
         }

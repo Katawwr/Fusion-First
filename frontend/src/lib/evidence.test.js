@@ -12,14 +12,14 @@ describe("significanceByGrader", () => {
     ];
     const [sonnet, local] = significanceByGrader(rows);
     expect(sonnet).toBe(
-      "Sonnet: scores higher than the rule-based checks, but no difference is statistically significant yet at these sample sizes.",
+      "Sonnet: scores higher than the rule-based checks; no difference is significant yet.",
     );
     expect(local).toBe("Local: significantly less accurate than a rule-based check in 1 of 2 comparisons.");
   });
 
   it("never claims the grader scores higher when it doesn't", () => {
     const [s] = significanceByGrader([{ grader: "G", baselines: { naive_regex: b(0.4, false) } }]);
-    expect(s).toBe("G: no difference from the rule-based checks is statistically significant yet at these sample sizes.");
+    expect(s).toBe("G: no difference from the rule-based checks is significant yet.");
     const [win] = significanceByGrader([{ grader: "G", baselines: { naive_regex: b(0.01, true) } }]);
     expect(win).toBe("G: significantly more accurate than a rule-based check in 1 of 1 comparisons.");
   });

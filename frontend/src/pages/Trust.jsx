@@ -57,14 +57,14 @@ function Table({ head, rows }) {
 export function GuardrailSection({ runtime }) {
   const first = runtime.first_measurement;
   return (
-    <Section title="Does the runtime guardrail stop real attacks?">
+    <Section title="Runtime guardrail on real attacks">
       <p className="mb-3 text-sm text-app-muted">
         {runtime.fresh
-          ? `The guardrail you wrap around your agent, with its current rules, applied once to fresh attacks that really succeeded against ${runtime.models.length} small open-weight models (none of its rules was written against them), then re-scored by the same answer keys. Registered before it was run. The first measurement, with older rules, stopped ${first.all.stopped} of ${first.all.attacks}.`
-          : `The guardrail you wrap around your agent, applied to the attacks that really succeeded against ${runtime.models.length} small open-weight models above, then re-scored by the same answer keys. Registered before it was run.`}
+          ? `Current rules, applied once to successful attacks on ${runtime.models.length} small open-weight models, from fresh transcripts no rule was written against; re-scored by the same oracles. Pre-registered. First measurement (older rules): ${first.all.stopped} of ${first.all.attacks} stopped.`
+          : `Applied to the successful attacks on ${runtime.models.length} small open-weight models above; re-scored by the same oracles. Pre-registered.`}
       </p>
       <Table
-        head={["Attack", "Real attacks", "Stopped", "Clean transcripts", "Wrongly blocked"]}
+        head={["Attack", "Attacks", "Stopped", "Clean", "Wrongly blocked"]}
         rows={[
           ...Object.values(runtime.by_attack_type).map((s) => [
             s.name,
@@ -84,9 +84,8 @@ export function GuardrailSection({ runtime }) {
         ))
       ) : (
         <p className="mt-3 text-xs text-app-subtle">
-          It misses consequential tools whose names don&apos;t say what they do (a &quot;Manage…&quot; or
-          &quot;UnlockDoor&quot; tool), and it blocks some harmless read tools with mixed-case names. Both are
-          known and listed in the Trust Report.
+          Misses consequential tools whose names carry no known verb (Manage…, UnlockDoor). Blocked some
+          harmless mixed-case read tools (since fixed).
         </p>
       )}
     </Section>
@@ -96,7 +95,7 @@ export function GuardrailSection({ runtime }) {
 function NotYet({ what }) {
   return (
     <p className="rounded-lg border border-dashed border-app-border p-4 text-sm text-app-muted">
-      Not yet measured: {what}. Nothing is estimated in its place.
+      Not yet measured: {what}.
     </p>
   );
 }
@@ -120,19 +119,18 @@ export default function Trust() {
         How far to trust Fusion
       </h1>
       <p className="mb-10 text-app-muted" style={{ maxWidth: "700px", lineHeight: 1.6 }}>
-        Fusion grades other AI agents, so it has to be graded too. These are its own measured results,
-        with 95% intervals, from committed evidence. Where something hasn't been measured yet, it says
-        so. Small samples mean wide intervals: read the ranges, not just the headline number.
+        Fusion&apos;s own measured results, generated from committed evidence. Intervals are 95%; samples
+        are small, so read the ranges.
       </p>
 
-      <Section title="Is the judge accurate?">
+      <Section title="Judge accuracy">
         {judge.length === 0 ? (
           <NotYet what="grader accuracy against deterministic oracles" />
         ) : (
           <>
             <p className="mb-3 text-sm text-app-muted">
-              Grader verdicts on real open-weight model transcripts, scored against deterministic oracles
-              (no AI in the answer key), next to simple rule-based checks on the same items.
+              Grader verdicts on real open-weight model transcripts, scored against deterministic oracle
+              labels, with rule-based baselines on the same items.
             </p>
             <Table
               head={["Check", "Grader", "n", "Accuracy", "Recall", "Specificity", "Regex baseline F1", "Grader F1"]}
@@ -147,9 +145,7 @@ export default function Trust() {
                 j.f1.toFixed(2),
               ])}
             />
-            <p className="mt-3 text-xs text-app-subtle">
-              Against the rule-based checks on the same items (paired McNemar test, p &lt; 0.05):
-            </p>
+            <p className="mt-3 text-xs text-app-subtle">Grader vs baselines (paired McNemar, p &lt; 0.05):</p>
             {significanceByGrader(judge).map((s) => (
               <p key={s} className="mt-1 text-xs text-app-subtle">
                 {s}
@@ -157,9 +153,9 @@ export default function Trust() {
             ))}
             {judge.some((j) => j.audit) && (
               <p className="mt-3 text-xs text-app-subtle">
-                Every disagreement with the oracle was also read and classified. Most were cases the
-                oracle can't see, such as a small model writing an action in plain words instead of a
-                tool call. That reading is an AI's, not ground truth, so the table above is unchanged by it.
+                Disagreements with the oracle were audited by an LLM (not ground truth; the table is
+                unchanged). Most are violations the oracle can&apos;t see, e.g. an action written in prose
+                instead of a tool call.
               </p>
             )}
           </>
@@ -167,13 +163,12 @@ export default function Trust() {
       </Section>
 
       {evidence.rubric_vs_plain && (
-        <Section title="Does the rubric beat simply asking an AI?">
+        <Section title="Rubric judge vs a plain question">
           <p className="mb-3 text-sm text-app-muted">
-            The same transcripts graded twice by the same Claude model: once with Fusion&apos;s rubric,
-            once asked one plain yes/no question. Registered before the plain answers were collected.
+            Same transcripts, same Claude model: Fusion&apos;s rubric vs one yes/no question. Pre-registered.
           </p>
           <Table
-            head={["Check", "n", "Fusion's rubric", "One plain question", "Difference (rubric minus plain)"]}
+            head={["Check", "n", "Rubric", "Plain question", "Rubric − plain"]}
             rows={[
               ...Object.entries(evidence.rubric_vs_plain.by_check).map(([check, b]) => [
                 CHECK_NAMES[check] || check,
@@ -193,17 +188,17 @@ export default function Trust() {
           />
           <p className="mt-3 text-xs text-app-subtle">
             {evidence.rubric_vs_plain.claim_allowed
-              ? "The rubric judge is significantly more accurate than a plain question (the registered rule is met)."
-              : "Not shown: the rubric is not more accurate than asking the same model one plain question, so we don't claim it is. What it adds is a checkable grade: an answer per criterion, quoting the agent's own words, which lets a run reject grades that aren't grounded in the transcript."}
+              ? "The rubric is significantly more accurate than a plain question (pre-registered rule met)."
+              : "The rubric is not more accurate than a plain question, and Fusion does not claim it is. It adds a checkable grade: per-criterion answers with quoted evidence, so ungrounded grades are rejected."}
           </p>
         </Section>
       )}
 
-      <Section title="Does the fix work, and what does it cost?">
+      <Section title="Prompt fix: effect and cost">
         {evidence.fix_pooled && (
           <div className="mb-4">
             <Table
-              head={["Experiment", "Pairs", "As written", "With fix", "Change", "What it shows"]}
+              head={["Experiment", "Pairs", "As written", "With fix", "Change", "Verdict"]}
               rows={evidence.fix_pooled.map((p) => [
                 `${p.experiment} (all models)`,
                 p.n_pairs,
@@ -214,14 +209,13 @@ export default function Trust() {
               ])}
             />
             <p className="mt-2 text-xs text-app-subtle">
-              Pooled over every model tested; the range resamples whole items, because the same item runs
-              on every model. Per-model results follow.
+              Pooled over models; the interval resamples whole items (each item runs on every model).
             </p>
           </div>
         )}
         {evidence.fix_efficacy ? (
           <Table
-            head={["Experiment", "Model", "Pairs", "As written", "With fix", "What it shows"]}
+            head={["Experiment", "Model", "Pairs", "As written", "With fix", "Verdict"]}
             rows={evidence.fix_efficacy.map((c) => [
               c.experiment,
               c.model,
@@ -232,21 +226,20 @@ export default function Trust() {
             ])}
           />
         ) : (
-          <NotYet what="the as-written vs fixed prompt comparison on local open-weight models (the run is in progress)" />
+          <NotYet what="the as-written vs fixed prompt comparison on local models" />
         )}
       </Section>
 
       {evidence.runtime_guardrail && <GuardrailSection runtime={evidence.runtime_guardrail} />}
 
       {evidence.value_ledger && (
-        <Section title="What each layer bought on real attacks">
+        <Section title="Value ledger: fix vs guardrail">
           <p className="mb-3 text-sm text-app-muted">
-            The first run's results, read item by item (the fix comparison above and the guardrail&apos;s
-            first measurement, on the same transcripts): of the attacks that got through with the prompt
-            as written, what the prompt fix removed and what the guardrail stopped.
+            First-run transcripts, item by item: of the attacks that succeeded with the prompt as written,
+            what the fix removed and what the guardrail (first measurement) stopped.
           </p>
           <Table
-            head={["Model", "Attacks found", "Fix removed", "New attacks the fix caused", "Guardrail stopped", "Either", "Neither"]}
+            head={["Model", "Attacks", "Removed by fix", "Caused by fix", "Stopped by guardrail", "Either", "Neither"]}
             rows={[
               ...Object.entries(evidence.value_ledger.by_model).map(([m, s]) => [
                 m, s.found, s.fix_removed, s.fix_caused, s.guard_stopped, s.either, s.neither,
@@ -259,19 +252,19 @@ export default function Trust() {
           />
           <p className="mt-3 text-xs text-app-subtle">
             {evidence.value_ledger.fix_refusal_cost &&
-              `The fix also made the models refuse ${evidence.value_ledger.fix_refusal_cost.safe_requests_newly_refused} safe requests they had answered. `}
+              `The fix also caused ${evidence.value_ledger.fix_refusal_cost.safe_requests_newly_refused} new refusals of safe requests. `}
             {evidence.value_ledger.note}
           </p>
         </Section>
       )}
 
-      <Section title="Runtime guard for Claude Code">
+      <Section title="Claude Code guard hook">
         {guard.length === 0 ? (
           <NotYet what="the guard hook on held-out tool calls" />
         ) : (
           <>
             <p className="mb-3 text-sm text-app-muted">
-              Tool calls written by independent agents who never saw the rules; each set is scored once.
+              Held-out tool calls written by agents blind to the rules; each set scored once.
             </p>
             <Table
               head={["Set", "Benign calls", "Prompted", "Attacks", "Caught", "Status"]}
@@ -285,8 +278,8 @@ export default function Trust() {
               ])}
             />
             <p className="mt-3 text-xs text-app-subtle">
-              It asks before the common exfiltration, destruction and remote-code patterns and misses much of
-              the long tail. It is defense in depth, not a sandbox.
+              Asks before common exfiltration, destruction and remote-code patterns; misses much of the long
+              tail. Defense in depth, not a sandbox.
             </p>
           </>
         )}

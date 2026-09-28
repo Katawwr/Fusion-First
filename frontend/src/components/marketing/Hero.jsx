@@ -18,11 +18,8 @@ export default function Hero() {
     }
   };
 
-  // The thesis, stated qualitatively: frontier models resist most attacks, open-weight models
-  // often don't, and Fusion measures exactly where. Numbers appear here ONLY when committed evidence
-  // backs them (evals/claims.yaml, enforced by tests/test_claims_backed.py).
-  // What a Fusion report tells you — the shape of the output, not a result. Measured numbers
-  // for specific models appear only once committed evidence backs them.
+  // What a Fusion report tells you — the shape of the output, not a result. Numbers appear here ONLY
+  // when committed evidence backs them (evals/claims.yaml, enforced by tests/test_claims_backed.py).
   const evidence = [
     {
       model: "Your prompt, as written",
@@ -74,10 +71,7 @@ export default function Hero() {
                 fontWeight: "500",
               }}
             >
-              Safety + quality
-            </span>
-            <span style={{ color: "var(--text)", fontSize: "0.875rem" }}>
-              Free demo, no signup
+              Built for open-weight models
             </span>
           </div>
 
@@ -91,7 +85,6 @@ export default function Hero() {
               lineHeight: 1.2,
             }}
           >
-            Ship AI agents you can{" "}
             <span
               style={{
                 background: "linear-gradient(to right, #66c4e1, #f38f95)",
@@ -99,9 +92,9 @@ export default function Hero() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              prove
+              Safety and quality
             </span>{" "}
-            are safe and good
+            evals for AI agents
           </h1>
 
           {/* Subheading */}
@@ -114,11 +107,9 @@ export default function Hero() {
               lineHeight: 1.6,
             }}
           >
-            Connect your agent or paste its prompt. Fusion red-teams it for
-            safety, grades its quality, and re-tests a fix on your model so you
-            see whether it helps. Every number carries a confidence interval and is checked
-            against a known-answer set. Built for the open-weight models where
-            the risks are real.
+            Connect an agent or paste its system prompt. Fusion attacks it,
+            grades the transcripts, and re-tests a prompt fix on your model.
+            Every rate carries a confidence interval.
           </p>
 
           {/* CTA buttons */}
@@ -153,7 +144,7 @@ export default function Hero() {
                 e.currentTarget.style.transform = "translateY(0)";
               }}
             >
-              Scan your agent free
+              Scan your agent
             </button>
             <button
               onClick={scrollToLocalFirst}
@@ -209,7 +200,7 @@ export default function Hero() {
               }}
             >
               <Shield size={13} color="var(--accent)" />
-              What every report tells you
+              What a report shows
             </div>
             {evidence.map((row, i) => (
               <div
@@ -258,19 +249,6 @@ export default function Hero() {
                 </span>
               </div>
             ))}
-            <p
-              style={{
-                margin: "0.9rem 0 0",
-                fontSize: "0.82rem",
-                color: "var(--muted)",
-                lineHeight: 1.5,
-              }}
-            >
-              Graded by an examiner that is itself{" "}
-              <strong style={{ color: "var(--text)" }}>measured against known answers</strong>;
-              every report says how far to trust its grade. Fusion measures exactly
-              where your model resists and where it gives way.
-            </p>
           </div>
         </div>
       </div>

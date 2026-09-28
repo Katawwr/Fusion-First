@@ -11,10 +11,10 @@ export default function Landing() {
   return (
     <>
       <Helmet>
-        <title>Fusion First: Prove your AI agent is safe and good</title>
+        <title>Fusion First: Safety and quality evals for AI agents</title>
         <meta
           name="description"
-          content="Fusion First automatically red-teams your AI agent for safety, grades its quality, and measures a fix on your own model. Every number carries a confidence interval and is checked against ground truth. Built for open-weight models, where the risks are real. Free demo, no signup."
+          content="Fusion First attacks your AI agent, grades safety and quality with a grader measured against known answers, and re-tests a prompt fix on your model. Every rate carries a confidence interval. Built for open-weight models."
         />
         <meta
           name="keywords"
@@ -22,11 +22,11 @@ export default function Landing() {
         />
         <meta
           property="og:title"
-          content="Fusion First: Prove your AI agent is safe and good"
+          content="Fusion First: Safety and quality evals for AI agents"
         />
         <meta
           property="og:description"
-          content="Red-team your agent for safety and grade its quality, automatically. Every number carries a confidence interval, checked against ground truth. Built for open-weight models. Free demo, no signup."
+          content="Attack your AI agent, grade safety and quality with a measured grader, and re-test a prompt fix on your model. Built for open-weight models."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://fusion-first-testing.com" />
@@ -37,11 +37,11 @@ export default function Landing() {
         <meta name="twitter:card" content="summary_large_image" />
         <meta
           name="twitter:title"
-          content="Fusion First: Prove your AI agent is safe and good"
+          content="Fusion First: Safety and quality evals for AI agents"
         />
         <meta
           name="twitter:description"
-          content="Proof-grade safety + quality evals for AI agents, with honest confidence intervals and one-click hardening. Built for open-weight models."
+          content="Attack your AI agent, grade safety and quality with a measured grader, and re-test a prompt fix on your model. Built for open-weight models."
         />
         <link rel="canonical" href="https://fusion-first-testing.com" />
         <script type="application/ld+json">
@@ -50,7 +50,7 @@ export default function Landing() {
             "@type": "SoftwareApplication",
             name: "Fusion First",
             description:
-              "A proof-grade evaluation engine for AI agents, safety and quality. Red-teams your agent, grades its quality with a judge whose accuracy is measured, and measures whether a fix actually helps. Built for open-weight models.",
+              "Safety and quality evaluation engine for AI agents. Attacks the agent, grades transcripts with a grader whose accuracy is measured, and re-tests a prompt fix on the user's model. Built for open-weight models.",
             applicationCategory: "DeveloperApplication",
             operatingSystem: "Web",
             offers: {
@@ -58,7 +58,7 @@ export default function Landing() {
               price: "0",
               priceCurrency: "USD",
               description:
-                "Free keyless demo scan; free local testing with your own open-weight models",
+                "Free demo scan and local testing with your own open-weight models",
             },
           })}
         </script>

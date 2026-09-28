@@ -26,9 +26,8 @@ export default function DemoBanner({ className = "" }) {
         aria-hidden
       />
       <span>
-        <strong>Demo scan</strong>, an offline stand-in examiner on recorded
-        runs. This shows how Fusion works; it is <em>not</em> a claim about your
-        bot. Run a real scan for that.
+        <strong>Demo scan:</strong> recorded runs, scored by an offline stand-in
+        grader. It is <em>not</em> a result for your agent.
       </span>
     </div>
   );

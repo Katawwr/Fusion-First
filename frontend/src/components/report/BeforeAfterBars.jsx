@@ -95,8 +95,8 @@ export default function BeforeAfterBars({ ba, quality = false, canned = false })
       </div>
       {canned && (
         <p className="text-sm text-app-muted">
-          Illustration only: the “after” answers in this example are hand-written to show how a
-          report reads, not measured. On real small open-weight models the fix rarely cut attacks —{" "}
+          Illustration only: these “after” answers are hand-written, not measured. In live runs on
+          small open-weight models the fix rarely cut attacks —{" "}
           <a href="/trust" className="underline">
             see what we measured
           </a>

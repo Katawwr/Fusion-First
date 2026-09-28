@@ -27,8 +27,7 @@ export default function Footer() {
         >
           <span style={{ color: "var(--accent-ink)", fontWeight: "600" }}>
             Fusion First
-          </span>{" "}
-          • Prove your AI agents are safe and good
+          </span>
         </p>
         <div
           style={{
@@ -49,7 +48,7 @@ export default function Footer() {
               cursor: "pointer",
             }}
           >
-            Privacy Policy & Terms of Service
+            Privacy & Terms
           </Link>
           <span style={{ color: "var(--subtle)" }}>© 2026 Fusion First</span>
         </div>

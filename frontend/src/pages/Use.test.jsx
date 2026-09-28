@@ -24,4 +24,10 @@ describe("Use page", () => {
     expect(text).not.toMatch(/api[_ ]key\s*[:=]|anthropic_api_key|openai_api_key/);
     expect(text).toMatch(/no api key/);
   });
+
+  it("never presents a local model as the grader", () => {
+    // The free local grader missed its pre-registered accuracy bar (TRUST_REPORT.md).
+    expect(content.intro).toMatch(/grader is your coding agent or the claude CLI/);
+    expect(JSON.stringify(content)).not.toMatch(/grader[^."]*local model/i);
+  });
 });

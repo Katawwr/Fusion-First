@@ -39,10 +39,7 @@ export default function QualityPanel({ systemPrompt }) {
         <CheckIcon check="instruction_following" size={32} />
         <span className="font-semibold text-app-text">{meta.label}</span>
       </div>
-      <p className="mb-3 text-sm text-app-muted">
-        {meta.scenario} The same measured examiner, graded on normal requests
-        instead of attacks.
-      </p>
+      <p className="mb-3 text-sm text-app-muted">{meta.scenario}</p>
 
       {state === "idle" && (
         <Button variant="outline" onClick={run}>
@@ -51,17 +48,13 @@ export default function QualityPanel({ systemPrompt }) {
       )}
 
       {state === "loading" && (
-        <p className="text-sm text-app-muted">
-          Grading your agent on sample tasks…
-        </p>
+        <p className="text-sm text-app-muted">Grading sample tasks…</p>
       )}
 
       {state === "unavailable" && (
         <p className="text-sm text-app-muted">
-          Quality grading runs against a{" "}
-          <strong className="text-app-text">live</strong> model. Add a Claude
-          key, or test an open-weight model locally and free with Ollama, then
-          re-grade. From the CLI:{" "}
+          Needs a <strong className="text-app-text">live</strong> model: the
+          claude CLI or Ollama. For Ollama, from the command line:{" "}
           <code>
             fusion measure --backend ollama --target-model llama3.2 --stages
             quality
@@ -82,7 +75,7 @@ export default function QualityPanel({ systemPrompt }) {
             <GradeBadge grade={q.grade} size="lg" />
             <p className="text-sm text-app-muted">
               {q.n_defects} of {q.n} responses had a defect
-              {data.judge ? ` · judged by ${data.judge}` : ""}
+              {data.judge ? ` · graded by ${data.judge}` : ""}
             </p>
           </div>
           {q.defects?.length > 0 && (

@@ -132,24 +132,19 @@ export default function TargetPicker({
                     style={MODEL_FIELD}
                   />
                 )}
-                <p
-                  style={{
-                    marginTop: "0.5rem",
-                    fontSize: "0.8125rem",
-                    color: "var(--subtle)",
-                    lineHeight: 1.55,
-                  }}
-                >
-                  {models.length > 0 ? (
-                    <>The models installed in your Ollama. </>
-                  ) : (
-                    <>
-                      Run <code>ollama serve</code> and{" "}
-                      <code>ollama pull {targetModel || "llama3.2:1b"}</code> first.{" "}
-                    </>
-                  )}
-                  Graded by Claude, a different model family entirely.
-                </p>
+                {models.length === 0 && (
+                  <p
+                    style={{
+                      marginTop: "0.5rem",
+                      fontSize: "0.8125rem",
+                      color: "var(--subtle)",
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    Run <code>ollama serve</code> and{" "}
+                    <code>ollama pull {targetModel || "llama3.2:1b"}</code> first.
+                  </p>
+                )}
               </div>
             )}
           </div>

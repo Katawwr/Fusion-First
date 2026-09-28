@@ -38,7 +38,7 @@ export default function CheckLane({
         >
           {run
             ? `${run} attacks run, ${issues} got through`
-            : "waiting to start"}
+            : "no results yet"}
         </p>
       </div>
       {done ? (

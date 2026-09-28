@@ -2,9 +2,8 @@
 // (/api/version → backends; null while unknown). A backend it can't run — or hasn't yet said it can
 // run — is shown disabled with the reason: never offered and left to fail at scan time.
 
-const RUN_LOCALLY =
-  "Runs when you use Fusion on your own machine: pip install fusion-safety, then fusion serve.";
-const WAITING = "Waiting for this server to say what it can run.";
+const RUN_LOCALLY = "Needs Fusion running locally: pip install fusion-safety, then fusion serve.";
+const WAITING = "Checking what this server can run…";
 
 // Server reasons are written for a terminal (`code` in backticks); show them as plain text.
 const plain = (text) => String(text || "").replace(/`/g, "");
@@ -12,7 +11,7 @@ const plain = (text) => String(text || "").replace(/`/g, "");
 const DEMO = {
   id: "demo",
   title: "Demo scan",
-  note: "Instant, no signup. Recorded runs that show the full flow.",
+  note: "Replays recorded responses. Your prompt is not run.",
 };
 
 export function targetOptions(capabilities) {
@@ -36,23 +35,23 @@ export function targetOptions(capabilities) {
       id: "ollama",
       title: "Open-weight model",
       note: !ollamaOff
-        ? "Runs locally through Ollama. Free, and where attacks actually land."
+        ? "Runs locally through Ollama, at no cost. Graded by Claude, a different model family."
         : !local
           ? RUN_LOCALLY
           : noOllama
-            ? "Ollama isn't running on this machine. Start it with ollama serve."
+            ? "Ollama isn't running. Start it: ollama serve."
             : noModels
-              ? "No models are installed in Ollama yet. Pull one first: ollama pull llama3.2:1b."
-              : "Claude grades these scans through your claude CLI, which can't run here " +
-                `(${plain(caps.cli_reason) || "not ready"}). Without it, run the audit from Claude Code ` +
-                "(/fusion:audit), where your agent grades.",
+              ? "No Ollama models installed. Pull one: ollama pull llama3.2:1b."
+              : "Grading needs the claude CLI, which can't run here " +
+                `(${plain(caps.cli_reason) || "not ready"}). Alternative: run /fusion:audit in Claude Code, ` +
+                "where your coding agent grades.",
       disabled: ollamaOff,
     },
     {
       id: "cli",
       title: "Claude",
       note: !cliOff
-        ? "Uses this machine's Claude CLI subscription. No API key needed."
+        ? "Runs through this machine's claude CLI on your subscription. No API key."
         : local
           ? `Not available: ${plain(caps.cli_reason) || "the claude CLI can't run here"}.`
           : RUN_LOCALLY,
@@ -63,8 +62,8 @@ export function targetOptions(capabilities) {
   if (!local) {
     options.push({
       id: "hosted",
-      title: "Hosted real scan",
-      note: caps.api ? "Your prompt, our keys." : "Coming soon.",
+      title: "Hosted scan",
+      note: caps.api ? "Your prompt, this server's API keys." : "Not enabled on this server.",
       disabled: !caps.api,
     });
   }

@@ -18,7 +18,7 @@ export default function ProveHeadline({ baselineGrade, hardenedGrade, canned = f
             color: "var(--subtle)",
           }}
         >
-          Safety, before and after
+          Safety grade
         </p>
         <div
           style={{
@@ -32,7 +32,7 @@ export default function ProveHeadline({ baselineGrade, hardenedGrade, canned = f
           <div>
             <GradeBadge grade={baselineGrade} size="lg" />
             <p style={{ marginTop: "0.65rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
-              your prompt
+              original
             </p>
           </div>
           <ArrowRight size={28} color="var(--accent)" style={{ marginBottom: "1.75rem" }} aria-hidden />
@@ -46,15 +46,15 @@ export default function ProveHeadline({ baselineGrade, hardenedGrade, canned = f
         <p style={{ color: "var(--muted)", margin: 0 }}>
           {canned ? (
             <>
-              An example: in this demo the hardened answers are hand-written to show how a report reads.
-              It is not a measurement. Run a live scan to see what the fix does on your model —{" "}
+              Example: the demo's hardened answers are hand-written. It is not a measurement. Run a
+              live scan to measure the fix on your model —{" "}
               <a href="/trust" className="underline">
                 on small open-weight models it rarely helped
               </a>
               .
             </>
           ) : (
-            "The same attacks, run against your original and hardened agent. An apples-to-apples measurement."
+            "Paired measurement: the same attacks on the same model, original vs hardened prompt."
           )}
         </p>
       </div>

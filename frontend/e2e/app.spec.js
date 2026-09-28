@@ -53,7 +53,7 @@ test.describe("desktop", () => {
     const errors = watchErrors(page);
     await page.goto("/trust");
     await expect(page.getByRole("heading", { name: "How far to trust Fusion" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /simply asking an AI/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Rubric judge vs a plain question/ })).toBeVisible();
     await expect(page.getByRole("cell", { name: "v3", exact: true })).toBeVisible();
     expect(errors).toEqual([]);
   });

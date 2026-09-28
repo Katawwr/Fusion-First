@@ -14,37 +14,37 @@ import {
 const features = [
   {
     icon: Layers,
-    title: "Safety and quality, one engine",
+    title: "One grader for safety and quality",
     description:
-      "Two questions, one measured judge. Safety: can your agent be hijacked, leak data, or take actions nobody asked for? Quality: does it follow instructions and stay accurate? Both graded the same honest way.",
+      "Safety checks attack the agent; quality checks score instruction following and correctness.",
   },
   {
     icon: Cpu,
-    title: "Built for open-weight models",
+    title: "Why open-weight models",
     description:
-      "Frontier models resist most attacks; open-weight ones don't. Test yours locally and free with Ollama, Llama, Mistral, Qwen, judged by Claude, an examiner from a different model family entirely.",
+      "Frontier models resist most attacks; small open-weight models don't. Test Llama, Mistral or Qwen locally through Ollama; Claude, a different model family, grades the transcripts.",
   },
   {
     icon: BarChart3,
-    title: "A measured examiner, not a vibe",
+    title: "A measured grader",
     description:
-      "An AI judge scores each response against a written rubric, and we measure the judge itself against known-answer cases and report that accuracy with a confidence interval, so you know how far to trust the grade.",
+      "The grader scores each response against a written rubric. Its accuracy on known-answer cases is measured and shown on every report.",
   },
   {
     icon: GitBranch,
-    title: "Before and after you can defend",
+    title: "Paired before/after",
     description:
-      "The same attacks against your prompt as-is and hardened, with a 95% confidence interval and a PROVEN / PRELIMINARY / INCONCLUSIVE badge. We refuse to claim a lift the evidence cannot back.",
+      "The same attacks run against your prompt as written and with the fix, compared with a paired McNemar test. The PROVEN / PRELIMINARY / INCONCLUSIVE badge claims no lift the data can't support.",
   },
   {
     icon: Target,
-    title: "Mapped to real threats",
+    title: "OWASP-mapped checks",
     description:
-      "Safety checks map to the OWASP Top 10 for LLMs (2025) and Agentic AI (2026), prompt injection, excessive agency, data exfiltration, secret leakage. The risks the industry actually tracks, not a made-up list.",
+      "Prompt injection, excessive agency, data exfiltration and system prompt leakage, mapped to the OWASP Top 10 for LLMs (2025) and for Agentic AI (2026).",
   },
   {
     icon: RefreshCw,
-    title: "A fix, measured, plus a guardrail",
+    title: "Prompt fix and runtime guardrail",
     description: guardrailDescription(evidence.runtime_guardrail),
   },
 ];
@@ -73,21 +73,8 @@ export default function FeaturesSection() {
               marginBottom: "1rem",
             }}
           >
-            Proof, not vibes
+            How Fusion works
           </h2>
-          <p
-            style={{
-              fontSize: "1.125rem",
-              color: "var(--text)",
-              maxWidth: "700px",
-              margin: "0 auto",
-              lineHeight: 1.6,
-            }}
-          >
-            Anyone can say your agent is "safe" or "good." Fusion measures both,
-            against real threats and known answers, with statistics that admit
-            their own uncertainty.
-          </p>
         </div>
 
         {/* Features grid */}

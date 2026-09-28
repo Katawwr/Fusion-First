@@ -9,7 +9,7 @@ export default function Use() {
   return (
     <main style={{ maxWidth: "960px", margin: "0 auto", padding: "clamp(2rem, 6vw, 3.5rem) 1rem" }}>
       <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
-        Use Fusion without an API key
+        Run Fusion locally
       </h1>
       <p style={{ color: "var(--muted)", maxWidth: "680px", margin: "0 0 2rem", lineHeight: 1.6 }}>
         {content.intro}
@@ -53,8 +53,8 @@ export default function Use() {
         ))}
       </div>
       <p className="mt-12 text-sm text-app-muted">
-        Want to see a report first? <Link to="/scan" className="underline">Run the demo scan</Link>. It
-        uses canned example responses and says so.
+        <Link to="/scan" className="underline">Run the demo scan</Link> for an example report (canned
+        responses, not a measurement).
       </p>
     </main>
   );

@@ -7,7 +7,7 @@ import { useTheme } from "../../hooks";
 const NAV_LINKS = [
   { name: "Home", href: "/" },
   { name: "Scan", href: "/scan" },
-  { name: "Use it", href: "/use" },
+  { name: "Use", href: "/use" },
   { name: "Trust", href: "/trust" },
 ];
 

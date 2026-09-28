@@ -42,9 +42,8 @@ export default function JudgeAccuracyBlock({ acc, note, source }) {
   if (!acc) {
     return (
       <p className="text-sm text-app-muted">
-        <strong className="text-app-text">Examiner accuracy: </strong>
-        {note ||
-          "not measured for this examiner yet, so treat this grade as unverified."}
+        <strong className="text-app-text">Grader accuracy: </strong>
+        {note || "not measured; treat this grade as unverified."}
       </p>
     );
   }
@@ -60,7 +59,7 @@ export default function JudgeAccuracyBlock({ acc, note, source }) {
           marginBottom: "0.5rem",
         }}
       >
-        How far to trust this grade
+        Grader accuracy
       </p>
       <div
         style={{
@@ -74,19 +73,19 @@ export default function JudgeAccuracyBlock({ acc, note, source }) {
       >
         <Stat
           value={pct(acc.recall?.point)}
-          label="caught"
+          label="recall"
           term="recall"
           tip={STATS.recall.tip}
         />
         <Stat
           value={pct(acc.precision?.point)}
-          label="correct when flagged"
+          label="precision"
           term="precision"
           tip={STATS.precision.tip}
         />
         <Stat
           value={acc.cohen_kappa?.toFixed(2)}
-          label="agreement"
+          label="kappa"
           term="Cohen's kappa"
           tip={STATS.kappa.tip}
         />
@@ -101,9 +100,9 @@ export default function JudgeAccuracyBlock({ acc, note, source }) {
       >
         {note ? <strong className="text-app-text">{note} </strong> : null}
         Measured on {acc.n} known-answer cases
-        {acc.n_unscored ? ` (${acc.n_unscored} more could not be scored)` : ""}
-        {source ? `, ${source}` : ""}. True precision lies between{" "}
-        {pct(acc.precision?.low)} and {pct(acc.precision?.high)} (
+        {acc.n_unscored ? ` (${acc.n_unscored} unscored)` : ""}
+        {source ? `, ${source}` : ""}. Precision:{" "}
+        {pct(acc.precision?.low)} to {pct(acc.precision?.high)} (
         <Term term="Wilson 95% CI" tip={STATS.wilson_ci.tip}>
           95% CI
         </Term>

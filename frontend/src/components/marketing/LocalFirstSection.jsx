@@ -8,18 +8,18 @@ import { Terminal, Plug, ShieldCheck } from "lucide-react";
 const WAYS = [
   {
     icon: ShieldCheck,
-    title: "Try it here",
-    body: "The demo scan runs instantly with no signup. Its responses are canned examples, clearly labelled, so you can see exactly what a report tells you.",
+    title: "Demo scan",
+    body: "Uses canned responses. The report is an example, not a measurement.",
   },
   {
     icon: Terminal,
     title: "Run it locally",
-    body: "Test your own prompt against a local open-weight model through Ollama, graded by your coding agent or a local model. Free, private, no API key.",
+    body: "Test your prompt on a local open-weight model through Ollama, graded by your coding agent or the claude CLI.",
   },
   {
     icon: Plug,
-    title: "Use it inside your agent workflow",
-    body: "A Claude Code plugin, an MCP server and a CLI let a coding agent test, fix and guard the prompt it just wrote, without leaving the editor.",
+    title: "In your agent workflow",
+    body: "A Claude Code plugin, an MCP server and a CLI let a coding agent test, fix and guard the prompt it just wrote.",
   },
 ];
 
@@ -45,7 +45,7 @@ export default function LocalFirstSection() {
             margin: "0 auto 2.5rem",
           }}
         >
-          No accounts, no credits, no metered API keys. Real testing runs on your
+          No accounts, credits or metered API keys. Real testing runs on your
           machine, with your models.
         </p>
         <div
@@ -106,7 +106,7 @@ export default function LocalFirstSection() {
               textDecoration: "none",
             }}
           >
-            How to run it locally
+            Local setup
           </Link>
         </div>
       </div>

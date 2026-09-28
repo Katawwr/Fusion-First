@@ -41,8 +41,8 @@ export function significanceByGrader(rows) {
     if (worse) return `${grader}: significantly less accurate than a rule-based check in ${worse} of ${n} comparisons.`;
     if (better) return `${grader}: significantly more accurate than a rule-based check in ${better} of ${n} comparisons.`;
     return comps.every((c) => c.grader_more_accurate)
-      ? `${grader}: scores higher than the rule-based checks, but no difference is statistically significant yet at these sample sizes.`
-      : `${grader}: no difference from the rule-based checks is statistically significant yet at these sample sizes.`;
+      ? `${grader}: scores higher than the rule-based checks; no difference is significant yet.`
+      : `${grader}: no difference from the rule-based checks is significant yet.`;
   });
 }
 
@@ -50,11 +50,10 @@ export function significanceByGrader(rows) {
 // pre-registered measurement on real attacks), never from the page source; unmeasured, it claims none.
 export function guardrailDescription(runtime) {
   const base =
-    "A hardened system prompt, re-tested on your model so you can see whether it actually helps (on the small open-weight models we measured, it rarely cut attacks and made them refuse more safe requests), plus a runtime guardrail that blocks leaked secrets and unauthorized actions even when the model slips.";
+    "A hardened system prompt, re-tested on your model. On the small open-weight models we measured, it rarely cut attacks and raised refusals of safe requests. A runtime guardrail redacts leaked secrets and blocks unauthorized tool calls when the model slips.";
   if (!runtime?.all) return base;
   return (
-    `${base} On the attacks that really got through those models, the guardrail stopped ` +
-    `${pct(runtime.all.recall.point)} of the real attacks, wrongly blocking ` +
-    `${pct(runtime.all.over_block.point)} of clean conversations.`
+    `${base} On ${runtime.fresh ? "fresh " : ""}attacks that got through those models, the guardrail stopped ` +
+    `${pct(runtime.all.recall.point)} and wrongly blocked ${pct(runtime.all.over_block.point)} of clean conversations.`
   );
 }

@@ -1,0 +1,16 @@
+import React from "react";
+import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import Header from "./Header";
+
+describe("Header", () => {
+  it("labels the /use link 'Use'", () => {
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("link", { name: "Use" })).toHaveAttribute("href", "/use");
+  });
+});

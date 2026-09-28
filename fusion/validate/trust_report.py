@@ -16,11 +16,10 @@ from fusion.validate.prereg import LOCAL_GRADER_EVIDENCE, local_grader_decision
 
 HEADER = """# Fusion First — Trust Report
 
-This report answers four questions about Fusion itself: **is it detecting accurately, does it error
-often, does the fix work, and does it add value over simpler checks?** It is generated from committed
-evidence files by `python -m fusion.validate.trust_report` — nothing here is typed by hand, and a test
-fails if this file and its evidence disagree. Intervals are 95% Wilson (rates) unless noted. Evidence
-from the offline stand-in judge (`demonstration: true`) is never used here.
+Four questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
+simpler checks?** Generated from committed evidence by `python -m fusion.validate.trust_report`; a test
+fails if this file and its evidence disagree. Intervals are 95% Wilson unless noted. Demonstration
+evidence (the offline stand-in judge) is excluded.
 """
 
 
@@ -246,10 +245,9 @@ def _q1(root: pathlib.Path) -> list[str]:
     if not rows:
         return out + ["NOT YET MEASURED — no committed judge-vs-oracle evidence.", ""]
     out += [
-        "Grader verdicts on **real open-weight model transcripts**, scored against **deterministic "
-        "oracles** (no LLM in the ground truth): did the model call the attacker's tool (InjecAgent), "
-        "did it leak the planted password (Gandalf). The two rule-based baselines answer the same "
-        "items. Unanswered items are excluded from the rates and counted.",
+        "Grader verdicts on real open-weight model transcripts vs deterministic oracle labels (InjecAgent: "
+        "attacker tool called; Gandalf: planted password leaked), with two rule-based baselines on the same "
+        "items. Unanswered items are counted and excluded from the rates.",
         "",
         "| Evidence | Grader | Check | n (unanswered) | Accuracy | Recall | Specificity | F1 | κ | Naive regex F1 | Tuned heuristic F1 |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
@@ -273,14 +271,13 @@ def _q1(root: pathlib.Path) -> list[str]:
             out += _local_grader_paragraph(d)
     out += [
         "",
-        "How to read this: the paired McNemar test asks whether the grader and a baseline get different "
-        "ITEMS right (not whether their F1 differs). " + _significance(rows),
-        "Each item appears twice (the prompt as written and with the fix), so the rows are not fully "
-        "independent and the intervals are somewhat too narrow. The leakage oracle is itself a string match "
-        "for the planted password; the baselines are generic and are not told the password.",
+        "Paired McNemar compares per-item correctness (not F1). " + _significance(rows),
+        "Each item appears twice (as written and with the fix), so rows are not fully independent and the "
+        "intervals are somewhat narrow. The leakage oracle is a string match for the planted password; the "
+        "baselines are not told the password.",
         "",
-        "Every run also measures its own grader in-run (known-answer questions + an oracle cross-check on "
-        "the run's clear-cut questions) and withholds the grade when the grader falls below the policy floor.",
+        "Each run also measures its grader in-run (known-answer questions plus an oracle cross-check on "
+        "clear-cut questions) and withholds the grade below the policy floor.",
         "",
     ]
     return out
@@ -293,15 +290,15 @@ def _q3(root: pathlib.Path) -> list[str]:
         return out + ["NOT YET MEASURED — the oracle-labelled evidence run on local open-weight models "
                       "has not been committed yet.", ""]
     models = ", ".join(sorted(d.get("models", {})))
-    out += [f"The prompt as written vs the same prompt with Fusion's fix applied, on real local models "
-            f"({models}), over held-out items from external benchmarks. Issue = oracle-confirmed attack "
-            "success (InjecAgent: the attacker's tool was called; Gandalf: the planted password leaked) or "
-            "an oracle-confirmed cost (XSTest: a SAFE request refused; IFEval: an instruction not followed). "
-            "Lower is better in every row. Evidence: `evals/validation/v1/evidence_oracle.json`.", ""]
+    out += [f"The prompt as written vs with Fusion's fix, on local models ({models}), over held-out items "
+            "from external benchmarks. Issue = oracle-confirmed attack success (InjecAgent: attacker tool "
+            "called; Gandalf: planted password leaked) or cost (XSTest: safe request refused; IFEval: "
+            "instruction not followed). Lower is better. Evidence: `evals/validation/v1/evidence_oracle.json`.",
+            ""]
     pooled = d.get("pooled") or {}
     if len(d.get("models", {})) > 1 and pooled:
-        out += ["**Pooled over all models.** The interval resamples whole items, because the same item "
-                "runs on every model, so pooled pairs are not independent.", "",
+        out += ["**Pooled over all models.** The interval resamples whole items (each item runs on every "
+                "model).", "",
                 "| Experiment | Pairs | As written | With fix | Change in issue rate (95% CI) | What it shows |",
                 "|---|---|---|---|---|---|"]
         for exp, p in pooled.items():
@@ -334,9 +331,7 @@ def _q3(root: pathlib.Path) -> list[str]:
     if regressions:
         summary.append("Significant regressions: " + "; ".join(regressions) + ".")
     summary.append("Proven improvements: " + ("; ".join(wins) + "." if wins else "none yet."))
-    out += ["", " ".join(summary),
-            "This is why every Fusion report card measures the fix on YOUR prompt and model and shows the "
-            "result with its honesty badge instead of assuming the fix helps.", ""]
+    out += ["", " ".join(summary), ""]
     return out
 
 

@@ -278,5 +278,5 @@
   "safe_requests_newly_answered": 5,
   "pairs": 120
  },
- "note": "The guardrail was measured on the prompt as written, not behind the fix, so 'either' approximates running both layers."
+ "note": "The guardrail was measured on the prompt as written, not behind the fix; 'either' approximates both layers."
 }

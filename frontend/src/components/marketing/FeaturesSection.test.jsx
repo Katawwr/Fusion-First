@@ -10,18 +10,24 @@ vi.mock("../../hooks/useReveal", () => ({ default: () => [{ current: null }, tru
 describe("FeaturesSection", () => {
   it("states the guardrail's measured result from the evidence, not from the source", () => {
     const text = guardrailDescription({ all: { recall: { point: 0.78 }, over_block: { point: 0.05 } } });
-    expect(text).toMatch(/stopped 78% of the real attacks/);
-    expect(text).toMatch(/wrongly blocking 5%/);
+    expect(text).toMatch(/guardrail stopped 78%/);
+    expect(text).toMatch(/wrongly blocked 5% of clean conversations/);
   });
 
   it("makes no number claim when the guardrail hasn't been measured", () => {
     expect(guardrailDescription(null)).not.toMatch(/\d+%/);
   });
 
+  it("keeps the fix's measured downside next to the guardrail", () => {
+    const text = guardrailDescription(null);
+    expect(text).toMatch(/re-tested on your model/);
+    expect(text).toMatch(/rarely cut attacks and raised refusals of safe requests/);
+  });
+
   it("renders the committed evidence", () => {
     render(<FeaturesSection />);
     if (evidence.runtime_guardrail) {
-      expect(screen.getByText(/stopped \d+% of the real attacks/)).toBeInTheDocument();
+      expect(screen.getByText(/guardrail stopped \d+%/)).toBeInTheDocument();
     }
   });
 });

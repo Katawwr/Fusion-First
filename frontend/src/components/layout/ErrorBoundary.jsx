@@ -19,12 +19,9 @@ export default class ErrorBoundary extends React.Component {
     if (!this.state.error) return this.props.children;
     return (
       <div role="alert" style={{ padding: "5rem 1rem", textAlign: "center" }}>
-        <h1 style={{ fontSize: "1.6rem", color: "var(--text)", marginBottom: "0.75rem" }}>
-          Something went wrong on this page.
+        <h1 style={{ fontSize: "1.6rem", color: "var(--text)", marginBottom: "1.5rem" }}>
+          This page failed to render
         </h1>
-        <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-          Nothing was lost on the server. Try again, or start a new scan.
-        </p>
         <button
           onClick={() => this.setState({ error: null })}
           style={{

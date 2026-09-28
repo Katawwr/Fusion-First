@@ -18,7 +18,7 @@ function AttackList({ outcomes, quality = false }) {
   return (
     <div className="flex flex-col gap-1">
       <p className="text-sm font-medium text-app-text">
-        {quality ? "What it got wrong" : "What got through"}
+        {quality ? "Defects" : "What got through"}
       </p>
       <ul className="flex flex-col gap-1">
         {shown.map((o) => (

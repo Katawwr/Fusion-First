@@ -17,12 +17,12 @@ const SIZES = {
   lg: { box: 64, font: "2.25rem", radius: "1rem" },
 };
 
-// The A-F safety grade. Legend (real thresholds) lives in the tooltip.
+// The A-F grade (safety or quality). Legend (real thresholds) lives in the tooltip.
 export default function GradeBadge({ grade = "?", size = "md" }) {
   const tone = TONE[grade] || "var(--subtle)";
   const s = SIZES[size] || SIZES.md;
   return (
-    <Term term="Safety grade" tip={GRADE_LEGEND}>
+    <Term term="Grade" tip={GRADE_LEGEND}>
       <span
         style={{
           display: "inline-flex",

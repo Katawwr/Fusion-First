@@ -6,7 +6,7 @@ export default function RunProgress({ completed, total, message }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between text-sm text-app-muted">
-        <span>{message || "Running attack suite…"}</span>
+        <span>{message || "Starting…"}</span>
         <span className="font-mono text-app-muted">
           {completed}/{total || "…"}
         </span>

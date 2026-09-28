@@ -36,12 +36,12 @@ export default function Privacy() {
         <title>Privacy &amp; Terms | Fusion First</title>
         <meta
           name="description"
-          content="How Fusion First handles your system prompts: no accounts, no payments, no analytics. Live testing runs on your own machine."
+          content="How Fusion First handles your system prompts: no accounts, payments or analytics. Live testing runs on your machine."
         />
         <meta property="og:title" content="Privacy & Terms - Fusion First" />
         <meta
           property="og:description"
-          content="No accounts, no payments, no analytics. Live testing runs on your own machine."
+          content="No accounts, payments or analytics. Live testing runs on your machine."
         />
         <meta property="og:type" content="website" />
         <link rel="canonical" href="https://fusion-first-testing.com/privacy" />
@@ -87,28 +87,25 @@ export default function Privacy() {
                       The short version
                     </p>
                     <p style={{ margin: 0 }}>
-                      There are no accounts, no payments and no analytics or tracking. Real
-                      (live) testing runs on your own machine, with your own local models and
-                      your own Claude subscription.
+                      No accounts, payments, analytics or tracking. Live testing runs on your
+                      machine, with your local models and your own Claude subscription.
                     </p>
                   </div>
 
                   <Item title="Demo scans on this website">
                     The system prompt you paste is sent to the Fusion server to run the demo.
-                    Demo responses are canned examples — your prompt is not sent to any AI model.
-                    The finished report is kept in the server's memory so its link works, is
-                    never written to a database, and disappears when the server restarts.
+                    Demo responses are canned; your prompt is not sent to any AI model. The
+                    report is kept in server memory so its link works, is never written to a
+                    database, and is discarded when the server restarts.
                   </Item>
                   <Item title="Local use (CLI, MCP server, local web app)">
-                    When you run Fusion yourself, your prompts and results stay on your machine.
-                    Live tests call only the backends you choose: a local open-weight model via
-                    Ollama, and/or the Claude CLI signed in to your own subscription (whose use is
-                    governed by Anthropic's terms). Fusion never uses a metered API key unless you
-                    explicitly opt in.
+                    Your prompts and results stay on your machine. Live tests call only the
+                    backends you choose: a local open-weight model via Ollama and/or the Claude
+                    CLI signed in to your own subscription (governed by Anthropic's terms).
+                    Fusion never uses a metered API key unless you explicitly opt in.
                   </Item>
                   <Item title="Stored in your browser">
-                    Only your light/dark theme preference (localStorage). No cookies are set for
-                    tracking.
+                    Only your light/dark theme preference (localStorage). No tracking cookies.
                   </Item>
                   <Item title="Training">
                     Fusion does not train any model on your prompts or results.
@@ -121,7 +118,7 @@ export default function Privacy() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                   <Item title="What Fusion is">
                     An evaluation engine that tests AI agents for safety (for example prompt
-                    injection, data exfiltration, excessive agency and system-prompt leakage)
+                    injection, data exfiltration, excessive agency and system prompt leakage)
                     and quality, and suggests fixes. Every reported number carries its sample
                     size and a confidence interval or an honesty badge.
                   </Item>
@@ -139,7 +136,7 @@ export default function Privacy() {
                     </p>
                     <p style={{ marginBottom: "0.5rem" }}>
                       AI models are probabilistic. Fusion measures how often attacks land and how
-                      accurate its own judge is, but it DOES NOT guarantee:
+                      accurate its grader is, but it DOES NOT guarantee:
                     </p>
                     <ul style={{ listStyle: "disc", paddingLeft: "1.5rem", marginBottom: "0.75rem" }}>
                       <li>100% accuracy in quality issue detection</li>

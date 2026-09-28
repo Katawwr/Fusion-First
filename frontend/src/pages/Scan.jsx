@@ -30,8 +30,7 @@ import { CHECKS, QUALITY_CHECKS, checkMeta, worstGrade } from "../lib/jargon";
 
 const ALL_CHECKS = Object.keys(CHECKS);
 const QUALITY = Object.keys(QUALITY_CHECKS);
-const QUALITY_NEEDS_LIVE =
-  "Quality is graded on real answers — choose a live model below to include it.";
+const QUALITY_NEEDS_LIVE = "Requires a live model (select one below).";
 const STEPS = [
   ["setup", "Paste"],
   ["run", "Attack"],
@@ -314,27 +313,19 @@ export default function Scan({ scanState, setScanState }) {
   const perCheckOutcomes = (check) =>
     (result?.outcomes || []).filter((o) => o.check === check);
 
+  // A lead appears only where it adds to the step's own sections.
   const HEADERS = {
     setup: {
       title: "Scan your agent",
-      lead: "Paste the instructions you give your agent. We run the attack suite against it, grade what gets through, and test a fix on your model.",
+      lead: "Paste a system prompt. Fusion attacks it, grades each response, and tests a fix on your model.",
     },
-    run: {
-      title: "Running the attack suite",
-      lead: "Every response is read by a measured examiner and marked against a written rubric.",
-    },
+    run: { title: "Running the attack suite" },
     report: {
       title: "Your report card",
       lead: "What got through, how often, and how far to trust the grade.",
     },
-    fix: {
-      title: "Fix it in two layers",
-      lead: "A hardened prompt that asks the model to behave, and a runtime guardrail that makes sure it does.",
-    },
-    prove: {
-      title: "Proof it worked",
-      lead: "The same attacks against your original and hardened agent, measured the same way.",
-    },
+    fix: { title: "Two-layer fix" },
+    prove: { title: "Before and after" },
   };
 
   return (
@@ -414,7 +405,7 @@ export default function Scan({ scanState, setScanState }) {
             }}
           >
             <span style={{ color: "var(--muted)", fontWeight: 500 }}>
-              Fix all of this in one click.
+              Next: hardened prompt and runtime guardrail.
             </span>
             <div style={{ display: "flex", gap: "0.75rem" }}>
               {scan.scanId && (
@@ -479,9 +470,7 @@ function SetupStep({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       <section>
-        <SectionTitle hint="The system prompt you give ChatGPT, Claude, or your agent framework. We never store it without your say-so.">
-          Your agent's instructions
-        </SectionTitle>
+        <SectionTitle>System prompt</SectionTitle>
         <Card>
           <textarea
             value={systemPrompt}
@@ -517,7 +506,7 @@ function SetupStep({
             }}
           >
             <span style={{ fontSize: "0.875rem", color: "var(--subtle)" }}>
-              Try a sample:
+              Samples:
             </span>
             {Object.entries(EXAMPLES).map(([name, text]) => (
               <button
@@ -551,8 +540,8 @@ function SetupStep({
       </section>
 
       <section>
-        <SectionTitle hint="Each test is a family of attacks mapped to a real risk. Turn off anything that does not apply to your agent.">
-          What should we test?
+        <SectionTitle hint="Each check is an attack family, tagged with its OWASP codes. Deselect any that don't apply.">
+          Safety checks
         </SectionTitle>
         <div
           style={{
@@ -573,8 +562,8 @@ function SetupStep({
       </section>
 
       <section>
-        <SectionTitle hint="Normal requests, not attacks: does your agent do what it is asked? Graded on both your prompt and the fixed one, so you also see whether the safety fix costs any quality.">
-          And quality
+        <SectionTitle hint="Graded on your prompt and the hardened one, to show whether the safety fix costs quality.">
+          Quality checks
         </SectionTitle>
         <div
           style={{
@@ -597,8 +586,8 @@ function SetupStep({
       </section>
 
       <section>
-        <SectionTitle hint="Frontier models resist most attacks. Open-weight models are where they land, so testing yours locally is free.">
-          Which model should we test against?
+        <SectionTitle hint="Frontier models resist most attacks; open-weight models often don't.">
+          Target model
         </SectionTitle>
         <Card>
           <TargetPicker
@@ -660,15 +649,11 @@ function RunStep({ scan, checks, onCancel }) {
       </div>
 
       <section>
-        <SectionTitle hint="An examiner whose accuracy is measured reads every response and marks it against a written rubric. Your report shows how reliable that examiner is.">
-          Live attack feed
-        </SectionTitle>
+        <SectionTitle>Live attack feed</SectionTitle>
         <Card>
           <div style={{ maxHeight: "22rem", overflow: "auto" }}>
             {scan.feed.length === 0 && (
-              <p style={{ color: "var(--subtle)" }}>
-                Building your attack suite…
-              </p>
+              <p style={{ color: "var(--subtle)" }}>No graded responses yet.</p>
             )}
             {scan.feed.map((o) => (
               <AttackFeedRow key={o.probe_id + o.check} outcome={o} />
@@ -715,8 +700,8 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
         </div>
       )}
       <section>
-        <SectionTitle hint="Free, ten seconds. We append tested guard rules to your prompt. Safe to re-run: we replace our own block instead of stacking duplicates.">
-          Layer 1: Fix the instructions
+        <SectionTitle hint="Guard rules appended to your system prompt. Re-running replaces the block instead of stacking it.">
+          Layer 1: Hardened prompt
         </SectionTitle>
         <Card>
           {hardened ? (
@@ -739,23 +724,21 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
                 />
                 <CopyButton
                   text={hardened.guard_block}
-                  label="Copy just the guard block"
+                  label="Copy guard block only"
                 />
               </div>
             </>
           ) : error ? (
-            <p style={{ color: "var(--subtle)" }}>The hardened prompt couldn't be prepared.</p>
+            <p style={{ color: "var(--subtle)" }}>The hardened prompt couldn't be built.</p>
           ) : (
-            <p style={{ color: "var(--subtle)" }}>
-              Preparing your hardened prompt…
-            </p>
+            <p style={{ color: "var(--subtle)" }}>Building the hardened prompt…</p>
           )}
         </Card>
       </section>
 
       <section>
-        <SectionTitle hint="The prompt fix asks the model to behave; the guardrail makes sure it does. It blocks leaked secrets and unauthorized actions even when the model slips.">
-          Layer 2: Add a runtime guardrail
+        <SectionTitle hint="Wraps your model client: redacts leaked secrets and blocks consequential tool calls to external destinations, even when the model is fooled. Defense in depth, not a sandbox.">
+          Layer 2: Runtime guardrail
         </SectionTitle>
         <Card>
           {snippet ? (
@@ -808,7 +791,7 @@ function ProveStep({ result, scanId, systemPrompt, onRestart }) {
       />
 
       <section>
-        <SectionTitle>Test by test</SectionTitle>
+        <SectionTitle>Per check</SectionTitle>
         <div
           style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
         >
@@ -866,7 +849,7 @@ function ProveStep({ result, scanId, systemPrompt, onRestart }) {
                 }}
               >
                 <Download size={16} />
-                Download the full report
+                Download report
               </span>
             </Button>
           </a>

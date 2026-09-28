@@ -37,19 +37,19 @@ describe("Trust page", () => {
     );
     const rvp = evidence.rubric_vs_plain;
     if (rvp) {
-      expect(screen.getByRole("heading", { name: /simply asking an AI/ })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /Rubric judge vs a plain question/ })).toBeInTheDocument();
       expect(screen.getAllByText(interval(rvp.pooled.plain)).length).toBeGreaterThan(0);
-      if (!rvp.claim_allowed) expect(screen.getByText(/not more accurate than asking/)).toBeInTheDocument();
+      if (!rvp.claim_allowed) expect(screen.getByText(/not more accurate than a plain question/)).toBeInTheDocument();
     }
     if (evidence.runtime_guardrail) {
-      expect(screen.getByRole("heading", { name: /runtime guardrail stop real attacks/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /runtime guardrail on real attacks/i })).toBeInTheDocument();
       expect(screen.getAllByText(interval(evidence.runtime_guardrail.all.recall)).length).toBeGreaterThan(0);
     }
     if (evidence.value_ledger) {
-      expect(screen.getByRole("heading", { name: /what each layer bought/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /value ledger/i })).toBeInTheDocument();
       expect(screen.getByRole("cell", { name: "All models" })).toBeInTheDocument();
       // the ledger re-reads the first run, even when a fresh guardrail number is the headline above it
-      expect(screen.getByText(/first run's results, read item by item/)).toBeInTheDocument();
+      expect(screen.getByText(/First-run transcripts, item by item/)).toBeInTheDocument();
     }
     for (const s of significanceByGrader(evidence.judge_accuracy)) {
       expect(screen.getByText(s)).toBeInTheDocument(); // direction stated per grader
@@ -69,7 +69,7 @@ describe("Trust page", () => {
     const { rerender } = render(
       <GuardrailSection runtime={{ models: ["a", "b"], fresh: false, findings: [], first_measurement: null, ...first }} />,
     );
-    expect(screen.getByText(/attacks that really succeeded against 2 small open-weight models/)).toBeInTheDocument();
+    expect(screen.getByText(/successful attacks on 2 small open-weight models/)).toBeInTheDocument();
     rerender(
       <GuardrailSection
         runtime={{
@@ -79,8 +79,8 @@ describe("Trust page", () => {
         }}
       />,
     );
-    expect(screen.getByText(/fresh attacks/)).toBeInTheDocument();
-    expect(screen.getByText(/first measurement, with older rules, stopped 54 of 69/)).toBeInTheDocument();
+    expect(screen.getByText(/fresh transcripts/)).toBeInTheDocument();
+    expect(screen.getByText(/First measurement \(older rules\): 54 of 69 stopped/)).toBeInTheDocument();
     expect(screen.getByText("A plain finding.")).toBeInTheDocument();
     expect(screen.queryByText(/mixed-case names/)).toBeNull(); // a bug since fixed isn't described as current
   });

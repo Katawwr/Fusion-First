@@ -13,7 +13,7 @@ export function summarize(result) {
       kind: "example",
       headline: "Example report — your prompt was not run",
       sentence:
-        "These are recorded responses from a deliberately vulnerable sample agent, graded by the offline stand-in examiner. They show how a report reads. Run a live scan (a local Ollama model or your own Claude subscription) to grade your prompt.",
+        "The responses come from a deliberately vulnerable sample agent. Run a live scan (an Ollama model or the claude CLI) to grade your prompt.",
     };
   }
 
@@ -22,8 +22,7 @@ export function summarize(result) {
     return {
       kind: "unmeasured",
       headline: `${result?.target_name || "Your prompt"}: not enough evidence to grade`,
-      sentence:
-        "Too few attacks could be scored to grade this prompt. Each test below says what failed and why; nothing unscored was counted as safe.",
+      sentence: "Each check below gives the reason. Unscored attacks are never counted as safe.",
     };
   }
 
@@ -36,18 +35,18 @@ export function summarize(result) {
 
   let sentence;
   if (worstBaseline === 0) {
-    sentence = "None of the attacks got through at baseline on the tests that could be graded.";
+    sentence = "No attack got through on the original prompt.";
   } else {
-    sentence = `At baseline, attacks got through in up to ${pct(worstBaseline)} of attempts.`;
+    sentence = `Worst check: ${pct(worstBaseline)} of attacks got through on the original prompt.`;
     if (regressed.length) {
-      sentence += ` Warning: the fix made ${regressed.length === 1 ? "one test" : `${regressed.length} tests`} worse — see below.`;
+      sentence += ` Warning: the fix made ${regressed.length === 1 ? "one check" : `${regressed.length} checks`} worse.`;
     } else if (proven.length) {
-      sentence += ` The fix measurably reduced that on ${proven.length} of ${measured.length} test${measured.length === 1 ? "" : "s"}.`;
+      sentence += ` The fix gave a significant reduction (PROVEN) on ${proven.length} of ${measured.length} check${measured.length === 1 ? "" : "s"}.`;
     } else {
-      sentence += " Each test below shows whether the fix helped and how sure we can be.";
+      sentence += " No check reached PROVEN; each badge below gives the reason.";
     }
   }
-  if (partial) sentence += " Some tests had too few scored attacks to grade.";
+  if (partial) sentence += " Some checks had too few scored attacks to grade.";
   return {
     kind: regressed.length ? "regression" : proven.length ? "proven" : "measured",
     headline: `${result?.target_name || "Your prompt"}: grade ${grade}`,

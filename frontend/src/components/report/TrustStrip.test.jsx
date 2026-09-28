@@ -8,10 +8,10 @@ describe("TrustStrip", () => {
   it("says a canned demo did not run your prompt", () => {
     render(<TrustStrip card={{ trust: { execution: "canned", n_planned: 8, n_scored: 8, n_errored: 0 } }} />);
     expect(screen.getByText(/your prompt was not run/)).toBeInTheDocument();
-    expect(screen.getByText(/stand-in examiner/)).toBeInTheDocument();
+    expect(screen.getByText(/stand-in grader/)).toBeInTheDocument();
   });
 
-  it("shows the live examiner, its independence and unscored attacks", () => {
+  it("shows the live grader, its independence and unscored attacks", () => {
     render(
       <TrustStrip
         card={{
@@ -32,7 +32,7 @@ describe("TrustStrip", () => {
     expect(screen.getByText(/claude-sonnet-5 via claude_cli/)).toBeInTheDocument();
     expect(screen.getByText(/different model family/)).toBeInTheDocument();
     expect(screen.getByText(/6 of 8 attacks scored/)).toBeInTheDocument();
-    expect(screen.getByText(/examiner timed out/)).toBeInTheDocument();
+    expect(screen.getByText(/grader timeout/)).toBeInTheDocument();
     expect(screen.getByText(/repeat runs may differ/)).toBeInTheDocument();
   });
 

@@ -1,7 +1,7 @@
 import React from "react";
 import CheckIcon from "../ui/CheckIcon";
 
-// Newest-first stream of judged attacks: "Resisted" or "Fooled" on the baseline arm
+// Newest-first stream of judged attacks: "Resisted" or "Got through" on the baseline arm
 // (the raw prompt under attack).
 export default function AttackFeedRow({ outcome }) {
   const fooled = outcome.baseline_issue;
@@ -44,7 +44,7 @@ export default function AttackFeedRow({ outcome }) {
           whiteSpace: "nowrap",
         }}
       >
-        {fooled ? "Fooled" : "Resisted"}
+        {fooled ? "Got through" : "Resisted"}
       </span>
     </div>
   );

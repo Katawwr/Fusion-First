@@ -45,10 +45,10 @@ export default function TrustStrip({ card }) {
       <Row label="What ran">
         {canned
           ? "Recorded example responses — your prompt was not run"
-          : "Your prompt, run live on the target model"}
+          : "Your prompt, live on the target model"}
       </Row>
-      <Row label="Examiner">
-        {canned ? "Offline stand-in examiner (demonstration)" : t.judge_id || "unknown"}
+      <Row label="Grader">
+        {canned ? "Offline stand-in grader (demo)" : t.judge_id || "unknown"}
         {!canned && t.judge_backend ? ` via ${t.judge_backend}` : ""}
       </Row>
       {!canned && t.independence && (
@@ -61,8 +61,8 @@ export default function TrustStrip({ card }) {
       {scored && <Row label="Coverage">{scored}</Row>}
       {t.sampling_pinned === false && (
         <Row label="Repeatability">
-          This examiner can't be pinned to a fixed sampling setting, so repeat runs may differ
-          slightly; Fusion measures that separately.
+          This grader's sampling can't be pinned, so repeat runs may differ slightly (measured
+          separately).
         </Row>
       )}
     </div>
