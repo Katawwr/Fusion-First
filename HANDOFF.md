@@ -11,8 +11,15 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 - `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
   (`python -m fusion.validate.trust_report`); tests fail on drift. No new evidence this session.
 - Ollama models: llama3.2:1b, qwen2.5:1.5b, gemma3:1b, qwen2.5:3b, qwen2.5:7b, llama-guard3:8b.
-- **In flight:** landing-rate pilot, qwen2.5:7b, arm baseline, 20 InjecAgent + 20 Gandalf items of the SPENT v1
-  sample, store in the session scratchpad (not evidence). Check `ollama ps` before any Ollama job.
+- **In flight: step 2** (registered 4f6238a, `evals/validation/v1/PREREG_step2_guard.md`). A background job
+  (session scratchpad `run_step2.sh`, log `step2.log`) waits for the pilot + the llama3.1:8b download, then runs:
+  generation (qwen2.5:7b + llama3.1:8b, InjecAgent + Gandalf n=100, baseline; two passes), `step2_guard.py prior`
+  (old rules from the a6fa0f5 worktree in the scratchpad, `prior-a6fa0f5`), `step2_guard.py llama-guard`,
+  `step2_guard.py score --out evals/validation/v1/step2_guard.json` (once). About 15 h. Every step resumes:
+  if interrupted, rerun the same commands in that order (generation skips finished items; Llama Guard verdicts
+  append to `evals/validation/v1/step2/lg_raw.jsonl`). Do not change `fusion/guardrail/` until it is scored
+  (`score` refuses other rules). Check `ollama ps` before any other Ollama job.
+- Pilot (spent v1 items, DIAGNOSTIC): qwen2.5:7b followed 9 of 20 InjecAgent injections.
 
 ## Non-negotiables
 
@@ -67,22 +74,19 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 
 ## Next
 
-1. Read the pilot: landing rates of qwen2.5:7b on InjecAgent and Gandalf (oracle labels on the scratch store).
-   Items needed per model for 30/50 attacks = attacks / landing rate.
-2. Pre-register step 2 (draft: `C:/Users/Katri/AppData/Local/Temp/claude/C--Users-Katri-OneDrive-Documents-Fusion/135217eb-deac-4d18-b803-acffaf3fa331/scratchpad/PREREG_step2_draft.md`; rewrite into
-   `evals/validation/v1/PREREG_step2_guard.md`): qwen2.5:7b (+ a second model if the owner approves a pull),
-   fresh salt excluding v1 + compact, baseline arm, harness v2, rules frozen at the registering commit, same
-   outcomes as before vs rules a6fa0f5 and Llama Guard A/B, plus the 20 sealed benign cases; subgroup: attacks
-   whose attacker tool is one of the 20 never in development.
-3. Run it (one Ollama job at a time), score once, commit evidence, regenerate the Trust Report.
+1. When step 2 is scored: commit the transcripts, `evals/validation/v1/step2/`, `step2_guard.json`; add the
+   result to `fusion/validate/trust_report.py` (+ claims.yaml) and regenerate TRUST_REPORT.md / evidence.json.
+   Apply decision rule 1 either way (not adopted = turn `bind_after_untrusted` / `gate_private_reads` off by
+   default).
+2. Remove the a6fa0f5 worktree afterwards: `git worktree remove <scratchpad>/prior-a6fa0f5`.
 
 ## Open decisions (owner)
 
 - Reposition as "measure + guard" with the fix demoted (recommended; the power plan adds: proving the fix
   reduces attacks is out of reach on this hardware). Not applied.
-- Step 2 scope: fix arms (XSTest harm only?) and a second model (needs a pull, e.g. llama3.1:8b).
-- A send to an address the user typed is still blocked unless its domain is allowlisted. Option: let the
-  user's request authorize a named recipient (secrets/PII still fail closed).
+- Fix arms (not in step 2): 300 pairs per model (the step-2 items + hardened arm, ~8–9 h per model) detect a
+  moderate or strong fix effect (99–100% power) but not the small 1–3B one (56%); 600 pairs ≈ 33 h per model.
+- Decided 2026-09-28: second model llama3.1:8b (pulled); named recipients stay blocked unless allowlisted.
 - Routines `fusion-continue-a/-b` run with their stored permission mode and medium effort: set auto mode in the
   sidebar (Scheduled) for unattended continuations.
 
