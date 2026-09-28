@@ -307,6 +307,37 @@ def test_the_fresh_guardrail_measurement_becomes_the_headline(tmp_path):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("decision", ["fusion_better", "no_significant_difference"])
+def test_the_llama_guard_comparison_is_reported_with_its_registered_decision(tmp_path, decision):
+    import json
+
+    def sys_(stop, block):
+        return {"all": {"attacks": 70, "stopped": stop, "recall": _rate(stop, 70), "clean": 170,
+                        "blocked": block, "over_block": _rate(block, 170)}}
+
+    cmp_ = lambda d: {"attacks": {"fusion_only": 30, "other_only": 2, "mcnemar_p": 0.0001},  # noqa: E731
+                      "clean": {"fusion_only": 1, "other_only": 4, "mcnemar_p": 0.375}, "decision": d}
+    ev = {"demonstration": False, "preregistration": "evals/validation/v1/PREREG_guard_vs_llama_guard.md",
+          "llama_guard": {"model": "llama-guard3:8b"}, "fusion": sys_(50, 2), "llama_guard_a": sys_(12, 5),
+          "llama_guard_b": sys_(25, 4), "union_fusion_b": sys_(55, 6),
+          "comparisons": {"fusion_vs_llama_guard_a": cmp_(decision), "fusion_vs_llama_guard_b": cmp_(decision)}}
+    (tmp_path / "evals/validation/v1").mkdir(parents=True)
+    (tmp_path / "evals/validation/v1/guard_vs_llama_guard.json").write_text(json.dumps(ev), encoding="utf-8")
+    out = render(tmp_path)
+    sec = out.split("## Runtime guardrail vs Llama Guard 3")[1].split("\n## ")[0]
+    assert "PREREG_guard_vs_llama_guard.md" in sec and "llama-guard3:8b" in sec
+    rows = {line.split("|")[1].strip(): line for line in sec.splitlines() if line.startswith("| ")}
+    assert "50 of 70" in rows["Fusion guardrail"] and "12 of 70" in rows["Llama Guard 3, off the shelf"]
+    assert "25 of 70" in rows["Llama Guard 3, configured"] and "55 of 70" in rows["Fusion + Llama Guard 3 (configured)"]
+    verdict = ("stops significantly more real attacks" if decision == "fusion_better" else "no significant difference")
+    assert verdict in sec
+    from fusion.validate.trust_report import evidence_json
+
+    site = evidence_json(tmp_path)["guard_vs_llama_guard"]
+    assert site["systems"]["fusion"]["stopped"] == 50 and site["comparisons"]["configured"]["decision"] == decision
+
+
+@pytest.mark.unit
 def test_the_value_ledger_is_reported_with_its_caveat(tmp_path):
     import json
 

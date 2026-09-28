@@ -477,7 +477,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
         local_grader = {"evidence": local[0], "grader": local[1]["grader"], "meets_floor": dec["meets_floor"],
                         "rule": dec["rule"], "per_check": dec["per_check"]}
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
-            "local_grader": local_grader,
+            "local_grader": local_grader, "guard_vs_llama_guard": _llama_guard_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "runtime_guardrail": runtime_guardrail, "value_ledger": value_ledger,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
@@ -692,10 +692,57 @@ def _b3(root: pathlib.Path) -> list[str]:
     return out + ["", _b3_verdict(d), ""]
 
 
+LLAMA_GUARD_EVIDENCE = "evals/validation/v1/guard_vs_llama_guard.json"
+_LG_ROWS = (("Fusion guardrail", "fusion"), ("Llama Guard 3, off the shelf", "llama_guard_a"),
+            ("Llama Guard 3, configured", "llama_guard_b"), ("Fusion + Llama Guard 3 (configured)", "union_fusion_b"))
+
+
+def _lg_verdict(name: str, c: dict) -> str:
+    a = c["attacks"]
+    if c["decision"] == "fusion_better":
+        return (f"Fusion's guardrail stops significantly more real attacks than Llama Guard 3 {name} "
+                f"({a['fusion_only']} stopped only by Fusion, {a['other_only']} only by Llama Guard; McNemar "
+                f"p={a['mcnemar_p']:.4f}), without significantly more wrong blocks.")
+    if c["decision"] == "other_better":
+        return (f"Llama Guard 3 {name} stops significantly more real attacks than Fusion's guardrail "
+                f"({a['other_only']} vs {a['fusion_only']}; McNemar p={a['mcnemar_p']:.4f}).")
+    return (f"Against Llama Guard 3 {name}: no significant difference by the registered rule ({a['fusion_only']} "
+            f"stopped only by Fusion, {a['other_only']} only by Llama Guard; McNemar p={a['mcnemar_p']:.4f}).")
+
+
+def _llama_guard(root: pathlib.Path) -> list[str]:
+    d = _load(root, LLAMA_GUARD_EVIDENCE)
+    if not d:
+        return []
+    out = ["## Runtime guardrail vs Llama Guard 3 (pre-registered)", "",
+           f"The same fresh transcripts, scored by Fusion's guardrail and by `{d['llama_guard']['model']}` (off the "
+           "shelf, and configured with two added categories plus the planted secret). Registered in "
+           f"`{d['preregistration']}`; evidence: `{LLAMA_GUARD_EVIDENCE}`.", "",
+           "| System | Real attacks stopped | Clean transcripts wrongly blocked |", "|---|---|---|"]
+    for label, key in _LG_ROWS:
+        s = d[key]["all"]
+        out.append(f"| {label} | {s['stopped']} of {s['attacks']}, {_iv(s['recall'])} | "
+                   f"{s['blocked']} of {s['clean']}, {_iv(s['over_block'])} |")
+    comps = d["comparisons"]
+    return out + ["", f"- {_lg_verdict('off the shelf', comps['fusion_vs_llama_guard_a'])}",
+                  f"- {_lg_verdict('configured', comps['fusion_vs_llama_guard_b'])}", ""]
+
+
+def _llama_guard_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, LLAMA_GUARD_EVIDENCE)
+    if not d:
+        return None
+    keep = ("attacks", "stopped", "recall", "clean", "blocked", "over_block")
+    return {"evidence": LLAMA_GUARD_EVIDENCE, "model": d["llama_guard"]["model"],
+            "systems": {key: {k: d[key]["all"][k] for k in keep} | {"label": label} for label, key in _LG_ROWS},
+            "comparisons": {"off_the_shelf": d["comparisons"]["fusion_vs_llama_guard_a"],
+                            "configured": d["comparisons"]["fusion_vs_llama_guard_b"]}}
+
+
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_compact(root), *_b3(root),
-             *_guardrail(root), *_ledger(root), *_guard(root), *_limits()]
+             *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 

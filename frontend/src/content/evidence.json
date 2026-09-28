@@ -1174,6 +1174,7 @@
       "status": "HELD OUT at rules_git_sha"
     }
   ],
+  "guard_vs_llama_guard": null,
   "judge_accuracy": [
     {
       "accuracy": {
