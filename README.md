@@ -74,9 +74,10 @@ pre-registered test (Trust Report).
 
 **3. Runtime guardrail** (in your agent code; `plugins/fusion-guard` for Claude Code)
 
-On fresh successful attacks against four small open-weight models (current rules, scored once,
-pre-registered), the guardrail stopped 71% of real attacks while wrongly blocking 1% of clean transcripts:
-every password leak, under half of the tool hijacks.
+On fresh successful attacks against qwen2.5:7b and llama3.1:8b (current rules, scored once,
+pre-registered), the guardrail stopped 89% of real attacks while wrongly blocking 1% of clean transcripts:
+every password leak and direct-harm hijack, 69% of data-stealing hijacks. Llama Guard 3 8B, configured,
+stopped 52% of the same attacks. After untrusted content, tool calls must match the user's own request.
 
 ```python
 from fusion.guardrail.guard import Guardrail

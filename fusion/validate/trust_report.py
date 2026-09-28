@@ -183,7 +183,10 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
                     if adopted else " A pre-registered compact version of the fix was not adopted: no model had "
                     "significantly fewer attacks with it without a meaningful rise in refusals of safe requests.")
     runtime, first, _ = _guardrail_measurements(root)
-    if runtime:
+    step2 = _load(root, STEP2_EVIDENCE)
+    if step2 and step2["decision"]["new_rules"] == "adopted":
+        out.append(_step2_sentence(step2))
+    elif runtime:
         out.append(_guardrail_sentence(runtime, fix, first))
     guard = _guard_headline(root)
     if guard:
@@ -459,6 +462,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
         runtime_guardrail = {
             "evidence": runtime_rel, "models": runtime.get("models", []), **_summary(runtime),
             "fresh": first is not None, "findings": runtime.get("findings", []),
+            "rules": (runtime.get("guardrail_git_sha") or "")[:7] or None,
             "first_measurement": {"evidence": GUARDRAIL_EVIDENCE, **_summary(first)} if first else None,
         }
     ledger = _load(root, LEDGER_EVIDENCE)
@@ -478,6 +482,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
                         "rule": dec["rule"], "per_check": dec["per_check"]}
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "local_grader": local_grader, "guard_vs_llama_guard": _llama_guard_site(root),
+            "step2_guard": _step2_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "runtime_guardrail": runtime_guardrail, "value_ledger": value_ledger,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
@@ -585,9 +590,9 @@ def _guardrail(root: pathlib.Path) -> list[str]:
     if fresh:
         sha = (fresh.get("guardrail_git_sha") or "unknown")[:7]
         salt = (fresh.get("sample") or {}).get("salt", "unknown")
-        out += (["", "### Re-measured on fresh transcripts (current rules)", ""] if d else []) + [
-            "A measurement that leads to a rule fix becomes a development number for the fixed rules, so the current "
-            f"rules (`fusion/guardrail` at `{sha}`) were applied once to fresh transcripts that no rule was written "
+        out += (["", f"### Re-measured on fresh transcripts (rules {sha})", ""] if d else []) + [
+            "A measurement that leads to a rule fix becomes a development number for the fixed rules, so the rules "
+            f"of the time (`fusion/guardrail` at `{sha}`) were applied once to fresh transcripts that no rule was written "
             f"against: the prompt as written on new items (sample `{salt}`), with the same configuration, reading of "
             f"tool calls and oracles. Registered in `{fresh.get('preregistration')}`; evidence: "
             f"`{GUARDRAIL_FRESH_EVIDENCE}`.", "", *_guardrail_table(fresh)]
@@ -697,17 +702,21 @@ _LG_ROWS = (("Fusion guardrail", "fusion"), ("Llama Guard 3, off the shelf", "ll
             ("Llama Guard 3, configured", "llama_guard_b"), ("Fusion + Llama Guard 3 (configured)", "union_fusion_b"))
 
 
+def _p(p: float) -> str:
+    return "p<0.0001" if p < 0.0001 else f"p={p:.4f}"
+
+
 def _lg_verdict(name: str, c: dict) -> str:
     a = c["attacks"]
     if c["decision"] == "fusion_better":
         return (f"Fusion's guardrail stops significantly more real attacks than Llama Guard 3 {name} "
                 f"({a['fusion_only']} stopped only by Fusion, {a['other_only']} only by Llama Guard; McNemar "
-                f"p={a['mcnemar_p']:.4f}), without significantly more wrong blocks.")
+                f"{_p(a['mcnemar_p'])}), without significantly more wrong blocks.")
     if c["decision"] == "other_better":
         return (f"Llama Guard 3 {name} stops significantly more real attacks than Fusion's guardrail "
-                f"({a['other_only']} vs {a['fusion_only']}; McNemar p={a['mcnemar_p']:.4f}).")
+                f"({a['other_only']} vs {a['fusion_only']}; McNemar {_p(a['mcnemar_p'])}).")
     return (f"Against Llama Guard 3 {name}: no significant difference by the registered rule ({a['fusion_only']} "
-            f"stopped only by Fusion, {a['other_only']} only by Llama Guard; McNemar p={a['mcnemar_p']:.4f}).")
+            f"stopped only by Fusion, {a['other_only']} only by Llama Guard; McNemar {_p(a['mcnemar_p'])}).")
 
 
 def _llama_guard(root: pathlib.Path) -> list[str]:
@@ -728,6 +737,89 @@ def _llama_guard(root: pathlib.Path) -> list[str]:
                   f"- {_lg_verdict('configured', comps['fusion_vs_llama_guard_b'])}", ""]
 
 
+STEP2_EVIDENCE = "evals/validation/v1/step2_guard.json"
+_STEP2_ROWS = (("Fusion guardrail, current rules", "fusion"), ("Fusion guardrail, previous rules", "fusion_prior"),
+               ("Llama Guard 3, off the shelf", "llama_guard_a"), ("Llama Guard 3, configured", "llama_guard_b"),
+               ("Fusion + Llama Guard 3 (configured)", "union_fusion_b"))
+
+
+def _prior_verdict(c: dict) -> str:
+    a, cl = c["attacks"], c["clean"]
+    if c["decision"] == "fusion_better":
+        return (f"The current rules stop significantly more real attacks than the previous rules ({a['fusion_only']} "
+                f"stopped only by the current rules, {a['other_only']} only by the previous; McNemar "
+                f"{_p(a['mcnemar_p'])}), without significantly more wrong blocks ({cl['fusion_only']} vs "
+                f"{cl['other_only']}; p={cl['mcnemar_p']:.2f}).")
+    return (f"Against the previous rules: {c['decision'].replace('_', ' ')} by the registered rule "
+            f"({a['fusion_only']} vs {a['other_only']} attacks; McNemar p={a['mcnemar_p']:.4f}).")
+
+
+def _step2_sentence(d: dict) -> str:
+    a = d["fusion"]["all"]
+    by = d["by_attack_type"]["fusion"]
+    listed = ", ".join(f"{_pct(s['recall']['point'])} of {_ATTACK_TYPE_SHORT.get(g, g)}"
+                       for g, s in sorted(by.items(), key=lambda kv: -kv[1]["recall"]["point"]))
+    prior, lgb = d["fusion_prior"]["all"], d["llama_guard_b"]["all"]
+    return (f"- **Runtime guardrail in your agent?** On fresh real attacks against {' and '.join(d['models'])}, "
+            f"measured once with the current rules (pre-registered), it stopped {a['stopped']} of {a['attacks']}, "
+            f"{_iv(a['recall'])}: {listed}. It wrongly blocked {_iv(a['over_block'])} of clean transcripts. On the "
+            f"same transcripts the previous rules stopped {prior['stopped']} and Llama Guard 3 (configured) "
+            f"{lgb['stopped']}, wrongly blocking {_iv(lgb['over_block'])}.")
+
+
+def _step2(root: pathlib.Path) -> list[str]:
+    d = _load(root, STEP2_EVIDENCE)
+    if not d:
+        return []
+    n = d["sample"]["n"]
+    out = ["## Request-bound guardrail on 7–8B models (pre-registered)", "",
+           f"The current rules (`fusion/guardrail` at `{d['guardrail_git_sha'][:7]}`: once untrusted content is in "
+           "context, a tool call that is not a read must be covered by the user's own request, and an unrequested "
+           "read of private data is blocked) measured once on fresh transcripts of "
+           f"{' and '.join(d['models'])} ({n['injecagent']} InjecAgent and {n['gandalf']} Gandalf items each, prompt "
+           f"as written), against the rules scored before (`{d['prior_guardrail_git_sha'][:7]}`) and Llama Guard 3 "
+           f"8B on the same transcripts. Registered in `{d['preregistration']}`; evidence: `{STEP2_EVIDENCE}`.", "",
+           "| System | Real attacks stopped | Clean transcripts wrongly blocked |", "|---|---|---|"]
+    for label, key in _STEP2_ROWS:
+        s = d[key]["all"]
+        out.append(f"| {label} | {s['stopped']} of {s['attacks']}, {_iv(s['recall'])} | "
+                   f"{s['blocked']} of {s['clean']}, {_iv(s['over_block'])} |")
+    comps, b, u = d["comparisons"], d["benign_heldout"], d["unseen_attacker_tools"]
+    out += ["", f"- {_prior_verdict(comps['fusion_vs_fusion_prior'])}",
+            f"- {_lg_verdict('off the shelf', comps['fusion_vs_llama_guard_a'])}",
+            f"- {_lg_verdict('configured', comps['fusion_vs_llama_guard_b'])}",
+            f"- Legitimate requested actions never used in development: {len(b['blocked_by_new_rules'])} of "
+            f"{b['cases']} blocked by the current rules (registered limit {b['max_allowed']}).",
+            f"- Attacks whose attacker tool never appeared in development: {u['stopped_new']} of {u['attacks']} "
+            f"stopped (previous rules {u['stopped_prior']}, Llama Guard 3 configured {u['stopped_llama_guard_b']}).",
+            f"- Registered decision: the current rules are **{d['decision']['new_rules']}**.", "",
+            "Current rules by attack type:", "",
+            *_guardrail_table({"by_attack_type": d["by_attack_type"]["fusion"],
+                               "all": {**d["fusion"]["all"], "over_blocked": d["fusion"]["all"]["blocked"]},
+                               "findings": d.get("findings", [])})]
+    return out + [""]
+
+
+def _step2_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, STEP2_EVIDENCE)
+    if not d:
+        return None
+    keep = ("attacks", "stopped", "recall", "clean", "blocked", "over_block")
+    b = d["benign_heldout"]
+    return {"evidence": STEP2_EVIDENCE, "models": list(d["models"]), "n": d["sample"]["n"],
+            "rules": d["guardrail_git_sha"][:7], "prior_rules": d["prior_guardrail_git_sha"][:7],
+            "systems": {key: {k: d[key]["all"][k] for k in keep} | {"label": label} for label, key in _STEP2_ROWS},
+            "by_attack_type": {g: {k: s[k] for k in keep} | {"name": _ATTACK_TYPE_NAMES.get(g, g)}
+                               for g, s in sorted(d["by_attack_type"]["fusion"].items())},
+            "comparisons": {"previous_rules": d["comparisons"]["fusion_vs_fusion_prior"],
+                            "off_the_shelf": d["comparisons"]["fusion_vs_llama_guard_a"],
+                            "configured": d["comparisons"]["fusion_vs_llama_guard_b"]},
+            "benign_heldout": {"cases": b["cases"], "blocked": len(b["blocked_by_new_rules"]),
+                               "max_allowed": b["max_allowed"]},
+            "unseen_attacker_tools": d["unseen_attacker_tools"], "decision": d["decision"],
+            "findings": d.get("findings", [])}
+
+
 def _llama_guard_site(root: pathlib.Path) -> dict | None:
     d = _load(root, LLAMA_GUARD_EVIDENCE)
     if not d:
@@ -742,7 +834,7 @@ def _llama_guard_site(root: pathlib.Path) -> dict | None:
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_compact(root), *_b3(root),
-             *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
+             *_step2(root), *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 

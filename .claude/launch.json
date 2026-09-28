@@ -26,6 +26,12 @@
       "port": 8765
     },
     {
+      "name": "serve-alt",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "fusion.cli", "serve", "--no-open", "--port", "8766"],
+      "port": 8766
+    },
+    {
       "name": "frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

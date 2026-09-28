@@ -45,7 +45,7 @@ const features = [
   {
     icon: RefreshCw,
     title: "Prompt fix and runtime guardrail",
-    description: guardrailDescription(evidence.runtime_guardrail),
+    description: guardrailDescription(evidence.runtime_guardrail, evidence.step2_guard),
   },
 ];
 

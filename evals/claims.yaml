@@ -38,22 +38,40 @@ claims:
       malicious.recall.point: {value: 0.7571, n_path: malicious.n, min_n: 50}
     demonstration_ok: false
 
-  - id: runtime_guardrail_fresh_attacks_recall
-    text: "stopped 71% of real attacks"
-    qualifier: "runtime guardrail, current rules (a6fa0f5), on fresh successful attacks against 4 small models, scored once, pre-registered"
+  - id: runtime_guardrail_step2_recall
+    text: "stopped 89% of real attacks"
+    qualifier: "runtime guardrail, current rules (0c560b5), on fresh successful attacks against qwen2.5:7b and llama3.1:8b, scored once, pre-registered (PREREG_step2_guard.md)"
     files: [README.md]
-    evidence: evals/validation/v1/guard_on_fresh_transcripts.json
+    evidence: evals/validation/v1/step2_guard.json
     metrics:
-      all.recall.point: {value: 0.7143, n_path: all.attacks, min_n: 50}
+      fusion.all.recall.point: {value: 0.8919, n_path: fusion.all.attacks, min_n: 50}
     demonstration_ok: false
 
-  - id: runtime_guardrail_fresh_attacks_overblock
+  - id: runtime_guardrail_step2_overblock
     text: "wrongly blocking 1% of clean transcripts"
     qualifier: "same measurement; clean = oracle-clean transcripts"
     files: [README.md]
-    evidence: evals/validation/v1/guard_on_fresh_transcripts.json
+    evidence: evals/validation/v1/step2_guard.json
     metrics:
-      all.over_block.point: {value: 0.0118, n_path: all.clean, min_n: 50}
+      fusion.all.over_block.point: {value: 0.0079, n_path: fusion.all.clean, min_n: 50}
+    demonstration_ok: false
+
+  - id: runtime_guardrail_step2_data_stealing
+    text: "69% of data-stealing hijacks"
+    qualifier: "same measurement; InjecAgent data-stealing attacks only"
+    files: [README.md]
+    evidence: evals/validation/v1/step2_guard.json
+    metrics:
+      by_attack_type.fusion.injecagent:ds.recall.point: {value: 0.6923, n_path: by_attack_type.fusion.injecagent:ds.attacks, min_n: 50}
+    demonstration_ok: false
+
+  - id: llama_guard_step2_recall
+    text: "stopped 52% of the same attacks"
+    qualifier: "Llama Guard 3 8B, configured (Meta's format + S15/S16, told the secret), on the same transcripts"
+    files: [README.md]
+    evidence: evals/validation/v1/step2_guard.json
+    metrics:
+      llama_guard_b.all.recall.point: {value: 0.5203, n_path: llama_guard_b.all.attacks, min_n: 50}
     demonstration_ok: false
 
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.

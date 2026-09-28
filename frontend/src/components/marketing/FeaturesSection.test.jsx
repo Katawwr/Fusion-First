@@ -14,6 +14,19 @@ describe("FeaturesSection", () => {
     expect(text).toMatch(/wrongly blocked 5% of clean conversations/);
   });
 
+  it("prefers the adopted current rules' measurement, with Llama Guard on the same attacks", () => {
+    const sys = (r, o) => ({ recall: { point: r }, over_block: { point: o } });
+    const step2 = {
+      models: ["qwen2.5:7b", "llama3.1:8b"], decision: { new_rules: "adopted" },
+      systems: { fusion: sys(0.89, 0.008), llama_guard_b: sys(0.52, 0.1) },
+    };
+    const text = guardrailDescription({ all: sys(0.71, 0.01) }, step2);
+    expect(text).toMatch(/against qwen2.5:7b and llama3.1:8b, the guardrail stopped 89% and wrongly blocked 1%/);
+    expect(text).toMatch(/Llama Guard 3 stopped 52% of the same attacks/);
+    expect(guardrailDescription({ all: sys(0.71, 0.01) }, { ...step2, decision: { new_rules: "not adopted" } }))
+      .toMatch(/guardrail stopped 71%/);
+  });
+
   it("makes no number claim when the guardrail hasn't been measured", () => {
     expect(guardrailDescription(null)).not.toMatch(/\d+%/);
   });

@@ -2,7 +2,7 @@ import React from "react";
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { GuardrailSection, LlamaGuardSection } from "./Trust";
+import Trust, { GuardrailSection, LlamaGuardSection, Step2Section } from "./Trust";
 import { fixVerdict, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
 
@@ -73,13 +73,13 @@ describe("Trust page", () => {
     rerender(
       <GuardrailSection
         runtime={{
-          models: ["a", "b", "c", "d"], fresh: true, findings: ["A plain finding."],
+          models: ["a", "b", "c", "d"], fresh: true, findings: ["A plain finding."], rules: "a6fa0f5",
           all: s(60, 50, 180, 4), by_attack_type: { "gandalf:leak": { ...s(30, 29, 90, 0), name: "leaks" } },
           first_measurement: { evidence: "x.json", ...first },
         }}
       />,
     );
-    expect(screen.getByText(/Fresh transcripts, current rules/)).toBeInTheDocument();
+    expect(screen.getByText(/Fresh transcripts, rules a6fa0f5, 4 small models/)).toBeInTheDocument();
     expect(screen.getByText(/First measurement \(older rules\): 54 of 69 stopped/)).toBeInTheDocument();
     expect(screen.queryByText("A plain finding.")).toBeNull(); // findings live in TRUST_REPORT.md
     expect(screen.queryByText(/mixed-case names/)).toBeNull(); // a bug since fixed isn't described as current
@@ -108,6 +108,35 @@ describe("Trust page", () => {
     expect(screen.getByRole("cell", { name: "Fusion guardrail" })).toBeInTheDocument();
     expect(screen.getByText(/Off the shelf: Fusion stops significantly more real attacks/)).toBeInTheDocument();
     expect(screen.getByText(/Configured: no significant difference/)).toBeInTheDocument();
+  });
+
+  it("shows the current rules against the previous rules and Llama Guard, with the registered decisions", () => {
+    const sys = (label, stopped, blocked) => ({
+      label, attacks: 148, stopped, clean: 252, blocked,
+      recall: { point: stopped / 148, low: 0, high: 1 }, over_block: { point: blocked / 252, low: 0, high: 1 },
+    });
+    const s = {
+      models: ["qwen2.5:7b", "llama3.1:8b"], rules: "0c560b5", prior_rules: "a6fa0f5",
+      systems: {
+        fusion: sys("Fusion guardrail, current rules", 132, 2),
+        fusion_prior: sys("Fusion guardrail, previous rules", 104, 0),
+        llama_guard_a: sys("Llama Guard 3, off the shelf", 58, 30),
+        llama_guard_b: sys("Llama Guard 3, configured", 77, 24),
+        union_fusion_b: sys("Fusion + Llama Guard 3 (configured)", 145, 25),
+      },
+      comparisons: {
+        previous_rules: { decision: "fusion_better", attacks: { mcnemar_p: 7.45e-9 } },
+        off_the_shelf: { decision: "fusion_better", attacks: { mcnemar_p: 1.3e-14 } },
+        configured: { decision: "fusion_better", attacks: { mcnemar_p: 0.02 } },
+      },
+      benign_heldout: { cases: 20, blocked: 1, max_allowed: 2 },
+    };
+    render(<Step2Section s={s} />);
+    expect(screen.getByRole("heading", { name: /Request-bound guardrail on qwen2.5:7b and llama3.1:8b/ })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Fusion guardrail, previous rules" })).toBeInTheDocument();
+    expect(screen.getByText(/Previous rules: the current rules stop significantly more .*p<0.0001/)).toBeInTheDocument();
+    expect(screen.getByText(/Llama Guard 3 configured: .*p=0.0200/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 20 blocked \(registered limit 2\)/)).toBeInTheDocument();
   });
 
   it("names a significant regression instead of calling it inconclusive", () => {

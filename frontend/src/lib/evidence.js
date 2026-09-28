@@ -48,9 +48,18 @@ export function significanceByGrader(rows) {
 
 // The landing page's guardrail sentence. Its numbers come from the generated evidence (the
 // pre-registered measurement on real attacks), never from the page source; unmeasured, it claims none.
-export function guardrailDescription(runtime) {
+// The current rules' measurement (step 2) is preferred once adopted.
+export function guardrailDescription(runtime, step2) {
   const base =
-    "A hardened system prompt, re-tested on your model. On the small open-weight models we measured, it rarely cut attacks and raised refusals of safe requests. A runtime guardrail redacts leaked secrets and blocks unauthorized tool calls when the model slips.";
+    "A hardened system prompt, re-tested on your model. On the small open-weight models we measured, it rarely cut attacks and raised refusals of safe requests. A runtime guardrail redacts leaked secrets and blocks tool calls the user's request does not cover.";
+  if (step2?.decision?.new_rules === "adopted") {
+    const s = step2.systems;
+    return (
+      `${base} On fresh attacks against ${step2.models.join(" and ")}, the guardrail stopped ` +
+      `${pct(s.fusion.recall.point)} and wrongly blocked ${pct(s.fusion.over_block.point)} of clean conversations; ` +
+      `Llama Guard 3 stopped ${pct(s.llama_guard_b.recall.point)} of the same attacks.`
+    );
+  }
   if (!runtime?.all) return base;
   return (
     `${base} On ${runtime.fresh ? "fresh " : ""}attacks that got through those models, the guardrail stopped ` +

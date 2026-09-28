@@ -52,15 +52,16 @@ function Table({ head, rows }) {
   );
 }
 
-// The headline is the fresh re-measurement of the current rules once it exists (the first measurement
-// led to a rule fix, so it no longer describes the rules as shipped); the first one stays disclosed.
+// The small-model measurements: the fresh re-measurement of the rules of that time once it exists (the
+// first measurement led to a rule fix); the first one stays disclosed.
 export function GuardrailSection({ runtime }) {
   const first = runtime.first_measurement;
+  const rules = runtime.rules ? `rules ${runtime.rules}` : "pre-registered";
   return (
     <Section title="Runtime guardrail on real attacks">
       <p className="mb-3 text-sm text-app-muted">
         {runtime.fresh
-          ? `Fresh transcripts, current rules, ${runtime.models.length} models. First measurement (older rules): ${first.all.stopped} of ${first.all.attacks} stopped.`
+          ? `Fresh transcripts, ${rules}, ${runtime.models.length} small models. First measurement (older rules): ${first.all.stopped} of ${first.all.attacks} stopped.`
           : `${runtime.models.length} models, pre-registered.`}
       </p>
       <Table
@@ -102,6 +103,52 @@ export function LlamaGuardSection({ cmp }) {
       />
       <p className="mt-3 text-xs text-app-subtle">{line("Off the shelf", cmp.comparisons.off_the_shelf)}</p>
       <p className="mt-1 text-xs text-app-subtle">{line("Configured", cmp.comparisons.configured)}</p>
+    </Section>
+  );
+}
+
+const PRIOR_VERDICT = {
+  fusion_better: "the current rules stop significantly more real attacks, without significantly more wrong blocks.",
+  other_better: "the previous rules stop significantly more real attacks.",
+  no_significant_difference: "no significant difference.",
+};
+
+function pValue(p) {
+  return p < 0.0001 ? "p<0.0001" : `p=${p.toFixed(4)}`;
+}
+
+// The current rules' pre-registered measurement: fresh 7-8B transcripts, scored once against the
+// previous rules and Llama Guard 3 on the same transcripts.
+export function Step2Section({ s }) {
+  const rows = ["fusion", "fusion_prior", "llama_guard_a", "llama_guard_b", "union_fusion_b"].map((k) => s.systems[k]);
+  const c = s.comparisons;
+  const b = s.benign_heldout;
+  return (
+    <Section title={`Request-bound guardrail on ${s.models.join(" and ")}`}>
+      <p className="mb-3 text-sm text-app-muted">
+        Current rules ({s.rules}): after untrusted content, a tool call must be covered by the user's own request.
+        Fresh transcripts, pre-registered, scored once against the previous rules ({s.prior_rules}) and Llama Guard 3.
+      </p>
+      <Table
+        head={["System", "Real attacks stopped", "Clean transcripts wrongly blocked"]}
+        rows={rows.map((r) => [
+          r.label,
+          `${r.stopped} of ${r.attacks}, ${interval(r.recall)}`,
+          `${r.blocked} of ${r.clean}, ${interval(r.over_block)}`,
+        ])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        Previous rules: {PRIOR_VERDICT[c.previous_rules.decision]} (McNemar {pValue(c.previous_rules.attacks.mcnemar_p)})
+      </p>
+      <p className="mt-1 text-xs text-app-subtle">
+        Llama Guard 3 off the shelf: {LG_VERDICT[c.off_the_shelf.decision]} (McNemar {pValue(c.off_the_shelf.attacks.mcnemar_p)})
+      </p>
+      <p className="mt-1 text-xs text-app-subtle">
+        Llama Guard 3 configured: {LG_VERDICT[c.configured.decision]} (McNemar {pValue(c.configured.attacks.mcnemar_p)})
+      </p>
+      <p className="mt-1 text-xs text-app-subtle">
+        Legitimate actions never used in development: {b.blocked} of {b.cases} blocked (registered limit {b.max_allowed}).
+      </p>
     </Section>
   );
 }
@@ -223,6 +270,8 @@ export default function Trust() {
           <NotYet what="the as-written vs fixed prompt comparison on local models" />
         )}
       </Section>
+
+      {evidence.step2_guard && <Step2Section s={evidence.step2_guard} />}
 
       {evidence.runtime_guardrail && <GuardrailSection runtime={evidence.runtime_guardrail} />}
 
