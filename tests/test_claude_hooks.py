@@ -356,9 +356,14 @@ PATHOLOGICAL = {
 def test_analysis_is_fast_on_pathological_commands(name):
     import time
 
-    t = time.perf_counter()
-    analyze("Bash", {"command": PATHOLOGICAL[name]}, HookConfig())
-    assert time.perf_counter() - t < 0.5
+    def once() -> float:
+        t = time.perf_counter()
+        analyze("Bash", {"command": PATHOLOGICAL[name]}, HookConfig())
+        return time.perf_counter() - t
+
+    # Best of three: a busy machine (a local model on the CPU) can stall one run; super-linear
+    # analysis would be slow every time.
+    assert min(once() for _ in range(3)) < 0.5
 
 
 @pytest.mark.unit
