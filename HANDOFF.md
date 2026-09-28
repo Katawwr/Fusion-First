@@ -43,7 +43,13 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pl
 - `prove --gate` (judge floor + `require_before_after_honesty`), `--policy`.
 - Fixes: non-inferiority float rounding; Q1 table split by an audit paragraph; /trust stated
   "significant" without direction (now per grader).
-- Copy pass across site, README, Trust Report; nav "Use".
+- Copy pass across site, README, Trust Report; nav "Use"; then all explanatory lead-ins removed (owner).
+- **Any model or workflow** (owner, 2026-09-28): hosted presets `openai:` `hf:` `openrouter:` `together:`
+  `groq:` `fireworks:` `mistral-api:` `deepseek:` (user's key + `FUSION_ALLOW_API_SPEND=1`), `anthropic:`,
+  `cmd:<command>` (any program; JSON on stdin; template `integrations/examples/fusion_adapter.py`),
+  `python:` (`fusion.targets.FunctionModelClient`); any chat target can grade; web "Any model" option.
+  `cmd:`/`python:` never from the web page; over MCP only with `FUSION_ALLOW_CMD_TARGETS=1`.
+  Live smoke: `cmd:` adapter → llama3.2:1b collected 8/8.
 
 ## Next
 
@@ -64,6 +70,8 @@ Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** Pl
 
 - The in-app browser pane's screenshots time out; use the Playwright MCP (`.playwright-mcp/`).
 - `fusion serve` reads `index.html` at launch: restart it after `npm run build`.
+- `openai-compat:` against Ollama's `/v1` runs with Ollama's default 4,096-token context; prefer
+  `ollama:<model>` for Ollama (Fusion sets 8,192).
 - Guardrail diagnostics: `scripts/guard_on_transcripts.py --out <scratch>` re-applies current rules to
   any committed sample (diagnostic only, never evidence).
 
