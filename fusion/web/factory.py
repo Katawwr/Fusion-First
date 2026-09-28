@@ -92,6 +92,12 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
             kwargs = build_kwargs(mode, settings, req.backend, req.target_model, **extra)
         except LiveUnavailable as e:
             raise HTTPException(402, str(e)) from e
+        if req.hardened_prompt is not None:  # measure the prompt the user will actually ship
+            if mode == "demo":
+                raise HTTPException(400, "an edited prompt needs a live model: demo responses are canned")
+            if len(req.hardened_prompt) > settings.prompt_max_chars:
+                raise HTTPException(413, f"hardened prompt exceeds {settings.prompt_max_chars} characters")
+            kwargs["hardened_prompt"] = _sanitize_prompt(req.hardened_prompt)
         return _sanitize_prompt(req.system_prompt), checks, tier, kwargs
 
     def _scan_stream(system_prompt, checks, tier, kwargs, scan_id):

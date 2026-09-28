@@ -287,7 +287,7 @@ export default function Scan({ scanState, setScanState }) {
     });
   }
 
-  function runScan() {
+  function runScan(extra = {}, nextStep = "report") {
     setStep("run");
     // One `target` drives everything: demo replays recorded runs, anything else is live.
     const backend = ["ollama", "cli", "spec"].includes(target) ? target : null;
@@ -301,11 +301,12 @@ export default function Scan({ scanState, setScanState }) {
         target_model: target === "ollama" ? targetModel : null,
         target_spec: target === "spec" ? targetSpec.trim() : null,
         grader_spec: target === "spec" ? graderSpec.trim() || "claude-cli" : null,
+        ...extra,
       },
       {
         // Advance to the report the moment the scan completes (no effect → no render cascade).
         onCompleted: (finished) => {
-          setStep("report");
+          setStep(nextStep);
           setScanState?.((s) => ({ ...s, systemPrompt, result: finished }));
         },
       },
@@ -366,7 +367,7 @@ export default function Scan({ scanState, setScanState }) {
           setGraderSpec={setGraderSpec}
           tier={tier}
           setTier={setTier}
-          onRun={runScan}
+          onRun={() => runScan()}
         />
       )}
 
@@ -454,6 +455,8 @@ export default function Scan({ scanState, setScanState }) {
           result={result}
           scanId={scanId}
           systemPrompt={systemPrompt}
+          hardenedPrompt={hardened?.hardened_prompt || ""}
+          onRerun={(prompt) => runScan({ hardened_prompt: prompt }, "prove")}
           onRestart={() => {
             scan.reset();
             forgetResult();
@@ -802,7 +805,9 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
 
 /* ---------------------------------------------------------------- 5. Prove */
 
-export function ProveStep({ result, scanId, systemPrompt, onRestart }) {
+export function ProveStep({ result, scanId, systemPrompt, onRestart, hardenedPrompt = "", onRerun }) {
+  const [edited, setEdited] = useState(hardenedPrompt);
+  const live = result.cards.some((c) => c.trust?.execution === "live");
   // Both grades are derived from their own arm. `overall_grade` is the BASELINE headline
   // (the prompt as written), so using it for the "hardened" badge would show no improvement.
   const baselineGrade = worstGrade(
@@ -857,6 +862,36 @@ export function ProveStep({ result, scanId, systemPrompt, onRestart }) {
         <section>
           <SectionTitle>Quality</SectionTitle>
           <QualityPanel systemPrompt={systemPrompt} />
+        </section>
+      )}
+
+      {live && onRerun && (
+        <section>
+          <SectionTitle>Re-run with your edits</SectionTitle>
+          <textarea
+            aria-label="Prompt to measure"
+            value={edited}
+            onChange={(e) => setEdited(e.target.value)}
+            rows={8}
+            style={{
+              width: "100%",
+              resize: "vertical",
+              borderRadius: "0.85rem",
+              border: "1px solid var(--border)",
+              background: "var(--surface-2)",
+              padding: "0.875rem 1rem",
+              fontFamily: "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
+              fontSize: "0.875rem",
+              lineHeight: 1.6,
+              color: "var(--text)",
+              outline: "none",
+            }}
+          />
+          <div style={{ marginTop: "0.75rem" }}>
+            <Button disabled={!edited.trim()} onClick={() => onRerun(edited)}>
+              Re-run
+            </Button>
+          </div>
         </section>
       )}
 

@@ -25,6 +25,7 @@ class ScanRequest(BaseModel):
     target_model: str | None = None  # e.g. "llama3.2:1b" with backend="ollama"
     target_spec: str | None = Field(default=None, max_length=500)  # backend="spec": openai:gpt-4o-mini, hf:...
     grader_spec: str | None = Field(default=None, max_length=500)  # backend="spec": default claude-cli
+    hardened_prompt: str | None = Field(default=None, min_length=1)  # the edited prompt to measure (live only)
 
     @field_validator("checks")
     @classmethod
