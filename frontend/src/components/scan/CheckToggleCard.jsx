@@ -1,7 +1,7 @@
 import React from "react";
 import { Check } from "lucide-react";
 import CheckIcon from "../ui/CheckIcon";
-import { metaFor } from "../../lib/jargon";
+import { isQualityCheck, metaFor } from "../../lib/jargon";
 
 // A test framed as a plain question. Selection is quiet: a hairline accent border and a small
 // filled check, never a saturated slab, so four selected cards do not shout over the page.
@@ -64,7 +64,8 @@ export default function CheckToggleCard({ check, enabled, onToggle, disabled = f
             textTransform: "uppercase",
             color: "var(--subtle)",
           }}
-          title="Mapped to the OWASP Top 10 for LLM apps (2025) and Agentic AI (2026)."
+          title={isQualityCheck(check) ? "Graded on normal requests, not attacks."
+            : "Mapped to the OWASP Top 10 for LLM apps (2025) and Agentic AI (2026)."}
         >
           {meta.owasp}
         </span>

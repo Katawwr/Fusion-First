@@ -771,7 +771,7 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
 
 /* ---------------------------------------------------------------- 5. Prove */
 
-function ProveStep({ result, scanId, systemPrompt, onRestart }) {
+export function ProveStep({ result, scanId, systemPrompt, onRestart }) {
   // Both grades are derived from their own arm. `overall_grade` is the BASELINE headline
   // (the prompt as written), so using it for the "hardened" badge would show no improvement.
   const baselineGrade = worstGrade(
@@ -822,12 +822,12 @@ function ProveStep({ result, scanId, systemPrompt, onRestart }) {
         </div>
       </section>
 
-      <section>
-        <SectionTitle>Quality</SectionTitle>
-        {!result.cards.some((c) => c.kind === "quality") && (
+      {!result.cards.some((c) => c.kind === "quality") && (
+        <section>
+          <SectionTitle>Quality</SectionTitle>
           <QualityPanel systemPrompt={systemPrompt} />
-        )}
-      </section>
+        </section>
+      )}
 
       <div
         style={{

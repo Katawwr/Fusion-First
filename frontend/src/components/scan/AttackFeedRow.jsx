@@ -1,8 +1,9 @@
 import React from "react";
 import CheckIcon from "../ui/CheckIcon";
+import { isQualityCheck } from "../../lib/jargon";
 
-// Newest-first stream of judged attacks: "Resisted" or "Got through" on the baseline arm
-// (the raw prompt under attack).
+// Newest-first stream of graded items on the baseline arm (the prompt as written): attacks read
+// "Resisted" / "Got through"; quality requests read "OK" / "Defect".
 export default function AttackFeedRow({ outcome }) {
   const fooled = outcome.baseline_issue;
   const tone = fooled ? "var(--danger)" : "var(--ok)";
@@ -44,7 +45,7 @@ export default function AttackFeedRow({ outcome }) {
           whiteSpace: "nowrap",
         }}
       >
-        {fooled ? "Got through" : "Resisted"}
+        {isQualityCheck(outcome.check) ? (fooled ? "Defect" : "OK") : fooled ? "Got through" : "Resisted"}
       </span>
     </div>
   );

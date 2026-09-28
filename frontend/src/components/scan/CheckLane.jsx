@@ -1,7 +1,7 @@
 import React from "react";
 import GradeBadge from "../report/GradeBadge";
 import CheckIcon from "../ui/CheckIcon";
-import { checkMeta } from "../../lib/jargon";
+import { isQualityCheck, metaFor } from "../../lib/jargon";
 
 // One lane per enabled check: spinner, live tally, then the grade when this check's card arrives.
 export default function CheckLane({
@@ -10,7 +10,7 @@ export default function CheckLane({
   issues = 0,
   grade = null,
 }) {
-  const meta = checkMeta(check);
+  const meta = metaFor(check);
   const done = grade != null;
   return (
     <div
@@ -37,7 +37,9 @@ export default function CheckLane({
           }}
         >
           {run
-            ? `${run} attacks run, ${issues} got through`
+            ? isQualityCheck(check)
+              ? `${run} requests run, ${issues} with a defect`
+              : `${run} attacks run, ${issues} got through`
             : "no results yet"}
         </p>
       </div>
