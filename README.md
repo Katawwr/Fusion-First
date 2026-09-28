@@ -45,17 +45,21 @@ claude plugin marketplace add /path/to/fusion && claude plugin install fusion@fu
 
 ```bash
 fusion doctor                                                    # what can run here, keyless
-fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
+fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli     # Claude grades, on your subscription
 fusion run start --prompt agent.txt --target ollama:llama3.2:1b  # grader=host: stops for grading
-fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader ollama-prob:qwen2.5:7b  # your own vLLM / LM Studio / llama.cpp server
+fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader claude-cli  # your own vLLM / LM Studio / llama.cpp server
 fusion run tasks > tasks.json;  fusion run submit --file answers.json
 fusion run finalize --min-grade B                               # exit 1 below the bar
 fusion run verify                                               # re-derive offline; exit 1 on drift
 fusion harden --prompt agent.txt --write                        # apply the tested fix in place
-fusion run logs --file logs.jsonl --check everything --grader ollama-prob:qwen2.5:7b  # grade EXISTING transcripts
+fusion run logs --file logs.jsonl --check everything --grader claude-cli  # grade EXISTING transcripts
 fusion import-promptfoo results.json                            # Wilson CIs + paired McNemar on promptfoo results
 fusion guard-bench                              # benchmark the runtime guard (in-house corpus: 100% recall / 0% over-block)
 ```
+
+No free local grader is recommended yet: `ollama-prob:qwen2.5:7b` scored below the policy floor in its
+pre-registered accuracy test (see TRUST_REPORT.md). Without the claude CLI, leave out `--grader` and let your
+agent grade (`host`); every run measures its grader and withholds the grade if it falls short.
 
 **MCP** (any client): `fusion-mcp` (stdio) exposes `fusion_doctor`, `start_run`, `run_status`,
 `get_grading_tasks`, `submit_grades`, `finalize_run`, `verify_run`, plus the one-shot

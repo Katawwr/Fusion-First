@@ -178,11 +178,15 @@ def test_the_free_local_grader_is_reported_against_its_registered_floor(tmp_path
     v1 = tmp_path / "evals/validation/v1"
     v1.mkdir(parents=True)
     host = {"demonstration": False, "grader": "Claude Sonnet (host)",
+            "audit": {"method": "an LLM reading", "summary": {"disagreements": 3}},
             "checks": {"direct_prompt_injection": _judge_block(0.80, 0.67),
                        "system_prompt_leakage": _judge_block(0.92, 0.90)}}
     local = {"demonstration": False, "grader": "qwen2.5:7b probability judge (local)",
              "checks": {"direct_prompt_injection": _judge_block(0.75, 0.70 if meets else 0.40),
-                        "system_prompt_leakage": _judge_block(0.85, 0.80)}}
+                        "system_prompt_leakage": _judge_block(0.62, 0.80)}}
+    # a rule-based baseline significantly MORE accurate than the local grader on the same items
+    local["checks"]["system_prompt_leakage"]["naive_regex"] = {"f1": 0.42, "accuracy": {"point": 0.82},
+                                                              "vs_grader": {"mcnemar_p": 0.009}}
     (v1 / "judge_eval_host_sonnet.json").write_text(json.dumps(host), encoding="utf-8")
     (v1 / "judge_eval_prob_qwen7b.json").write_text(json.dumps(local), encoding="utf-8")
     out = render(tmp_path)
@@ -190,8 +194,13 @@ def test_the_free_local_grader_is_reported_against_its_registered_floor(tmp_path
     assert "PREREG_local_grader.md" in q1
     assert ("stays the default free grader" in q1) is meets
     assert ("no longer recommends it by default" in q1) is (not meets)
+    lines = q1.splitlines()
+    rows = [i for i, line in enumerate(lines) if line.startswith("| `evals/")]
+    assert rows == list(range(rows[0], rows[0] + 4))  # one unbroken table; audits come after it
+    assert "**qwen2.5:7b probability judge (local):** 1 of 4" in q1 and "all against the grader" in q1
+    assert "**Claude Sonnet (host):** None of the 4" in q1
     bottom = out.split("## Q1")[0]  # each grader named with its own numbers, never merged
-    assert "Claude Sonnet (host)" in bottom and "qwen2.5:7b probability judge (local)" in bottom
+    assert "Claude Sonnet (host)" in bottom and "The free local grader, qwen2.5:7b probability judge (local)," in bottom
     from fusion.validate.trust_report import evidence_json
 
     site = evidence_json(tmp_path)["local_grader"]

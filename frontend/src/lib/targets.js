@@ -44,8 +44,8 @@ export function targetOptions(capabilities) {
             : noModels
               ? "No models are installed in Ollama yet. Pull one first: ollama pull llama3.2:1b."
               : "Claude grades these scans through your claude CLI, which can't run here " +
-                `(${plain(caps.cli_reason) || "not ready"}). To grade with a local model instead, use the ` +
-                "command line: fusion run start --grader ollama-prob:qwen2.5:7b.",
+                `(${plain(caps.cli_reason) || "not ready"}). Without it, run the audit from Claude Code ` +
+                "(/fusion:audit), where your agent grades.",
       disabled: ollamaOff,
     },
     {

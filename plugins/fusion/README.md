@@ -28,7 +28,6 @@ You also need at least one target:
 
 ```bash
 ollama pull llama3.2:1b      # a small open-weight target (free)
-ollama pull qwen2.5:7b       # optional: a local grader (ollama-prob:qwen2.5:7b)
 ```
 
 ## Use

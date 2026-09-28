@@ -160,7 +160,7 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
     for rel, d in judge:
         if rel in _LOCAL_GRADER_FILES:
             dec = local_grader_decision(d)
-            detect.append(f"The free local grader ({d['grader']}), pre-registered: {_check_span(d)}. Its registered "
+            detect.append(f"The free local grader, {d['grader']}, pre-registered: {_check_span(d)}. Its registered "
                           f"bar ({_floor_text(dec)}): {_local_verdict(dec)}.")
     out.append("- **Detecting accurately?** " + (" ".join(detect) if detect else "Not yet measured."))
     fix = _load(root, "evals/validation/v1/evidence_oracle.json")
@@ -214,17 +214,24 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
     return out + [""]
 
 
-def _significance(rows: list[tuple[str, dict]]) -> str:
-    comps = [c for _, d in rows for c in _comparisons(d["checks"])]
+def _significance_of(d: dict) -> str:
+    comps = _comparisons(d["checks"])
     better = sum(1 for p, b in comps if p < 0.05 and b)
     worse = sum(1 for p, b in comps if p < 0.05 and not b)
     if better or worse:
-        return (f"{better + worse} of {len(comps)} grader-vs-baseline comparisons are significant at 0.05"
-                + (f" ({better} in the grader's favour, {worse} against it)." if worse else "."))
-    who = "the grader scores" if len(rows) == 1 else "the graders score"
+        side = ("all in the grader's favour" if not worse else
+                "all against the grader (a rule-based baseline was more accurate)" if not better else
+                f"{better} in the grader's favour, {worse} against it")
+        return f"{better + worse} of {len(comps)} grader-vs-baseline comparisons are significant at 0.05, {side}."
     return (f"None of the {len(comps)} grader-vs-baseline comparisons is significant at 0.05 yet — "
-            + (f"{who} higher, but these samples can't rule out chance." if all(b for _, b in comps)
-               else "these samples can't tell the graders and the rule-based baselines apart."))
+            + ("the grader scores higher, but these samples can't rule out chance." if all(b for _, b in comps)
+               else "these samples can't tell the grader and the rule-based baselines apart."))
+
+
+def _significance(rows: list[tuple[str, dict]]) -> str:
+    if len(rows) == 1:
+        return _significance_of(rows[0][1])
+    return " ".join(f"**{d['grader']}:** {_significance_of(d)}" for _, d in rows)
 
 
 def _local_grader_paragraph(d: dict) -> list[str]:
@@ -232,7 +239,7 @@ def _local_grader_paragraph(d: dict) -> list[str]:
     result = "; ".join(f"{c.replace('_', ' ')}: accuracy {_pct(v['accuracy'])}, F1 "
                        + ("—" if v["f1"] is None else f"{v['f1']:.2f}") for c, v in dec["per_check"].items())
     return ["", f"**Free local grader (pre-registered).** `evals/validation/v1/PREREG_local_grader.md` fixed its bar "
-                f"before {d['grader']} answered any question: {_floor_text(dec)}. Result: {result}. Bar "
+                f"before the grader answered any question: {_floor_text(dec)}. Result: {result}. Bar "
                 f"{_local_verdict(dec)}."]
 
 
@@ -258,6 +265,7 @@ def _q1(root: pathlib.Path) -> list[str]:
                 f"| `{rel}` | {d['grader']} | {check} | {g['n']} ({g.get('unanswered', 0)}) | {_iv(g['accuracy'])} "
                 f"| {_iv(g['recall'])} | {_iv(g['specificity'])} | {g['f1']:.2f} | {g['kappa']:.2f} "
                 f"| {nr.get('f1', float('nan')):.2f} | {th.get('f1', float('nan')):.2f} |")
+    for rel, d in rows:  # after the table, so a paragraph never splits it
         audit = d.get("audit")
         if audit:
             out += ["", f"Disagreement audit (`{rel}`) — {audit.get('method', 'an LLM reading, not ground truth')} "

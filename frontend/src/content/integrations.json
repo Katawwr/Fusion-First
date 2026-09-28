@@ -22,7 +22,7 @@
     {
       "id": "cli",
       "title": "Command line",
-      "body": "The same engine without an agent. Pick a local grader, or grade the questions yourself with tasks and submit.",
+      "body": "The same engine without an agent. Claude grades through your claude CLI (on your subscription), or you answer the grading questions yourself with tasks and submit.",
       "steps": [
         {
           "label": "See what can run here",
@@ -32,12 +32,12 @@
         {
           "label": "Test a prompt end to end",
           "lang": "bash",
-          "code": "fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b\nfusion run finalize --min-grade B"
+          "code": "fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli\nfusion run finalize --min-grade B"
         },
         {
           "label": "Or test your own model server (vLLM, LM Studio, llama.cpp)",
           "lang": "bash",
-          "code": "fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader ollama-prob:qwen2.5:7b"
+          "code": "fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader claude-cli"
         },
         {
           "label": "Apply the tested fix",
@@ -47,7 +47,7 @@
         {
           "label": "Grade your agent's existing logs (no attacks)",
           "lang": "bash",
-          "code": "fusion run logs --file logs.jsonl --check everything --grader ollama-prob:qwen2.5:7b"
+          "code": "fusion run logs --file logs.jsonl --check everything --grader claude-cli"
         },
         {
           "label": "Already use promptfoo? Get intervals and a paired test on its results",
