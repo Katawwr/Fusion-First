@@ -80,6 +80,32 @@ export function GuardrailSection({ runtime }) {
   );
 }
 
+const LG_VERDICT = {
+  fusion_better: "Fusion stops significantly more real attacks, without significantly more wrong blocks.",
+  other_better: "Llama Guard stops significantly more real attacks.",
+  no_significant_difference: "no significant difference.",
+};
+
+export function LlamaGuardSection({ cmp }) {
+  const rows = ["fusion", "llama_guard_a", "llama_guard_b", "union_fusion_b"].map((k) => cmp.systems[k]);
+  const line = (name, c) =>
+    `${name}: ${LG_VERDICT[c.decision]} (McNemar p=${c.attacks.mcnemar_p.toFixed(4)})`;
+  return (
+    <Section title={`Runtime guardrail vs Llama Guard 3 (${cmp.model})`}>
+      <Table
+        head={["System", "Real attacks stopped", "Clean transcripts wrongly blocked"]}
+        rows={rows.map((s) => [
+          s.label,
+          `${s.stopped} of ${s.attacks}, ${interval(s.recall)}`,
+          `${s.blocked} of ${s.clean}, ${interval(s.over_block)}`,
+        ])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">{line("Off the shelf", cmp.comparisons.off_the_shelf)}</p>
+      <p className="mt-1 text-xs text-app-subtle">{line("Configured", cmp.comparisons.configured)}</p>
+    </Section>
+  );
+}
+
 function NotYet({ what }) {
   return (
     <p className="rounded-lg border border-dashed border-app-border p-4 text-sm text-app-muted">
@@ -199,6 +225,8 @@ export default function Trust() {
       </Section>
 
       {evidence.runtime_guardrail && <GuardrailSection runtime={evidence.runtime_guardrail} />}
+
+      {evidence.guard_vs_llama_guard && <LlamaGuardSection cmp={evidence.guard_vs_llama_guard} />}
 
       {evidence.value_ledger && (
         <Section title="Value ledger: fix vs guardrail">

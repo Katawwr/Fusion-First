@@ -2,7 +2,7 @@ import React from "react";
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { GuardrailSection } from "./Trust";
+import Trust, { GuardrailSection, LlamaGuardSection } from "./Trust";
 import { fixVerdict, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
 
@@ -83,6 +83,31 @@ describe("Trust page", () => {
     expect(screen.getByText(/First measurement \(older rules\): 54 of 69 stopped/)).toBeInTheDocument();
     expect(screen.queryByText("A plain finding.")).toBeNull(); // findings live in TRUST_REPORT.md
     expect(screen.queryByText(/mixed-case names/)).toBeNull(); // a bug since fixed isn't described as current
+  });
+
+  it("shows the Llama Guard comparison with its registered decision", () => {
+    const sys = (label, stopped, blocked) => ({
+      label, attacks: 70, stopped, clean: 170, blocked,
+      recall: { point: stopped / 70, low: 0, high: 1 }, over_block: { point: blocked / 170, low: 0, high: 1 },
+    });
+    const cmp = {
+      model: "llama-guard3:8b",
+      systems: {
+        fusion: sys("Fusion guardrail", 50, 2),
+        llama_guard_a: sys("Llama Guard 3, off the shelf", 12, 5),
+        llama_guard_b: sys("Llama Guard 3, configured", 25, 4),
+        union_fusion_b: sys("Fusion + Llama Guard 3 (configured)", 55, 6),
+      },
+      comparisons: {
+        off_the_shelf: { decision: "fusion_better", attacks: { mcnemar_p: 0.0001 } },
+        configured: { decision: "no_significant_difference", attacks: { mcnemar_p: 0.2 } },
+      },
+    };
+    render(<LlamaGuardSection cmp={cmp} />);
+    expect(screen.getByRole("heading", { name: /Llama Guard 3/ })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Fusion guardrail" })).toBeInTheDocument();
+    expect(screen.getByText(/Off the shelf: Fusion stops significantly more real attacks/)).toBeInTheDocument();
+    expect(screen.getByText(/Configured: no significant difference/)).toBeInTheDocument();
   });
 
   it("names a significant regression instead of calling it inconclusive", () => {
