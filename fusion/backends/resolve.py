@@ -293,13 +293,20 @@ def doctor(*, check_auth: bool = True, auth_runner=None) -> dict:
         return next((m for p in prefs for m in models if m.startswith(p)), None)
 
     target_model = _first(("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "llama3.2", "qwen2.5"))
-    prob_model = _first(("qwen2.5:7b", "qwen2.5:3b"))
+    # A local grader is recommended only when its pre-registered measurement met the policy floor
+    # (evals/validation/v1/PREREG_local_grader.md); an unmeasured one never is.
+    from fusion.validate.prereg import local_grader_status
+
+    local_graders = [local_grader_status(m) for p in ("qwen2.5:7b", "qwen2.5:3b") for m in models if m.startswith(p)]
+    qualified = next((s["model"] for s in local_graders if s["meets_floor"]), None)
+    hints = _hints(cli, ollama, target_model)
     if cli_ok and cli["subscription"] == "ok":
         grader = f"claude-cli:{registry.resolve('judge_primary')}"
-    elif prob_model:
-        grader = f"ollama-prob:{prob_model}"
+    elif qualified:
+        grader = f"ollama-prob:{qualified}"
     else:
         grader = "host"
+        hints += [_local_grader_hint(s) for s in local_graders]
     return {
         "offline": offline(),
         "zero_spend": not metered_allowed("api"),
@@ -315,8 +322,16 @@ def doctor(*, check_auth: bool = True, auth_runner=None) -> dict:
             "target": f"ollama:{target_model}" if target_model else None,
             "grader": grader,
         },
-        "hints": _hints(cli, ollama, target_model),
+        "hints": hints,
     }
+
+
+def _local_grader_hint(status: dict) -> str:
+    m = status["model"]
+    why = ("as a grader it scored below the policy floor in its pre-registered test (see TRUST_REPORT.md)"
+           if status["measured"] else "its accuracy as a grader has not been measured")
+    return (f"{m} is installed, but {why}, so it is not recommended by default. You can still choose it with "
+            f"--grader ollama-prob:{m}; every run measures its grader and withholds the grade if it falls short.")
 
 
 def _hints(cli: dict, ollama: dict, target_model: str | None) -> list[str]:

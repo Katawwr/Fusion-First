@@ -88,6 +88,48 @@ def test_doctor_offline_recommends_the_host_grader():
     json.dumps(d)  # plain JSON for MCP/CLI
 
 
+def _local_only(monkeypatch, installed):
+    """No claude CLI; a reachable Ollama with `installed` models."""
+    import fusion.model.providers.claude_cli as cc
+    import fusion.model.providers.ollama as ol
+
+    monkeypatch.setattr(cc, "claude_cli_available", lambda *a, **k: False)
+    monkeypatch.setattr(ol, "ollama_available", lambda *a, **k: True)
+    monkeypatch.setattr(ol, "ollama_models", lambda *a, **k: [{"name": m} for m in installed])
+
+
+def _local_grader_evidence(root, acc, f1):
+    block = {"grader": {"accuracy": {"point": acc, "low": acc - 0.1, "high": min(1.0, acc + 0.05)},
+                        "f1": f1, "n": 60, "unanswered": 0}}
+    ev = {"demonstration": False, "grader": "qwen2.5:7b probability judge (local)",
+          "checks": {"direct_prompt_injection": block, "system_prompt_leakage": block}}
+    path = root / "evals/validation/v1/judge_eval_prob_qwen7b.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(ev), encoding="utf-8")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("acc, f1, expected", [(0.85, 0.80, "ollama-prob:qwen2.5:7b"), (0.85, 0.40, "host")])
+def test_doctor_recommends_the_local_grader_only_if_it_met_its_registered_floor(monkeypatch, tmp_path, acc, f1,
+                                                                                expected):
+    _local_only(monkeypatch, ["llama3.2:1b", "qwen2.5:7b"])
+    _local_grader_evidence(tmp_path, acc, f1)
+    monkeypatch.setenv("FUSION_DATA_DIR", str(tmp_path))
+    d = doctor()
+    assert d["recommended"]["grader"] == expected
+    if expected == "host":  # says why, and that it can still be chosen explicitly
+        assert any("qwen2.5:7b" in h and "below the policy floor" in h for h in d["hints"])
+
+
+@pytest.mark.unit
+def test_doctor_does_not_recommend_an_unmeasured_local_grader(monkeypatch, tmp_path):
+    _local_only(monkeypatch, ["llama3.2:1b", "qwen2.5:3b"])
+    monkeypatch.setenv("FUSION_DATA_DIR", str(tmp_path))  # no grader evidence at all
+    d = doctor()
+    assert d["recommended"]["grader"] == "host"
+    assert any("qwen2.5:3b" in h and "not been measured" in h for h in d["hints"])
+
+
 @pytest.mark.unit
 def test_doctor_reports_a_refused_subscription(monkeypatch):
     import fusion.model.providers.claude_cli as cc

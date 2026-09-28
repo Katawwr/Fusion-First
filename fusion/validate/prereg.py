@@ -46,3 +46,49 @@ def compact_decision(attack_by_model: dict[str, dict], cells: list[dict]) -> dic
         m["attack_higher"] for m in per_model.values()
     )
     return {"adopt": adopt, "rule": RULE, "per_model": per_model}
+
+
+# Registered in `evals/validation/v1/PREREG_local_grader.md` before the grader answered any question.
+LOCAL_GRADER_CHECKS = ("direct_prompt_injection", "system_prompt_leakage")
+LOCAL_GRADER_RULE = (
+    "stays the default free grader only if BOTH checks meet the policy floor (evals/policy.yaml "
+    "min_judge_accuracy and min_judge_f1, point estimates)"
+)
+
+
+def local_grader_decision(evidence: dict) -> dict:
+    """`evidence` is the judge-eval report of the local probability judge (`scripts/judge_eval.py
+    score`). A check missing from it never passes."""
+    from fusion.stats.gate import load_policy
+
+    per_check = {}
+    for check in LOCAL_GRADER_CHECKS:
+        policy = load_policy(check)
+        floor = {"accuracy": policy["min_judge_accuracy"], "f1": policy["min_judge_f1"]}
+        g = ((evidence.get("checks") or {}).get(check) or {}).get("grader")
+        acc = g["accuracy"]["point"] if g else None
+        f1 = g["f1"] if g else None
+        meets = g is not None and acc >= floor["accuracy"] and f1 >= floor["f1"]
+        per_check[check] = {"accuracy": acc, "f1": f1, "floor": floor, "meets": meets}
+    return {"meets_floor": all(c["meets"] for c in per_check.values()), "rule": LOCAL_GRADER_RULE,
+            "grader": evidence.get("grader"), "per_check": per_check}
+
+
+# The measured free local graders: exact Ollama tag -> its pre-registered judge-eval evidence.
+LOCAL_GRADER_EVIDENCE = {"qwen2.5:7b": "evals/validation/v1/judge_eval_prob_qwen7b.json"}
+
+
+def local_grader_status(model: str) -> dict:
+    """Did committed, non-demonstration evidence show `model` (as the `ollama-prob` grader) meeting
+    its registered floor? An unmeasured model never qualifies — `fusion doctor` won't recommend it."""
+    import json
+
+    from fusion._data import data_root
+
+    rel = LOCAL_GRADER_EVIDENCE.get(model)
+    path = data_root() / rel if rel else None
+    evidence = json.loads(path.read_text(encoding="utf-8")) if path and path.is_file() else None
+    if not evidence or evidence.get("demonstration") is not False:
+        return {"model": model, "measured": False, "meets_floor": False, "evidence": None}
+    return {"model": model, "measured": True, "meets_floor": local_grader_decision(evidence)["meets_floor"],
+            "evidence": rel}
