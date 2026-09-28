@@ -5,8 +5,9 @@
 const RUN_LOCALLY = "Needs Fusion running locally: pip install fusion-safety, then fusion serve.";
 const WAITING = "Checking what this server can run…";
 
-// Server reasons are written for a terminal (`code` in backticks); show them as plain text.
-const plain = (text) => String(text || "").replace(/`/g, "");
+// Server reasons are written for a terminal (`code` in backticks, advice after a dash); show the
+// reason itself as plain text.
+const plain = (text) => String(text || "").replace(/`/g, "").split(" — ")[0];
 
 const DEMO = {
   id: "demo",
@@ -43,9 +44,8 @@ export function targetOptions(capabilities) {
             ? "Ollama isn't running. Start it: ollama serve."
             : noModels
               ? "No Ollama models installed. Pull one: ollama pull llama3.2:1b."
-              : "Grading needs the claude CLI, which can't run here " +
-                `(${plain(caps.cli_reason) || "not ready"}). Alternative: run /fusion:audit in Claude Code, ` +
-                "where your coding agent grades.",
+              : `Needs the claude CLI to grade (${plain(caps.cli_reason) || "not ready"}). Alternative: ` +
+                "/fusion:audit in Claude Code.",
       disabled: ollamaOff,
     },
     {
