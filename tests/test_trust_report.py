@@ -205,6 +205,11 @@ def test_the_free_local_grader_is_reported_against_its_registered_floor(tmp_path
 
     site = evidence_json(tmp_path)["local_grader"]
     assert site["meets_floor"] is meets and site["evidence"] == "evals/validation/v1/judge_eval_prob_qwen7b.json"
+    rows = {(r["grader"], r["check"]): r for r in evidence_json(tmp_path)["judge_accuracy"]}
+    # the website gets the direction too, so "significant" is never read as "better"
+    worse = rows[("qwen2.5:7b probability judge (local)", "system_prompt_leakage")]["baselines"]["naive_regex"]
+    assert worse == {"f1": 0.42, "mcnemar_p": 0.009, "grader_more_accurate": False}
+    assert rows[("Claude Sonnet (host)", "direct_prompt_injection")]["baselines"]["naive_regex"]["grader_more_accurate"]
 
 
 @pytest.mark.unit
@@ -317,6 +322,8 @@ def test_the_value_ledger_is_reported_with_its_caveat(tmp_path):
     (tmp_path / "evals/validation/v1/value_ledger.json").write_text(json.dumps(ev), encoding="utf-8")
     out = render(tmp_path)
     assert "Value ledger" in out
+    # it re-reads the FIRST run's measurements, even once a fresh guardrail number is the headline
+    assert "first run's committed measurements" in out.split("Value ledger")[1]
     rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
     assert "| 69 | 36 | 21 | 54 | 64 | 5 |" in rows["all models"]
     assert "guard measured on the prompt as written" in out

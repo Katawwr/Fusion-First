@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import Trust, { GuardrailSection } from "./Trust";
-import { fixVerdict, interval, pct } from "../lib/evidence";
+import { fixVerdict, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
 
 describe("Trust page", () => {
@@ -48,6 +48,11 @@ describe("Trust page", () => {
     if (evidence.value_ledger) {
       expect(screen.getByRole("heading", { name: /what each layer bought/i })).toBeInTheDocument();
       expect(screen.getByRole("cell", { name: "All models" })).toBeInTheDocument();
+      // the ledger re-reads the first run, even when a fresh guardrail number is the headline above it
+      expect(screen.getByText(/first run's results, read item by item/)).toBeInTheDocument();
+    }
+    for (const s of significanceByGrader(evidence.judge_accuracy)) {
+      expect(screen.getByText(s)).toBeInTheDocument(); // direction stated per grader
     }
     for (const p of evidence.fix_pooled || []) {
       expect(screen.getAllByText(new RegExp(`^${p.experiment} \\(all models\\)$`)).length).toBe(1);

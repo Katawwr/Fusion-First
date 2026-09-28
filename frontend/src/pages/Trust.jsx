@@ -1,6 +1,6 @@
 import React from "react";
 import evidence from "../content/evidence.json";
-import { fixVerdict, interval } from "../lib/evidence";
+import { fixVerdict, interval, significanceByGrader } from "../lib/evidence";
 
 // Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
 // committed evidence files (python -m fusion.validate.trust_report) and checked by a test — the
@@ -148,10 +148,13 @@ export default function Trust() {
               ])}
             />
             <p className="mt-3 text-xs text-app-subtle">
-              {judge.some((j) => Object.values(j.baselines || {}).some((b) => b.mcnemar_p < 0.05))
-                ? "Some grader-vs-baseline differences are statistically significant (paired McNemar, p < 0.05)."
-                : "The grader scores higher than the rule-based checks, but none of those differences is statistically significant yet at these sample sizes."}
+              Against the rule-based checks on the same items (paired McNemar test, p &lt; 0.05):
             </p>
+            {significanceByGrader(judge).map((s) => (
+              <p key={s} className="mt-1 text-xs text-app-subtle">
+                {s}
+              </p>
+            ))}
             {judge.some((j) => j.audit) && (
               <p className="mt-3 text-xs text-app-subtle">
                 Every disagreement with the oracle was also read and classified. Most were cases the
@@ -238,8 +241,9 @@ export default function Trust() {
       {evidence.value_ledger && (
         <Section title="What each layer bought on real attacks">
           <p className="mb-3 text-sm text-app-muted">
-            The results above, read item by item: of the attacks that got through with the prompt as
-            written, what the prompt fix removed and what the guardrail stopped.
+            The first run's results, read item by item (the fix comparison above and the guardrail&apos;s
+            first measurement, on the same transcripts): of the attacks that got through with the prompt
+            as written, what the prompt fix removed and what the guardrail stopped.
           </p>
           <Table
             head={["Model", "Attacks found", "Fix removed", "New attacks the fix caused", "Guardrail stopped", "Either", "Neither"]}

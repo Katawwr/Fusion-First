@@ -98,19 +98,16 @@ def _judge_files(root: pathlib.Path) -> list[tuple[str, dict]]:
 _LOCAL_GRADER_FILES = set(LOCAL_GRADER_EVIDENCE.values())
 
 
+def _grader_more_accurate(g: dict, base: dict) -> bool:
+    """The McNemar test compares per-item correctness, so its direction is accuracy (F1 if absent)."""
+    base_acc = (base.get("accuracy") or {}).get("point")
+    return g["accuracy"]["point"] > base_acc if base_acc is not None else g["f1"] > base.get("f1", 0)
+
+
 def _comparisons(checks: dict) -> list[tuple[float, bool]]:
     """(McNemar p, is the grader the more accurate one?) per grader-vs-baseline comparison."""
-    out = []
-    for b in checks.values():
-        g = b["grader"]
-        for k in ("naive_regex", "tuned_heuristic"):
-            base = b.get(k, {})
-            if "vs_grader" not in base:
-                continue
-            base_acc = (base.get("accuracy") or {}).get("point")
-            better = g["accuracy"]["point"] > base_acc if base_acc is not None else g["f1"] > base.get("f1", 0)
-            out.append((base["vs_grader"]["mcnemar_p"], better))
-    return out
+    return [(b[k]["vs_grader"]["mcnemar_p"], _grader_more_accurate(b["grader"], b[k]))
+            for b in checks.values() for k in ("naive_regex", "tuned_heuristic") if "vs_grader" in b.get(k, {})]
 
 
 def _check_span(d: dict) -> str:
@@ -422,7 +419,8 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
                 "evidence": rel, "grader": d["grader"], "check": check, "n": g["n"],
                 "accuracy": g["accuracy"], "recall": g["recall"], "specificity": g["specificity"],
                 "f1": g["f1"], "kappa": g["kappa"],
-                "baselines": {name: {"f1": b[name]["f1"], "mcnemar_p": b[name]["vs_grader"]["mcnemar_p"]}
+                "baselines": {name: {"f1": b[name]["f1"], "mcnemar_p": b[name]["vs_grader"]["mcnemar_p"],
+                                     "grader_more_accurate": _grader_more_accurate(g, b[name])}
                               for name in ("naive_regex", "tuned_heuristic") if "f1" in b.get(name, {})},
                 "audit": (d.get("audit") or {}).get("summary"),
             })
@@ -546,7 +544,8 @@ def _ledger(root: pathlib.Path) -> list[str]:
     head = ("| Model | Real attacks found | Removed by the prompt fix | New attacks the fix caused | "
             "Stopped by the guardrail | Caught by either | Got through both |")
     out = ["## Value ledger: what each layer bought on real attacks", "",
-           "A re-reading of the committed measurements above (no new data): of the attacks that succeeded "
+           "A re-reading of the first run's committed measurements (the Q3 fix run and the guardrail's first "
+           "measurement on the same transcripts; no new data): of the attacks that succeeded "
            f"with the prompt as written, what the fix removed and what the guardrail stopped. Evidence: `{LEDGER_EVIDENCE}`.",
            "", head, "|---|---|---|---|---|---|---|"]
     for name, s in [*d["by_model"].items(), ("all models", d["total"])]:

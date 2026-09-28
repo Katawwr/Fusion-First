@@ -131,7 +131,7 @@ A measurement that leads to a rule fix becomes a development number for the fixe
 
 ## Value ledger: what each layer bought on real attacks
 
-A re-reading of the committed measurements above (no new data): of the attacks that succeeded with the prompt as written, what the fix removed and what the guardrail stopped. Evidence: `evals/validation/v1/value_ledger.json`.
+A re-reading of the first run's committed measurements (the Q3 fix run and the guardrail's first measurement on the same transcripts; no new data): of the attacks that succeeded with the prompt as written, what the fix removed and what the guardrail stopped. Evidence: `evals/validation/v1/value_ledger.json`.
 
 | Model | Real attacks found | Removed by the prompt fix | New attacks the fix caused | Stopped by the guardrail | Caught by either | Got through both |
 |---|---|---|---|---|---|---|

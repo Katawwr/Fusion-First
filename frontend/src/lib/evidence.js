@@ -25,6 +25,27 @@ export function fixVerdict(cell) {
   return { text: "No change", tone: "muted" };
 }
 
+// One sentence per grader on its grader-vs-baseline comparisons (paired McNemar). The direction comes
+// from the evidence, so a significant difference is never read as the grader being better.
+export function significanceByGrader(rows) {
+  const byGrader = new Map();
+  for (const r of rows || []) {
+    byGrader.set(r.grader, [...(byGrader.get(r.grader) || []), ...Object.values(r.baselines || {})]);
+  }
+  return [...byGrader.entries()].map(([grader, comps]) => {
+    const better = comps.filter((c) => c.mcnemar_p < 0.05 && c.grader_more_accurate).length;
+    const worse = comps.filter((c) => c.mcnemar_p < 0.05 && !c.grader_more_accurate).length;
+    const n = comps.length;
+    if (better && worse)
+      return `${grader}: significantly more accurate in ${better} and less accurate in ${worse} of ${n} comparisons with rule-based checks.`;
+    if (worse) return `${grader}: significantly less accurate than a rule-based check in ${worse} of ${n} comparisons.`;
+    if (better) return `${grader}: significantly more accurate than a rule-based check in ${better} of ${n} comparisons.`;
+    return comps.every((c) => c.grader_more_accurate)
+      ? `${grader}: scores higher than the rule-based checks, but no difference is statistically significant yet at these sample sizes.`
+      : `${grader}: no difference from the rule-based checks is statistically significant yet at these sample sizes.`;
+  });
+}
+
 // The landing page's guardrail sentence. Its numbers come from the generated evidence (the
 // pre-registered measurement on real attacks), never from the page source; unmeasured, it claims none.
 export function guardrailDescription(runtime) {
