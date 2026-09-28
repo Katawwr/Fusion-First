@@ -7,7 +7,7 @@ describe("ProveHeadline", () => {
   it("calls a live result a measurement of the same attacks on both prompts", () => {
     render(<ProveHeadline baselineGrade="D" hardenedGrade="B" />);
     expect(
-      screen.getByText(/Paired measurement: the same attacks on the same model, original vs hardened/i),
+      screen.getByText(/Paired measurement on your model/i),
     ).toBeInTheDocument();
     expect(screen.queryByText(/hand-written/i)).toBeNull();
   });

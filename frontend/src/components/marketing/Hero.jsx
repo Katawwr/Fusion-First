@@ -51,37 +51,13 @@ export default function Hero() {
     >
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 1rem" }}>
         <div style={{ textAlign: "center" }}>
-          {/* Badge */}
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.5rem 1rem",
-              borderRadius: "9999px",
-              background: "var(--surface)",
-              border: "1px solid var(--border-strong)",
-              marginBottom: "2rem",
-            }}
-          >
-            <span
-              style={{
-                color: "var(--accent-ink)",
-                fontSize: "0.875rem",
-                fontWeight: "500",
-              }}
-            >
-              Built for open-weight models
-            </span>
-          </div>
-
           {/* Main heading */}
           <h1
             style={{
               fontSize: "clamp(2rem, 6vw, 3.5rem)",
               fontWeight: "bold",
               color: "var(--text)",
-              marginBottom: "1.5rem",
+              marginBottom: "2.5rem",
               lineHeight: 1.2,
             }}
           >
@@ -96,21 +72,6 @@ export default function Hero() {
             </span>{" "}
             evals for AI agents
           </h1>
-
-          {/* Subheading */}
-          <p
-            style={{
-              fontSize: "clamp(1rem, 2.5vw, 1.25rem)",
-              color: "var(--text)",
-              maxWidth: "820px",
-              margin: "0 auto 2.5rem",
-              lineHeight: 1.6,
-            }}
-          >
-            Connect an agent or paste its system prompt. Fusion attacks it,
-            grades the transcripts, and re-tests a prompt fix on your model.
-            Every rate carries a confidence interval.
-          </p>
 
           {/* CTA buttons */}
           <div

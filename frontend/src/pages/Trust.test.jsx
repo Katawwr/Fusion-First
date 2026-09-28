@@ -49,7 +49,7 @@ describe("Trust page", () => {
       expect(screen.getByRole("heading", { name: /value ledger/i })).toBeInTheDocument();
       expect(screen.getByRole("cell", { name: "All models" })).toBeInTheDocument();
       // the ledger re-reads the first run, even when a fresh guardrail number is the headline above it
-      expect(screen.getByText(/First-run transcripts, item by item/)).toBeInTheDocument();
+      expect(screen.getByText(/First-run transcripts/)).toBeInTheDocument();
     }
     for (const s of significanceByGrader(evidence.judge_accuracy)) {
       expect(screen.getByText(s)).toBeInTheDocument(); // direction stated per grader
@@ -69,7 +69,7 @@ describe("Trust page", () => {
     const { rerender } = render(
       <GuardrailSection runtime={{ models: ["a", "b"], fresh: false, findings: [], first_measurement: null, ...first }} />,
     );
-    expect(screen.getByText(/successful attacks on 2 small open-weight models/)).toBeInTheDocument();
+    expect(screen.getByText(/2 models, pre-registered/)).toBeInTheDocument();
     rerender(
       <GuardrailSection
         runtime={{
@@ -79,9 +79,9 @@ describe("Trust page", () => {
         }}
       />,
     );
-    expect(screen.getByText(/fresh transcripts/)).toBeInTheDocument();
+    expect(screen.getByText(/Fresh transcripts, current rules/)).toBeInTheDocument();
     expect(screen.getByText(/First measurement \(older rules\): 54 of 69 stopped/)).toBeInTheDocument();
-    expect(screen.getByText("A plain finding.")).toBeInTheDocument();
+    expect(screen.queryByText("A plain finding.")).toBeNull(); // findings live in TRUST_REPORT.md
     expect(screen.queryByText(/mixed-case names/)).toBeNull(); // a bug since fixed isn't described as current
   });
 

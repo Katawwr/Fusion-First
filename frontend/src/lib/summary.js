@@ -13,7 +13,7 @@ export function summarize(result) {
       kind: "example",
       headline: "Example report — your prompt was not run",
       sentence:
-        "The responses come from a deliberately vulnerable sample agent. Run a live scan (an Ollama model or the claude CLI) to grade your prompt.",
+        "Responses from a deliberately vulnerable sample agent.",
     };
   }
 

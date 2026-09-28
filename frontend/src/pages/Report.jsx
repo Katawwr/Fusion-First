@@ -69,17 +69,6 @@ export default function Report() {
         >
           Safety report card
         </h1>
-        <p
-          style={{
-            fontSize: "1.0625rem",
-            color: "var(--muted)",
-            maxWidth: "640px",
-            margin: "0 auto",
-            lineHeight: 1.6,
-          }}
-        >
-          What got through, how often, and how far to trust the grade.
-        </p>
       </header>
       <ReportOverview result={result} />
       {result.checks.map((check) => (

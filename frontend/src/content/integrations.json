@@ -1,11 +1,9 @@
 {
-  "intro": "The model under test is a local open-weight model (Ollama) or Claude on your subscription. The grader is your coding agent or the claude CLI. No API key, nothing metered.",
   "sections": [
     {
       "id": "plugin",
       "title": "Claude Code plugin",
       "badge": "Recommended",
-      "body": "Claude Code tests your agent's prompt on a real model, grades the answers itself, and returns the report card and the fix. Fusion mixes known-answer questions into the grading, so each card reports that run's grading accuracy.",
       "steps": [
         {
           "label": "Install",
@@ -22,7 +20,6 @@
     {
       "id": "cli",
       "title": "Command line",
-      "body": "The same engine without an agent. Claude grades through the claude CLI on your subscription, or you answer the grading questions yourself (fusion run tasks, then fusion run submit).",
       "steps": [
         {
           "label": "Check available backends",
@@ -59,7 +56,6 @@
     {
       "id": "serve",
       "title": "Local web app",
-      "body": "This site's scan wizard, driving your local models. It listens only on 127.0.0.1, and every request that runs anything must carry a per-launch token held only by the page it served, so other websites can't use your models.",
       "steps": [
         {
           "label": "Install and run",
@@ -71,7 +67,6 @@
     {
       "id": "mcp",
       "title": "Any MCP client",
-      "body": "Cursor, Windsurf or your own agent: the fusion-mcp server exposes the run tools (start_run, get_grading_tasks, submit_grades, finalize_run) plus one-shot scan, harden and runtime-check tools.",
       "steps": [
         {
           "label": "MCP config",
@@ -83,7 +78,6 @@
     {
       "id": "ci",
       "title": "CI, offline",
-      "body": "Runs are recorded under .fusion/runs. CI re-derives a committed run offline (no model, no key), checks that it tested the prompt you ship, and fails the build below your bar. A withheld grade always fails.",
       "steps": [
         {
           "label": "In your pipeline",
@@ -95,7 +89,6 @@
     {
       "id": "guard",
       "title": "Runtime guard",
-      "body": "A second layer after the prompt fix: defense in depth, not a sandbox. Wrap your model client in code, or add the opt-in fusion-guard plugin so Claude Code asks before exfiltration, destructive commands or settings tampering. It never auto-allows.",
       "steps": [
         {
           "label": "In your agent's code",

@@ -31,23 +31,12 @@ export default function LocalFirstSection() {
           style={{
             textAlign: "center",
             fontSize: "clamp(1.6rem, 4vw, 2.2rem)",
-            margin: "0 0 0.75rem",
+            margin: "0 0 2.5rem",
             color: "var(--text)",
           }}
         >
           Free and local-first
         </h2>
-        <p
-          style={{
-            textAlign: "center",
-            color: "var(--muted)",
-            maxWidth: "640px",
-            margin: "0 auto 2.5rem",
-          }}
-        >
-          No accounts, credits or metered API keys. Real testing runs on your
-          machine, with your models.
-        </p>
         <div
           style={{
             display: "grid",

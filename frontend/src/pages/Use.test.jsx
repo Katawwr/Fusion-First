@@ -22,12 +22,13 @@ describe("Use page", () => {
   it("never asks for an API key", () => {
     const text = JSON.stringify(content).toLowerCase();
     expect(text).not.toMatch(/api[_ ]key\s*[:=]|anthropic_api_key|openai_api_key/);
-    expect(text).toMatch(/no api key/);
   });
 
   it("never presents a local model as the grader", () => {
     // The free local grader missed its pre-registered accuracy bar (TRUST_REPORT.md).
-    expect(content.intro).toMatch(/grader is your coding agent or the claude CLI/);
+    const graders = JSON.stringify(content).match(/--grader [^\s"\\]+/g) || [];
+    expect(graders.length).toBeGreaterThan(0);
+    for (const g of graders) expect(g).toMatch(/^--grader (claude-cli|host)/);
     expect(JSON.stringify(content)).not.toMatch(/grader[^."]*local model/i);
   });
 });

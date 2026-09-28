@@ -11,7 +11,7 @@ const plain = (text) => String(text || "").replace(/`/g, "");
 const DEMO = {
   id: "demo",
   title: "Demo scan",
-  note: "Replays recorded responses. Your prompt is not run.",
+  note: "Recorded responses; your prompt is not run.",
 };
 
 export function targetOptions(capabilities) {
@@ -35,7 +35,7 @@ export function targetOptions(capabilities) {
       id: "ollama",
       title: "Open-weight model",
       note: !ollamaOff
-        ? "Runs locally through Ollama, at no cost. Graded by Claude, a different model family."
+        ? "Local, via Ollama. Graded by Claude."
         : !local
           ? RUN_LOCALLY
           : noOllama
@@ -51,7 +51,7 @@ export function targetOptions(capabilities) {
       id: "cli",
       title: "Claude",
       note: !cliOff
-        ? "Runs through this machine's claude CLI on your subscription. No API key."
+        ? "Via the claude CLI on your subscription."
         : local
           ? `Not available: ${plain(caps.cli_reason) || "the claude CLI can't run here"}.`
           : RUN_LOCALLY,

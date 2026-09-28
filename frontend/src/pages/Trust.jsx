@@ -60,8 +60,8 @@ export function GuardrailSection({ runtime }) {
     <Section title="Runtime guardrail on real attacks">
       <p className="mb-3 text-sm text-app-muted">
         {runtime.fresh
-          ? `Current rules, applied once to successful attacks on ${runtime.models.length} small open-weight models, from fresh transcripts no rule was written against; re-scored by the same oracles. Pre-registered. First measurement (older rules): ${first.all.stopped} of ${first.all.attacks} stopped.`
-          : `Applied to the successful attacks on ${runtime.models.length} small open-weight models above; re-scored by the same oracles. Pre-registered.`}
+          ? `Fresh transcripts, current rules, ${runtime.models.length} models. First measurement (older rules): ${first.all.stopped} of ${first.all.attacks} stopped.`
+          : `${runtime.models.length} models, pre-registered.`}
       </p>
       <Table
         head={["Attack", "Attacks", "Stopped", "Clean", "Wrongly blocked"]}
@@ -76,18 +76,6 @@ export function GuardrailSection({ runtime }) {
           ["All", runtime.all.attacks, interval(runtime.all.recall), runtime.all.clean, interval(runtime.all.over_block)],
         ]}
       />
-      {runtime.fresh ? (
-        (runtime.findings || []).map((f) => (
-          <p key={f} className="mt-3 text-xs text-app-subtle">
-            {f}
-          </p>
-        ))
-      ) : (
-        <p className="mt-3 text-xs text-app-subtle">
-          Misses consequential tools whose names carry no known verb (Manage…, UnlockDoor). Blocked some
-          harmless mixed-case read tools (since fixed).
-        </p>
-      )}
     </Section>
   );
 }
@@ -118,20 +106,13 @@ export default function Trust() {
       <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
         How far to trust Fusion
       </h1>
-      <p className="mb-10 text-app-muted" style={{ maxWidth: "700px", lineHeight: 1.6 }}>
-        Fusion&apos;s own measured results, generated from committed evidence. Intervals are 95%; samples
-        are small, so read the ranges.
-      </p>
+      <div className="mb-10" />
 
-      <Section title="Judge accuracy">
+      <Section title="Judge accuracy vs oracle labels">
         {judge.length === 0 ? (
           <NotYet what="grader accuracy against deterministic oracles" />
         ) : (
           <>
-            <p className="mb-3 text-sm text-app-muted">
-              Grader verdicts on real open-weight model transcripts, scored against deterministic oracle
-              labels, with rule-based baselines on the same items.
-            </p>
             <Table
               head={["Check", "Grader", "n", "Accuracy", "Recall", "Specificity", "Regex baseline F1", "Grader F1"]}
               rows={judge.map((j) => [
@@ -151,22 +132,12 @@ export default function Trust() {
                 {s}
               </p>
             ))}
-            {judge.some((j) => j.audit) && (
-              <p className="mt-3 text-xs text-app-subtle">
-                Disagreements with the oracle were audited by an LLM (not ground truth; the table is
-                unchanged). Most are violations the oracle can&apos;t see, e.g. an action written in prose
-                instead of a tool call.
-              </p>
-            )}
           </>
         )}
       </Section>
 
       {evidence.rubric_vs_plain && (
         <Section title="Rubric judge vs a plain question">
-          <p className="mb-3 text-sm text-app-muted">
-            Same transcripts, same Claude model: Fusion&apos;s rubric vs one yes/no question. Pre-registered.
-          </p>
           <Table
             head={["Check", "n", "Rubric", "Plain question", "Rubric − plain"]}
             rows={[
@@ -189,7 +160,7 @@ export default function Trust() {
           <p className="mt-3 text-xs text-app-subtle">
             {evidence.rubric_vs_plain.claim_allowed
               ? "The rubric is significantly more accurate than a plain question (pre-registered rule met)."
-              : "The rubric is not more accurate than a plain question, and Fusion does not claim it is. It adds a checkable grade: per-criterion answers with quoted evidence, so ungrounded grades are rejected."}
+              : "The rubric is not more accurate than a plain question, and Fusion does not claim it is."}
           </p>
         </Section>
       )}
@@ -208,9 +179,6 @@ export default function Trust() {
                 p.verdict,
               ])}
             />
-            <p className="mt-2 text-xs text-app-subtle">
-              Pooled over models; the interval resamples whole items (each item runs on every model).
-            </p>
           </div>
         )}
         {evidence.fix_efficacy ? (
@@ -234,10 +202,7 @@ export default function Trust() {
 
       {evidence.value_ledger && (
         <Section title="Value ledger: fix vs guardrail">
-          <p className="mb-3 text-sm text-app-muted">
-            First-run transcripts, item by item: of the attacks that succeeded with the prompt as written,
-            what the fix removed and what the guardrail (first measurement) stopped.
-          </p>
+          <p className="mb-3 text-sm text-app-muted">First-run transcripts.</p>
           <Table
             head={["Model", "Attacks", "Removed by fix", "Caused by fix", "Stopped by guardrail", "Either", "Neither"]}
             rows={[
@@ -253,7 +218,6 @@ export default function Trust() {
           <p className="mt-3 text-xs text-app-subtle">
             {evidence.value_ledger.fix_refusal_cost &&
               `The fix also caused ${evidence.value_ledger.fix_refusal_cost.safe_requests_newly_refused} new refusals of safe requests. `}
-            {evidence.value_ledger.note}
           </p>
         </Section>
       )}
@@ -263,9 +227,6 @@ export default function Trust() {
           <NotYet what="the guard hook on held-out tool calls" />
         ) : (
           <>
-            <p className="mb-3 text-sm text-app-muted">
-              Held-out tool calls written by agents blind to the rules; each set scored once.
-            </p>
             <Table
               head={["Set", "Benign calls", "Prompted", "Attacks", "Caught", "Status"]}
               rows={guard.map((g) => [
@@ -278,8 +239,7 @@ export default function Trust() {
               ])}
             />
             <p className="mt-3 text-xs text-app-subtle">
-              Asks before common exfiltration, destruction and remote-code patterns; misses much of the long
-              tail. Defense in depth, not a sandbox.
+              Defense in depth, not a sandbox.
             </p>
           </>
         )}

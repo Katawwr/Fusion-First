@@ -11,9 +11,7 @@ export default function Use() {
       <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
         Run Fusion locally
       </h1>
-      <p style={{ color: "var(--muted)", maxWidth: "680px", margin: "0 0 2rem", lineHeight: 1.6 }}>
-        {content.intro}
-      </p>
+      <div style={{ height: "1.25rem" }} />
       <nav aria-label="On this page" className="mb-8 flex flex-wrap gap-2">
         {content.sections.map((s) => (
           <a
@@ -38,9 +36,6 @@ export default function Use() {
                 </span>
               )}
             </div>
-            <p className="mb-4 text-sm leading-relaxed text-app-muted" style={{ maxWidth: "680px" }}>
-              {s.body}
-            </p>
             <div className="flex flex-col gap-3">
               {s.steps.map((step) => (
                 <div key={step.label}>
@@ -53,8 +48,7 @@ export default function Use() {
         ))}
       </div>
       <p className="mt-12 text-sm text-app-muted">
-        <Link to="/scan" className="underline">Run the demo scan</Link> for an example report (canned
-        responses, not a measurement).
+        <Link to="/scan" className="underline">Run the demo scan</Link>
       </p>
     </main>
   );

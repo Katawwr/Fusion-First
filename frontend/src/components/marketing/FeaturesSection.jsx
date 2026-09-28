@@ -20,9 +20,9 @@ const features = [
   },
   {
     icon: Cpu,
-    title: "Why open-weight models",
+    title: "Open-weight models",
     description:
-      "Frontier models resist most attacks; small open-weight models don't. Test Llama, Mistral or Qwen locally through Ollama; Claude, a different model family, grades the transcripts.",
+      "Test Llama, Mistral or Qwen locally through Ollama; Claude, a different model family, grades the transcripts.",
   },
   {
     icon: BarChart3,

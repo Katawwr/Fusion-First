@@ -313,17 +313,10 @@ export default function Scan({ scanState, setScanState }) {
   const perCheckOutcomes = (check) =>
     (result?.outcomes || []).filter((o) => o.check === check);
 
-  // A lead appears only where it adds to the step's own sections.
   const HEADERS = {
-    setup: {
-      title: "Scan your agent",
-      lead: "Paste a system prompt. Fusion attacks it, grades each response, and tests a fix on your model.",
-    },
+    setup: { title: "Scan your agent" },
     run: { title: "Running the attack suite" },
-    report: {
-      title: "Your report card",
-      lead: "What got through, how often, and how far to trust the grade.",
-    },
+    report: { title: "Your report card" },
     fix: { title: "Two-layer fix" },
     prove: { title: "Before and after" },
   };
@@ -404,9 +397,7 @@ export default function Scan({ scanState, setScanState }) {
               boxShadow: "var(--shadow)",
             }}
           >
-            <span style={{ color: "var(--muted)", fontWeight: 500 }}>
-              Next: hardened prompt and runtime guardrail.
-            </span>
+            <span />
             <div style={{ display: "flex", gap: "0.75rem" }}>
               {scan.scanId && (
                 <a
@@ -540,7 +531,7 @@ function SetupStep({
       </section>
 
       <section>
-        <SectionTitle hint="Each check is an attack family, tagged with its OWASP codes. Deselect any that don't apply.">
+        <SectionTitle>
           Safety checks
         </SectionTitle>
         <div
@@ -562,7 +553,7 @@ function SetupStep({
       </section>
 
       <section>
-        <SectionTitle hint="Graded on your prompt and the hardened one, to show whether the safety fix costs quality.">
+        <SectionTitle>
           Quality checks
         </SectionTitle>
         <div
@@ -586,7 +577,7 @@ function SetupStep({
       </section>
 
       <section>
-        <SectionTitle hint="Frontier models resist most attacks; open-weight models often don't.">
+        <SectionTitle>
           Target model
         </SectionTitle>
         <Card>
@@ -700,7 +691,7 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
         </div>
       )}
       <section>
-        <SectionTitle hint="Guard rules appended to your system prompt. Re-running replaces the block instead of stacking it.">
+        <SectionTitle>
           Layer 1: Hardened prompt
         </SectionTitle>
         <Card>
@@ -737,7 +728,7 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
       </section>
 
       <section>
-        <SectionTitle hint="Wraps your model client: redacts leaked secrets and blocks consequential tool calls to external destinations, even when the model is fooled. Defense in depth, not a sandbox.">
+        <SectionTitle>
           Layer 2: Runtime guardrail
         </SectionTitle>
         <Card>

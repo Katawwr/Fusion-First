@@ -14,8 +14,7 @@ const BA = {
 describe("BeforeAfterBars", () => {
   it("says a demo's 'after' answers are an illustration, not a measurement", () => {
     render(<BeforeAfterBars ba={BA} canned />);
-    expect(screen.getByText(/hand-written/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /measured/i })).toHaveAttribute("href", "/trust");
+    expect(screen.getByText(/Illustration only: .*hand-written, not measured/i)).toBeInTheDocument();
   });
 
   it("adds no such caveat to a live measurement", () => {

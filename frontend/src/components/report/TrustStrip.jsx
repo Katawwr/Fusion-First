@@ -61,8 +61,7 @@ export default function TrustStrip({ card }) {
       {scored && <Row label="Coverage">{scored}</Row>}
       {t.sampling_pinned === false && (
         <Row label="Repeatability">
-          This grader's sampling can't be pinned, so repeat runs may differ slightly (measured
-          separately).
+          Sampling not pinned; repeat runs may differ.
         </Row>
       )}
     </div>

@@ -12,13 +12,6 @@ const h2 = {
   marginBottom: "1rem",
 };
 
-const callout = {
-  background: "var(--accent-soft)",
-  border: "1px solid var(--border)",
-  borderRadius: "0.5rem",
-  padding: "1rem",
-};
-
 function Item({ title, children }) {
   return (
     <p>
@@ -82,16 +75,6 @@ export default function Privacy() {
               <section style={{ marginBottom: "2rem" }}>
                 <h2 style={h2}>Privacy</h2>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <div style={callout}>
-                    <p style={{ color: "var(--accent-ink)", fontWeight: "bold", marginBottom: "0.5rem" }}>
-                      The short version
-                    </p>
-                    <p style={{ margin: 0 }}>
-                      No accounts, payments, analytics or tracking. Live testing runs on your
-                      machine, with your local models and your own Claude subscription.
-                    </p>
-                  </div>
-
                   <Item title="Demo scans on this website">
                     The system prompt you paste is sent to the Fusion server to run the demo.
                     Demo responses are canned; your prompt is not sent to any AI model. The

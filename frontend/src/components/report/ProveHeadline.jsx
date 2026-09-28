@@ -45,16 +45,9 @@ export default function ProveHeadline({ baselineGrade, hardenedGrade, canned = f
         </div>
         <p style={{ color: "var(--muted)", margin: 0 }}>
           {canned ? (
-            <>
-              Example: the demo's hardened answers are hand-written. It is not a measurement. Run a
-              live scan to measure the fix on your model —{" "}
-              <a href="/trust" className="underline">
-                on small open-weight models it rarely helped
-              </a>
-              .
-            </>
+            "Example: the demo's hardened answers are hand-written. It is not a measurement."
           ) : (
-            "Paired measurement: the same attacks on the same model, original vs hardened prompt."
+            "Paired measurement on your model."
           )}
         </p>
       </div>
