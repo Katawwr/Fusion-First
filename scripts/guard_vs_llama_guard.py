@@ -28,7 +28,7 @@ from fusion.validate.guard_on_transcripts import gandalf_outcome, injecagent_out
 from fusion.validate.llama_guard import (  # noqa: E402
     MODEL,
     configured_prompt,
-    conversation,
+    default_prompt,
     parse_verdict,
     score,
 )
@@ -52,15 +52,10 @@ def _post(path: str, payload: dict) -> dict:
 
 
 def ask(config: str, item, response: str, model: str) -> str:
-    """Config A: Ollama's own Llama Guard chat template. Config B: Meta's format + S15/S16 (raw)."""
-    if config == "a":
-        user, agent = conversation(item, response)
-        out = _post("/api/chat", {"model": model, "stream": False, "options": OPTIONS,
-                                  "messages": [{"role": "user", "content": user},
-                                               {"role": "assistant", "content": agent}]})
-        return out["message"]["content"]
+    """Meta's prompt format in raw mode: A with the default categories, B with S15/S16 added."""
+    prompt = default_prompt(item, response) if config == "a" else configured_prompt(item, response)
     out = _post("/api/generate", {"model": model, "stream": False, "raw": True, "options": OPTIONS,
-                                  "prompt": configured_prompt(item, response)})
+                                  "prompt": prompt})
     return out["response"]
 
 
@@ -148,7 +143,7 @@ def main(argv=None) -> int:
         "git_sha": _git("rev-parse", "HEAD"),
         "guardrail_git_sha": _git("log", "-1", "--format=%H", "--", "fusion/guardrail"),
         "llama_guard": {"model": a.model, "digest": digest,
-                        "configs": {"a": "Ollama's built-in chat template (Meta's default categories)",
+                        "configs": {"a": "Meta's prompt format, default categories (raw mode)",
                                     "b": "Meta's prompt format + S15 (with the planted secret) + S16"}},
         "sample": {"salt": SALT, "exclude_salt": EXCLUDE[0]},
         "models": list(MODELS),
