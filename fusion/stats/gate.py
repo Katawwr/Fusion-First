@@ -120,6 +120,40 @@ class GateResult:
         return head
 
 
+_HONESTY_RANK = {"INCONCLUSIVE": 0, "PRELIMINARY": 1, "PROVEN": 2}
+
+
+@dataclass
+class ReleaseGateResult:
+    passed: bool
+    reasons: list[str]
+    check: str
+
+    def summary(self) -> str:
+        return f"GATE {'PASS' if self.passed else 'FAIL'} {self.check}" + "".join(f"\n  {r}" for r in self.reasons)
+
+
+def release_gate(check: str, judge: AccuracyResult, before_after, policy: dict | None = None) -> ReleaseGateResult:
+    """`fusion prove --gate`: the judge clears the policy floor (F1, accuracy, coverage) AND the fix
+    reaches the policy's `require_before_after_honesty`. A proven fix graded by a weak judge fails."""
+    policy = policy if policy is not None else load_policy(check)
+    reasons = []
+    if judge.f1 < policy.get("min_judge_f1", 0.0):
+        reasons.append(f"judge below policy floor: F1 {judge.f1:.3f} < min_judge_f1 {policy['min_judge_f1']}")
+    if judge.accuracy.point < policy.get("min_judge_accuracy", 0.0):
+        reasons.append(f"judge below policy floor: accuracy {judge.accuracy.point:.3f} < "
+                       f"min_judge_accuracy {policy['min_judge_accuracy']}")
+    attempted, max_unscored = judge.n + judge.n_unscored, policy.get("max_unscored_rate", 0.10)
+    if attempted and judge.n_unscored / attempted > max_unscored:
+        reasons.append(f"coverage too low: {judge.n_unscored}/{attempted} gold cases unscored "
+                       f"(> max_unscored_rate {max_unscored})")
+    required = policy.get("require_before_after_honesty", "PRELIMINARY")
+    got = getattr(before_after.honesty, "value", before_after.honesty)
+    if _HONESTY_RANK[got] < _HONESTY_RANK[required]:
+        reasons.append(f"fix not shown: honesty {got} < required {required}")
+    return ReleaseGateResult(passed=not reasons, reasons=reasons, check=check)
+
+
 def _baseline_path(check: str) -> pathlib.Path:
     return EVALS_DIR / f"baseline.{check}.json"
 

@@ -274,7 +274,26 @@ async def _prove(args) -> int:
         title = "All checks" if args.check == "all" else args.check
         pathlib.Path(args.html).write_text(render_dashboard_html(cards, title), encoding="utf-8")
         print(f"wrote HTML report -> {args.html}")
-    return 0
+    return _release_gate(cards, args.policy) if args.gate else 0
+
+
+def _release_gate(cards, policy_path: str | None) -> int:
+    """Exit 1 unless every card clears the policy: judge floor + require_before_after_honesty."""
+    from fusion.stats.gate import load_policy, release_gate
+
+    failed = False
+    for card in cards:
+        if card.judge_accuracy is None or card.before_after is None:
+            print(f"GATE FAIL {card.check}\n  missing evidence: the card has no judge accuracy or before/after")
+            failed = True
+            continue
+        policy = load_policy(card.check, pathlib.Path(policy_path) if policy_path else None)
+        result = release_gate(card.check, card.judge_accuracy, card.before_after, policy=policy)
+        print(result.summary())
+        failed = failed or not result.passed
+    if any(c.demonstration for c in cards):
+        print("DEMONSTRATION evidence (offline stand-in judge): the gate checks the pipeline, not a real agent.")
+    return 1 if failed else 0
 
 
 async def _scan(args) -> int:
@@ -504,6 +523,9 @@ def build_parser() -> argparse.ArgumentParser:
     pp.add_argument("--target", default="Demo target")
     pp.add_argument("--json", default=None)
     pp.add_argument("--html", default=None, help="write a branded HTML report dashboard to this path")
+    pp.add_argument("--gate", action="store_true",
+                    help="exit 1 unless every card clears the policy (judge floor + require_before_after_honesty)")
+    pp.add_argument("--policy", default=None, help="policy file for --gate (default: evals/policy.yaml)")
 
     ps = sub.add_parser("scan", help="scan a user system-prompt file (paste-a-prompt web flow)")
     ps.add_argument("--prompt", required=True, help="path to the system-prompt text file")
