@@ -22,7 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from fusion.validate.analysis import analyze, attack_success_by_model  # noqa: E402
-from fusion.validate.experiments import EXPERIMENTS, build_items, iter_plan  # noqa: E402
+from fusion.validate.experiments import EXPERIMENTS, SPENT, build_items, iter_plan  # noqa: E402
 from fusion.validate.prereg import compact_decision  # noqa: E402
 from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore, generate  # noqa: E402
 
@@ -48,6 +48,8 @@ def _args(argv):
     p.add_argument("--arms", default="baseline,hardened",
                    help="run: arms to generate; analyze: exactly two, reference first (e.g. baseline,compact)")
     p.add_argument("--salt", default="fusion-evidence-v1", help="item sample salt")
+    p.add_argument("--exclude-spent", action="store_true",
+                   help="drop every item of every sample measured so far (experiments.SPENT)")
     p.add_argument("--exclude-salt", default=None,
                    help="drop every item of this other sample (same --n) so the items are fresh and disjoint")
     return p.parse_args(argv)
@@ -65,7 +67,7 @@ def main(argv=None) -> int:
     a = _args(argv)
     exps = [e.strip() for e in a.experiments.split(",") if e.strip()]
     arms = tuple(x.strip() for x in a.arms.split(",") if x.strip())
-    exclude = (a.exclude_salt, a.n) if a.exclude_salt else None
+    exclude = SPENT if a.exclude_spent else (a.exclude_salt, a.n) if a.exclude_salt else None
     models = [m.strip() for m in a.models.split(",") if m.strip()]
     store = TranscriptStore(a.store)
 
@@ -121,7 +123,7 @@ def main(argv=None) -> int:
                        "short_cap_experiments": sorted(SHORT_CAP),
                        "note": "each transcript record stores the cap it was generated with"},
         "seed": a.seed,
-        "sample": {"salt": a.salt, "exclude_salt": a.exclude_salt},
+        "sample": {"salt": a.salt, "exclude_salt": a.exclude_salt, "exclude_spent": a.exclude_spent},
         "sources_manifest": str(sources.relative_to(ROOT)),
         **result,
     }

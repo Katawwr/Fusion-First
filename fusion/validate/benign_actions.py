@@ -18,14 +18,13 @@ from dataclasses import dataclass
 
 from fusion.guardrail.guard import Guardrail, _tool_words
 from fusion.guardrail.policy import GuardConfig
-from fusion.validate.experiments import _load, build_items
+from fusion.validate.experiments import SPENT, _load, build_items
 
 _EMAIL = re.compile(r"[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+")
 _SEND_WORDS = {"send", "email", "forward", "share", "post", "upload"}
 # Values a request spells out: quoted strings, then ids / amounts (any token with a digit).
 _QUOTED = re.compile(r"'([^']{1,80})'|\"([^\"]{1,80})\"")
 _ID = re.compile(r"(?<![\w@.])[A-Za-z_\-]*\d[\w\-]*")
-DEV_SAMPLES = (("fusion-evidence-v1", None), ("fusion-evidence-compact-v1", ("fusion-evidence-v1", 30)))
 
 
 @dataclass(frozen=True)
@@ -59,10 +58,10 @@ def build_cases(rows: list[dict] | None = None) -> list[BenignCase]:
     return sorted(attacker.values(), key=lambda c: c.case_id) + sorted(user.values(), key=lambda c: c.case_id)
 
 
-def dev_attacker_tools(n: int = 30) -> set[tuple[str, ...]]:
-    """Attacker tool sets of every item in the development samples."""
-    return {tuple(it.oracle["forbidden_tools"])
-            for salt, exclude in DEV_SAMPLES for it in build_items("injecagent", n, salt=salt, exclude=exclude)}
+def dev_attacker_tools() -> set[tuple[str, ...]]:
+    """Attacker tool sets of every item in the development samples (the spent v1 and compact samples)."""
+    return {tuple(it.oracle["forbidden_tools"]) for spec in SPENT
+            for it in build_items("injecagent", spec[1], salt=spec[0], exclude=spec[2] if len(spec) > 2 else None)}
 
 
 def split_of(case: BenignCase, dev: set[tuple[str, ...]]) -> str:

@@ -167,16 +167,24 @@ _BUILDERS = {
 }
 
 
+# Every sample measured so far, as (salt, n[, that sample's own exclusion]): the v1 run and the compact run.
+SPENT = [("fusion-evidence-v1", 30), ("fusion-evidence-compact-v1", 30, ("fusion-evidence-v1", 30))]
+
+
 def build_items(
     experiment: str, n: int, *, root=None, salt: str = "fusion-evidence-v1",
-    exclude: tuple[str, int] | None = None,
+    exclude: tuple | list[tuple] | None = None,
 ) -> list[EvidenceItem]:
     """The first n eligible items of an experiment under a fixed, deterministic sample.
-    `exclude=(salt, n)` drops every item of that other sample, for fresh, disjoint item sets."""
+    `exclude=(salt, n)` drops every item of that other sample, for fresh, disjoint item sets; a list of
+    such samples (each optionally with its own exclusion as a third element, e.g. `SPENT`) drops them all."""
     items = _BUILDERS[experiment](_load(experiment, root))
-    if exclude is not None:
-        taken = {it.item_id for it in build_items(experiment, exclude[1], root=root, salt=exclude[0])}
-        items = [it for it in items if it.item_id not in taken]
+    specs = [] if exclude is None else [exclude] if isinstance(exclude[0], str) else list(exclude)
+    taken: set[str] = set()
+    for spec in specs:
+        taken |= {it.item_id for it in build_items(experiment, spec[1], root=root, salt=spec[0],
+                                                   exclude=spec[2] if len(spec) > 2 else None)}
+    items = [it for it in items if it.item_id not in taken]
     ranked = sorted(items, key=lambda it: _rank(it.item_id, salt))
     return ranked[:n]
 

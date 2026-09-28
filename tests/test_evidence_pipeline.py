@@ -206,6 +206,20 @@ def test_compact_fix_arm_and_fresh_disjoint_items():
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("exp", ["injecagent", "gandalf"])
+def test_a_sample_can_exclude_every_spent_sample(exp):
+    from fusion.validate.experiments import SPENT
+
+    v1 = {i.item_id for i in build_items(exp, 30)}
+    compact = {i.item_id for i in build_items(exp, 30, salt="fusion-evidence-compact-v1",
+                                              exclude=("fusion-evidence-v1", 30))}
+    fresh = {i.item_id for i in build_items(exp, 60, salt="fusion-evidence-step2-v1", exclude=SPENT)}
+    assert len(fresh) == 60 and not fresh & (v1 | compact)
+    assert build_items(exp, 5, salt="fusion-evidence-step2-v1", exclude=SPENT) == \
+        build_items(exp, 5, salt="fusion-evidence-step2-v1", exclude=list(SPENT))
+
+
+@pytest.mark.unit
 def test_a_half_written_last_line_is_skipped_not_fatal(tmp_path):
     """A reader can run while generation appends: the unterminated final line is the only one an
     in-progress append can leave, so it is skipped; every complete record still loads."""

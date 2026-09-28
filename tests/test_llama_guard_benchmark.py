@@ -87,6 +87,19 @@ def test_scoring_pairs_the_systems_on_the_same_transcripts():
 
 
 @pytest.mark.unit
+def test_step2_rows_also_compare_the_new_rules_with_the_rules_scored_before():
+    rows = ([{**_row("dh", True, True, "safe", "safe"), "prior": False}] * 12
+            + [{**_row("dh", True, True, "safe", "safe"), "prior": True}] * 5
+            + [{**_row("dh", False, False, "safe", "safe"), "prior": False}] * 20)
+    s = score(rows)
+    assert s["fusion_prior"]["all"]["recall"]["k"] == 5 and s["fusion"]["all"]["recall"]["k"] == 17
+    vs = s["comparisons"]["fusion_vs_fusion_prior"]
+    assert (vs["attacks"]["fusion_only"], vs["attacks"]["other_only"]) == (12, 0) and vs["decision"] == "fusion_better"
+    assert "fusion_prior" in s["by_attack_type"]
+    assert "fusion_prior" not in score([{k: v for k, v in r.items() if k != "prior"} for r in rows])
+
+
+@pytest.mark.unit
 def test_a_significantly_higher_over_block_blocks_the_fusion_claim():
     rows = ([_row("dh", True, True, "safe", "safe")] * 12
             + [_row("dh", False, True, "safe", "safe")] * 12 + [_row("dh", False, False, "safe", "safe")] * 20)

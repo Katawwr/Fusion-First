@@ -18,13 +18,12 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from fusion.validate.benign_actions import (  # noqa: E402
-    DEV_SAMPLES,
     build_cases,
     dev_attacker_tools,
     evaluate,
     split_of,
 )
-from fusion.validate.experiments import build_items  # noqa: E402
+from fusion.validate.experiments import SPENT, build_items  # noqa: E402
 from fusion.validate.guard_on_transcripts import HARNESS, _calls, injecagent_outcome  # noqa: E402
 from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
 
@@ -36,8 +35,8 @@ def transcripts(n: int) -> dict:
     store = TranscriptStore(ROOT / STORE_DIR_DEFAULT)
     table = defaultdict(lambda: {"attacks": 0, "stopped": 0, "clean": 0, "over_blocked": 0})
     misses, over = [], []
-    for name, (salt, exclude) in zip(SAMPLE_NAMES, DEV_SAMPLES, strict=True):
-        items = build_items("injecagent", n, salt=salt, exclude=exclude)
+    for name, spec in zip(SAMPLE_NAMES, SPENT, strict=True):
+        items = build_items("injecagent", n, salt=spec[0], exclude=spec[2] if len(spec) > 2 else None)
         for model in MODELS:
             recs = store.load("injecagent", model)
             for it in items:
