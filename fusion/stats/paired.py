@@ -140,7 +140,9 @@ def noninferiority(
     drop = paired_bootstrap_diff(
         [not x for x in after_ok], [not x for x in before_ok], n_boot=n_boot, seed=seed
     )
-    return drop, drop.high <= margin
+    # Rate differences are multiples of 1/n computed in floats (0.4 - 0.3 == 0.10000000000000003), so
+    # a bound exactly at the margin must not fail on rounding; 1e-9 is far below any real step.
+    return drop, drop.high <= margin + 1e-9
 
 
 def cluster_bootstrap_diff(

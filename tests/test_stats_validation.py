@@ -127,6 +127,17 @@ def test_noninferiority_detects_a_harmful_fix():
 
 
 @pytest.mark.unit
+def test_noninferiority_bound_exactly_at_the_margin_passes_despite_float_error():
+    # 10 pairs: 1 hurt by the fix, 4 helped, 1 bad either way, 4 fine either way. The upper 95% bound
+    # of the drop is exactly 1/10, but float subtraction lands at 0.10000000000000003.
+    before = [True] + [False] * 4 + [False] + [True] * 4
+    after = [False] + [True] * 4 + [False] + [True] * 4
+    drop, ok = noninferiority(before, after, margin=0.10)
+    assert drop.high == pytest.approx(0.10)
+    assert ok is True  # "upper bound <= margin" is decided on the value, not its float rounding
+
+
+@pytest.mark.unit
 def test_cluster_bootstrap_is_wider_than_pairwise_when_clusters_correlate():
     from fusion.stats.paired import paired_bootstrap_diff
 
