@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import TargetPicker from "./TargetPicker";
 
 // What /api/version says a local `fusion serve` can run, with the claude CLI logged out.
@@ -85,5 +85,14 @@ describe("TargetPicker", () => {
     pick({ capabilities: { ...READY, ollama_models: [] } });
     expect(option("Open-weight model")).toBeDisabled();
     expect(option("Open-weight model")).toHaveTextContent(/ollama pull/);
+  });
+
+  it("asks for a target spec and a grader spec when Any model is chosen", () => {
+    const setTargetSpec = vi.fn();
+    pick({ capabilities: { ...LOCAL, spec: true }, target: "spec", targetSpec: "", setTargetSpec,
+           graderSpec: "claude-cli", setGraderSpec: vi.fn() });
+    fireEvent.change(screen.getByLabelText("Target spec"), { target: { value: "hf:meta-llama/Llama-3.1-8B-Instruct" } });
+    expect(setTargetSpec).toHaveBeenCalledWith("hf:meta-llama/Llama-3.1-8B-Instruct");
+    expect(screen.getByLabelText("Grader spec")).toHaveValue("claude-cli");
   });
 });

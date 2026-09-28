@@ -27,6 +27,10 @@ export default function TargetPicker({
   capabilities = null,
   targetModel,
   setTargetModel,
+  targetSpec = "",
+  setTargetSpec = () => {},
+  graderSpec = "claude-cli",
+  setGraderSpec = () => {},
 }) {
   const OPTIONS = targetOptions(capabilities);
   const models = (capabilities && capabilities.ollama_models) || [];
@@ -107,6 +111,25 @@ export default function TargetPicker({
                 </span>
               </span>
             </button>
+
+            {opt.id === "spec" && on && (
+              <div style={{ padding: "0.75rem 0 0.25rem 2.6rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <input
+                  value={targetSpec}
+                  onChange={(e) => setTargetSpec(e.target.value)}
+                  placeholder="openai:gpt-4o-mini"
+                  aria-label="Target spec"
+                  style={MODEL_FIELD}
+                />
+                <input
+                  value={graderSpec}
+                  onChange={(e) => setGraderSpec(e.target.value)}
+                  placeholder="claude-cli"
+                  aria-label="Grader spec"
+                  style={MODEL_FIELD}
+                />
+              </div>
+            )}
 
             {opt.id === "ollama" && on && (
               <div style={{ padding: "0.75rem 0 0.25rem 2.6rem" }}>

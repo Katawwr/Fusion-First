@@ -21,8 +21,10 @@ class ScanRequest(BaseModel):
     checks: list[str] | None = None
     tier: str = "quick"
     mode: str | None = None  # "demo" | "live" | None (defaults to demo)
-    backend: str | None = None  # "api" | "cli" | "ollama" | None (live only)
+    backend: str | None = None  # "api" | "cli" | "ollama" | "spec" | None (live only)
     target_model: str | None = None  # e.g. "llama3.2:1b" with backend="ollama"
+    target_spec: str | None = Field(default=None, max_length=500)  # backend="spec": openai:gpt-4o-mini, hf:...
+    grader_spec: str | None = Field(default=None, max_length=500)  # backend="spec": default claude-cli
 
     @field_validator("checks")
     @classmethod

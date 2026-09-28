@@ -21,6 +21,7 @@ export function targetOptions(capabilities) {
       DEMO,
       { id: "ollama", title: "Open-weight model", note: WAITING, disabled: true },
       { id: "cli", title: "Claude", note: WAITING, disabled: true },
+      { id: "spec", title: "Any model", note: WAITING, disabled: true },
     ];
   }
   const local = caps.local_backends_enabled;
@@ -56,6 +57,14 @@ export function targetOptions(capabilities) {
           ? `Not available: ${plain(caps.cli_reason) || "the claude CLI can't run here"}.`
           : RUN_LOCALLY,
       disabled: cliOff,
+    },
+    {
+      id: "spec",
+      title: "Any model",
+      note: caps.spec
+        ? "By spec: openai:, hf:, anthropic:, openai-compat:<url>#<model>. Hosted APIs use your key."
+        : RUN_LOCALLY,
+      disabled: !caps.spec,
     },
   ];
   // Hosted scans (the operator's keys) only make sense on a hosted server, never on your machine.

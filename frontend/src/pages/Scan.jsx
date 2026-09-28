@@ -243,9 +243,11 @@ export default function Scan({ scanState, setScanState }) {
     scanState?.systemPrompt || "",
   );
   const [enabled, setEnabled] = useState(() => new Set([...ALL_CHECKS, ...QUALITY]));
-  // One choice drives the run: demo | ollama | cli | hosted.
+  // One choice drives the run: demo | ollama | cli | spec | hosted.
   const [chosenTarget, setTarget] = useState("demo");
   const [chosenModel, setTargetModel] = useState("llama3.2:1b");
+  const [targetSpec, setTargetSpec] = useState("");
+  const [graderSpec, setGraderSpec] = useState("claude-cli");
   // What this server can actually run decides what stays selected: a backend it can't run falls
   // back to the demo, and the open-weight model is one that is installed.
   const target = targetOptions(backends).some((o) => o.id === chosenTarget && !o.disabled)
@@ -279,7 +281,7 @@ export default function Scan({ scanState, setScanState }) {
   function runScan() {
     setStep("run");
     // One `target` drives everything: demo replays recorded runs, anything else is live.
-    const backend = target === "ollama" || target === "cli" ? target : null;
+    const backend = ["ollama", "cli", "spec"].includes(target) ? target : null;
     scan.start(
       {
         system_prompt: systemPrompt,
@@ -288,6 +290,8 @@ export default function Scan({ scanState, setScanState }) {
         mode: target === "demo" ? "demo" : "live",
         backend,
         target_model: target === "ollama" ? targetModel : null,
+        target_spec: target === "spec" ? targetSpec.trim() : null,
+        grader_spec: target === "spec" ? graderSpec.trim() || "claude-cli" : null,
       },
       {
         // Advance to the report the moment the scan completes (no effect → no render cascade).
@@ -347,6 +351,10 @@ export default function Scan({ scanState, setScanState }) {
           setTarget={setTarget}
           targetModel={targetModel}
           setTargetModel={setTargetModel}
+          targetSpec={targetSpec}
+          setTargetSpec={setTargetSpec}
+          graderSpec={graderSpec}
+          setGraderSpec={setGraderSpec}
           onRun={runScan}
         />
       )}
@@ -454,10 +462,15 @@ function SetupStep({
   setTarget,
   targetModel,
   setTargetModel,
+  targetSpec,
+  setTargetSpec,
+  graderSpec,
+  setGraderSpec,
   onRun,
 }) {
   const runnable = [...enabled].filter((c) => target !== "demo" || !QUALITY.includes(c));
-  const canRun = systemPrompt.trim().length > 0 && runnable.length > 0;
+  const canRun =
+    systemPrompt.trim().length > 0 && runnable.length > 0 && (target !== "spec" || targetSpec.trim().length > 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       <section>
@@ -587,6 +600,10 @@ function SetupStep({
             capabilities={capabilities}
             targetModel={targetModel}
             setTargetModel={setTargetModel}
+            targetSpec={targetSpec}
+            setTargetSpec={setTargetSpec}
+            graderSpec={graderSpec}
+            setGraderSpec={setGraderSpec}
           />
         </Card>
       </section>

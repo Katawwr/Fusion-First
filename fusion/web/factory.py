@@ -88,7 +88,8 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
             )
         try:
             mode = resolve_mode(req.mode, settings)
-            kwargs = build_kwargs(mode, settings, req.backend, req.target_model)
+            extra = {"target_spec": req.target_spec, "grader_spec": req.grader_spec} if req.backend == "spec" else {}
+            kwargs = build_kwargs(mode, settings, req.backend, req.target_model, **extra)
         except LiveUnavailable as e:
             raise HTTPException(402, str(e)) from e
         return _sanitize_prompt(req.system_prompt), checks, tier, kwargs
@@ -137,6 +138,7 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
                 [m["name"] for m in await asyncio.to_thread(ollama_models)] if ollama_ok else []
             ),
             "local_backends_enabled": bool(local),
+            "spec": bool(local),  # any model by spec (openai:, hf:, anthropic:, openai-compat: ...)
         }
 
     @app.get("/api/health")
