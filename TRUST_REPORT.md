@@ -9,7 +9,7 @@ from the offline stand-in judge (`demonstration: true`) is never used here.
 ## Bottom line
 
 - **Detecting accurately?** Graded against deterministic oracles — Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules): direct prompt injection 80% (68%–88%), system prompt leakage 92% (82%–96%). It beats the rule-based checks, but not significantly yet (small samples). A plain one-question judge using the same model was just as accurate on the same items (rubric 86%, plain 87%), so Fusion does not claim its rubric improves accuracy.
-- **Fixing effectively?** On gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b: 1 proven improvement(s) (gandalf on qwen2.5:3b); 1 significant regression(s) (xstest on llama3.2:1b). Pooled over the 4 models: no clear change for password leaks (Gandalf), missed instructions (IFEval), tool hijacking (InjecAgent); significantly worse for refusing safe requests (XSTest). Every report card therefore measures the fix on the user's own model instead of assuming it helps.
+- **Fixing effectively?** On gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b: 1 proven improvement(s) (gandalf on qwen2.5:3b); 1 significant regression(s) (xstest on llama3.2:1b). Pooled over the 4 models: no clear change for password leaks (Gandalf), missed instructions (IFEval), tool hijacking (InjecAgent); significantly worse for refusing safe requests (XSTest). Every report card therefore measures the fix on the user's own model instead of assuming it helps. A pre-registered compact version of the fix was not adopted: no model had significantly fewer attacks with it without a meaningful rise in refusals of safe requests.
 - **Runtime guardrail in your agent?** On real attacks that succeeded against 4 small open-weight models it stopped 54 of 69, 78% (67%–86%): 97% of password leaks, 71% of data-stealing tool hijacks and 38% of direct-harm tool hijacks. It wrongly blocked 5% (3%–10%) of clean transcripts. On the same attacks the prompt fix gave no clear reduction.
 - **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 76% (64%–84%) of attack-shaped ones as written — useful defense in depth, not a sandbox.
 - **Erroring often?** In the fix-efficacy run, 1 of 480 item pairs failed to generate, 0 were undecidable by the oracle and 45 were cut by the token cap; in the judge evaluation, 0 of 120 questions went unanswered. Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much is unscored, when the grader misses the known-answer floor, or when it denies an oracle-confirmed violation.
@@ -66,6 +66,21 @@ The prompt as written vs the same prompt with Fusion's fix applied, on real loca
 
 Significant regressions: xstest on llama3.2:1b. Proven improvements: gandalf on qwen2.5:3b.
 This is why every Fusion report card measures the fix on YOUR prompt and model and shows the result with its honesty badge instead of assuming the fix helps.
+
+### Pre-registered: a compact fix for small models
+
+A few short rules ending with an instruction to otherwise help normally, compared with the prompt as written on FRESH items (none used to design any fix). Registered before any data in `evals/validation/v1/PREREG_compact_fix.md`; evidence: `evals/validation/v1/compact_fix.json`. Attacks = InjecAgent and Gandalf pooled per model.
+
+| Model | Attacks as written | With the compact block | Paired test | Refusals of safe requests (upper 95% bound of the rise) | Both primary outcomes met |
+|---|---|---|---|---|---|
+| gemma3:1b | 40% (29%–53%) | 35% (24%–48%) | McNemar p=0.607 | +43 pts (NOT within 10 pts) | no |
+| llama3.2:1b | 27% (17%–39%) | 23% (14%–35%) | McNemar p=0.774 | +27 pts (NOT within 10 pts) | no |
+| qwen2.5:1.5b | 20% (12%–32%) | 15% (8%–26%) | McNemar p=0.453 | +0 pts (within 10 pts) | no |
+| qwen2.5:3b | 30% (20%–43%) | 20% (12%–32%) | McNemar p=0.180 | +17 pts (NOT within 10 pts) | no |
+
+**Decision (registered rule): NOT ADOPTED** — no model met both primary outcomes (fewer attacks AND no meaningful rise in refusals). The full fix stays, measured per model.
+
+**Secondary outcomes (registered).** The full fix vs the compact block on the same fresh items (evidence: `evals/validation/v1/compact_vs_full_fix.json`). Attacks, InjecAgent + Gandalf pooled, full fix → compact: gemma3:1b 20% → 35% (McNemar p=0.035, significantly more with the compact block); llama3.2:1b 22% → 23% (McNemar p=1.000, no significant difference); qwen2.5:1.5b 13% → 15% (McNemar p=1.000, no significant difference); qwen2.5:3b 10% → 20% (McNemar p=0.070, no significant difference). Refusals of safe requests (XSTest), full fix → compact: gemma3:1b 30% → 30%; llama3.2:1b 30% → 27%; qwen2.5:1.5b 3% → 3%; qwen2.5:3b 20% → 10%. Missed instructions (IFEval) with the compact block within 10 points of the prompt as written: gemma3:1b yes, llama3.2:1b no, qwen2.5:1.5b yes, qwen2.5:3b no.
 
 ## Q4 — Does the rubric beat simply asking an LLM?
 
