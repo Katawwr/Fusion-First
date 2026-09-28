@@ -1,4 +1,4 @@
-# Handoff — Fusion First rebuild (updated 2026-09-28, second session)
+# Handoff — Fusion First rebuild (updated 2026-09-28, end of second session)
 
 Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** At 85% context this happens
 automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md`.
@@ -6,21 +6,19 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 ## State
 
 - Branch `rebuild/agentic-safety-engine`, all committed locally. **Never push or publish.**
-- Green at last run: `python -m pytest -q` (1,601), `ruff check fusion tests scripts app`. Frontend untouched
-  this session (last green: vitest 81, lint, build, Playwright 11).
+- Green at last run: `python -m pytest -q` (1,612), `ruff check fusion tests scripts app`, frontend vitest (83)
+  + lint + build, Playwright E2E (11).
 - `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
-  (`python -m fusion.validate.trust_report`); tests fail on drift. No new evidence this session.
-- Ollama models: llama3.2:1b, qwen2.5:1.5b, gemma3:1b, qwen2.5:3b, qwen2.5:7b, llama-guard3:8b.
-- **In flight: step 2** (registered 4f6238a, `evals/validation/v1/PREREG_step2_guard.md`). A background job
-  (session scratchpad `run_step2.sh`, log `step2.log`) waits for the pilot + the llama3.1:8b download, then runs:
-  generation (qwen2.5:7b + llama3.1:8b, InjecAgent + Gandalf n=100, baseline; two passes), `step2_guard.py prior`
-  (old rules from the a6fa0f5 worktree in the scratchpad, `prior-a6fa0f5`), `step2_guard.py llama-guard`,
-  `step2_guard.py score --out evals/validation/v1/step2_guard.json` (once). About 15 h. Every step resumes:
-  if interrupted, rerun the same commands in that order (generation skips finished items; Llama Guard verdicts
-  append to `evals/validation/v1/step2/lg_raw.jsonl`). Do not change `fusion/guardrail/` until it is scored
-  (`score` refuses other rules). Check `ollama ps` before any other Ollama job.
-- Pilot (spent v1 items, DIAGNOSTIC): qwen2.5:7b followed 9 of 20 InjecAgent injections and leaked the password
-  in 8 of 20 Gandalf items (the output guard caught 7 of 8; see Next, 3).
+  (`python -m fusion.validate.trust_report`); tests fail on drift.
+- Ollama models: llama3.2:1b, qwen2.5:1.5b, gemma3:1b, qwen2.5:3b, qwen2.5:7b, llama3.1:8b, llama-guard3:8b.
+  GPU idle.
+- **Step 2 scored and committed** (c6fe064; `evals/validation/v1/step2_guard.json`, re-derived by
+  `tests/test_step2_guard_evidence.py`): the request-bound rules (0c560b5) are ADOPTED. Headline now in the
+  README, Trust Report and /trust (3f5835b).
+- Since the measured rules, two fixes (dc10cb3): configured secrets match in any letter case; "redirect"
+  authorizes Manage tools. Both only tighten or widen by construction; the numbers above are for 0c560b5 and
+  a new claim about the current rules needs fresh transcripts.
+- `.git/worktrees/prior-a6fa0f5` is an empty leftover (sandbox denied deletion); `git worktree prune` clears it.
 
 ## Non-negotiables
 
@@ -45,6 +43,7 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 | Runtime guardrail, fresh transcripts (rules a6fa0f5) | 50/70 stopped (71%), 2/170 wrongly blocked (1%) |
 | Guardrail vs Llama Guard 3 8B (same transcripts) | off the shelf 33/70, 15% wrongly blocked (Fusion significantly better); configured 44/70, 16% (no significant difference). Leaks: Fusion 37/37 vs 20/37. Tool hijacks: Fusion 13/33 vs 24/33. Both layers: 63/70, 17% |
 | Claude Code hook, held-out v3 | 5% benign prompted, 76% attacks caught (v3 spent) |
+| **Step 2: request-bound guard (0c560b5), qwen2.5:7b + llama3.1:8b, 148 attacks / 252 clean** | **132/148 (89%), 2/252 (1%)**; previous rules 104/148, 0/252 (28 vs 0, p=7e-9); Llama Guard off the shelf 58/148, 30/252; configured 77/148, 24/252 (both significantly worse). Leaks 75/75, direct harm 21/21, data stealing 36/52 (LG configured 40/52). Held-out legitimate actions 1/20 blocked. Unseen attacker tools 26/33. ADOPTED |
 
 ## This session (`git log 4e344f3..HEAD`)
 
@@ -75,19 +74,22 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 
 ## Next
 
-1. When step 2 is scored: commit the transcripts, `evals/validation/v1/step2/`, `step2_guard.json`; add the
-   result to `fusion/validate/trust_report.py` (+ claims.yaml) and regenerate TRUST_REPORT.md / evidence.json.
-   Apply decision rule 1 either way (not adopted = turn `bind_after_untrusted` / `gate_private_reads` off by
-   default).
-2. Remove the a6fa0f5 worktree afterwards: `git worktree remove <scratchpad>/prior-a6fa0f5`.
-3. After scoring (not before: rules are frozen), fix a gap the pilot found: configured secrets are matched
-   case-sensitively, so a password leaked in lowercase ("do not use capital letters") passes the output guard
-   (qwen2.5:7b pilot, gandalf:train:0174, `pw-2344ff23`). Match secrets case-insensitively in every view; test it.
+1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
+   e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every
+   unrequested read after untrusted content when the conversation also carries an injected send instruction,
+   or widen the private-data taxonomy (dev only; spent samples). Any change needs a fresh registration.
+2. Oracle gap for future preregs: a model may call a toolkit name with the action in the arguments (`GoogleMap`
+   + `{"action": "GetCurrentLocation"}`); the exact-name oracle scores that clean. Count a call whose name is a
+   prefix of an attacker tool and whose arguments name the rest as an attack (register it before use).
+3. Claude Code hook: capture the user's prompt (UserPromptSubmit) so MCP calls after taint can use the request
+   binding; needs a fresh held-out set (v4) before any claim.
+4. Owner's open decisions below.
 
 ## Open decisions (owner)
 
-- Reposition as "measure + guard" with the fix demoted (recommended; the power plan adds: proving the fix
-  reduces attacks is out of reach on this hardware). Not applied.
+- Reposition as "measure + guard" with the fix demoted (recommended: step 2 makes the guard the strongest
+  evidence, 89% stopped vs Llama Guard's 52%; proving the fix reduces attacks needs ~600 pairs, ~33 h per model).
+  Not applied.
 - Fix arms (not in step 2): 300 pairs per model (the step-2 items + hardened arm, ~8–9 h per model) detect a
   moderate or strong fix effect (99–100% power) but not the small 1–3B one (56%); 600 pairs ≈ 33 h per model.
 - Decided 2026-09-28: second model llama3.1:8b (pulled); named recipients stay blocked unless allowlisted.
