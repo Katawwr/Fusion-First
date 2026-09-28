@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { ArrowLeft, ArrowRight, Check, Download } from "lucide-react";
 import Card from "../components/ui/Card";
@@ -6,6 +6,8 @@ import Button from "../components/ui/Button";
 import CheckIcon from "../components/ui/CheckIcon";
 import DemoBanner from "../components/ui/DemoBanner";
 import CheckToggleCard from "../components/scan/CheckToggleCard";
+import TierPicker from "../components/scan/TierPicker";
+import { downloadJson } from "../lib/download";
 import TargetPicker from "../components/scan/TargetPicker";
 import { targetOptions } from "../lib/targets";
 import RunProgress from "../components/scan/RunProgress";
@@ -238,7 +240,9 @@ function QuietButton({ onClick, children, icon: Icon, iconRight = false }) {
 export default function Scan({ scanState, setScanState }) {
   const scan = useScanStream();
   const { backends } = useScanQuota();
-  const [step, setStep] = useState("setup");
+  // A report restored from the session opens where the user left it.
+  const [step, setStep] = useState(scanState?.result ? "report" : "setup");
+  const [tier, setTier] = useState("quick");
   const [systemPrompt, setSystemPrompt] = useState(
     scanState?.systemPrompt || "",
   );
@@ -268,7 +272,12 @@ export default function Scan({ scanState, setScanState }) {
     ],
     [enabled, target],
   );
-  const result = scan.result;
+  const result = scan.result || scanState?.result || null;
+  const scanId = scan.scanId || scanState?.scanId || null;
+  useEffect(() => {
+    if (scan.scanId) setScanState?.((s) => ({ ...s, scanId: scan.scanId }));
+  }, [scan.scanId, setScanState]);
+  const forgetResult = () => setScanState?.((s) => ({ ...s, result: null, scanId: null }));
 
   function toggle(check) {
     setEnabled((prev) => {
@@ -286,7 +295,7 @@ export default function Scan({ scanState, setScanState }) {
       {
         system_prompt: systemPrompt,
         checks,
-        tier: "quick",
+        tier,
         mode: target === "demo" ? "demo" : "live",
         backend,
         target_model: target === "ollama" ? targetModel : null,
@@ -355,6 +364,8 @@ export default function Scan({ scanState, setScanState }) {
           setTargetSpec={setTargetSpec}
           graderSpec={graderSpec}
           setGraderSpec={setGraderSpec}
+          tier={tier}
+          setTier={setTier}
           onRun={runScan}
         />
       )}
@@ -365,6 +376,7 @@ export default function Scan({ scanState, setScanState }) {
           checks={checks}
           onCancel={() => {
             scan.reset();
+            forgetResult();
             setStep("setup");
           }}
         />
@@ -407,9 +419,12 @@ export default function Scan({ scanState, setScanState }) {
           >
             <span />
             <div style={{ display: "flex", gap: "0.75rem" }}>
-              {scan.scanId && (
+              <Button variant="outline" onClick={() => downloadJson(result, `fusion-report-${scanId || "scan"}.json`)}>
+                Download JSON
+              </Button>
+              {scanId && (
                 <a
-                  href={reportHtmlUrl(scan.scanId)}
+                  href={reportHtmlUrl(scanId)}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -437,10 +452,11 @@ export default function Scan({ scanState, setScanState }) {
       {step === "prove" && result && (
         <ProveStep
           result={result}
-          scanId={scan.scanId}
+          scanId={scanId}
           systemPrompt={systemPrompt}
           onRestart={() => {
             scan.reset();
+            forgetResult();
             setHardened(null);
             setStep("setup");
           }}
@@ -466,6 +482,8 @@ function SetupStep({
   setTargetSpec,
   graderSpec,
   setGraderSpec,
+  tier,
+  setTier,
   onRun,
 }) {
   const runnable = [...enabled].filter((c) => target !== "demo" || !QUALITY.includes(c));
@@ -606,6 +624,11 @@ function SetupStep({
             setGraderSpec={setGraderSpec}
           />
         </Card>
+      </section>
+
+      <section>
+        <SectionTitle>Attack set</SectionTitle>
+        <TierPicker tier={tier} onChange={setTier} />
       </section>
 
       <Button

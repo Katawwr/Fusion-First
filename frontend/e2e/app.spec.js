@@ -40,6 +40,18 @@ test.describe("desktop", () => {
     expect(errors).toEqual([]);
   });
 
+  test("a finished report survives a page refresh and downloads as JSON", async ({ page }) => {
+    await page.goto("/scan");
+    await page.getByRole("button", { name: "Support bot" }).click();
+    await page.getByRole("button", { name: "Run the scan" }).click();
+    await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
+    await page.reload();
+    await expect(page.getByText("Your report card")).toBeVisible();
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download JSON" }).click();
+    expect((await download).suggestedFilename()).toMatch(/^fusion-report-.+\.json$/);
+  });
+
   test("live backends this server can't run are disabled with the reason", async ({ page }) => {
     await page.goto("/scan");
     const claude = page.getByRole("radio", { name: /^Claude/ });

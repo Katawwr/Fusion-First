@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Header, Footer } from "./components/layout";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
+import { loadScanState, saveScanState } from "./lib/session";
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -23,11 +24,10 @@ import Trust from "./pages/Trust";
 
 export default function App() {
   const location = useLocation();
-  // Scan state lifted to App so a report survives navigation.
-  const [scanState, setScanState] = useState({
-    systemPrompt: "",
-    result: null,
-  });
+  // Scan state lifted to App so a report survives navigation, and kept in sessionStorage so it
+  // survives a refresh.
+  const [scanState, setScanState] = useState(loadScanState);
+  useEffect(() => saveScanState(scanState), [scanState]);
 
   return (
     <div
