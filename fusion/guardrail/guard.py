@@ -57,48 +57,99 @@ _EXTERNAL_SINK_WORDS = (
     "exfil",
 )
 
-# Verbs in the user's request that authorize a given consequential tool.
-_AUTH_KW = {
-    "send_email": ("send", "email", "forward", "notify", "reply", "message"),
-    "delete_records": ("delete", "remove", "purge", "clear", "wipe"),
-    "delete_data": ("delete", "remove", "purge", "clear", "wipe"),
-    "transfer_funds": ("transfer", "wire", " pay ", "remit", "send money"),
-    "approve_refund": ("approve", "refund"),
-    "grant_access": ("grant", "give access", "invite", "provision"),
-    "make_purchase": ("buy", "purchase", "order", "renew"),
-    "http_post": ("post", "send", "upload", "sync"),
-    "upload_file": ("upload", "share", "send"),
-    "webhook_post": ("post", "send", "sync"),
-}
-
-
-def _authorizes(user_request: str, tool: str) -> bool:
-    """The user's own request covers this call: a known tool's keywords (the table above), the tool's
-    name itself, or else one of its action verbs (or a synonym) AND, when the name says what it acts
-    on, one of those words or its service. A verb the guard does not know needs most of the name."""
-    terms = _Terms(user_request)
-    if tool in _AUTH_KW:
-        return any(terms.has_verb(k.strip()) for k in _AUTH_KW[tool])
-    if tool.lower() in user_request.lower():
-        return True
+def _authorizes(user_request: str, tool: str, arguments=None, identities=()) -> bool:
+    """The user's own request covers this call. One of the tool's action verbs (or a synonym) is used as
+    a verb in the request, AND the request names what that action touches: min(2, n) of its object
+    words, with the tool's service and the call's argument values counting one each (no objects: one
+    of those; nothing at all to match: the verb alone). A verb the guard does not know needs min(2, n)
+    words of the name, an argument value counting as one. The tool's full name as a word also covers it."""
     words = _tool_words(tool)
-    verbs, service, objects = _action_parts(words)
-    if not verbs:
-        distinct = [i for i, w in enumerate(words) if w not in _GENERIC and w not in _READONLY_VERBS]
-        return len(terms.mentioned(words) & set(distinct)) >= min(2, len(distinct))
-    if not any(terms.has_verb(s) for v in verbs for s in _VERB_SYNONYMS.get(v, (v,))):
-        return False
-    return not objects or bool(terms.mentioned(words) & set(service + objects))
+    if len(words) >= 2 and _names_tool(user_request, tool):
+        return True
+    terms = _Terms(user_request)
+    hit = terms.mentioned(words)
+    has_args = bool(_arg_values(arguments))
+    args_hit = int(_args_mentioned(user_request, arguments, identities))
+    candidates = _candidates(words)
+    if not candidates:
+        distinct = {i for i, w in enumerate(words) if w not in _GENERIC and w not in _READONLY_VERBS}
+        if not distinct and not has_args:
+            return False
+        return len(hit & distinct) + args_hit >= (min(2, len(distinct)) if distinct else 1)
+    for verb, service, objects in candidates:
+        if not any(terms.has_verb(s) for s in _VERB_SYNONYMS.get(verb, (verb,))):
+            continue
+        need = min(2, len(objects)) if objects else int(bool(service) or has_args)
+        if len(hit & set(objects)) + int(bool(hit & set(service))) + args_hit >= need:
+            return True
+    return False
 
 
 def _covers(user_request: str, tool: str) -> bool:
-    """The request names what this read touches (a word of the tool other than its verbs, or the tool)."""
-    if tool.lower() in user_request.lower():
-        return True
+    """The request names what this read touches: a word of the tool other than its verbs, or the tool.
+    Argument values do not count: an injected read often carries an id the user gave for another reason."""
     words = _tool_words(tool)
+    if len(words) >= 2 and _names_tool(user_request, tool):
+        return True
     touched = {i for i, w in enumerate(words)
                if w not in _GENERIC and w not in _READONLY_VERBS and w not in _ACTION_VERBS}
     return bool(_Terms(user_request).mentioned(words) & touched)
+
+
+def _names_tool(user_request: str, tool: str) -> bool:
+    return bool(re.search(rf"(?<![\w]){re.escape(tool.lower())}(?![\w])", user_request.lower()))
+
+
+_ARG_SKIP = frozenset({"true", "false", "none", "null", "all", "yes", "no", "default", "me", "my", "here"})
+
+
+def _arg_values(arguments) -> list[str]:
+    """The call's argument values as strings (nested dicts and lists flattened; booleans skipped)."""
+    out: list[str] = []
+
+    def walk(v, depth: int = 0) -> None:
+        if depth > 6 or v is None or isinstance(v, bool):
+            return
+        if isinstance(v, dict):
+            for x in v.values():
+                walk(x, depth + 1)
+        elif isinstance(v, (list, tuple)):
+            for x in v:
+                walk(x, depth + 1)
+        elif isinstance(v, (int, float)):
+            out.append(format(v, "g"))
+        else:
+            s = str(v).strip()
+            if s and s.lower() not in _ARG_SKIP and (len(s) > 1 or s.isdigit()):
+                out.append(s)
+
+    walk(arguments)
+    return out
+
+
+_SELF = re.compile(r"\b(me|myself|mine)\b")
+
+
+def _args_mentioned(user_request: str, arguments, identities=()) -> bool:
+    """The request names one of the call's argument values: the value itself (an id, amount, address,
+    name) as a whole word, an address's local part, two distinctive words of a longer text value, or
+    one of the user's own identities when the request says "me"."""
+    low = user_request.lower()
+    flat = low.replace(",", "")
+    req_words = set(re.findall(r"[a-z0-9]+", low))
+    own = {i.lower() for i in identities} if identities and _SELF.search(low) else set()
+    for v in _arg_values(arguments):
+        s = v.lower()
+        if s in own:
+            return True
+        forms = [s] + ([s.split("@", 1)[0]] if "@" in s else [])
+        if any(len(f) >= 1 and re.search(rf"(?<![\w]){re.escape(f)}(?![\w])", flat if f[0].isdigit() else low)
+               for f in forms if f and (len(f) >= 2 or f.isdigit())):
+            return True
+        toks = {t for t in re.findall(r"[a-z0-9]+", s) if len(t) >= 4 and t not in _GENERIC}
+        if len(toks) >= 2 and len(toks & req_words) >= 2:
+            return True
+    return False
 
 
 # A tool whose name contains one of these verbs is treated as consequential even if not on the
@@ -156,12 +207,22 @@ def _has_ssn(text: str) -> bool:
 _READONLY_VERBS = frozenset(
     {"lookup", "get", "list", "search", "read", "view", "fetch", "find", "check", "show",
      "count", "describe", "status", "summarize", "summarise", "preview", "query", "browse",
-     "export", "download", "inspect", "report", "retrieve", "navigate", "visit"}
+     "export", "download", "inspect", "retrieve", "navigate", "visit"}
 )
 
 
-# Words that name WHAT a tool touches rather than what it does (GmailReadEmail reads email).
-_NOUNISH = frozenset({"email", "sms", "sql", "order", "issue", "post", "write"})
+# Action words that, AFTER another verb, usually name what a tool touches rather than a second action:
+# GmailReadEmail, GetPurchaseHistory, GetUploadUrl, GetStartTime, PlaceOrder. Joined with and/then
+# (search_and_delete) or absent from this list (search_replace, ListMoveFiles), a later action word
+# makes the tool an action.
+_NOUNISH = frozenset({
+    "email", "sms", "sql", "order", "issue", "post", "write", "tweet", "reply", "message", "text", "dm", "run",
+    "purchase", "upload", "reset", "pay", "charge", "refund", "transfer", "deploy", "grant", "share", "report",
+    "lock", "schedule", "update", "change", "deposit", "trade", "invite", "block", "flag", "pin", "star",
+    "label", "tag", "mark", "sign", "place", "start", "stop", "cancel", "control", "archive", "dispatch",
+    "follow", "like", "set", "save", "fill", "merge", "join", "leave", "install", "apply", "submit",
+    "restore", "book", "reserve", "launch", "publish", "draft",
+})
 
 # Request words that authorize an action verb in a tool's name (the verb itself always does). General
 # English CRUD / control / money / messaging verbs; nouns are left out, so a request that merely
@@ -176,7 +237,7 @@ _SEND_SYN = ("send", "sent", "email", "forward", "reply", "respond", "message", 
              "deliver")
 _GRANT_SYN = ("grant", "give", "gave", "allow", "permit", "share", "invite", "provision", "authorize", "add")
 _MONEY_SYN = ("transfer", "move", "send", "sent", "wire", "pay", "paid", "remit", "settle", "deposit", "withdraw",
-              "withdrew")
+              "withdrew", "venmo", "zelle")
 _BUY_SYN = ("buy", "bought", "purchase", "order", "book", "reserve", "subscribe", "renew")
 _SELL_SYN = ("sell", "sold", "trade", "exchange", "swap", "liquidate", "convert")
 _VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
@@ -202,7 +263,11 @@ _VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
     "buy": _BUY_SYN, "purchase": _BUY_SYN, "order": _BUY_SYN, "book": _BUY_SYN + ("schedule",), "reserve": _BUY_SYN,
     "sell": _SELL_SYN, "trade": _SELL_SYN + ("buy",), "place": ("place", "put", "submit", "make", "buy", "sell", "order"),
     "schedule": ("schedule", "reschedule", "book", "arrange", "set up", "plan"),
-    "cancel": ("cancel", "stop", "terminate", "void", "call off", "abort"),
+    "cancel": ("cancel", "stop", "terminate", "void", "call off", "abort", "unsubscribe"),
+    "replace": _UPDATE_SYN, "overwrite": ("overwrite", "replace"), "report": ("report", "flag", "file"),
+    "pin": ("pin",), "unpin": ("unpin",), "flag": ("flag", "mark", "report"), "star": ("star", "favorite"),
+    "mute": ("mute", "silence"), "unmute": ("unmute",), "merge": ("merge", "combine"),
+    "mark": ("mark", "flag", "label"), "label": ("label", "tag", "mark"), "tag": ("tag", "label"),
     "run": ("run", "execute", "exec", "launch", "start", "invoke"), "execute": ("run", "execute", "exec", "launch", "invoke"),
     "exec": ("run", "execute", "exec", "invoke"), "invoke": ("run", "execute", "invoke", "call", "trigger"),
     "launch": ("launch", "start", "run", "open"), "start": ("start", "begin", "launch", "run", "turn on", "switch on"),
@@ -247,6 +312,38 @@ _VERB_LEADS = frozenset({
     "lets",
 })
 _CLAUSE = re.compile(r"[.!?;:,()\[\]{}\"`\n]+")
+# ... but not in idioms that ask for information or change what the agent is doing: "give me the details
+# of", "stop showing", "keep sending".
+_INFO_NOUNS = frozenset({
+    "detail", "details", "status", "summary", "list", "info", "information", "overview", "update", "updates",
+    "breakdown", "report", "answer", "number", "count", "name", "names", "link", "url", "rundown", "idea",
+    "example", "examples", "explanation", "description", "estimate", "recap", "preview", "sense", "hint",
+    "tips", "total", "balance", "history", "copy", "gist", "context",
+})
+_ASPECTUAL = frozenset({"stop", "start", "keep", "begin", "finish", "quit", "end", "continue"})
+# "initiate a payment", "make a transfer", "place an order": a light verb and an action noun mean the verb.
+_LIGHT_VERBS = frozenset({"initiate", "make", "process", "execute", "submit", "place", "issue", "do", "perform",
+                          "complete", "send", "set", "schedule", "arrange"})
+_NOMINALIZATIONS = {
+    "payment": "pay", "transfer": "transfer", "purchase": "purchase", "order": "order", "withdrawal": "withdraw",
+    "deposit": "deposit", "refund": "refund", "booking": "book", "reservation": "reserve", "deletion": "delete",
+    "cancellation": "cancel", "trade": "trade", "sale": "sell", "wire": "wire", "update": "update",
+    "change": "change", "invitation": "invite", "installation": "install", "removal": "remove",
+}
+_DETERMINERS = frozenset({"a", "an", "the", "my", "this", "that", "our", "your", "one", "new"})
+# Request words that name a tool word in other terms (abbreviations, near-synonyms of common objects).
+_ALIASES = {
+    "repo": ("repository",), "repos": ("repository",), "pr": ("pull", "request"), "prs": ("pull", "request"),
+    "msg": ("message",), "msgs": ("message",), "dm": ("direct", "message"), "dms": ("direct", "message"),
+    "doc": ("document",), "docs": ("document",), "db": ("database",), "config": ("configuration",),
+    "conversation": ("thread", "chat"), "chat": ("thread", "conversation"), "thread": ("conversation", "chat"),
+    "newsletter": ("subscription",), "unsubscribe": ("subscription",), "ticket": ("issue",),
+    "vm": ("instance", "machine"), "calendar": ("event",),
+}
+_CURRENCY = re.compile(r"[$€£]\s?\d|\b\d[\d,.]*\s?(usd|eur|gbp|dollars?|euros?|pounds?|btc|bitcoin|eth)\b")
+# Send-type verbs act on a recipient; the channel word in their name (GmailSendEmail) is not an object.
+_SEND_VERBS = frozenset({"send", "email", "forward", "reply", "message", "notify", "sms", "post", "tweet",
+                         "retweet", "share", "upload", "publish"})
 
 # What private data a read touches (financial, health, identity, credentials, location and activity
 # history): after untrusted content arrives, reading it unasked is the first step of data theft.
@@ -256,7 +353,7 @@ _PRIVATE_DATA_WORDS = (
     "brokerage", "patient", "medical", "health", "clinical", "diagnosis", "prescription", "genetic", "dna",
     "genome", "allergy", "medication", "insurance", "address", "phone", "contact", "profile", "personal",
     "identity", "ssn", "passport", "birthday", "password", "credential", "secret", "token", "vault", "otp",
-    "location", "gps", "history",
+    "location", "gps", "history", "private", "confidential", "direct", "dm",
 )
 
 _SEPARATORS = re.compile(r"[_\-\s.:/]+")
@@ -290,6 +387,7 @@ def _stem(w: str) -> str:
 
 
 _PRIVATE_DATA = frozenset(_stem(w) for w in _PRIVATE_DATA_WORDS)
+_NOMINAL_STEMS = {_stem(n): v for n, v in _NOMINALIZATIONS.items()}
 
 
 class _Terms:
@@ -298,22 +396,44 @@ class _Terms:
     def __init__(self, text: str):
         low = re.sub(r"\blet['’]s\b", "lets", text.lower())
         toks = re.findall(r"[a-z0-9]+", low)
-        self.words = set(toks) | {_stem(t) for t in toks}
+        named = set(toks) | {w for t in toks for w in _ALIASES.get(t, ())}
+        if _CURRENCY.search(low):
+            named |= {"fund", "funds", "money", "amount", "payment"}
+        self.words = named | {_stem(t) for t in named}
         self.clauses = [re.findall(r"[a-z0-9]+", c) for c in _CLAUSE.split(low)]
+        self.implied = set()  # verbs meant by "initiate a payment" and the like
+        for c in self.clauses:
+            for i, t in enumerate(c):
+                if t in _LIGHT_VERBS and self._verb_at(c, i):
+                    j = i + 1 + (i + 1 < len(c) and c[i + 1] in _DETERMINERS)
+                    if j < len(c) and _stem(c[j]) in _NOMINAL_STEMS:
+                        self.implied.add(_NOMINAL_STEMS[_stem(c[j])])
 
     def has(self, term: str) -> bool:
         return term in self.words or _stem(term) in self.words
+
+    @staticmethod
+    def _verb_at(toks: list[str], i: int) -> bool:
+        """toks[i] is in verb position and not part of an idiom that only asks for something."""
+        if i and toks[i - 1] not in _VERB_LEADS:
+            return False
+        nxt = toks[i + 1] if i + 1 < len(toks) else ""
+        if toks[i] in _ASPECTUAL and nxt.endswith("ing"):
+            return False  # "stop showing", "keep sending": about what the agent does, not an action
+        if toks[i] == "give" and nxt in ("me", "us") and _INFO_NOUNS.intersection(toks[i + 2:i + 6]):
+            return False  # "give me the details of": a request for information
+        return True
 
     def has_verb(self, term: str) -> bool:
         """The request uses `term` (a word or phrase) as a verb: at a clause start or after a lead."""
         parts = term.split()
         stems = [_stem(p) for p in parts]
+        if len(parts) == 1 and stems[0] in {_stem(v) for v in self.implied}:
+            return True
         for toks in self.clauses:
             for i in range(len(toks) - len(parts) + 1):
-                if i and toks[i - 1] not in _VERB_LEADS:
-                    continue
                 window = toks[i:i + len(parts)]
-                if window == parts or [_stem(t) for t in window] == stems:
+                if (window == parts or [_stem(t) for t in window] == stems) and self._verb_at(toks, i):
                     return True
         return False
 
@@ -326,28 +446,30 @@ class _Terms:
         return hit
 
 
-def _action_parts(words: list[str]) -> tuple[list[str], list[int], list[int]]:
-    """(action verbs, service word indices, object word indices) of a tool name. The first action verb
-    splits the name: before it the service (BankManager), after it what the action touches (Bill);
-    a nounish word after a verb is an object (send_email), not a second action."""
-    first = next((i for i, w in enumerate(words) if w in _ACTION_VERBS), None)
-    if first is None:
-        return [], [], []
-    verbs = [words[first]] + [w for w in words[first + 1:] if w in _ACTION_VERBS and w not in _NOUNISH]
+def _candidates(words: list[str]) -> list[tuple[str, list[int], list[int]]]:
+    """Each action word of a tool name as a possible verb: (verb, service word indices before it, object
+    word indices after it). Other action words count as nouns there (Create+Transfer, Smart+Lock+Unlock);
+    the message channel is not an object of a send (GmailSendEmail)."""
+    def content(j: int, send: bool) -> bool:
+        w = words[j]
+        return (w not in _FILLER and w not in _CONTAINERS and w not in _READONLY_VERBS
+                and not (send and w in _CHANNELS))
 
-    def keep(i: int) -> bool:
-        w = words[i]
-        return (w not in _FILLER and w not in _CONTAINERS and w not in _CHANNELS and w not in _READONLY_VERBS
-                and (w not in _ACTION_VERBS or w in _NOUNISH))
-
-    return verbs, [i for i in range(first) if keep(i)], [i for i in range(first + 1, len(words)) if keep(i)]
+    out = []
+    for i, verb in enumerate(words):
+        if verb in _ACTION_VERBS:
+            send = verb in _SEND_VERBS
+            out.append((verb, [j for j in range(i) if content(j, send)],
+                        [j for j in range(i + 1, len(words)) if content(j, send)]))
+    return out
 
 
 def _is_readonly(name: str) -> bool:
-    """Read-only when the tool's first verb is a read verb and no later word is a consequential verb
-    (or an action verb joined on with 'and'/'then'). Tool names put the service first in CamelCase
-    (Gmail+Read+Email, and PayPal / OpenTable service names that start with a verb) or the verb first in
-    snake_case (list_transfers), so 'search_and_delete' and 'delete_then_list' are consequential."""
+    """Read-only when the tool's first verb is a read verb and no later word is an action (an action
+    word that usually names an object, like Email in GmailReadEmail, is one only when joined on with
+    and/then). Tool names put the service first in CamelCase (Gmail+Read+Email, and PayPal / OpenTable
+    service names that start with a verb) or the verb first in snake_case (list_transfers), so
+    'search_and_delete', 'search_replace' and 'delete_then_list' are actions."""
     words = _tool_words(name)
     camel = not _SEPARATORS.search(name)
     first_read = next((i for i, w in enumerate(words) if w in _READONLY_VERBS), None)
@@ -355,8 +477,7 @@ def _is_readonly(name: str) -> bool:
         if w in _READONLY_VERBS:
             later = words[i + 1:]
             return not any(
-                (v in _CONSEQUENTIAL_VERBS and v not in _NOUNISH)
-                or (v in _ACTION_VERBS and j > 0 and later[j - 1] in _CONJUNCTIONS)
+                v in _ACTION_VERBS and (v not in _NOUNISH or (j > 0 and later[j - 1] in _CONJUNCTIONS))
                 for j, v in enumerate(later)
             )
         if w in _ACTION_VERBS:
@@ -634,25 +755,33 @@ class Guardrail:
 
         `user_request` must be the user's own words: text from tool results or documents in it would
         let an injected instruction authorize itself."""
-        out = GuardOutcome(decision=Decision.ALLOW, content=name)
+        out = GuardOutcome(decision=Decision.ALLOW, content=name if isinstance(name, str) else str(name or ""))
         if not self.config.guard_tool_calls:
             return out
+        if not isinstance(name, str) or not name.strip():
+            out.add(GuardEvent(stage="tool_call", check="excessive_agency", owasp=_OWASP["excessive_agency"],
+                               decision=Decision.BLOCK, detail="tool call without a usable tool name"))
+            return out
         cfg = self.config
+        user_request = user_request if isinstance(user_request, str) else ""
         readonly = name in cfg.readonly_tools or (name not in cfg.consequential_tools and _is_readonly(name))
-        bound = bool(user_request) and (cfg.require_authorization or (untrusted_context and cfg.bind_after_untrusted))
+        bound = cfg.require_authorization or (untrusted_context and cfg.bind_after_untrusted)
         after = " after untrusted content entered the context" if untrusted_context else ""
-        if bound and not readonly and not _authorizes(user_request, name):
+        # Fail closed: under either posture a call that is not a read needs a request that covers it.
+        if bound and not readonly and not (
+                user_request and _authorizes(user_request, name, arguments, cfg.user_identities)):
+            reason = "is not covered by the user's request" if user_request else "has no user request to check against"
             out.add(
                 GuardEvent(
                     stage="tool_call",
                     check="excessive_agency",
                     owasp=_OWASP["excessive_agency"],
                     decision=Decision.BLOCK,
-                    detail=f"'{name}' is not covered by the user's request{after}",
+                    detail=f"'{name}' {reason}{after}",
                 )
             )
-        if (readonly and untrusted_context and user_request and cfg.gate_private_reads
-                and _reads_private_data(name) and not _covers(user_request, name)):
+        if (readonly and untrusted_context and cfg.gate_private_reads and _reads_private_data(name)
+                and not (user_request and _covers(user_request, name))):
             out.add(
                 GuardEvent(
                     stage="tool_call",

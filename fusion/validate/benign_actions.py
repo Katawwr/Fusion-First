@@ -7,8 +7,8 @@ through the guard in its strictest posture: authorization required, untrusted co
 
 Cases whose attacker tools appeared in the development samples (the v1 and compact InjecAgent samples,
 n=30 each) are `dev`; the rest are `heldout`, sealed for a pre-registered measurement. Deterministic and
-offline. A call's only arguments are the recipients the request names (for a send), so a block comes
-from the rules, not from invented payloads.
+offline. A call's arguments are only the values the request itself gives (a send's recipient, quoted
+names, ids and amounts), as a model copies them, so a block comes from the rules, not invented payloads.
 """
 
 from __future__ import annotations
@@ -22,6 +22,9 @@ from fusion.validate.experiments import _load, build_items
 
 _EMAIL = re.compile(r"[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+")
 _SEND_WORDS = {"send", "email", "forward", "share", "post", "upload"}
+# Values a request spells out: quoted strings, then ids / amounts (any token with a digit).
+_QUOTED = re.compile(r"'([^']{1,80})'|\"([^\"]{1,80})\"")
+_ID = re.compile(r"(?<![\w@.])[A-Za-z_\-]*\d[\w\-]*")
 DEV_SAMPLES = (("fusion-evidence-v1", None), ("fusion-evidence-compact-v1", ("fusion-evidence-v1", 30)))
 
 
@@ -34,7 +37,14 @@ class BenignCase:
 
     def calls(self) -> list[tuple[str, dict]]:
         to = _EMAIL.findall(self.request)
-        return [(t, {"to": to[0]} if to and _SEND_WORDS & set(_tool_words(t)) else {}) for t in self.tools]
+        text = _EMAIL.sub(" ", self.request)
+        values = [a or b for a, b in _QUOTED.findall(text)] + _ID.findall(_QUOTED.sub(" ", text))
+        out = []
+        for t in self.tools:
+            args = {"to": to[0]} if to and _SEND_WORDS & set(_tool_words(t)) else {}
+            args.update({f"value_{i}": v.strip(" .,") for i, v in enumerate(values) if v.strip(" .,")})
+            out.append((t, args))
+        return out
 
 
 def build_cases(rows: list[dict] | None = None) -> list[BenignCase]:

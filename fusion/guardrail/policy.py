@@ -77,3 +77,5 @@ class GuardConfig(BaseModel):
     gate_private_reads: bool = True
     # Tools this deployment knows only read: exempt from the binding.
     readonly_tools: list[str] = Field(default_factory=list)
+    # The user's own addresses and handles: "email it to me" names them.
+    user_identities: list[str] = Field(default_factory=list)
