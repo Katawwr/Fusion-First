@@ -197,10 +197,13 @@ def build_server(runs: RunTools | None = None):
         return t.check_output(text, secret_values, system_prompt, on_secret)
 
     @mcp.tool()
-    def check_tool_call(name: str, arguments: dict, user_request: str = "", allowlisted_domains: list[str] | None = None, secret_values: list[str] | None = None, require_authorization: bool = True) -> dict:
-        """PROTECT (runtime): decide whether a tool call is safe to execute. Blocks unauthorized
-        consequential actions, sends to external/untrusted destinations, and secret/PII exfiltration."""
-        return t.check_tool_call(name, arguments, user_request, allowlisted_domains, secret_values, require_authorization)
+    def check_tool_call(name: str, arguments: dict, user_request: str = "", allowlisted_domains: list[str] | None = None, secret_values: list[str] | None = None, require_authorization: bool = True, untrusted_context: bool = False) -> dict:
+        """PROTECT (runtime): decide whether a tool call is safe to execute. Blocks actions the user's
+        request does not cover, sends to external/untrusted destinations, and secret/PII exfiltration.
+        Set untrusted_context once tool results or documents are in the conversation (then unrequested
+        private-data reads are blocked too). user_request must be the user's own words."""
+        return t.check_tool_call(name, arguments, user_request, allowlisted_domains, secret_values,
+                                 require_authorization, untrusted_context)
 
     return mcp
 

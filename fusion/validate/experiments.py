@@ -57,6 +57,7 @@ class EvidenceItem:
     oracle: dict = field(default_factory=dict)
     injected: str | None = None
     tool: str | None = None
+    instruction: str = ""  # the user's own words, without the tool result `user` carries (InjecAgent)
 
     def system_for(self, arm: str) -> str:
         if arm == "baseline":
@@ -112,7 +113,7 @@ def build_injecagent(rows: list[dict]) -> list[EvidenceItem]:
         items.append(EvidenceItem(
             experiment="injecagent", item_id=r["id"], kind="safety", system=system, user=user,
             oracle={"type": "action", "forbidden_tools": list(r["attacker_tools"])},
-            injected=response, tool=r["user_tool"],
+            injected=response, tool=r["user_tool"], instruction=r["user_instruction"],
         ))
     return items
 

@@ -73,8 +73,32 @@ _AUTH_KW = {
 
 
 def _authorizes(user_request: str, tool: str) -> bool:
-    low = user_request.lower()
-    return any(k in low for k in _AUTH_KW.get(tool, ()))
+    """The user's own request covers this call: a known tool's keywords (the table above), the tool's
+    name itself, or else one of its action verbs (or a synonym) AND, when the name says what it acts
+    on, one of those words or its service. A verb the guard does not know needs most of the name."""
+    terms = _Terms(user_request)
+    if tool in _AUTH_KW:
+        return any(terms.has_verb(k.strip()) for k in _AUTH_KW[tool])
+    if tool.lower() in user_request.lower():
+        return True
+    words = _tool_words(tool)
+    verbs, service, objects = _action_parts(words)
+    if not verbs:
+        distinct = [i for i, w in enumerate(words) if w not in _GENERIC and w not in _READONLY_VERBS]
+        return len(terms.mentioned(words) & set(distinct)) >= min(2, len(distinct))
+    if not any(terms.has_verb(s) for v in verbs for s in _VERB_SYNONYMS.get(v, (v,))):
+        return False
+    return not objects or bool(terms.mentioned(words) & set(service + objects))
+
+
+def _covers(user_request: str, tool: str) -> bool:
+    """The request names what this read touches (a word of the tool other than its verbs, or the tool)."""
+    if tool.lower() in user_request.lower():
+        return True
+    words = _tool_words(tool)
+    touched = {i for i, w in enumerate(words)
+               if w not in _GENERIC and w not in _READONLY_VERBS and w not in _ACTION_VERBS}
+    return bool(_Terms(user_request).mentioned(words) & touched)
 
 
 # A tool whose name contains one of these verbs is treated as consequential even if not on the
@@ -132,27 +156,218 @@ def _has_ssn(text: str) -> bool:
 _READONLY_VERBS = frozenset(
     {"lookup", "get", "list", "search", "read", "view", "fetch", "find", "check", "show",
      "count", "describe", "status", "summarize", "summarise", "preview", "query", "browse",
-     "export", "download", "inspect", "report"}
+     "export", "download", "inspect", "report", "retrieve", "navigate", "visit"}
 )
 
 
 # Words that name WHAT a tool touches rather than what it does (GmailReadEmail reads email).
 _NOUNISH = frozenset({"email", "sms", "sql", "order", "issue", "post", "write"})
-_WORD_SPLIT = re.compile(r"[_\-\s.]+|(?<=[a-z0-9])(?=[A-Z])")
+
+# Request words that authorize an action verb in a tool's name (the verb itself always does). General
+# English CRUD / control / money / messaging verbs; nouns are left out, so a request that merely
+# mentions an appointment does not authorize scheduling one.
+_DELETE_SYN = ("delete", "remove", "erase", "purge", "clear", "wipe", "destroy", "drop", "trash", "discard",
+               "get rid of")
+_CREATE_SYN = ("create", "add", "make", "made", "set up", "setup", "open", "start", "generate", "draft", "write",
+               "compose", "register")
+_UPDATE_SYN = ("update", "edit", "change", "modify", "set", "rename", "adjust", "configure", "correct", "fix",
+               "replace", "switch", "turn")
+_SEND_SYN = ("send", "sent", "email", "forward", "reply", "respond", "message", "text", "dm", "notify", "share",
+             "deliver")
+_GRANT_SYN = ("grant", "give", "gave", "allow", "permit", "share", "invite", "provision", "authorize", "add")
+_MONEY_SYN = ("transfer", "move", "send", "sent", "wire", "pay", "paid", "remit", "settle", "deposit", "withdraw",
+              "withdrew")
+_BUY_SYN = ("buy", "bought", "purchase", "order", "book", "reserve", "subscribe", "renew")
+_SELL_SYN = ("sell", "sold", "trade", "exchange", "swap", "liquidate", "convert")
+_VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "delete": _DELETE_SYN, "remove": _DELETE_SYN, "erase": _DELETE_SYN, "purge": _DELETE_SYN,
+    "wipe": _DELETE_SYN, "drop": _DELETE_SYN, "destroy": _DELETE_SYN, "clear": _DELETE_SYN,
+    "create": _CREATE_SYN, "add": _CREATE_SYN + ("insert", "include", "append", "put"), "make": _CREATE_SYN,
+    "generate": _CREATE_SYN + ("produce", "convert"), "register": _CREATE_SYN + ("enroll", "sign up"),
+    "update": _UPDATE_SYN, "edit": _UPDATE_SYN, "change": _UPDATE_SYN, "modify": _UPDATE_SYN, "set": _UPDATE_SYN,
+    "rename": _UPDATE_SYN, "reset": _UPDATE_SYN + ("restore", "clear"), "control": _UPDATE_SYN,
+    "manage": ("manage", "schedule", "reschedule", "cancel", "organize", "move", "archive", "book", "share")
+    + _CREATE_SYN + _UPDATE_SYN + _DELETE_SYN,
+    "send": _SEND_SYN, "email": _SEND_SYN, "forward": _SEND_SYN, "reply": _SEND_SYN, "message": _SEND_SYN,
+    "notify": _SEND_SYN, "sms": _SEND_SYN,
+    "post": ("post", "publish", "tweet", "share", "upload", "send"), "publish": ("publish", "post", "share", "release"),
+    "tweet": ("tweet", "post", "publish"), "retweet": ("retweet", "share", "repost"),
+    "upload": ("upload", "attach", "share", "send", "post"), "share": ("share",) + _SEND_SYN + _GRANT_SYN,
+    "grant": _GRANT_SYN, "give": _GRANT_SYN + ("provide", "assign", "prioritize"), "invite": _GRANT_SYN,
+    "provision": _GRANT_SYN, "assign": ("assign", "give", "allocate", "delegate", "set"),
+    "revoke": ("revoke", "remove", "withdraw", "cancel", "disable", "take away"),
+    "transfer": _MONEY_SYN, "wire": _MONEY_SYN, "pay": _MONEY_SYN + ("payment",), "deposit": _MONEY_SYN + ("fund", "top up"),
+    "withdraw": _MONEY_SYN + ("cash out", "take out"), "refund": ("refund", "reimburse", "return"),
+    "charge": ("charge", "bill", "invoice"),
+    "buy": _BUY_SYN, "purchase": _BUY_SYN, "order": _BUY_SYN, "book": _BUY_SYN + ("schedule",), "reserve": _BUY_SYN,
+    "sell": _SELL_SYN, "trade": _SELL_SYN + ("buy",), "place": ("place", "put", "submit", "make", "buy", "sell", "order"),
+    "schedule": ("schedule", "reschedule", "book", "arrange", "set up", "plan"),
+    "cancel": ("cancel", "stop", "terminate", "void", "call off", "abort"),
+    "run": ("run", "execute", "exec", "launch", "start", "invoke"), "execute": ("run", "execute", "exec", "launch", "invoke"),
+    "exec": ("run", "execute", "exec", "invoke"), "invoke": ("run", "execute", "invoke", "call", "trigger"),
+    "launch": ("launch", "start", "run", "open"), "start": ("start", "begin", "launch", "run", "turn on", "switch on"),
+    "stop": ("stop", "halt", "end", "turn off", "switch off", "cancel"), "restart": ("restart", "reboot", "reset"),
+    "lock": ("lock", "secure"), "unlock": ("unlock", "open", "let in"),
+    "enable": ("enable", "turn on", "switch on", "activate", "start", "allow"),
+    "disable": ("disable", "turn off", "switch off", "deactivate", "stop", "remove"),
+    "leave": ("leave", "exit", "quit", "unsubscribe"), "join": ("join", "subscribe", "enter"),
+    "approve": ("approve", "accept", "confirm", "sign off"), "reject": ("reject", "decline", "deny", "refuse"),
+    "move": ("move", "relocate", "transfer", "redirect", "put"), "redirect": ("redirect", "reroute", "forward", "move"),
+    "install": ("install", "add", "set up", "setup"), "uninstall": ("uninstall", "remove", "delete"),
+    "fill": ("fill", "autofill", "enter", "populate", "complete"), "autofill": ("fill", "autofill", "enter", "populate"),
+    "save": ("save", "store", "write", "keep", "back up", "backup"), "write": ("write", "save", "store", "edit", "update"),
+    "dispatch": ("dispatch", "send", "deploy", "call"), "deploy": ("deploy", "release", "ship", "roll out"),
+    "submit": ("submit", "send", "file", "apply"), "apply": ("apply", "submit", "use"),
+    "archive": ("archive", "move", "store"), "restore": ("restore", "recover", "undo"),
+    "block": ("block", "ban", "blacklist", "deny"), "unblock": ("unblock", "allow", "whitelist"),
+    "follow": ("follow", "subscribe"), "unfollow": ("unfollow", "unsubscribe"), "like": ("like", "favorite"),
+    "sign": ("sign", "approve", "accept"), "accept": ("accept", "approve", "confirm"), "decline": ("decline", "reject"),
+    "suspend": ("suspend", "pause", "disable", "freeze"), "terminate": ("terminate", "end", "stop", "kill", "cancel"),
+    "kill": ("kill", "stop", "terminate", "end"), "convert": ("convert", "change", "exchange", "swap"),
+}
+# Every verb the guard knows a tool can DO (the default consequential list plus the table's verbs).
+_ACTION_VERBS = frozenset(_CONSEQUENTIAL_VERBS) | frozenset(_VERB_SYNONYMS)
+
+# Words of a tool name that do not say what an action touches: filler, the tool's container, and the
+# message channel of a send (GmailSendEmail acts on a recipient, not on "email").
+_FILLER = frozenset({"a", "an", "the", "to", "for", "of", "and", "or", "by", "with", "from", "in", "on", "at",
+                     "into", "my", "me", "your", "our", "all", "then", "plus", "mcp"})
+_CONTAINERS = frozenset({"manager", "system", "tool", "tools", "service", "api", "app"})
+_CHANNELS = frozenset({"email", "emails", "mail", "message", "messages", "sms", "text", "dm"})
+# ... and, for naming what a READ touches, vague nouns as well (every read gets "details").
+_GENERIC = _FILLER | _CONTAINERS | _CHANNELS | frozenset({
+    "info", "information", "detail", "details", "data", "item", "items", "request", "action", "id", "ids",
+    "result", "results", "content", "user", "users",
+})
+# A request word is used as a verb at the start of a clause or after one of these ("please delete",
+# "and email them", "you give"), not as a noun or adjective ("the latest email", "Watson's shared calendar").
+_VERB_LEADS = frozenset({
+    "please", "pls", "kindly", "and", "then", "also", "to", "you", "i", "we", "me", "us", "can", "could", "would",
+    "will", "should", "must", "just", "now", "immediately", "first", "finally", "next", "simply", "quickly", "or",
+    "lets",
+})
+_CLAUSE = re.compile(r"[.!?;:,()\[\]{}\"`\n]+")
+
+# What private data a read touches (financial, health, identity, credentials, location and activity
+# history): after untrusted content arrives, reading it unasked is the first step of data theft.
+_PRIVATE_DATA_WORDS = (
+    "account", "bank", "balance", "holding", "portfolio", "investment", "payment", "card", "transaction",
+    "statement", "tax", "salary", "payroll", "invoice", "payee", "wallet", "credit", "loan", "mortgage",
+    "brokerage", "patient", "medical", "health", "clinical", "diagnosis", "prescription", "genetic", "dna",
+    "genome", "allergy", "medication", "insurance", "address", "phone", "contact", "profile", "personal",
+    "identity", "ssn", "passport", "birthday", "password", "credential", "secret", "token", "vault", "otp",
+    "location", "gps", "history",
+)
+
+_SEPARATORS = re.compile(r"[_\-\s.:/]+")
+_CAMEL_WORDS = re.compile(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+")
+_CONJUNCTIONS = frozenset({"and", "then", "or", "plus"})
+
+
+def _tool_words(name: str) -> list[str]:
+    """A tool name's words, lower-cased: snake/kebab/dotted parts, CamelCase humps and acronym runs
+    (EpicFHIRGetPatientDetails -> epic fhir get patient details)."""
+    return [w.lower() for part in _SEPARATORS.split(name) for w in _CAMEL_WORDS.findall(part)]
+
+
+def _stem(w: str) -> str:
+    """Crude suffix folding so a request's 'addresses' / 'deleting' meet a tool's Address / Delete."""
+    if len(w) > 4 and w.endswith("ies"):
+        w = w[:-3] + "y"
+    elif len(w) > 4 and w.endswith("sses"):
+        w = w[:-2]
+    elif len(w) > 3 and w.endswith("s") and not w.endswith(("ss", "us", "is")):
+        w = w[:-1]
+    for suf in ("ing", "ed"):
+        if len(w) > len(suf) + 2 and w.endswith(suf):
+            w = w[: -len(suf)]
+            if len(w) > 3 and w[-1] == w[-2] and w[-1] not in "ls":  # transferr -> transfer
+                w = w[:-1]
+            break
+    if len(w) > 3 and w.endswith("e"):
+        w = w[:-1]
+    return w
+
+
+_PRIVATE_DATA = frozenset(_stem(w) for w in _PRIVATE_DATA_WORDS)
+
+
+class _Terms:
+    """A request's words (and their stems), for matching against a tool name's words."""
+
+    def __init__(self, text: str):
+        low = re.sub(r"\blet['’]s\b", "lets", text.lower())
+        toks = re.findall(r"[a-z0-9]+", low)
+        self.words = set(toks) | {_stem(t) for t in toks}
+        self.clauses = [re.findall(r"[a-z0-9]+", c) for c in _CLAUSE.split(low)]
+
+    def has(self, term: str) -> bool:
+        return term in self.words or _stem(term) in self.words
+
+    def has_verb(self, term: str) -> bool:
+        """The request uses `term` (a word or phrase) as a verb: at a clause start or after a lead."""
+        parts = term.split()
+        stems = [_stem(p) for p in parts]
+        for toks in self.clauses:
+            for i in range(len(toks) - len(parts) + 1):
+                if i and toks[i - 1] not in _VERB_LEADS:
+                    continue
+                window = toks[i:i + len(parts)]
+                if window == parts or [_stem(t) for t in window] == stems:
+                    return True
+        return False
+
+    def mentioned(self, words: list[str]) -> set[int]:
+        """Indices of the tool words the request mentions, alone or joined with a neighbour (git+hub)."""
+        hit = {i for i, w in enumerate(words) if self.has(w)}
+        for i in range(len(words) - 1):
+            if words[i] + words[i + 1] in self.words:
+                hit |= {i, i + 1}
+        return hit
+
+
+def _action_parts(words: list[str]) -> tuple[list[str], list[int], list[int]]:
+    """(action verbs, service word indices, object word indices) of a tool name. The first action verb
+    splits the name: before it the service (BankManager), after it what the action touches (Bill);
+    a nounish word after a verb is an object (send_email), not a second action."""
+    first = next((i for i, w in enumerate(words) if w in _ACTION_VERBS), None)
+    if first is None:
+        return [], [], []
+    verbs = [words[first]] + [w for w in words[first + 1:] if w in _ACTION_VERBS and w not in _NOUNISH]
+
+    def keep(i: int) -> bool:
+        w = words[i]
+        return (w not in _FILLER and w not in _CONTAINERS and w not in _CHANNELS and w not in _READONLY_VERBS
+                and (w not in _ACTION_VERBS or w in _NOUNISH))
+
+    return verbs, [i for i in range(first) if keep(i)], [i for i in range(first + 1, len(words)) if keep(i)]
 
 
 def _is_readonly(name: str) -> bool:
-    """Read-only when the tool's first verb is a read verb and no later word is a consequential verb.
-    Tool names put the service first in CamelCase (Gmail+Read+Email) or the verb first in snake_case
-    (list_transfers), so the name is split both ways; 'search_and_delete' is still consequential."""
-    words = [w.lower() for w in _WORD_SPLIT.split(name) if w]
+    """Read-only when the tool's first verb is a read verb and no later word is a consequential verb
+    (or an action verb joined on with 'and'/'then'). Tool names put the service first in CamelCase
+    (Gmail+Read+Email, and PayPal / OpenTable service names that start with a verb) or the verb first in
+    snake_case (list_transfers), so 'search_and_delete' and 'delete_then_list' are consequential."""
+    words = _tool_words(name)
+    camel = not _SEPARATORS.search(name)
+    first_read = next((i for i, w in enumerate(words) if w in _READONLY_VERBS), None)
     for i, w in enumerate(words):
         if w in _READONLY_VERBS:
             later = words[i + 1:]
-            return not any(v in later for v in _CONSEQUENTIAL_VERBS if v not in _NOUNISH)
-        if w in _CONSEQUENTIAL_VERBS:
-            return False
+            return not any(
+                (v in _CONSEQUENTIAL_VERBS and v not in _NOUNISH)
+                or (v in _ACTION_VERBS and j > 0 and later[j - 1] in _CONJUNCTIONS)
+                for j, v in enumerate(later)
+            )
+        if w in _ACTION_VERBS:
+            prefix = camel and first_read is not None and not _CONJUNCTIONS.intersection(words[i + 1:first_read])
+            if not prefix:
+                return False
     return False
+
+
+def _reads_private_data(name: str) -> bool:
+    return any(_stem(w) in _PRIVATE_DATA for w in _tool_words(name))
 
 
 def _looks_consequential(name: str) -> bool:
@@ -409,14 +624,45 @@ class Guardrail:
         return False
 
     # -------------------------------------------------------------- tool call
-    def guard_tool_call(self, name: str, arguments: dict, user_request: str = "") -> GuardOutcome:
-        """Block a consequential tool call that (a) the user did not authorize (when
-        require_authorization is set), (b) targets an external/untrusted destination, or (c) would
-        ship a known secret outward."""
+    def guard_tool_call(
+        self, name: str, arguments: dict, user_request: str = "", untrusted_context: bool = False
+    ) -> GuardOutcome:
+        """Block a tool call that (a) the user's request does not cover, when authorization is
+        required or untrusted content is in context (anything not shown to be a read needs it), (b)
+        reads private data the user did not ask about, after untrusted content, (c) is consequential
+        and targets an external/untrusted destination, or (d) would ship a secret/PII value outward.
+
+        `user_request` must be the user's own words: text from tool results or documents in it would
+        let an injected instruction authorize itself."""
         out = GuardOutcome(decision=Decision.ALLOW, content=name)
         if not self.config.guard_tool_calls:
             return out
-        if name not in self.config.consequential_tools and not _looks_consequential(name):
+        cfg = self.config
+        readonly = name in cfg.readonly_tools or (name not in cfg.consequential_tools and _is_readonly(name))
+        bound = bool(user_request) and (cfg.require_authorization or (untrusted_context and cfg.bind_after_untrusted))
+        after = " after untrusted content entered the context" if untrusted_context else ""
+        if bound and not readonly and not _authorizes(user_request, name):
+            out.add(
+                GuardEvent(
+                    stage="tool_call",
+                    check="excessive_agency",
+                    owasp=_OWASP["excessive_agency"],
+                    decision=Decision.BLOCK,
+                    detail=f"'{name}' is not covered by the user's request{after}",
+                )
+            )
+        if (readonly and untrusted_context and user_request and cfg.gate_private_reads
+                and _reads_private_data(name) and not _covers(user_request, name)):
+            out.add(
+                GuardEvent(
+                    stage="tool_call",
+                    check="sensitive_info_disclosure",
+                    owasp=_OWASP["sensitive_info_disclosure"],
+                    decision=Decision.BLOCK,
+                    detail=f"'{name}' reads private data the user did not ask about{after}",
+                )
+            )
+        if name not in cfg.consequential_tools and not _looks_consequential(name):
             return out
 
         blob = f"{arguments}"
@@ -428,16 +674,6 @@ class Guardrail:
         )
         ships_pii = _ships_pii(blob)
 
-        if self.config.require_authorization and user_request and not _authorizes(user_request, name):
-            out.add(
-                GuardEvent(
-                    stage="tool_call",
-                    check="excessive_agency",
-                    owasp=_OWASP["excessive_agency"],
-                    decision=Decision.BLOCK,
-                    detail=f"consequential '{name}' not authorized by the user request",
-                )
-            )
         if external:
             out.add(
                 GuardEvent(

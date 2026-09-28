@@ -68,6 +68,12 @@ class GuardConfig(BaseModel):
     on_secret_output: Decision = Decision.REDACT
     # For a consequential tool call to an external sink: block, or allow (log only).
     on_external_action: Decision = Decision.BLOCK
-    # Block a consequential tool call the user did not explicitly authorize (needs user_request).
+    # Block a tool call that is not a read unless the user's request covers it (needs user_request).
     # This is the strong "least-agency" posture; may hold legitimate actions for confirmation.
     require_authorization: bool = False
+    # The same binding, applied only once the caller says untrusted content is in context
+    # (guard_tool_call(..., untrusted_context=True)); then an unrequested private-data read is blocked too.
+    bind_after_untrusted: bool = True
+    gate_private_reads: bool = True
+    # Tools this deployment knows only read: exempt from the binding.
+    readonly_tools: list[str] = Field(default_factory=list)

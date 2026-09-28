@@ -58,7 +58,8 @@ Tools the agent gets:
 - `harden_prompt(system_prompt, checks?)` — **fix**: the hardened prompt + guard block
 - `guardrail_snippet(checks?)` — **protect**: the runtime-guardrail code to drop in
 - `check_output(text, secret_values?, system_prompt?)` — **protect (runtime)**: gate a response
-- `check_tool_call(name, arguments, user_request?, …)` — **protect (runtime)**: gate a tool call
+- `check_tool_call(name, arguments, user_request?, …, untrusted_context?)` — **protect (runtime)**: gate a
+  tool call. After untrusted content, calls that are not reads must match the user's request.
 
 Audit an **open-weight** agent locally (free, no key), judged by Claude:
 

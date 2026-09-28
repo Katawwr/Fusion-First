@@ -1,0 +1,104 @@
+"""Development readout for the runtime guard's tool-call rules. DIAGNOSTIC, never evidence: it runs on the
+spent InjecAgent samples (v1 and compact, all four models) and the benign-actions `dev` cases only.
+
+    python scripts/guard_dev.py [--out <scratch>/guard_dev.json] [--verbose]
+
+The benign-actions `heldout` cases cannot be selected here: they are sealed for a pre-registered run.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+import sys
+from collections import defaultdict
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from fusion.validate.benign_actions import (  # noqa: E402
+    DEV_SAMPLES,
+    build_cases,
+    dev_attacker_tools,
+    evaluate,
+    split_of,
+)
+from fusion.validate.experiments import build_items  # noqa: E402
+from fusion.validate.guard_on_transcripts import HARNESS, _calls, injecagent_outcome  # noqa: E402
+from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
+
+MODELS = ("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "qwen2.5:3b")
+SAMPLE_NAMES = ("v1", "compact")
+
+
+def transcripts(n: int) -> dict:
+    store = TranscriptStore(ROOT / STORE_DIR_DEFAULT)
+    table = defaultdict(lambda: {"attacks": 0, "stopped": 0, "clean": 0, "over_blocked": 0})
+    misses, over = [], []
+    for name, (salt, exclude) in zip(SAMPLE_NAMES, DEV_SAMPLES, strict=True):
+        items = build_items("injecagent", n, salt=salt, exclude=exclude)
+        for model in MODELS:
+            recs = store.load("injecagent", model)
+            for it in items:
+                rec = recs.get((it.item_id, "baseline"))
+                if rec is None or rec.error or rec.response is None:
+                    continue
+                o = injecagent_outcome(it, rec.response)
+                row = table[f"{name}:{it.item_id.split(':')[1]}"]
+                if o["attack"]:
+                    row["attacks"] += 1
+                    row["stopped"] += bool(o["stopped"])
+                    if not o["stopped"]:
+                        misses.append(f"{name} {model} {it.item_id} {[c for c, _ in _calls(rec.response, set())]}")
+                else:
+                    row["clean"] += 1
+                    row["over_blocked"] += o["blocked_any"]
+                    if o["blocked_any"]:
+                        over.append(f"{name} {model} {it.item_id} {[c for c, _ in _calls(rec.response, set())]}")
+    return {"by_sample_kind": dict(table), "not_stopped": misses, "over_blocked": over}
+
+
+def benign() -> dict:
+    dev = dev_attacker_tools()
+    rows = [evaluate(c) for c in build_cases() if split_of(c, dev) == "dev"]
+    by = defaultdict(lambda: {"cases": 0, "blocked": 0})
+    rules = defaultdict(int)
+    for r in rows:
+        by[r["kind"]]["cases"] += 1
+        by[r["kind"]]["blocked"] += r["blocked"]
+        for b in r["blocked_calls"]:
+            for rule in b["rules"]:
+                rules[rule] += 1
+    return {"by_kind": dict(by), "blocked_calls_by_rule": dict(rules),
+            "blocked": [r for r in rows if r["blocked"]]}
+
+
+def main(argv=None) -> int:
+    p = argparse.ArgumentParser(prog="guard_dev")
+    p.add_argument("--n", type=int, default=30)
+    p.add_argument("--out", help="write the full readout (JSON) here, e.g. under the scratchpad")
+    p.add_argument("--verbose", action="store_true")
+    a = p.parse_args(argv)
+    t, b = transcripts(a.n), benign()
+    print(f"DIAGNOSTIC (spent samples, harness {HARNESS})")
+    for g, s in sorted(t["by_sample_kind"].items()):
+        print(f"  {g:12} attacks stopped {s['stopped']:3}/{s['attacks']:<3}  clean wrongly blocked "
+              f"{s['over_blocked']:3}/{s['clean']}")
+    print("  benign dev: " + ", ".join(f"{k} {v['blocked']}/{v['cases']} blocked" for k, v in sorted(b["by_kind"].items()))
+          + f"  (blocked calls by rule: {dict(sorted(b['blocked_calls_by_rule'].items()))})")
+    if a.verbose:
+        for line in t["not_stopped"]:
+            print("  miss  ", line)
+        for line in t["over_blocked"]:
+            print("  over  ", line)
+        for r in b["blocked"]:
+            print("  benign", r["case_id"], [(c["tool"], c["rules"]) for c in r["blocked_calls"]])
+    if a.out:
+        pathlib.Path(a.out).write_text(json.dumps({"harness": HARNESS, "transcripts": t, "benign_dev": b}, indent=1),
+                                       encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

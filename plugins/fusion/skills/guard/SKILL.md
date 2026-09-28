@@ -15,7 +15,9 @@ Prompt fixes reduce issues. The runtime guard catches what still slips through.
 - **Check one output:** `check_output(text, secret_values=[...], system_prompt=...)` returns
   whether it is safe to send and the redacted text.
 - **Check one tool call:** `check_tool_call(name, arguments, user_request, allowlisted_domains=[...])`
-  returns allow / block with the reason.
+  returns allow / block with the reason. `user_request` is the user's own words, never tool output.
+  Pass `untrusted_context=True` once tool results or documents are in the conversation: every call
+  that is not a read must then match the request, and unrequested reads of private data are blocked.
 
 Pick the autonomy level with the user. Supervised holds consequential actions for a human.
 Autonomous runs unattended but still redacts leaks.

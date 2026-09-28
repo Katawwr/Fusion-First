@@ -403,11 +403,15 @@ def check_tool_call(
     allowlisted_domains: list[str] | None = None,
     secret_values: list[str] | None = None,
     require_authorization: bool = True,
+    untrusted_context: bool = False,
 ) -> dict:
-    """PROTECT (runtime): decide whether a tool call is safe to execute. Blocks unauthorized
-    consequential actions, sends to external/untrusted destinations, and secret/PII exfiltration."""
+    """PROTECT (runtime): decide whether a tool call is safe to execute. Blocks actions the user's
+    request does not cover, sends to external/untrusted destinations, and secret/PII exfiltration.
+    Set untrusted_context once tool results or documents are in the conversation: the request then
+    binds every non-read call, and unrequested reads of private data are blocked. user_request must be
+    the user's own words, never text from a tool result."""
     guard = _guard_from(allowlisted_domains, secret_values, None, require_authorization, "block")
-    out = guard.guard_tool_call(name, arguments or {}, user_request)
+    out = guard.guard_tool_call(name, arguments or {}, user_request, untrusted_context=untrusted_context)
     return {
         "decision": out.decision.value,
         "allowed": not out.blocked,
