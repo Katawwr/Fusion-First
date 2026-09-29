@@ -11,4 +11,9 @@ graft plugins
 graft frontend/dist
 # fusion_first/_bundled/ is a build artifact (populated by setup.py), not shipped in the sdist.
 prune fusion_first/_bundled
+# Evidence-only data (setup.py _EVIDENCE_ONLY): third-party sets and raw downloads, the Claude Code held-out
+# sets (evidence transcripts under evals/ are .jsonl, which the include above leaves out). scripts/ and
+# tests read them; the installed tool never does.
+prune datasets/external
+exclude datasets/guard_bench/claude_code*.jsonl
 global-exclude __pycache__ *.pyc *.pyo

@@ -22,6 +22,9 @@ claude plugin marketplace add "$(fusion plugin-dir)"   # the marketplace bundled
 claude plugin install fusion@fusion-first
 ```
 
+If `fusion` isn't found, run `uv tool update-shell` and open a new terminal. Upgrade with
+`uv tool upgrade fusion-safety`, then `claude plugin marketplace update fusion-first`.
+
 The server is the same release as the plugin (`fusion-safety==<version>` from PyPI). To run a source
 checkout instead, set `FUSION_PKG` to its path (PowerShell: `$env:FUSION_PKG = "C:\path\to\fusion"`).
 

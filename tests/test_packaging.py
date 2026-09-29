@@ -11,6 +11,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import zipfile
 
 import pytest
@@ -71,9 +72,85 @@ def test_bundling_copies_the_plugin_marketplace(tmp_path):
     dest = tmp_path / "bundled"
     _write(dest / "marketplace/plugins/removed/README.md", "stale")
 
-    _load_setup().bundle(root, dest)
+    _load_setup().bundle(root, dest, require=False)
 
     assert _files(dest / "marketplace") == sorted(files)
+
+
+def _release_tree(root: pathlib.Path) -> None:
+    """What a release build needs besides the corpora: the built web app and our marketplace."""
+    _write(root / "frontend/dist/index.html", "<html></html>")
+    _write(root / ".claude-plugin/marketplace.json", '{"name": "fusion-first", "plugins": []}')
+    _write(root / "plugins/fusion/.claude-plugin/plugin.json", '{"name": "fusion"}')
+
+
+RUNTIME_DATA = ["datasets/gold/x.v1.jsonl", "datasets/probes/x.v1.jsonl", "datasets/guard_bench/cases.jsonl",
+                "datasets/quality_tests/instruction_following.v1.jsonl", "crosswalk/owasp_crosswalk.v2025.yaml",
+                "cassettes/x.v1.json", "evals/x.baseline.json", "evals/validation/v1/judge_eval_prob_qwen7b.json"]
+# Third-party sets (licensed per source; ATTRIBUTION.md holds their notices), raw downloads, the Claude
+# Code held-out sets and evidence transcripts: read only by scripts/ and tests, never by the installed tool.
+EVIDENCE_ONLY = ["datasets/external/injecagent.v1.jsonl", "datasets/external/ATTRIBUTION.md",
+                 "datasets/external/raw/ifeval/ifeval_input_data.jsonl",
+                 "datasets/guard_bench/claude_code.jsonl", "datasets/guard_bench/claude_code_heldout_v3.jsonl",
+                 "evals/validation/v1/transcripts/llama.jsonl"]
+
+
+@pytest.mark.unit
+def test_bundling_ships_runtime_data_only_and_drops_what_the_source_removed(tmp_path):
+    root = tmp_path / "repo"
+    _release_tree(root)
+    for rel in RUNTIME_DATA + EVIDENCE_ONLY:
+        _write(root / rel, "x")
+    dest = tmp_path / "bundled"
+    _write(dest / "datasets/gold/removed_check.v1.jsonl", "stale")  # from an earlier build
+
+    _load_setup().bundle(root, dest)
+
+    shipped = set(_files(dest))
+    assert set(RUNTIME_DATA) <= shipped
+    assert shipped.isdisjoint(EVIDENCE_ONLY)
+    assert "datasets/gold/removed_check.v1.jsonl" not in shipped
+
+
+@pytest.mark.unit
+def test_a_release_build_without_the_web_app_or_the_marketplace_fails_loudly(tmp_path):
+    """Built from a fresh clone (frontend/dist is not in git) the wheel silently had no web app, and
+    `fusion serve` from PyPI would tell users to run npm."""
+    setup_mod = _load_setup()
+    root = tmp_path / "repo"
+    _release_tree(root)
+    (root / "frontend/dist/index.html").unlink()
+    with pytest.raises(SystemExit, match="frontend/dist"):
+        setup_mod.bundle(root, tmp_path / "b1")
+    _release_tree(root)
+    (root / ".claude-plugin/marketplace.json").unlink()
+    with pytest.raises(SystemExit, match="marketplace"):
+        setup_mod.bundle(root, tmp_path / "b2")
+    setup_mod.bundle(root, tmp_path / "b3", require=False)  # a development build may skip them
+
+
+@pytest.mark.integration
+def test_the_sdist_leaves_out_evidence_only_data(tmp_path):
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "README.md"):
+        shutil.copy2(ROOT / rel, proj / rel)
+    shutil.copytree(ROOT / "fusion_first", proj / "fusion_first",
+                    ignore=shutil.ignore_patterns("_bundled", "__pycache__", "*.pyc"))
+    for rel in RUNTIME_DATA + EVIDENCE_ONLY:
+        _write(proj / rel, "x")
+    for rel in ("CLAUDE.md", "SCHEMA.md"):
+        _write(proj / rel, "x")
+
+    r = subprocess.run([sys.executable, "setup.py", "-q", "sdist", "-d", str(tmp_path / "out")], cwd=proj,
+                       capture_output=True, text=True, timeout=600)
+
+    assert r.returncode == 0, r.stderr[-3000:]
+    (sdist,) = (tmp_path / "out").glob("fusion_safety-*.tar.gz")
+    with tarfile.open(sdist) as tar:
+        names = {n.split("/", 1)[1] for n in tar.getnames() if "/" in n}
+    assert {"datasets/gold/x.v1.jsonl", "crosswalk/owasp_crosswalk.v2025.yaml"} <= names
+    assert names.isdisjoint(EVIDENCE_ONLY)
 
 
 @pytest.fixture(scope="module")
@@ -91,7 +168,8 @@ def wheel_names(tmp_path_factory) -> list[str]:
     out = tmp / "dist"
     r = subprocess.run([sys.executable, "-m", "pip", "wheel", str(proj), "--no-deps",
                         "--no-build-isolation", "-q", "-w", str(out)],
-                       capture_output=True, text=True, timeout=600)
+                       capture_output=True, text=True, timeout=600,
+                       env={**os.environ, "FUSION_PARTIAL_BUILD": "1"})  # no web app in this copy
     assert r.returncode == 0, r.stderr[-3000:]
     (wheel,) = out.glob("fusion_safety-*.whl")
     return zipfile.ZipFile(wheel).namelist()
@@ -138,9 +216,42 @@ def test_plugin_root_falls_back_to_the_bundled_copy(tmp_path):
     pkg = tmp_path / "site-packages" / "fusion_first"
     pkg.mkdir(parents=True)
     assert plugin_root(pkg) is None
-    _write(pkg / "_bundled/marketplace/.claude-plugin/marketplace.json", "{}")
+    _write(pkg / "_bundled/marketplace/.claude-plugin/marketplace.json", '{"name": "fusion-first"}')
 
     assert plugin_root(pkg) == pkg / "_bundled" / "marketplace"
+
+
+@pytest.mark.unit
+def test_plugin_root_ignores_another_marketplace_in_site_packages(tmp_path):
+    from fusion_first._data import plugin_root
+
+    site = tmp_path / "site-packages"
+    _write(site / ".claude-plugin/marketplace.json", '{"name": "someone-else", "plugins": []}')
+    pkg = site / "fusion_first"
+    _write(pkg / "_bundled/marketplace/.claude-plugin/marketplace.json", '{"name": "fusion-first", "plugins": []}')
+
+    assert plugin_root(pkg) == pkg / "_bundled" / "marketplace"
+
+
+@pytest.mark.unit
+def test_data_root_is_the_checkout_in_a_source_tree():
+    from fusion_first._data import data_root
+
+    assert data_root() == ROOT
+
+
+@pytest.mark.unit
+def test_data_root_ignores_a_site_packages_that_holds_other_datasets(tmp_path):
+    """Hugging Face's `datasets` installs site-packages/datasets/ (lm-eval, evaluate and trl pull it in):
+    an installed wheel took that for a checkout and every corpus read failed."""
+    from fusion_first._data import data_root
+
+    site = tmp_path / "site-packages"
+    _write(site / "datasets/__init__.py", "")
+    pkg = site / "fusion_first"
+    _write(pkg / "_bundled/crosswalk/owasp_crosswalk.v2025.yaml", "codes: {}")
+
+    assert data_root(pkg) == pkg / "_bundled"
 
 
 @pytest.mark.unit

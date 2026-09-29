@@ -12,7 +12,8 @@ description: Check and set up what Fusion First needs to test agents without an 
      Small open-weight models are where these attacks actually land.
    - **Grader:** Claude grades — as the host (the fusion-judge agent) or through the claude CLI. Don't
      suggest a local grader: `ollama-prob:qwen2.5:7b` scored below the policy floor in its pre-registered
-     test (TRUST_REPORT.md), and an unmeasured local model is no better evidence.
+     test (Trust Report: https://fusion-first-testing.com/trust), and an unmeasured local model is no
+     better evidence.
    - **Claude as target or grader:** the `claude` CLI logged in with a Claude subscription. Fusion
      refuses API-key auth, so nothing is billed per call. Usage counts toward the subscription quota.
 3. Never ask for, or set, an API key. Fusion's metered path is off unless the user deliberately

@@ -14,6 +14,7 @@ so `claude plugin marketplace add "$(fusion plugin-dir)"` works without a checko
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import pathlib
 import shutil
@@ -26,6 +27,18 @@ from setuptools.command.build_py import build_py
 _DATA_DIRS = ("datasets", "cassettes", "crosswalk", "evals")
 _MARKETPLACE_DIRS = (".claude-plugin", "plugins")
 _SKIP = shutil.ignore_patterns("scratch", "__pycache__", "*.pyc")
+# Evidence-only data, read by scripts/ and tests but never by the installed tool: third-party sets (licensed
+# per source; their notices are in datasets/external/ATTRIBUTION.md) and raw downloads, the Claude Code
+# held-out sets, and evidence transcripts. Kept out of the wheel here and out of the sdist by MANIFEST.in.
+_EVIDENCE_ONLY = ("datasets/external", "datasets/guard_bench/claude_code*.jsonl", "evals/*.jsonl")
+
+
+def _data_ignore(root: pathlib.Path):
+    def ignore(dirpath, names):
+        rel = pathlib.Path(dirpath).relative_to(root).as_posix()
+        return set(_SKIP(dirpath, names)) | {
+            n for n in names if any(fnmatch.fnmatchcase(f"{rel}/{n}", p) for p in _EVIDENCE_ONLY)}
+    return ignore
 
 
 def _clear_read_only_and_retry(func, path, _exc):
@@ -51,24 +64,36 @@ def replace_tree(src: pathlib.Path, dst: pathlib.Path) -> None:
     shutil.copytree(src, dst)
 
 
-def bundle(root: pathlib.Path, dest: pathlib.Path) -> None:
+def bundle(root: pathlib.Path, dest: pathlib.Path, *, require: bool = True) -> None:
+    """Copy what a bare install needs into `dest`, replacing earlier copies (a file removed at the source
+    must not linger). `require`: a release build fails without the web app or the marketplace."""
+    web = root / "frontend" / "dist"
+    market = root / ".claude-plugin" / "marketplace.json"
+    missing = [what for what, there in (("the built web app, frontend/dist (npm --prefix frontend run build)",
+                                         (web / "index.html").exists()),
+                                        ("the plugin marketplace, .claude-plugin/marketplace.json", market.exists()))
+               if not there]
+    if require and missing:
+        raise SystemExit(f"fusion-safety build: missing {' and '.join(missing)}. "
+                         "Set FUSION_PARTIAL_BUILD=1 for a development build without them.")
     for name in _DATA_DIRS:
         src = root / name
         if src.exists():
-            shutil.copytree(src, dest / name, dirs_exist_ok=True, ignore=_SKIP)
-    web = root / "frontend" / "dist"
+            _rmtree(dest / name)
+            shutil.copytree(src, dest / name, ignore=_data_ignore(root))
     if (web / "index.html").exists():
         replace_tree(web, dest / "web")
-    if (root / ".claude-plugin" / "marketplace.json").exists():
-        _rmtree(dest / "marketplace")  # a plugin file removed at the source must not linger
+    if market.exists():
+        _rmtree(dest / "marketplace")
         for name in _MARKETPLACE_DIRS:
             shutil.copytree(root / name, dest / "marketplace" / name, ignore=_SKIP)
 
 
 class BundleData(build_py):
     def run(self):
-        root = pathlib.Path(__file__).parent.resolve()
-        bundle(root, root / "fusion_first" / "_bundled")
+        if not getattr(self, "editable_mode", False):  # an editable install reads the checkout itself
+            root = pathlib.Path(__file__).parent.resolve()
+            bundle(root, root / "fusion_first" / "_bundled", require=not os.environ.get("FUSION_PARTIAL_BUILD"))
         super().run()
 
 

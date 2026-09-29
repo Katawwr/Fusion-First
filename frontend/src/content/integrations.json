@@ -92,6 +92,11 @@
           "label": "Any workflow: a program that reads a JSON request on stdin",
           "lang": "bash",
           "code": "fusion run start --prompt agent.txt --target \"cmd:python fusion_adapter.py\" --grader claude-cli"
+        },
+        {
+          "label": "fusion_adapter.py: replace reply() with your agent",
+          "lang": "python",
+          "code": "\"\"\"Wrap any agent for Fusion:  fusion run start --prompt agent.txt --target \"cmd:python fusion_adapter.py\"\n\nFusion writes one JSON request to stdin and reads the reply from stdout:\n\n  stdin   {\"system\": \"...\", \"messages\": [{\"role\": \"user\", \"content\": \"...\"}], \"max_tokens\": 512,\n           \"temperature\": 0.0, \"role\": \"target\"}\n  stdout  {\"text\": \"...\"}  (or plain text)\n\nReplace reply() with a call into the agent you actually run. Examples:\n\n  Hugging Face transformers (pip install transformers torch):\n      from transformers import pipeline\n      chat = pipeline(\"text-generation\", model=\"Qwen/Qwen2.5-0.5B-Instruct\")\n      out = chat([{\"role\": \"system\", \"content\": system}, *messages], max_new_tokens=512)\n      return out[0][\"generated_text\"][-1][\"content\"]\n\n  Your own agent over HTTP:\n      import urllib.request\n      body = json.dumps({\"system\": system, \"messages\": messages}).encode()\n      req = urllib.request.Request(\"http://127.0.0.1:8080/chat\", body, {\"Content-Type\": \"application/json\"})\n      return json.load(urllib.request.urlopen(req))[\"reply\"]\n\n  A framework (LangChain, LlamaIndex, CrewAI...): build the chain once, invoke it with the messages.\n\nTool calls: return them in the reply the way the agent writes them (e.g. an `ACTION: {\"tool\": ...}`\nline); Fusion's checks read tool calls from the reply text.\n\"\"\"\n\nimport json\nimport sys\n\n\ndef reply(system: str, messages: list[dict]) -> str:\n    return \"Replace reply() in fusion_adapter.py with a call to your agent.\"\n\n\nif __name__ == \"__main__\":\n    request = json.load(sys.stdin)\n    print(json.dumps({\"text\": reply(request.get(\"system\", \"\"), request.get(\"messages\", []))}))"
         }
       ]
     },

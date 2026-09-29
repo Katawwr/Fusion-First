@@ -447,7 +447,7 @@ def _remote_commands_allowed() -> bool:
 
 def _local_grader_hint(status: dict) -> str:
     m = status["model"]
-    why = ("as a grader it scored below the policy floor in its pre-registered test (see TRUST_REPORT.md)"
+    why = ("as a grader it scored below the policy floor in its pre-registered test (Trust Report: https://fusion-first-testing.com/trust)"
            if status["measured"] else "its accuracy as a grader has not been measured")
     return (f"{m} is installed, but {why}, so it is not recommended by default. You can still choose it with "
             f"--grader ollama-prob:{m}; every run measures its grader and withholds the grade if it falls short.")

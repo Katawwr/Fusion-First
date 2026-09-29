@@ -83,3 +83,14 @@ def test_documented_command_parses(doc, argv):
         build_parser().parse_args(shlex.split(argv))
     except SystemExit as e:  # argparse exits on error
         pytest.fail(f"{doc}: `fusion {argv}` does not parse (exit {e.code})")
+
+
+@pytest.mark.unit
+def test_the_use_page_carries_the_cmd_adapter_template_verbatim():
+    """A pip install has no integrations/examples/, so /use is where the `cmd:` adapter is copied from."""
+    import json
+
+    data = json.loads((ROOT / "frontend/src/content/integrations.json").read_text(encoding="utf-8"))
+    python = [s["code"].strip() for sec in data["sections"] for s in sec["steps"] if s["lang"] == "python"]
+    template = (ROOT / "integrations/examples/fusion_adapter.py").read_text(encoding="utf-8")
+    assert template.replace("\r\n", "\n").strip() in python

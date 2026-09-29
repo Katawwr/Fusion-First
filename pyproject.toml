@@ -30,6 +30,8 @@ fusion-mcp = "fusion_first.integrations.mcp_server:main"
 
 [project.urls]
 Homepage = "https://fusion-first-testing.com"
+Documentation = "https://fusion-first-testing.com/use"
+"Trust Report" = "https://fusion-first-testing.com/trust"
 
 [project.optional-dependencies]
 # METERED provider SDKs — only reachable with `--backend api` AND FUSION_ALLOW_API_SPEND=1.

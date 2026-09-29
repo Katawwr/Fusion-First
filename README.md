@@ -32,13 +32,13 @@ Any model or workflow can be the target:
 | `openai-compat:<url>#<model>` | your own server: vLLM, TGI, LM Studio, llama.cpp | free if local |
 | `claude-cli:<model>` | Claude via the `claude` CLI | subscription |
 | `openai:` `hf:` `anthropic:` `openrouter:` `together:` `groq:` `fireworks:` `mistral-api:` `deepseek:` + `<model>` | a hosted API with your key (`OPENAI_API_KEY`, `HF_TOKEN`, ...) | metered; needs `FUSION_ALLOW_API_SPEND=1` |
-| `cmd:<command>` | any workflow: a program that reads a JSON request on stdin and prints the reply (template: `integrations/examples/fusion_adapter.py`) | yours |
+| `cmd:<command>` | any workflow: a program that reads a JSON request on stdin and prints the reply (template: [/use](https://fusion-first-testing.com/use#models)) | yours |
 | `python:<name>` | a Python function, via `fusion_first.targets.FunctionModelClient` | yours |
 
 Grader: `host` (the calling agent), `claude-cli`, or any chat target above. Each run measures its
 grader on known-answer questions and withholds the grade ('?') if it falls short.
 
-**1. Claude Code plugin** (recommended): see `plugins/fusion/README.md`.
+**1. Claude Code plugin** (recommended)
 
 ```bash
 uv tool install fusion-safety        # puts fusion on PATH; the plugin starts its server with uvx
@@ -76,7 +76,7 @@ optional `harden_prompt`.
 { "mcpServers": { "fusion": { "command": "fusion-mcp" } } }
 ```
 
-**3. Runtime guardrail** (in your agent code; `plugins/fusion-guard` for Claude Code)
+**3. Runtime guardrail** (in your agent code; the `fusion-guard` plugin for Claude Code)
 
 On fresh successful attacks against qwen2.5:7b and llama3.1:8b (rules 0c560b5, scored once,
 pre-registered), the guardrail stopped 89% of real attacks while wrongly blocking 1% of clean transcripts:
