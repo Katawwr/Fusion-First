@@ -62,6 +62,14 @@ def test_at_85_percent_it_asks_for_the_handoff_once(tmp_path):
 
 
 @pytest.mark.unit
+def test_it_prefers_a_regular_session_and_keeps_the_routine_as_the_fallback(tmp_path):
+    out = handle(_payload(_transcript(tmp_path, _assistant(860_000))), ENV, tmp_path / "state")
+    ctx = out["hookSpecificOutput"]["additionalContext"]
+    assert "start_session" in ctx and "detach_session" in ctx
+    assert ctx.index("start_session") < ctx.index("fusion-continue-a")
+
+
+@pytest.mark.unit
 def test_near_auto_compaction_it_reminds_once(tmp_path):
     state = tmp_path / "state"
     handle(_payload(_transcript(tmp_path, _assistant(860_000))), ENV, state)
