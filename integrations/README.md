@@ -1,8 +1,9 @@
 # Fusion First in your agentic / CI workflow
 
-Fusion is a **proof-grade evaluation engine for AI agents — safety AND quality**. Its find → fix →
-protect loop lives *inside* how you already build and ship agents. Every number carries a confidence
-interval or an honesty badge, measured against ground truth (no vibes-based metrics).
+Fusion is a **proof-grade evaluation engine for AI agents — safety AND quality** with a runtime
+guardrail. It measures an agent and guards it *inside* how you already build and ship agents; the
+prompt fix is optional and re-tested per model. Every number carries a confidence interval or an
+honesty badge, measured against ground truth (no vibes-based metrics).
 
 **Best fit: open-weight / less-robust models.** Frontier models (Claude, GPT-4-class) resist most
 safety attacks, while open-weight models (Llama, Mistral, Qwen, …) are far more often exposed —
@@ -14,7 +15,7 @@ agent **locally and free** via Ollama, judged by Claude (genuine cross-family in
 |---|---|
 | **Audit an agent** end-to-end (safety + quality, one call) | **MCP `audit_agent`** |
 | **Test an open-weight agent** locally & free | `--backend ollama` (Ollama target, Claude judge) |
-| Let an **AI coding agent** grade/fix/guard a prompt mid-build | **MCP server** |
+| Let an **AI coding agent** grade and guard a prompt mid-build | **MCP server** |
 | **Fail a build** when an agent prompt is unsafe | **CI gate** (`fusion ci`) |
 | Run the **self-improving loop** (sufficiency / accuracy / quality) | `fusion measure` |
 | **Protect a running agent** (block leaks & unsafe tool calls) | **runtime guardrail** SDK |
@@ -28,7 +29,7 @@ Metered API keys are never used unless you pass `--backend api` AND set `FUSION_
 ## 1. MCP server — Fusion inside Claude Code / Cursor / Windsurf
 
 An MCP server exposes Fusion's tools to any MCP-capable coding agent. Mid-build, the agent can grade
-the system prompt it just wrote, apply the fix, and gate its own outputs and tool calls.
+the system prompt it just wrote and gate its own outputs and tool calls; the prompt fix is optional.
 
 ```bash
 pip install "fusion-safety[mcp]"
@@ -47,37 +48,39 @@ Register it with your editor (`examples/mcp-config.json`):
 
 Tools the agent gets:
 
-- `audit_agent(system_prompt, autonomy?, backend?, target_model?)` — **start here**: FIND + FIX +
-  PROTECT across **safety AND quality** in one call → plain-language verdict, overall grade, hardened
-  prompt, runtime-guardrail snippet, and the runtime config for your `autonomy` (supervised = HITL
-  gates; autonomous = unattended + redact).
+- `audit_agent(system_prompt, autonomy?, backend?, target_model?)` — **start here**: FIND + PROTECT
+  across **safety AND quality** in one call → plain-language verdict, overall grade, runtime-guardrail
+  snippet, the runtime config for your `autonomy` (supervised = HITL gates; autonomous = unattended +
+  redact), and the optional hardened prompt.
 - `grade_quality(system_prompt, backend?, target_model?)` — grade an agent's correctness /
   instruction-following on normal test inputs (A–F + the failing inputs).
 - `list_checks()` — the safety + quality checks (grouped by `kind`)
 - `scan_prompt(system_prompt, checks?, tier?, live?, backend?, target_model?)` — **find** safety issues
-- `harden_prompt(system_prompt, checks?)` — **fix**: the hardened prompt + guard block
 - `guardrail_snippet(checks?)` — **protect**: the runtime-guardrail code to drop in
 - `check_output(text, secret_values?, system_prompt?)` — **protect (runtime)**: gate a response
 - `check_tool_call(name, arguments, user_request?, …, untrusted_context?)` — **protect (runtime)**: gate a
   tool call. After untrusted content, calls that are not reads must match the user's request.
+- `harden_prompt(system_prompt, checks?)` — **optional fix**: the hardened prompt + its block; re-test it
+  on your model (on small open-weight models it rarely cut attacks and raised refusals of safe requests)
 
 Audit an **open-weight** agent locally (free, no key), judged by Claude:
 
 ```python
 from fusion.integrations import agent_tools
 report = await agent_tools.audit_agent(MY_PROMPT, backend="ollama", target_model="llama3.2:1b")
-# report["safety"] (attacks that landed) + report["quality"] (grade + failing inputs) + hardened_prompt
+# report["safety"] (attacks that landed) + report["quality"] (grade + failing inputs) + guardrail_snippet
 ```
 
 Example agent loop: *"I wrote a support-bot prompt → `audit_agent` says F on prompt injection and D on
-instruction-following → paste back the hardened prompt → wire the runtime guard."*
+instruction-following → wire the runtime guard → optionally try the hardened prompt and re-test it."*
 
 The same functions are a plain Python library too:
 
 ```python
 from fusion.integrations import agent_tools
 report = await agent_tools.scan_prompt(MY_SYSTEM_PROMPT)
-fixed = agent_tools.harden_prompt(MY_SYSTEM_PROMPT)["hardened_prompt"]
+guard = agent_tools.guardrail_snippet()["snippet"]
+fixed = agent_tools.harden_prompt(MY_SYSTEM_PROMPT)["hardened_prompt"]   # optional; re-test it
 ```
 
 ---

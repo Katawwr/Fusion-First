@@ -76,6 +76,18 @@ def test_skills_only_call_tools_that_exist():
         assert called <= tools, f"{path.parent.name} calls unknown tools: {called - tools}"
 
 
+@pytest.mark.unit
+def test_the_plugin_offers_the_guard_first_and_the_fix_as_optional():
+    meta, body = _frontmatter(PLUGIN / "skills" / "harden" / "SKILL.md")
+    assert meta["description"].lower().startswith("optional")
+    assert "tested guard rules" not in meta["description"] + body
+    _, audit = _frontmatter(PLUGIN / "skills" / "audit" / "SKILL.md")
+    assert audit.index("`guard` skill") < audit.index("`harden` skill")
+    readme = (PLUGIN / "README.md").read_text(encoding="utf-8")
+    assert readme.index("/fusion:guard") < readme.index("/fusion:harden")
+    assert "fix included" not in readme and "tested guard rules" not in readme
+
+
 @pytest.mark.integration
 def test_mcp_server_speaks_stdio(tmp_path):
     """A real MCP handshake over stdio with the server as a subprocess (offline)."""

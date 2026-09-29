@@ -56,4 +56,6 @@ Present Fusion's result as it is:
   The known-answer questions are public, so this checks an honest grader's skill. It is not proof
   against a grader that games it.
 - The failures that got through (a few examples) and the `report_html` path.
-- Offer the fix: the `hardened_prompt` (run the `harden` skill to apply it).
+- Offer the runtime guardrail first (`guard` skill): it blocks leaked secrets and tool calls the user's
+  request does not cover. The prompt fix is optional: give its measured result from the "with fix"
+  column (honesty label verbatim) and apply it only if the user wants it (`harden` skill).

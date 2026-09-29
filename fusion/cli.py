@@ -418,8 +418,8 @@ def cmd_ci(args) -> int:
             print(f"  [{mark}] {r['check']:24s} baseline grade {r['baseline_grade']}  "
                   f"(attacks landed {len(r['attacks_that_landed'])})")
         if failures:
-            print(f"\nFAILED: {len(failures)} check(s) below {min_grade}. "
-                  f"Run `fusion harden --prompt {src} --write` and re-scan.")
+            print(f"\nFAILED: {len(failures)} check(s) below {min_grade}. Add the runtime guardrail "
+                  f"(fusion.guardrail); optionally `fusion harden --prompt {src} --write` and re-scan.")
         else:
             print(f"\nPASSED: every check is at least {min_grade}.")
     if args.demo:
@@ -461,7 +461,7 @@ def cmd_fix(args) -> int:
 
 
 def cmd_harden(args) -> int:
-    """Auto-apply the safety guardrails to a user's system-prompt file."""
+    """Optional: append the prompt fix to a user's system-prompt file (re-test it on the target model)."""
     from fusion.engine.fixes import apply_fix
 
     src = pathlib.Path(args.prompt)
@@ -537,7 +537,7 @@ def build_parser() -> argparse.ArgumentParser:
     ps.add_argument("--backend", default=None, choices=["auto", "cli", "api", "ollama"], help="target backend for --live")
     ps.add_argument("--html", default=None, help="write a branded HTML report to this path")
 
-    pf = sub.add_parser("fix", help="print the safety guardrail block for a check (or all)")
+    pf = sub.add_parser("fix", help="optional: print the prompt-fix block for a check (or all)")
     pf.add_argument("--check", default="all")
 
     pg = sub.add_parser("guard-proof", help="measure the runtime guardrail's issue-rate reduction")
@@ -567,7 +567,7 @@ def build_parser() -> argparse.ArgumentParser:
     pk = sub.add_parser("hook", help="Claude Code hook entry point (fusion-guard plugin): reads the event on stdin")
     pk.add_argument("event", choices=["pre-tool-use", "post-tool-use"])
 
-    ph = sub.add_parser("harden", help="auto-apply the safety guardrails to a system-prompt file")
+    ph = sub.add_parser("harden", help="optional: append the prompt fix to a system-prompt file (re-test it on your model)")
     ph.add_argument("--prompt", required=True, help="path to the system-prompt text file")
     ph.add_argument("--check", default="all")
     ph.add_argument("--out", default=None, help="write hardened prompt here (default: stdout)")

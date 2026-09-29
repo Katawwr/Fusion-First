@@ -61,9 +61,33 @@ def test_card_html_contains_key_values():
 
 
 @pytest.mark.unit
+def test_dashboard_leads_with_the_runtime_guardrail():
+    page = render_dashboard_html([_card(), _card()], title="All checks")
+    assert page.count("Runtime guardrail") == 1
+    assert page.index("Runtime guardrail") < page.index('class="card"')
+    assert "guard_tool_call(" in page and "GuardedModelClient(" in page
+    assert "every check ships a fix" not in page
+
+
+@pytest.mark.unit
+def test_a_quality_only_report_has_no_guardrail_block():
+    c = _card()
+    c.kind, c.check = "quality", "instruction_following"
+    assert "Runtime guardrail" not in render_dashboard_html([c])
+
+
+@pytest.mark.unit
+def test_the_fix_is_optional_and_carries_its_measured_caveat():
+    h = render_report_card_html(_card())
+    assert "Optional: prompt fix" in h and "Apply this fix" not in h
+    assert "rarely cut attacks and raised refusals of safe requests" in h
+    assert "As written" in h and "With fix" in h and "Hardened<" not in h
+
+
+@pytest.mark.unit
 def test_card_shows_copyable_fix_and_harden_command():
     h = render_report_card_html(_card(), idx=3)
-    assert "Apply this fix" in h
+    assert "Optional: prompt fix" in h
     assert "Constrain consequential actions" in h
     assert "safety guardrails" in h  # the snippet body
     assert 'onclick="fusionCopy(' in h and "Copy" in h  # copy button

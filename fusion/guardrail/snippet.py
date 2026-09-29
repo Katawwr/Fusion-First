@@ -11,11 +11,15 @@ from __future__ import annotations
 import textwrap
 
 from fusion.engine.fixes import get_remedy
+from fusion.judge.rubric import checks_of_kind
 
 
 def guardrail_snippet(checks: list[str]) -> str:
+    # The guard covers the safety checks; quality is graded, not guarded. None asked: all it covers.
+    safety = checks_of_kind("safety")
+    covered = [c for c in checks if c in safety] or safety
     # Lines stay within ~80 columns so the snippet reads without scrolling in the web app's code box.
-    covers = "\n#         ".join(textwrap.wrap(", ".join(get_remedy(c).title for c in checks), 68))
+    covers = "\n#         ".join(textwrap.wrap(", ".join(get_remedy(c).title for c in covered), 68))
     return f'''# Fusion First runtime guardrail
 # Covers: {covers}
 # pip install fusion-safety

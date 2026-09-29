@@ -1,13 +1,13 @@
-"""Fusion agent tools — the find / fix / protect loop, as plain functions.
+"""Fusion agent tools — measure, then guard, as plain functions (the prompt fix is optional).
 
 These are the operations an AI coding agent (Claude Code, Cursor, an autonomous build agent) or a
 CI job wants when it is building or shipping an AI agent:
 
   find     -> scan_prompt(system_prompt)        : grade the prompt, list what got through
-  fix      -> harden_prompt(system_prompt)      : return the hardened prompt + guard block
   protect  -> guardrail_snippet()               : the runtime-guardrail code to drop in
   protect  -> check_output(text, ...)           : gate a model response at runtime
   protect  -> check_tool_call(name, args, ...)  : gate a tool call at runtime
+  optional -> harden_prompt(system_prompt)      : the prompt fix; re-test it on the target model
 
 Every function returns a JSON-serialisable dict (no pydantic objects leak out), so the same code
 backs the MCP server, the CLI, and an HTTP layer. Offline and deterministic: `scan_prompt` runs the
@@ -170,8 +170,10 @@ async def scan_prompt(
         "checks": checks_out,
         "passed": not any_issue and not unmeasured,
         "next_steps": [
-            "Call harden_prompt(system_prompt) to get a fixed prompt you can paste back.",
-            "Call guardrail_snippet() for runtime protection that holds even when the model slips.",
+            "Add the runtime guardrail: guardrail_snippet() for the code, or check_output / check_tool_call "
+            "per reply and per tool call.",
+            "Optional: harden_prompt(system_prompt) appends the prompt fix; re-test it on your model "
+            "(on small open-weight models it rarely cut attacks and raised refusals of safe requests).",
         ]
         if any_issue
         else ["No baseline issues detected."],
@@ -272,13 +274,13 @@ async def audit_agent(
     tier: str = "quick",
     dimensions: list[str] | None = None,
 ) -> dict:
-    """One call = FIND + FIX + PROTECT across SAFETY and QUALITY.
+    """One call = FIND + PROTECT across SAFETY and QUALITY, plus the optional prompt fix.
 
     Runs the safety attack-scan and (when a live backend is available) grades the agent's quality on
     normal test inputs — both through the same calibrated judge. Returns a plain-language verdict, an
-    overall grade (worst of safety + quality), per-check grades, the hardened prompt to paste back, the
-    runtime-guardrail snippet, and the recommended runtime GuardConfig for your chosen `autonomy`
-    (supervised = human-in-the-loop gates; autonomous = unattended + redact).
+    overall grade (worst of safety + quality), per-check grades, the runtime-guardrail snippet, the
+    recommended runtime GuardConfig for your chosen `autonomy` (supervised = human-in-the-loop gates;
+    autonomous = unattended + redact), and the optional hardened prompt (re-test it before use).
 
     Audit an OPEN-WEIGHT agent (where injection/exfil/agency attacks actually land) locally and free:
     `backend="ollama", target_model="llama3.2"` — judged by Claude (cross-family independence).
@@ -292,12 +294,12 @@ async def audit_agent(
     dimensions = dimensions or ["safety", "quality"]
     resolved = _resolve_checks(checks)
     safety_checks = [c for c in resolved if get_rubric(c).kind == "safety"]
-    # The fix + guardrail are always useful; scope them to the requested safety checks (or all safety).
+    # The guardrail and the optional fix are scoped to the requested safety checks (or all safety).
     fix_checks = safety_checks or checks_of_kind("safety")
 
     result: dict = {
-        "hardened_prompt": harden_prompt(system_prompt, fix_checks)["hardened_prompt"],
         "guardrail_snippet": guardrail_snippet(fix_checks)["snippet"],
+        "hardened_prompt": harden_prompt(system_prompt, fix_checks)["hardened_prompt"],
         "autonomy": autonomy,
         "recommended_guard_config": _autonomy_config(autonomy),
     }
@@ -337,8 +339,9 @@ async def audit_agent(
 
 
 def harden_prompt(system_prompt: str, checks: list[str] | None = None) -> dict:
-    """FIX: return the system prompt with Fusion's tested guard rules appended (idempotent — it
-    replaces its own block instead of stacking), plus the guard block on its own."""
+    """OPTIONAL FIX: the system prompt with Fusion's prompt fix appended (idempotent — it replaces its
+    own block instead of stacking), plus the block on its own. On the small open-weight models measured
+    it rarely cut attacks and raised refusals of safe requests: re-test it on the target model."""
     if not system_prompt or not system_prompt.strip():
         raise ValueError("system_prompt must be non-empty")
     resolved = _resolve_checks(checks)
@@ -350,7 +353,8 @@ def harden_prompt(system_prompt: str, checks: list[str] | None = None) -> dict:
 
 
 def guardrail_snippet(checks: list[str] | None = None) -> dict:
-    """PROTECT: the copy-paste runtime-guardrail code (Python) for the given checks."""
+    """PROTECT: the copy-paste runtime-guardrail code (Python) for the given checks: a client wrapper
+    for replies and a guard_tool_call check before each tool call."""
     resolved = _resolve_checks(checks)
     return {"language": "python", "snippet": _snippet(resolved), "checks": resolved}
 

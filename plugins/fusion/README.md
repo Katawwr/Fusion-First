@@ -34,10 +34,10 @@ ollama pull llama3.2:1b      # a small open-weight target (free)
 
 | Ask Claude | What happens |
 |---|---|
-| `/fusion:audit prompts/support_bot.md` | attacks + grading + report card, fix included |
+| `/fusion:audit prompts/support_bot.md` | attacks + grading + report card |
 | `/fusion:audit prompts/bot.md ollama:qwen2.5:1.5b everything` | safety and quality on another model |
-| `/fusion:harden prompts/bot.md` | apply the tested guard rules to the prompt |
 | `/fusion:guard` | add the runtime guardrail to your agent's code |
+| `/fusion:harden prompts/bot.md` | optional: append the prompt fix (its audit result comes with it) |
 | `/fusion:setup` | check what can run here, keyless |
 
 ## What it never does

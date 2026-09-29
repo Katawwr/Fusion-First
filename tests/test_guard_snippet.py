@@ -62,6 +62,13 @@ def test_replies_through_the_wrapped_client_are_redacted():
 
 
 @pytest.mark.unit
+def test_the_snippet_lists_only_what_the_guard_covers():
+    code = guardrail_snippet(["direct_prompt_injection", "instruction_following"])
+    assert "Resist prompt injection" in code
+    assert "Follow the user's instructions" not in code  # quality is graded, not guarded
+
+
+@pytest.mark.unit
 def test_the_snippet_fits_the_code_box_without_scrolling():
     assert max(len(line) for line in guardrail_snippet(CHECKS).splitlines()) <= 80
 

@@ -1,16 +1,22 @@
 """Render a SafetyReportCard as self-contained, professional HTML — the customer-facing artifact.
 
 Clean, information-dense, theme-aware (light/dark), no gradient. The Fusion wordmark and indigo
-accent preserve the brand; semantic colors carry state (grade, honesty). Each card ends with a
-copy-paste-ready fix block and the exact `fusion harden` command to auto-apply it. Pure functions
-returning HTML; all fields are escaped; no external assets.
+accent preserve the brand; semantic colors carry state (grade, honesty). The dashboard leads with the
+runtime-guardrail code for the safety checks it graded; each card ends with the optional prompt fix
+(its measured caveat, the block and the `fusion harden` command). Pure functions returning HTML; all
+fields are escaped; no external assets.
 """
 
 from __future__ import annotations
 
 import html
 
+from fusion.guardrail.snippet import guardrail_snippet
 from fusion.schemas import Honesty, SafetyReportCard
+
+# The prompt fix's measured caveat (Trust Report: fix efficacy on small open-weight models).
+FIX_CAVEAT = ("On the small open-weight models measured, the prompt fix rarely cut attacks and raised "
+              "refusals of safe requests. Re-test it on your model before you ship it.")
 
 _GRADE_TONE = {"A": "good", "B": "good", "C": "warn", "D": "warn", "F": "bad", "?": "muted"}
 _HONESTY_TONE = {
@@ -28,10 +34,10 @@ def _bar(baseline: float, hardened: float) -> str:
     b, h = round(baseline * 100), round(hardened * 100)
     return f"""
       <div class="ba">
-        <div class="ba-row"><span class="ba-k">Baseline</span>
+        <div class="ba-row"><span class="ba-k">As written</span>
           <span class="track"><i class="fill bad" style="width:{b}%"></i></span>
           <span class="ba-v">{b}%</span></div>
-        <div class="ba-row"><span class="ba-k">Hardened</span>
+        <div class="ba-row"><span class="ba-k">With fix</span>
           <span class="track"><i class="fill good" style="width:{h}%"></i></span>
           <span class="ba-v">{h}%</span></div>
       </div>"""
@@ -90,7 +96,7 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
         htone = _HONESTY_TONE.get(d.honesty, "muted")
         ba = f"""
         <div class="block">
-          <div class="block-h">Safety improvement <span class="pill {htone}">{d.honesty.value}</span></div>
+          <div class="block-h">Prompt fix, re-tested <span class="pill {htone}">{d.honesty.value}</span></div>
           {_bar(d.baseline_issue_rate, d.hardened_issue_rate)}
           <div class="reduction">{_esc(_delta_text(d.absolute_reduction.point))}
             <span class="ci">CI {d.absolute_reduction.low*100:.0f}–{d.absolute_reduction.high*100:.0f} · McNemar p={d.mcnemar_p:.3f} · {d.n_pairs} paired</span></div>
@@ -102,10 +108,11 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
         cmd = f"fusion harden --prompt your_prompt.txt --check {card.check}"
         fix = f"""
         <div class="block fix">
-          <div class="block-h">Apply this fix <span class="sub">{_esc(card.fix_title)}</span>
+          <div class="block-h">Optional: prompt fix <span class="sub">{_esc(card.fix_title)}</span>
             <button class="copy" type="button" onclick="fusionCopy('{fid}', this)">Copy</button></div>
+          <p class="note">{_esc(FIX_CAVEAT)}</p>
           <pre id="{fid}" class="code">{_esc(card.fix_snippet)}</pre>
-          <div class="auto">Auto-apply to your prompt: <code>{_esc(cmd)}</code></div>
+          <div class="auto">Append it to your prompt: <code>{_esc(cmd)}</code></div>
         </div>"""
 
     demo = '<div class="demo">Demonstration — offline stand-in judge, not a real efficacy claim</div>' if card.demonstration else ""
@@ -119,6 +126,21 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
         </header>
         {acc}{ba}{fix}
         <footer class="prov">judge {_esc(card.judge_model)} · gold {_esc(card.gold_version)} · crosswalk {_esc(card.crosswalk_version)} · verify {_esc(card.verification_hash)}</footer>
+      </section>"""
+
+
+def render_guard_html(cards: list[SafetyReportCard]) -> str:
+    """The runtime-guardrail code for the safety checks graded here; empty for a quality-only report."""
+    checks = [c.check for c in cards if c.kind == "safety"]
+    if not checks:
+        return ""
+    return f"""
+      <section class="guard">
+        <div class="block-h">Runtime guardrail
+          <button class="copy" type="button" onclick="fusionCopy('guard', this)">Copy</button></div>
+        <p class="note">Redacts leaked secrets and blocks tool calls the user's request does not cover.
+          Add it to your agent's code.</p>
+        <pre id="guard" class="code">{_esc(guardrail_snippet(checks))}</pre>
       </section>"""
 
 
@@ -215,7 +237,9 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .pill.muted{color:var(--muted);background:var(--soft)}
 .ba{display:flex;flex-direction:column;gap:8px}
 .ba-row{display:flex;align-items:center;gap:10px}
-.ba-k{width:64px;font-size:12px;color:var(--muted)}
+.ba-k{width:72px;font-size:12px;color:var(--muted)}
+.guard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:24px}
+.note{color:var(--muted);font-size:12.5px;margin:0 0 10px}
 .track{flex:1;height:8px;background:var(--soft);border-radius:999px;overflow:hidden}
 .fill{display:block;height:100%;border-radius:999px}
 .fill.bad{background:var(--bad)}
@@ -262,9 +286,10 @@ def render_dashboard_html(cards: list[SafetyReportCard], title: str = "Safety Re
   <div class="wrap">
     <header class="masthead">
       <div class="brand">Fusion <span>First</span></div>
-      <p class="lede">Agentic AI safety, proven. Every number carries a confidence interval or an honesty badge — and every check ships a fix you can apply in one command.</p>
+      <p class="lede">Measured agent safety and quality. Every number carries a confidence interval or an honesty badge.</p>
     </header>
     {render_overview_html(cards)}
+    {render_guard_html(cards)}
     <div class="grid">{body}</div>
   </div>
   <script>{_JS}</script>

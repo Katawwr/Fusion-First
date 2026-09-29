@@ -47,6 +47,42 @@ async def test_scan_prompt_finds_issues():
 
 
 @pytest.mark.integration
+async def test_scan_prompt_next_steps_lead_with_the_guardrail():
+    out = await t.scan_prompt(VULNERABLE, checks=["direct_prompt_injection"])
+    guard, fix = out["next_steps"]
+    assert "guardrail_snippet" in guard and "check_tool_call" in guard
+    assert "harden_prompt" in fix and "optional" in fix.lower() and "re-test" in fix.lower()
+
+
+@pytest.mark.unit
+def test_tool_descriptions_never_call_the_fix_tested_or_lead_with_it():
+    import inspect
+
+    from fusion.integrations import mcp_server
+
+    from fusion.validate.claims import repo_root
+
+    readme = (repo_root() / "integrations" / "README.md").read_text(encoding="utf-8")
+    for src in (inspect.getsource(t), inspect.getsource(mcp_server), readme):
+        assert "tested guard rules" not in src
+        assert "FIND + FIX + PROTECT" not in src
+    assert mcp_server._INSTRUCTIONS.index("guardrail_snippet") < mcp_server._INSTRUCTIONS.index("harden_prompt")
+    assert readme.index("`guardrail_snippet(") < readme.index("`harden_prompt(")
+
+
+@pytest.mark.unit
+def test_cli_help_marks_the_prompt_fix_optional(capsys):
+    from fusion.cli import build_parser
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["--help"])
+    lines = capsys.readouterr().out.splitlines()
+    for cmd in ("harden", "fix"):
+        line = next(ln for ln in lines if ln.strip().startswith(cmd + " "))
+        assert "optional" in line, line
+
+
+@pytest.mark.integration
 async def test_scan_prompt_rejects_empty_and_unknown():
     with pytest.raises(ValueError):
         await t.scan_prompt("   ")
