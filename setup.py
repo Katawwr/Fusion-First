@@ -96,11 +96,11 @@ def _rmtree(path: pathlib.Path) -> None:
         shutil.rmtree(path, **{handler: _clear_read_only_and_retry})
 
 
-def replace_tree(src: pathlib.Path, dst: pathlib.Path) -> None:
+def replace_tree(src: pathlib.Path, dst: pathlib.Path, ignore=None) -> None:
     """Replace, don't merge: each frontend build has new hashed asset names. A failed delete (a
     locked file) fails the build loudly rather than shipping stale assets."""
     _rmtree(dst)
-    shutil.copytree(src, dst)
+    shutil.copytree(src, dst, ignore=ignore)
 
 
 def bundle(root: pathlib.Path, dest: pathlib.Path, *, require: bool = True) -> None:
@@ -122,8 +122,8 @@ def bundle(root: pathlib.Path, dest: pathlib.Path, *, require: bool = True) -> N
             target = dest / src.relative_to(root)
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, target)
-    if (web / "index.html").exists():
-        replace_tree(web, dest / "web")
+    if (web / "index.html").exists():  # the social-preview image is served from the live site, not locally
+        replace_tree(web, dest / "web", ignore=shutil.ignore_patterns("og-image.png"))
     if market.exists():
         _rmtree(dest / "marketplace")
         for name in _MARKETPLACE_DIRS:

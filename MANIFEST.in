@@ -13,6 +13,7 @@ include .claude-plugin/marketplace.json
 graft plugins
 exclude plugins/*/README.md
 graft frontend/dist
+exclude frontend/dist/og-image.png
 # fusion_first/_bundled/ is a build artifact (populated by setup.py), not shipped in the sdist.
 prune fusion_first/_bundled
 prune tests

@@ -110,6 +110,7 @@ def test_bundling_ships_runtime_data_only_and_drops_what_the_source_removed(tmp_
     _release_tree(root)
     for rel in RUNTIME_DATA + EVIDENCE_ONLY:
         _write(root / rel, "x")
+    _write(root / "frontend/dist/og-image.png", "png")
     dest = tmp_path / "bundled"
     _write(dest / "datasets/gold/removed_check.v1.jsonl", "stale")  # from an earlier build
 
@@ -117,6 +118,8 @@ def test_bundling_ships_runtime_data_only_and_drops_what_the_source_removed(tmp_
 
     shipped = [f for f in _files(dest) if f.split("/")[0] in ("cassettes", "crosswalk", "datasets", "evals")]
     assert shipped == RUNTIME_DATA  # nothing evidence-only, nothing stale from an earlier build
+    # The social-preview image is fetched from the live site's URL, never from a local `fusion serve`.
+    assert _files(dest / "web") == ["index.html"]
 
 
 @pytest.mark.unit
@@ -148,6 +151,7 @@ def test_the_sdist_carries_only_what_builds_the_wheel(tmp_path):
     shutil.copytree(ROOT / "plugins", proj / "plugins", ignore=skip)
     shutil.copytree(ROOT / ".claude-plugin", proj / ".claude-plugin")
     _write(proj / "frontend/dist/index.html", "<html></html>")
+    _write(proj / "frontend/dist/og-image.png", "png")
     for rel in RUNTIME_DATA + EVIDENCE_ONLY:
         _write(proj / rel, "x")
     for rel in ("CLAUDE.md", "SCHEMA.md", "HANDOFF.md", "tests/test_x.py", "integrations/README.md",
@@ -167,6 +171,7 @@ def test_the_sdist_carries_only_what_builds_the_wheel(tmp_path):
     top = ("PKG-INFO", "README.md", "pyproject.toml", "setup.py", "setup.cfg", "MANIFEST.in")
     assert [n for n in names if n.split("/")[0] not in kept and n not in top] == []
     assert [n for n in names if n.endswith("README.md") and n != "README.md"] == []
+    assert "frontend/dist/og-image.png" not in names
     dev = {m.replace(".", "/") for m in _load_setup().DEV_ONLY_MODULES}
     assert [n for n in names if n.endswith(".py") and n[:-3].removesuffix("/__init__") in dev] == []
 
