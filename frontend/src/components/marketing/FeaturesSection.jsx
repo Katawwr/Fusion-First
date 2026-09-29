@@ -8,21 +8,15 @@ import {
   Layers,
   GitBranch,
   BarChart3,
-  RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 
+// Measure + guard first; the prompt fix is optional and carries its measured caveat.
 const features = [
   {
-    icon: Layers,
-    title: "One grader for safety and quality",
-    description:
-      "Safety checks attack the agent; quality checks score instruction following and correctness.",
-  },
-  {
-    icon: Cpu,
-    title: "Any model or workflow",
-    description:
-      "Ollama and any Hugging Face GGUF, your own vLLM or TGI server, OpenAI, Anthropic and other hosted APIs with your key, or any agent through a command adapter.",
+    icon: ShieldCheck,
+    title: "Runtime guardrail",
+    description: guardrailDescription(evidence.runtime_guardrail, evidence.step2_guard),
   },
   {
     icon: BarChart3,
@@ -31,10 +25,10 @@ const features = [
       "The grader scores each response against a written rubric. Its accuracy on known-answer cases is measured and shown on every report.",
   },
   {
-    icon: GitBranch,
-    title: "Paired before/after",
+    icon: Layers,
+    title: "One grader for safety and quality",
     description:
-      "The same attacks run against your prompt as written and with the fix, compared with a paired McNemar test. The PROVEN / PRELIMINARY / INCONCLUSIVE badge claims no lift the data can't support.",
+      "Safety checks attack the agent; quality checks score instruction following and correctness.",
   },
   {
     icon: Target,
@@ -43,9 +37,16 @@ const features = [
       "Prompt injection, excessive agency, data exfiltration and system prompt leakage, mapped to the OWASP Top 10 for LLMs (2025) and for Agentic AI (2026).",
   },
   {
-    icon: RefreshCw,
-    title: "Prompt fix and runtime guardrail",
-    description: guardrailDescription(evidence.runtime_guardrail, evidence.step2_guard),
+    icon: Cpu,
+    title: "Any model or workflow",
+    description:
+      "Ollama and any Hugging Face GGUF, your own vLLM or TGI server, OpenAI, Anthropic and other hosted APIs with your key, or any agent through a command adapter.",
+  },
+  {
+    icon: GitBranch,
+    title: "Optional prompt fix, re-tested",
+    description:
+      "The same attacks run against your prompt as written and with the fix, compared with a paired McNemar test; the PROVEN / PRELIMINARY / INCONCLUSIVE badge claims no lift the data can't support. On the small open-weight models we measured, the fix rarely cut attacks and raised refusals of safe requests.",
   },
 ];
 

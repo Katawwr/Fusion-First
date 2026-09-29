@@ -238,6 +238,12 @@ export default function Trust() {
         </Section>
       )}
 
+      {evidence.step2_guard && <Step2Section s={evidence.step2_guard} />}
+
+      {evidence.runtime_guardrail && <GuardrailSection runtime={evidence.runtime_guardrail} />}
+
+      {evidence.guard_vs_llama_guard && <LlamaGuardSection cmp={evidence.guard_vs_llama_guard} />}
+
       <Section title="Prompt fix: effect and cost">
         {evidence.fix_pooled && (
           <div className="mb-4">
@@ -270,12 +276,6 @@ export default function Trust() {
           <NotYet what="the as-written vs fixed prompt comparison on local models" />
         )}
       </Section>
-
-      {evidence.step2_guard && <Step2Section s={evidence.step2_guard} />}
-
-      {evidence.runtime_guardrail && <GuardrailSection runtime={evidence.runtime_guardrail} />}
-
-      {evidence.guard_vs_llama_guard && <LlamaGuardSection cmp={evidence.guard_vs_llama_guard} />}
 
       {evidence.value_ledger && (
         <Section title="Value ledger: fix vs guardrail">

@@ -8,9 +8,16 @@ import evidence from "../../content/evidence.json";
 vi.mock("../../hooks/useReveal", () => ({ default: () => [{ current: null }, true] }));
 
 describe("FeaturesSection", () => {
+  it("leads with the runtime guardrail and ends with the optional prompt fix", () => {
+    render(<FeaturesSection />);
+    const titles = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    expect(titles[0]).toBe("Runtime guardrail");
+    expect(titles.at(-1)).toBe("Optional prompt fix, re-tested");
+  });
+
   it("states the guardrail's measured result from the evidence, not from the source", () => {
     const text = guardrailDescription({ all: { recall: { point: 0.78 }, over_block: { point: 0.05 } } });
-    expect(text).toMatch(/guardrail stopped 78%/);
+    expect(text).toMatch(/it stopped 78%/);
     expect(text).toMatch(/wrongly blocked 5% of clean conversations/);
   });
 
@@ -21,26 +28,27 @@ describe("FeaturesSection", () => {
       systems: { fusion: sys(0.89, 0.008), llama_guard_b: sys(0.52, 0.1) },
     };
     const text = guardrailDescription({ all: sys(0.71, 0.01) }, step2);
-    expect(text).toMatch(/against qwen2.5:7b and llama3.1:8b, the guardrail stopped 89% and wrongly blocked 1%/);
+    expect(text).toMatch(/against qwen2.5:7b and llama3.1:8b it stopped 89% and wrongly blocked 1%/);
     expect(text).toMatch(/Llama Guard 3 stopped 52% of the same attacks/);
     expect(guardrailDescription({ all: sys(0.71, 0.01) }, { ...step2, decision: { new_rules: "not adopted" } }))
-      .toMatch(/guardrail stopped 71%/);
+      .toMatch(/it stopped 71%/);
   });
 
   it("makes no number claim when the guardrail hasn't been measured", () => {
     expect(guardrailDescription(null)).not.toMatch(/\d+%/);
   });
 
-  it("keeps the fix's measured downside next to the guardrail", () => {
-    const text = guardrailDescription(null);
-    expect(text).toMatch(/re-tested on your model/);
-    expect(text).toMatch(/rarely cut attacks and raised refusals of safe requests/);
+  it("keeps the fix's measured downside on the fix", () => {
+    render(<FeaturesSection />);
+    const fix = screen.getByRole("heading", { name: "Optional prompt fix, re-tested" }).parentElement;
+    expect(fix.textContent).toMatch(/rarely cut attacks and raised refusals of safe requests/);
+    expect(guardrailDescription(null)).not.toMatch(/prompt/i);
   });
 
   it("renders the committed evidence", () => {
     render(<FeaturesSection />);
     if (evidence.runtime_guardrail) {
-      expect(screen.getByText(/guardrail stopped \d+%/)).toBeInTheDocument();
+      expect(screen.getByText(/it stopped \d+%/)).toBeInTheDocument();
     }
   });
 });

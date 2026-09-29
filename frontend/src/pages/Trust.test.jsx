@@ -14,6 +14,18 @@ describe("Trust page", () => {
     expect(interval(null)).toBe("—");
   });
 
+  it("shows the guardrail's results before the prompt fix's", () => {
+    render(
+      <MemoryRouter>
+        <Trust />
+      </MemoryRouter>,
+    );
+    const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    const guard = titles.findIndex((t) => /guardrail/i.test(t));
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(titles.indexOf("Prompt fix: effect and cost"));
+  });
+
   it("renders only what the evidence contains, and says what isn't measured", () => {
     render(
       <MemoryRouter>

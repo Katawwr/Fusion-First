@@ -18,20 +18,27 @@ export default function Hero() {
     }
   };
 
-  // What a Fusion report tells you — the shape of the output, not a result. Numbers appear here ONLY
-  // when committed evidence backs them (evals/claims.yaml, enforced by tests/test_claims_backed.py).
+  // What Fusion gives you — the shape of the output, not a result. Numbers appear here ONLY when
+  // committed evidence backs them (evals/claims.yaml, enforced by tests/test_claims_backed.py).
   const evidence = [
     {
-      model: "Your prompt, as written",
-      kind: "baseline",
+      model: "Your agent, as written",
+      kind: "measured",
       stat: "Graded A–F against real attacks",
       verdict: "Measured",
       tone: "var(--accent)",
     },
     {
-      model: "Hardened by Fusion",
-      kind: "after the fix",
-      stat: "Same attacks, re-tested",
+      model: "Runtime guardrail",
+      kind: "in your agent's code",
+      stat: "Blocks leaks and unrequested tool calls",
+      verdict: "Measured",
+      tone: "var(--accent)",
+    },
+    {
+      model: "Prompt fix",
+      kind: "optional",
+      stat: "Same attacks, re-tested on your model",
       verdict: "Proven or not",
       tone: "var(--accent)",
     },
@@ -68,9 +75,9 @@ export default function Hero() {
                 WebkitTextFillColor: "transparent",
               }}
             >
-              Safety and quality
+              Measure and guard
             </span>{" "}
-            evals for AI agents
+            AI agents
           </h1>
 
           {/* CTA buttons */}
@@ -161,7 +168,7 @@ export default function Hero() {
               }}
             >
               <Shield size={13} color="var(--accent)" />
-              What a report shows
+              What you get
             </div>
             {evidence.map((row, i) => (
               <div

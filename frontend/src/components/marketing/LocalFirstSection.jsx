@@ -19,7 +19,7 @@ const WAYS = [
   {
     icon: Plug,
     title: "In your agent workflow",
-    body: "A Claude Code plugin, an MCP server and a CLI let a coding agent test, fix and guard the prompt it just wrote.",
+    body: "A Claude Code plugin, an MCP server and a CLI let a coding agent test the prompt it just wrote and add the runtime guardrail.",
   },
 ];
 

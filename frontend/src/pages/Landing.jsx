@@ -11,10 +11,10 @@ export default function Landing() {
   return (
     <>
       <Helmet>
-        <title>Fusion First: Safety and quality evals for AI agents</title>
+        <title>Fusion First: Measure and guard AI agents</title>
         <meta
           name="description"
-          content="Fusion First attacks your AI agent, grades safety and quality with a grader measured against known answers, and re-tests a prompt fix on your model. Every rate carries a confidence interval. Built for open-weight models."
+          content="Fusion First attacks your AI agent, grades safety and quality with a grader measured against known answers, and adds a runtime guardrail that blocks leaked secrets and tool calls the user didn't request. Every rate carries a confidence interval. Built for open-weight models."
         />
         <meta
           name="keywords"
@@ -22,11 +22,11 @@ export default function Landing() {
         />
         <meta
           property="og:title"
-          content="Fusion First: Safety and quality evals for AI agents"
+          content="Fusion First: Measure and guard AI agents"
         />
         <meta
           property="og:description"
-          content="Attack your AI agent, grade safety and quality with a measured grader, and re-test a prompt fix on your model. Built for open-weight models."
+          content="Attack your AI agent, grade safety and quality with a measured grader, and guard it at runtime. Built for open-weight models."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://fusion-first-testing.com" />
@@ -37,11 +37,11 @@ export default function Landing() {
         <meta name="twitter:card" content="summary_large_image" />
         <meta
           name="twitter:title"
-          content="Fusion First: Safety and quality evals for AI agents"
+          content="Fusion First: Measure and guard AI agents"
         />
         <meta
           name="twitter:description"
-          content="Attack your AI agent, grade safety and quality with a measured grader, and re-test a prompt fix on your model. Built for open-weight models."
+          content="Attack your AI agent, grade safety and quality with a measured grader, and guard it at runtime. Built for open-weight models."
         />
         <link rel="canonical" href="https://fusion-first-testing.com" />
         <script type="application/ld+json">
@@ -50,7 +50,7 @@ export default function Landing() {
             "@type": "SoftwareApplication",
             name: "Fusion First",
             description:
-              "Safety and quality evaluation engine for AI agents. Attacks the agent, grades transcripts with a grader whose accuracy is measured, and re-tests a prompt fix on the user's model. Built for open-weight models.",
+              "Safety and quality evaluation engine and runtime guardrail for AI agents. Attacks the agent, grades transcripts with a grader whose accuracy is measured, and blocks leaked secrets and unrequested tool calls at runtime. Built for open-weight models.",
             applicationCategory: "DeveloperApplication",
             operatingSystem: "Web",
             offers: {
