@@ -224,7 +224,9 @@ async def _score_template(
         hardened_severity=h.severity,
         evidence=_evidence(b) if b.is_issue else "",
         baseline_excerpt=_excerpt(_last_assistant_text(base_traj), 200),
-        guard_stopped=guard_stops(template, base_traj, guard_for_prompt(system_prompt)),
+        # Canned demo replies were written for the dataset's fictional products, not this prompt, so the
+        # replay would say nothing about the user's agent: live scans only.
+        guard_stopped=None if demonstration else guard_stops(template, base_traj, guard_for_prompt(system_prompt)),
     )
 
 

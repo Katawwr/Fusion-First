@@ -87,9 +87,18 @@ async def _scan(**kw):
 
 
 @pytest.mark.integration
-async def test_every_scored_attack_carries_a_guard_verdict():
+async def test_every_scored_attack_in_a_live_scan_carries_a_guard_verdict():
+    result = await _scan(demonstration=False, target_client=FakeTarget(), judge_client=FakeJudge(),
+                         target_model_id="m", judge_model="j")
+    assert result.outcomes and all(o.guard_stopped is False for o in result.outcomes)  # refusals
+
+
+@pytest.mark.integration
+async def test_a_demo_scan_carries_no_verdict():
+    """Canned demo replies were written for the dataset's fictional products, not the user's prompt, so
+    a replay over them would say nothing about the user's agent."""
     result = await _scan(demonstration=True)
-    assert result.outcomes and all(isinstance(o.guard_stopped, bool) for o in result.outcomes if o.scored)
+    assert result.outcomes and all(o.guard_stopped is None for o in result.outcomes)
 
 
 @pytest.mark.integration
