@@ -20,7 +20,6 @@ import tempfile
 from pathlib import Path
 
 DEFAULTS = {"CONTEXT_HANDOFF_WINDOW": 1_000_000, "CONTEXT_HANDOFF_PCT": 85, "CONTEXT_HANDOFF_REMIND_PCT": 93}
-ROUTINES = ("fusion-continue-a", "fusion-continue-b")
 _USAGE_KEYS = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
 
 
@@ -68,14 +67,13 @@ def _message(pct: int, tokens: int, window: int, threshold: int, reminder: bool)
         "Ollama job while one runs.",
         "3. Update HANDOFF.md (state, what this session did, in-flight work, next steps, open decisions) and "
         "commit it with any finished work.",
-        "4. Start the continuation as a regular session when this app offers one: ToolSearch \"start_session\"; "
-        "if mcp__ccd_session_mgmt__start_session (or hand_off_to_session) exists, start a local session in this "
+        "4. Start the continuation as a regular session: ToolSearch \"start_session\"; if "
+        "mcp__ccd_session_mgmt__start_session (or hand_off_to_session) exists, start a local session in this "
         "folder with this session's model, effort and permission mode and the first prompt \"Read HANDOFF.md and "
-        "CLAUDE.md, then continue.\", then detach_session it so it outlives this one. Otherwise run the routine: "
-        f"mcp__scheduled-tasks__run_scheduled_task with taskId \"{ROUTINES[0]}\"; if it is refused because that "
-        f"routine has a run in progress (this session), use \"{ROUTINES[1]}\". If none can start, ask the user "
-        "to open a new chat (Ctrl+N) with: Read HANDOFF.md and CLAUDE.md, then continue.",
-        "5. Reply with one line linking the new session, then end this turn. Do no further work here.",
+        "CLAUDE.md, then continue.\", then detach_session it so it outlives this one. If it does not exist, ask "
+        "the user to open a new chat (Ctrl+N) with: Read HANDOFF.md and CLAUDE.md, then continue.",
+        "5. Reply with one line (the new session's link, or the request to the user), then end this turn. Do no "
+        "further work here.",
     ])
 
 

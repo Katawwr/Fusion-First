@@ -55,18 +55,19 @@ def test_at_85_percent_it_asks_for_the_handoff_once(tmp_path):
     out = handle(_payload(t), ENV, tmp_path / "state")
     ctx = out["hookSpecificOutput"]["additionalContext"]
     assert out["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
-    assert "86%" in ctx and "HANDOFF.md" in ctx and "fusion-continue-a" in ctx and "fusion-continue-b" in ctx
+    assert "86%" in ctx and "HANDOFF.md" in ctx
     assert handle(_payload(t), ENV, tmp_path / "state") is None  # once per session
     other = handle(_payload(t, session="s2"), ENV, tmp_path / "state")
     assert other is not None  # state is per session
 
 
 @pytest.mark.unit
-def test_it_prefers_a_regular_session_and_keeps_the_routine_as_the_fallback(tmp_path):
+def test_it_starts_a_regular_session_or_asks_the_user_and_never_a_routine(tmp_path):
     out = handle(_payload(_transcript(tmp_path, _assistant(860_000))), ENV, tmp_path / "state")
     ctx = out["hookSpecificOutput"]["additionalContext"]
     assert "start_session" in ctx and "detach_session" in ctx
-    assert ctx.index("start_session") < ctx.index("fusion-continue-a")
+    assert "Ctrl+N" in ctx and "Read HANDOFF.md and CLAUDE.md, then continue." in ctx
+    assert "routine" not in ctx.lower() and "scheduled" not in ctx.lower()
 
 
 @pytest.mark.unit

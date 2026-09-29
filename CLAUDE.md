@@ -142,10 +142,10 @@ UserPromptSubmit in `.claude/settings.json`) tells Claude to hand off; again at 
 3. Start a regular session if the app gives this session `start_session` / `hand_off_to_session`
    (`ccd_session_mgmt`; not exposed as of 2026-09-29, no documented setting): local, this folder, same
    model/effort/permission mode, first prompt "Read HANDOFF.md and CLAUDE.md, then continue.", then
-   `detach_session` it. Otherwise start routine `fusion-continue-a` with `run_scheduled_task`
-   (`fusion-continue-b` when `-a` is the run in progress). If none starts, ask the user to open a chat
-   (Ctrl+N) with that prompt.
-4. Reply with the new session's link and do no further work in the old session.
+   `detach_session` it. Otherwise ask the user to open a new chat (Ctrl+N) with that prompt. Never use
+   a routine or scheduled task (owner, 2026-09-29).
+4. Reply with the new session's link (or the request to the user) and do no further work in the old
+   session.
 
 Settings: `CONTEXT_HANDOFF_WINDOW` (default 1000000), `CONTEXT_HANDOFF_PCT` (85), `CONTEXT_HANDOFF_OFF=1`.
 Hooks load when a session starts; edits to them apply to new sessions.
