@@ -66,8 +66,9 @@ No local grader is recommended: `ollama-prob:qwen2.5:7b` scored below the policy
 pre-registered test (Trust Report).
 
 **MCP**: `fusion-mcp` (stdio) exposes `fusion_doctor`, `start_run`, `run_status`,
-`get_grading_tasks`, `submit_grades`, `finalize_run`, `verify_run`, and the one-shot
-`audit_agent` / `scan_prompt` / `harden_prompt` / `check_output` / `check_tool_call` tools.
+`get_grading_tasks`, `submit_grades`, `finalize_run`, `verify_run`, the one-shot `audit_agent` /
+`scan_prompt`, the runtime guard's `guardrail_snippet` / `check_output` / `check_tool_call`, and the
+optional `harden_prompt`.
 
 ```json
 { "mcpServers": { "fusion": { "command": "fusion-mcp" } } }

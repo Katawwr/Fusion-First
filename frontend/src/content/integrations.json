@@ -13,7 +13,7 @@
         {
           "label": "In Claude Code",
           "lang": "text",
-          "code": "/fusion:audit prompts/support_bot.md ollama:llama3.2:1b\n/fusion:harden prompts/support_bot.md"
+          "code": "/fusion:audit prompts/support_bot.md ollama:llama3.2:1b\n/fusion:guard\n/fusion:harden prompts/support_bot.md    # optional prompt fix"
         }
       ]
     },
@@ -37,7 +37,7 @@
           "code": "fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader claude-cli"
         },
         {
-          "label": "Apply the fix",
+          "label": "Optional: append the prompt fix",
           "lang": "bash",
           "code": "fusion harden --prompt agent.txt --write"
         },
@@ -50,6 +50,22 @@
           "label": "Add intervals and a paired test to promptfoo results",
           "lang": "bash",
           "code": "fusion import-promptfoo results.json"
+        }
+      ]
+    },
+    {
+      "id": "guard",
+      "title": "Runtime guard",
+      "steps": [
+        {
+          "label": "In your agent's code",
+          "lang": "python",
+          "code": "from fusion.guardrail.guard import Guardrail\nfrom fusion.guardrail.policy import GuardConfig\nfrom fusion.guardrail.client import GuardedModelClient\n\nguard = Guardrail(GuardConfig(allowlisted_domains=[\"your-co.com\"], secret_values=[\"sk-...\"],\n                              system_prompt=SYSTEM_PROMPT, require_authorization=True))\nclient = GuardedModelClient(your_model_client, guard)  # replies: secrets redacted, prompt dumps blocked\n\n# before each tool call runs; user_message = the user's own words\noutcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)\nif outcome.blocked:\n    ...  # don't run it"
+        },
+        {
+          "label": "For Claude Code",
+          "lang": "bash",
+          "code": "claude plugin install fusion-guard@fusion-first"
         }
       ]
     },
@@ -104,22 +120,6 @@
           "label": "In your pipeline",
           "lang": "bash",
           "code": "fusion run verify $RUN_ID --prompt agent.txt\nfusion run finalize $RUN_ID --min-grade B"
-        }
-      ]
-    },
-    {
-      "id": "guard",
-      "title": "Runtime guard",
-      "steps": [
-        {
-          "label": "In your agent's code",
-          "lang": "python",
-          "code": "from fusion.guardrail.guard import Guardrail\nfrom fusion.guardrail.policy import GuardConfig\nfrom fusion.guardrail.client import GuardedModelClient\n\nguard = Guardrail(GuardConfig(allowlisted_domains=[\"your-co.com\"], secret_values=[\"sk-...\"],\n                              system_prompt=SYSTEM_PROMPT, require_authorization=True))\nclient = GuardedModelClient(your_model_client, guard)  # replies: secrets redacted, prompt dumps blocked\n\n# before each tool call runs; user_message = the user's own words\noutcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)\nif outcome.blocked:\n    ...  # don't run it"
-        },
-        {
-          "label": "For Claude Code",
-          "lang": "bash",
-          "code": "claude plugin install fusion-guard@fusion-first"
         }
       ]
     }

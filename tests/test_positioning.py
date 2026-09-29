@@ -25,6 +25,20 @@ def test_the_readme_leads_with_measure_and_guard():
 
 
 @pytest.mark.unit
+def test_the_readme_lists_the_guard_tools_and_the_fix_as_optional():
+    text = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    mcp = text[text.index("**MCP**"):]
+    assert "guardrail_snippet" in mcp[:600] and "optional `harden_prompt`" in mcp[:600]
+
+
+@pytest.mark.unit
+def test_the_ci_hint_offers_the_guardrail_before_the_fix():
+    text = (ROOT / "integrations" / "README.md").read_text(encoding="utf-8")
+    hint = next(line for line in text.splitlines() if "exit 1 = a check is below the bar" in line)
+    assert hint.index("runtime guardrail") < hint.index("fusion harden")
+
+
+@pytest.mark.unit
 def test_the_project_guide_names_the_guardrail_and_the_optional_fix():
     intro = _intro("CLAUDE.md")
     assert "runtime guardrail" in intro

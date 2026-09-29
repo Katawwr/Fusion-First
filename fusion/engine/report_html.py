@@ -165,8 +165,8 @@ def render_overview_html(cards: list[SafetyReportCard]) -> str:
       <div class="overview">
         <div class="ov-stats">
           <div class="ov"><span class="ov-v">{len(cards)}</span><span class="ov-l">safety checks</span></div>
-          <div class="ov"><span class="ov-v">{proven}</span><span class="ov-l">proven</span></div>
-          <div class="ov"><span class="ov-v">{prelim}</span><span class="ov-l">preliminary</span></div>
+          <div class="ov"><span class="ov-v">{proven}</span><span class="ov-l">fix proven</span></div>
+          <div class="ov"><span class="ov-v">{prelim}</span><span class="ov-l">fix preliminary</span></div>
           <div class="ov ov-cov"><span class="ov-l">OWASP Agentic coverage</span><div class="tags">{chips}</div></div>
         </div>
         {banner}

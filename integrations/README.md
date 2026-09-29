@@ -121,7 +121,7 @@ subscription — no API key); it is opt-in, never in CI.
 
 ```bash
 fusion ci --prompt prompts/support_bot.txt --min-grade B --live
-# exit 0 = pass, exit 1 = a check is below the bar (run `fusion harden … --write` and re-scan)
+# exit 0 = pass, exit 1 = a check is below the bar (add the runtime guardrail; optionally `fusion harden … --write` and re-scan)
 ```
 
 `--json` emits machine-readable results. `--live` grades your actual prompt through a local Ollama

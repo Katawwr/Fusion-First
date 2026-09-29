@@ -85,6 +85,13 @@ def test_the_guardrail_block_states_the_in_sample_replay_when_the_scan_has_one()
 
 
 @pytest.mark.unit
+def test_the_overview_counts_are_named_as_the_fixs_badges():
+    page = render_dashboard_html([_card()])
+    assert '<span class="ov-l">fix proven</span>' in page
+    assert '<span class="ov-l">fix preliminary</span>' in page
+
+
+@pytest.mark.unit
 def test_a_quality_only_report_has_no_guardrail_block():
     c = _card()
     c.kind, c.check = "quality", "instruction_following"

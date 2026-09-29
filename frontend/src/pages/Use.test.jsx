@@ -19,6 +19,16 @@ describe("Use page", () => {
     expect(screen.getByText(/claude plugin install fusion@fusion-first/)).toBeInTheDocument();
   });
 
+  it("offers the runtime guard early and the prompt fix as optional", () => {
+    const ids = content.sections.map((s) => s.id);
+    expect(ids.indexOf("guard")).toBeLessThan(ids.indexOf("models"));
+    const steps = content.sections.flatMap((s) => s.steps);
+    expect(steps.some((s) => /^Apply the fix/.test(s.label))).toBe(false);
+    const plugin = content.sections.find((s) => s.id === "plugin").steps.map((s) => s.code).join("\n");
+    expect(plugin.indexOf("/fusion:guard")).toBeGreaterThan(-1);
+    expect(plugin.indexOf("/fusion:guard")).toBeLessThan(plugin.indexOf("/fusion:harden"));
+  });
+
   it("names key variables but never embeds a key", () => {
     const text = JSON.stringify(content);
     expect(text).not.toMatch(/(api[_ ]?key|token)\s*[:=]\s*["']?[\w-]{6,}/i);
