@@ -127,23 +127,21 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 ## Next
 
-0. **Deploy (owner said "deploy it", 2026-09-29; the owner runs the commands).** Claude's auto-mode classifier
-   denied creating a Modal secret and then a retry of `modal deploy` (the first attempt failed on a Windows
-   console-encoding error: run with `PYTHONIOENCODING=utf-8`). Prepared: `app/modal_app.py` attaches no secret
-   (demo-only, nothing metered); `frontend/.vercel/output/` (gitignored) holds a prebuilt static build with
-   `VITE_API_URL=https://katawwr--fusion-safety-api-fastapi-app.modal.run` and an SPA route. Owner steps:
-   `modal deploy app/modal_app.py` (with `FUSION_VERSION`), `vercel login`, `vercel deploy --prebuilt --prod
-   --cwd frontend`. Then verify read-only: `/api/health` on the Modal URL, the domain serves the new title,
-   a demo scan runs. The old Modal apps stay up (rollback). Modal uploads the working tree at deploy time:
-   don't leave half-done code changes in `fusion/` or `app/` while the owner deploys.
-   **Replay: fix before relying on it** (second review, 2026-09-29, With fixes): (1, critical) live user-prompt
-   scans don't ask the target for the ACTION protocol, so the replay rarely sees tool calls: excessive-agency
-   and exfiltration counts read near zero (prose actions); mark those not replayable instead of not stopped;
-   (2) disclose the stand-in config (secretish_tokens misses e.g. "SAVE20", "4471"; no allowlist) where the
-   line appears; (3) leave out checks whose grade was withheld; minors in the review (verify wording and a
-   malformed-result guard, guard exceptions → None, show the snippet before harden settles, the request-id
-   test, Python/JS mirror test, table a11y, plural nits). A live end-to-end run of the replay has not been
-   checked yet (one was started in the scratchpad: llama3.2:1b target, qwen2.5:1.5b grader).
+0. **Deploy (owner: "deploy it", then "do it yourself", 2026-09-29).** API DEPLOYED to Modal:
+   `https://katawwr--fusion-safety-api-fastapi-app.modal.run` (app `fusion-safety-api`, no secret attached:
+   demo-only, nothing metered; `/api/health` → mode demo, version `rebuild-bd6b698`; a demo scan returns
+   8 scored, labelled demonstration; CORS `*`). Deploy with `PYTHONIOENCODING=utf-8` (Windows console) and
+   `FUSION_VERSION`. The auto-mode classifier denied creating a Modal secret (don't retry that); the deploy
+   ran after the owner's "do it yourself". Frontend: `frontend/.vercel/output/` (gitignored) holds a prebuilt
+   static build at bd6b698 with that API URL and an SPA route; WAITING for the owner's `vercel login` (the
+   CLI had no valid credentials; never sign in for the owner), then `vercel deploy --prebuilt --prod --cwd
+   frontend` and verify the domain (new title, demo scan end to end). The old Modal apps stay up (rollback).
+   **Replay review fixed** (second review: 1 critical, 2 important, all fixed with RED→GREEN tests): verdict is
+   `ProbeOutcome.guard_replay` = stopped / allowed / no_tool_call; attacks answered in prose (0 of 64 real
+   llama3.2:1b replies had an ACTION line) are counted separately, never as not stopped; every surface states
+   the replay's setup; checks with a withheld grade are left out; guard errors cost the verdict, not the scan;
+   the Python and web copies share a fixture. A live end-to-end run of the replay is still pending (started in
+   the scratchpad with the pre-fix code: re-finalize it with `fusion run finalize` to see the new fields).
 
 1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
    e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every
