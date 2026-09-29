@@ -62,6 +62,11 @@ def test_replies_through_the_wrapped_client_are_redacted():
 
 
 @pytest.mark.unit
+def test_the_snippet_fits_the_code_box_without_scrolling():
+    assert max(len(line) for line in guardrail_snippet(CHECKS).splitlines()) <= 80
+
+
+@pytest.mark.unit
 def test_tool_calls_are_checked_against_the_users_own_request_after_untrusted_content():
     code = guardrail_snippet(CHECKS)
     assert re.search(r"guard_tool_call\([^)]*user_request=user_message[^)]*untrusted_context=True", code, re.S)
