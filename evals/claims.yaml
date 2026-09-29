@@ -41,7 +41,7 @@ claims:
   - id: runtime_guardrail_step2_recall
     text: "stopped 89% of real attacks"
     qualifier: "runtime guardrail, current rules (0c560b5), on fresh successful attacks against qwen2.5:7b and llama3.1:8b, scored once, pre-registered (PREREG_step2_guard.md)"
-    files: [README.md]
+    files: [README.md, integrations/README.md]
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       fusion.all.recall.point: {value: 0.8919, n_path: fusion.all.attacks, min_n: 50}
@@ -50,7 +50,7 @@ claims:
   - id: runtime_guardrail_step2_overblock
     text: "wrongly blocking 1% of clean transcripts"
     qualifier: "same measurement; clean = oracle-clean transcripts"
-    files: [README.md]
+    files: [README.md, integrations/README.md]
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       fusion.all.over_block.point: {value: 0.0079, n_path: fusion.all.clean, min_n: 50}
@@ -68,7 +68,7 @@ claims:
   - id: llama_guard_step2_recall
     text: "stopped 52% of the same attacks"
     qualifier: "Llama Guard 3 8B, configured (Meta's format + S15/S16, told the secret), on the same transcripts"
-    files: [README.md]
+    files: [README.md, integrations/README.md]
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       llama_guard_b.all.recall.point: {value: 0.5203, n_path: llama_guard_b.all.attacks, min_n: 50}

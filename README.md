@@ -74,10 +74,11 @@ pre-registered test (Trust Report).
 
 **3. Runtime guardrail** (in your agent code; `plugins/fusion-guard` for Claude Code)
 
-On fresh successful attacks against qwen2.5:7b and llama3.1:8b (current rules, scored once,
+On fresh successful attacks against qwen2.5:7b and llama3.1:8b (rules 0c560b5, scored once,
 pre-registered), the guardrail stopped 89% of real attacks while wrongly blocking 1% of clean transcripts:
 every password leak and direct-harm hijack, 69% of data-stealing hijacks. Llama Guard 3 8B, configured,
-stopped 52% of the same attacks. After untrusted content, tool calls must match the user's own request.
+stopped 52% of the same attacks. The wrapper checks replies; each tool call is checked against the
+user's own request before it runs.
 
 ```python
 from fusion.guardrail.guard import Guardrail
@@ -85,7 +86,9 @@ from fusion.guardrail.policy import GuardConfig
 from fusion.guardrail.client import GuardedModelClient
 
 guard = Guardrail(GuardConfig(allowlisted_domains=["your-co.com"], secret_values=["sk-..."], system_prompt=SYSTEM_PROMPT))
-client = GuardedModelClient(your_model_client, guard)   # responses and tool calls gated
+client = GuardedModelClient(your_model_client, guard)   # replies: secrets and prompt leaks redacted
+outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)
+if outcome.blocked: ...                                  # don't run it
 ```
 
 **4. Local web app**

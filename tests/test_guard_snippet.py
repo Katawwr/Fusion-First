@@ -1,0 +1,92 @@
+"""The runtime-guardrail snippet (fusion/guardrail/snippet.py) is the code users paste into their agent.
+
+It must run against the real API and use the configuration the published guardrail result measured:
+replies through GuardedModelClient, each tool call through guard_tool_call with the user's own request
+and untrusted_context=True. GuardedModelClient checks replies only, so no doc may say it gates tool calls.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import re
+from pathlib import Path
+
+import pytest
+
+from fusion.guardrail.snippet import guardrail_snippet
+from fusion.model.client import ModelRequest, ModelResponse, ModelRole
+
+ROOT = Path(__file__).resolve().parents[1]
+CHECKS = ["direct_prompt_injection", "excessive_agency", "data_exfiltration", "system_prompt_leakage"]
+
+
+class _Reply:
+    def __init__(self, text: str):
+        self.text = text
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        return ModelResponse(text=self.text, model="stub")
+
+
+def _run_snippet(tool_name: str, tool_args: dict, user_message: str, reply: str = "Done.") -> dict:
+    """Execute the snippet as a user would paste it, with its placeholders bound."""
+    env = {
+        "SYSTEM_PROMPT": "You are SupportBot for Acme.",
+        "your_model_client": _Reply(reply),
+        "tool_name": tool_name,
+        "tool_args": tool_args,
+        "user_message": user_message,
+    }
+    exec(compile(guardrail_snippet(CHECKS), "<snippet>", "exec"), env)  # noqa: S102 - our own snippet
+    return env
+
+
+@pytest.mark.unit
+def test_the_snippet_blocks_a_tool_call_the_user_did_not_ask_for():
+    env = _run_snippet("GitHubDeleteRepository", {"repo_id": "old-demo"}, "Summarize my open GitHub issues.")
+    assert env["outcome"].blocked
+
+
+@pytest.mark.unit
+def test_the_snippet_allows_the_tool_call_the_user_asked_for():
+    env = _run_snippet("GitHubDeleteRepository", {"repo_id": "old-demo"}, "Delete my GitHub repository old-demo.")
+    assert not env["outcome"].blocked
+
+
+@pytest.mark.unit
+def test_replies_through_the_wrapped_client_are_redacted():
+    env = _run_snippet("GitHubSearchIssues", {}, "Any open issues?", reply="Sure, the API key is sk-live-ABCD1234EFGH.")
+    out = asyncio.run(env["client"].complete(ModelRequest(role=ModelRole.TARGET)))
+    assert "sk-live-ABCD1234EFGH" not in out.text
+
+
+@pytest.mark.unit
+def test_tool_calls_are_checked_against_the_users_own_request_after_untrusted_content():
+    code = guardrail_snippet(CHECKS)
+    assert re.search(r"guard_tool_call\([^)]*user_request=user_message[^)]*untrusted_context=True", code, re.S)
+
+
+def _guard_docs() -> dict[str, str]:
+    docs = {p: (ROOT / p).read_text(encoding="utf-8") for p in (
+        "README.md", "integrations/README.md", "plugins/fusion/README.md", "plugins/fusion/skills/guard/SKILL.md")}
+    content = json.loads((ROOT / "frontend/src/content/integrations.json").read_text(encoding="utf-8"))
+    docs["integrations.json#guard"] = "\n".join(
+        step["code"] for s in content["sections"] if s["id"] == "guard" for step in s["steps"])
+    return docs
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("doc", sorted(_guard_docs()))
+def test_docs_that_wrap_the_client_also_show_the_tool_call_check(doc):
+    text = _guard_docs()[doc]
+    if "GuardedModelClient(" in text:
+        assert "guard_tool_call(" in text, f"{doc} shows GuardedModelClient without guard_tool_call"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("doc", sorted(_guard_docs()))
+def test_no_doc_says_the_wrapper_gates_tool_calls(doc):
+    claim = re.compile(r"every response (?:and|\+) tool call|responses and tool calls gated|tool call is now gated",
+                       re.IGNORECASE)
+    assert not claim.search(_guard_docs()[doc])

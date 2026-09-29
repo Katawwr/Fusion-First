@@ -138,9 +138,10 @@ fusion run finalize $RUN_ID --min-grade B                    # exit 1 below the 
 
 ## 3. Runtime guardrail — protect the running agent
 
-The prompt fix asks the model to behave; the guardrail makes sure it does — deterministic, model-free,
-and benchmarked on a hand-labelled corpus (100% recall / 0% over-block on the in-house corpus, which
-is in-distribution — independent held-out testing is in progress; see `fusion guard-bench`).
+Deterministic and model-free. On fresh successful attacks against qwen2.5:7b and llama3.1:8b (rules
+0c560b5, scored once, pre-registered), it stopped 89% of real attacks while wrongly blocking 1% of clean transcripts.
+Llama Guard 3 8B, configured, stopped 52% of the same attacks (`TRUST_REPORT.md`). On the in-house corpus,
+which is in-distribution: 100% recall / 0% over-block (`fusion guard-bench`).
 
 ```python
 from fusion.guardrail.guard import Guardrail
@@ -151,9 +152,14 @@ guard = Guardrail(GuardConfig(
     allowlisted_domains=["your-company.com"],
     secret_values=["sk-...your-key..."],
     system_prompt=SYSTEM_PROMPT,
-    require_authorization=True,
 ))
-client = GuardedModelClient(your_model_client, guard)   # every response + tool call is now gated
+client = GuardedModelClient(your_model_client, guard)   # replies: secrets, PII, prompt leaks redacted
+
+# Before each tool call runs. user_request: the user's own message, never tool output.
+# untrusted_context=True once tool results or documents are in the conversation.
+outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)
+if outcome.blocked:
+    ...  # don't run it
 ```
 
 ## Where else this fits
