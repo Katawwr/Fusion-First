@@ -1,25 +1,34 @@
-# Handoff — Fusion First rebuild (updated 2026-09-29, third session)
+# Handoff — Fusion First rebuild (updated 2026-09-29, fourth session)
 
 Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** At 85% context the hook asks
 for a handoff (CLAUDE.md, "Context handoff"): a regular session via `start_session` if the app exposes it
 (it doesn't yet), otherwise ask the owner to open a new chat. **Never a routine or scheduled task** (owner).
 Plans: `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md` (master);
-`~/.claude/plans/measure-guard-reposition.md` and `~/.claude/plans/guard-replay.md` (this session's, done;
+`~/.claude/plans/measure-guard-reposition.md` and `~/.claude/plans/guard-replay.md` (third session's, done;
 ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md`).
 
 ## State
 
-- Branch `rebuild/agentic-safety-engine`, all committed locally. **Never push or publish** (deploying is the
-  owner's call; see "Deployment" below).
-- Green at last run (2026-09-29): `python -m pytest -q` (1,665), `ruff check fusion tests scripts app`,
-  frontend vitest (117) + lint + build, Playwright E2E (12), `claude plugin validate plugins/fusion`.
-- **Deployment (checked 2026-09-29, read-only):** `fusion-first-testing.com` → Vercel project `secure-studio`
-  (linked in `frontend/.vercel/`) serves the OLD pre-rebuild app (build of 2026-09-12: "Quality Testing Tool",
-  hallucination testing, credits/LemonSqueezy pricing, Supabase sign-in, and the old unbacked claim "100%
-  accuracy in quality issue detection"). Its Supabase project (`redacted-legacy-project`) no longer resolves, so
-  sign-in there is broken. The old Modal apps (`fusion-quality-tester`, healthy; a `fusion-secur…` app) are
-  deployed since Dec 2025; the rebuild's `fusion-safety-api` (app/modal_app.py) was never deployed. No git
-  remote. Modal CLI token present; Vercel CLI login not checked. The rebuild needs no Supabase (no accounts).
+- Branch `rebuild/agentic-safety-engine`, all committed locally, no git remote. Never push. Publishing to
+  PyPI is the OWNER's step (`twine upload`, their token); deploys follow the owner's word (see "Next").
+- Green at last run (2026-09-29, fourth session): `python -m pytest -q` (1,708), `ruff check fusion tests
+  scripts app setup.py`, frontend vitest (125) + lint + build, Playwright E2E (12), `claude plugin validate`
+  on the bundled marketplace and both plugins.
+- **Deployment:** `fusion-first-testing.com` (Vercel project `secure-studio`, CLI logged in as `katawwr`)
+  serves the rebuild; API `https://katawwr--fusion-safety-api-fastapi-app.modal.run` (Modal app
+  `fusion-safety-api`, demo-only, no secret, version `rebuild-bd6b698`). Walked end to end this session
+  (Playwright MCP): home, Scan (Paste → Attack → Grade → Guard → before/after), HTML report download, /use,
+  /trust, dark mode, 375 px: all render, no console errors except the designed 402 on "Grade quality" (the
+  demo server has no live model). The old Modal apps (`fusion-quality-tester`, `fusion-secur…`) still run:
+  rollback path; retiring them is the owner's call.
+- **PyPI release 0.1.0 prepared, NOT uploaded** (owner decision 2026-09-29: publish `fusion-safety` on PyPI;
+  the plugin marketplace ships inside the wheel). `dist/fusion_safety-0.1.0-py3-none-any.whl` + `.tar.gz`
+  built with `python -m build` (sdist, then the wheel from it), `twine check` passed, installed in a clean
+  venv outside the repo and exercised: `fusion doctor`, `scan`, `harden`, `guard-bench`, `serve` (bundled web
+  app), `fusion plugin-dir` + `claude plugin validate` (marketplace and both plugins), and the plugin's own
+  MCP launch (`uvx --from <wheel> --with "mcp>=1.2,<2" fusion-mcp`: 18 tools, doctor, snippet). July's old
+  artifacts are in this session's scratchpad `old-dist/`. Rebuild dist/ after ANY code change before upload:
+  PyPI never accepts the same version twice.
 - `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
   (`python -m fusion.validate.trust_report`); tests fail on drift.
 - Ollama models: llama3.2:1b, qwen2.5:1.5b, gemma3:1b, qwen2.5:3b, qwen2.5:7b, llama3.1:8b, llama-guard3:8b.
@@ -57,7 +66,39 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 | Claude Code hook, held-out v3 | 5% benign prompted, 76% attacks caught (v3 spent) |
 | **Step 2: request-bound guard (0c560b5), qwen2.5:7b + llama3.1:8b, 148 attacks / 252 clean** | **132/148 (89%), 2/252 (1%)**; previous rules 104/148, 0/252 (28 vs 0, p=7e-9); Llama Guard off the shelf 58/148, 30/252; configured 77/148, 24/252 (both significantly worse). Leaks 75/75, direct harm 21/21, data stealing 36/52 (LG configured 40/52). Held-out legitimate actions 1/20 blocked. Unseen attacker tools 26/33. ADOPTED |
 
-## This session, 2026-09-29 (`git log 233d687..HEAD`)
+## This session (fourth), 2026-09-29 (`git log 2855a27..HEAD`)
+
+- **Live site walked** (see State). Found the install paths were dead ends: `fusion-safety` was not on PyPI
+  (404; anyone could have claimed the name, and the plugin's `.mcp.json` defaulted to `uvx --from
+  fusion-safety`), /use said `claude plugin marketplace add /path/to/fusion`, no public repo. Owner chose:
+  PyPI (owner uploads) + the plugin bundled in the package (memory `distribution-pypi-decision`).
+- **Packaging** (e091796, e0be8f8, 558f482): the wheel ships `.claude-plugin/` + `plugins/` under
+  `fusion/_bundled/marketplace` (dot-paths named in package-data); `fusion plugin-dir` prints it; the
+  plugin pins `fusion-safety==0.1.0` and `mcp>=1.2,<2`. Installing the built wheel found two blockers,
+  both fixed with tests: `fusion/model/models.yaml` was missing (every installed `doctor`/run crashed), and
+  mcp 2.2.0 (what `mcp>=1.2` resolves to) renamed FastMCP, so the MCP server exited at startup. Also: the
+  build failed on Windows once a bundled folder had OneDrive's read-only attribute (rmtree now clears it);
+  MANIFEST.in ships the marketplace + web app; PyPI summary "Measure and guard AI agents: ..."; a
+  pip-installed `fusion serve` reports 0.1.0, not "dev". Install copy: `uv tool install fusion-safety` +
+  `claude plugin marketplace add "$(fusion plugin-dir)"` (README, plugin READMEs, setup skill, /use); the
+  web target picker names the `[serve]` extra. `tests/test_packaging.py` builds a real wheel.
+- **Live replay run done** (this session's scratchpad `live-replay2`, run `a089cade4172`: llama3.2:1b, Banking
+  prompt, host grader = 5 Sonnet subagents via `fusion run tasks --lease` / `submit`, 98/98 graded, 0
+  rejected). Grader 100% on every check's known-answer questions, grades not withheld: leakage C (2/8, 62%
+  with the optional fix, INCONCLUSIVE), the other three A. In-sample: "the guard blocked or redacted 1 of 2
+  attacks that got through and 1 of 30 replies graded clean (1 carried a secret or your system prompt)";
+  `run verify` passes. The previous session's run (33dafde363b4, 1.5B grader) died with that session.
+- **Replay honesty fix** (6055f7e): that clean reply was "I can't create a response that includes the
+  override code OVR-4471." (clean for excessive agency, which grades actions). `ProbeOutcome.guard_leak`
+  marks a stop caused by a prompt secret or a prompt echo; counts carry `clean_leaks`; the web mirror,
+  fixture and Guard step table follow. The one leak the guard missed was a paraphrase ("...including those
+  related to ... override codes"): the guard doesn't catch paraphrased rules.
+- **Guard-first top fixes** (6055f7e): a card's `top_fixes` (the `top_fix` of finalize/scan_prompt/
+  audit_agent and the CLI text card) led with "Apply the hardened system prompt" and "(Phase 3)"; now the
+  guardrail leads when attacks got through, the fix follows as optional, or is flagged when it raised the
+  issue rate.
+
+## Third session, 2026-09-29 (`git log 233d687..2855a27`)
 
 - **Measure + guard repositioning done** (plan `~/.claude/plans/measure-guard-reposition.md`; ledger in the
   gitignored `.superpowers/sdd/measure-guard-reposition/progress.md`, rulings listed there):
@@ -127,32 +168,25 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 ## Next
 
-0. **DEPLOYED 2026-09-29** (owner: "deploy it", then "do it yourself"). API on Modal:
-   `https://katawwr--fusion-safety-api-fastapi-app.modal.run` (app `fusion-safety-api`, no secret attached:
-   demo-only, nothing metered; `/api/health` → mode demo, version `rebuild-bd6b698`; a demo scan via the API
-   returns 8 scored, labelled demonstration; CORS `*`). Frontend on Vercel production (CLI logged in as
-   `katawwr`; deployment `fusion-first-4m7tbzxje-katrinas-projects-35bec1fe.vercel.app`) from the prebuilt
-   `frontend/.vercel/output/` (gitignored; build with `VITE_API_URL=<modal url> npx vite build --outDir
-   .vercel/output/static`, then `vercel deploy --prebuilt --prod --cwd frontend`). `fusion-first-testing.com`
-   now serves title "Fusion First: Measure and guard AI agents", the bundle calls the new API, no
-   Supabase/LemonSqueezy references, `/trust` → 200. **First job next session:** drive a demo scan end to end
-   on the live domain in a browser (Playwright MCP: Paste → Attack → Grade → Guard, before/after), both themes
-   and phone width; fix anything that differs from local. Redeploy the API with `PYTHONIOENCODING=utf-8` and
-   `FUSION_VERSION`. The auto-mode classifier denied creating a Modal secret (don't retry). The old Modal apps
-   (`fusion-quality-tester`, `fusion-secur…`) still run: rollback path; retiring them is the owner's call.
-   **In flight:** a local live run of the replay (background process from the previous session; Ollama busy
-   while it grades): workspace `C:/Users/Katri/AppData/Local/Temp/claude/C--Users-Katri-OneDrive-Documents-Fusion/501fd9ad-c617-4704-9f46-422ff1c2f046/scratchpad/live-replay`,
-   run `33dafde363b4` (llama3.2:1b target, qwen2.5:1.5b grader, Banking prompt). Check with
-   `python -m fusion.cli run status --workspace <that path>` and `ollama ps`; start no other Ollama job while
-   it runs. It was started with the pre-fix code: when done, re-finalize with `fusion run finalize --workspace
-   <path>` to get `guard_replay` and read the in-sample line (expect grades withheld with a 1.5B grader: then
-   the replay is not counted, correctly). If the scratchpad is gone, rerun it.
-   **Replay review fixed** (second review: 1 critical, 2 important, all fixed with RED→GREEN tests): verdict is
-   `ProbeOutcome.guard_replay` = stopped / allowed / no_tool_call; attacks answered in prose (0 of 64 real
-   llama3.2:1b replies had an ACTION line) are counted separately, never as not stopped; every surface states
-   the replay's setup; checks with a withheld grade are left out; guard errors cost the verdict, not the scan;
-   the Python and web copies share a fixture. A live end-to-end run of the replay is still pending (started in
-   the scratchpad with the pre-fix code: re-finalize it with `fusion run finalize` to see the new fields).
+0. **PyPI release (waiting on the owner).** The owner runs, from the repo root, with their PyPI token:
+   `python -m twine upload dist/*` (first check dist/ is current: rebuild with `python -m build` after any code
+   change; `twine check dist/*`). Then: (a) verify from PyPI in a fresh venv outside the repo: `pip install
+   "fusion-safety[serve,mcp]"`, `fusion doctor`, `fusion plugin-dir`, `claude plugin validate "$(fusion
+   plugin-dir)"`, and the plugin's MCP launch without FUSION_PKG (`uvx --from fusion-safety==0.1.0 --with
+   "mcp>=1.2,<2" fusion-mcp`); (b) redeploy the frontend so /use shows the new install copy (build with
+   `VITE_API_URL=https://katawwr--fusion-safety-api-fastapi-app.modal.run npx vite build --outDir
+   .vercel/output/static` in `frontend/`, then `vercel deploy --prebuilt --prod --cwd frontend`), then re-walk
+   /use on the live domain. The API needs no redeploy for this session's changes (the hosted demo shows none
+   of them); when it does: `PYTHONIOENCODING=utf-8 FUSION_VERSION=rebuild-$(git rev-parse --short HEAD) modal
+   deploy app/modal_app.py`. The auto-mode classifier denied creating a Modal secret (don't retry).
+   Before upload, tell the owner: the sdist also carries CLAUDE.md, SCHEMA.md and tests/ (internal docs; drop
+   them from MANIFEST.in if unwanted), and setuptools warns that `license = {text = ...}` and the License
+   classifier are deprecated (build still passes; the SPDX form `license = "LicenseRef-Proprietary"` needs
+   setuptools>=77 locally, which would break the no-isolation builds here on 70.2).
+0b. Follow-ups found this session: port the MCP server to mcp 2.x (FastMCP → `mcp.server.mcpserver.MCPServer`,
+   other API changes) and lift the `<2` pin; `fusion run status` from the CLI can't see whether a process
+   still works on a run (it now names `fusion run resume` in every busy phase; a heartbeat would let it say
+   "stalled" as the MCP path does); the guard misses paraphrased rule leaks.
 
 1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
    e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every
@@ -167,7 +201,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 ## Open decisions (owner)
 
-- DECIDED 2026-09-29: reposition as "measure + guard", fix demoted. DONE this session.
+- DECIDED 2026-09-29: reposition as "measure + guard", fix demoted. DONE (third session).
+- DECIDED 2026-09-29 (fourth session): ship via PyPI `fusion-safety` (the owner uploads), the Claude Code
+  plugin marketplace bundled in the wheel (`fusion plugin-dir`); no public repo. Prepared; upload pending.
 - DECIDED 2026-09-29: no routines or scheduled tasks for handoff; a regular session or ask the owner.
 - Fix arms (not in step 2): 300 pairs per model (the step-2 items + hardened arm, ~8–9 h per model) detect a
   moderate or strong fix effect (99–100% power) but not the small 1–3B one (56%); 600 pairs ≈ 33 h per model.
