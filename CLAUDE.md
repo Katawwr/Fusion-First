@@ -106,9 +106,10 @@ required on every non-GET `/api/` call. A page it serves always calls its own or
 
 Checks: `direct_prompt_injection`, `excessive_agency`, `data_exfiltration`, `system_prompt_leakage`
 (use `--check all` to run every one). The runtime guardrail (`fusion/guardrail/`) covers all four;
-its snippet (`fusion/guardrail/snippet.py`) wraps the model client for replies and calls
-`guard_tool_call(..., user_request=..., untrusted_context=True)` per tool call, the configuration
-step 2 measured. Each check also has an optional prompt fix in `fusion/engine/fixes.py`; `harden`
+its snippet (`fusion/guardrail/snippet.py`) sets `require_authorization=True`, wraps the model client
+for replies and calls `guard_tool_call(..., user_request=..., untrusted_context=True)` per tool call,
+the configuration step 2 measured. Every live scan replays it over its own replies (in-sample,
+`fusion/engine/guard_replay.py`). Each check also has an optional prompt fix in `fusion/engine/fixes.py`; `harden`
 appends it idempotently. The branded, theme-aware HTML card lives in `fusion/engine/report_html.py`
 (no gradient; clean/professional; guardrail block first, optional fix block per card).
 

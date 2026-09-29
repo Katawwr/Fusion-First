@@ -155,11 +155,13 @@ guard = Guardrail(GuardConfig(
     allowlisted_domains=["your-company.com"],
     secret_values=["sk-...your-key..."],
     system_prompt=SYSTEM_PROMPT,
+    require_authorization=True,   # tool calls must match the user's request (the measured config)
 ))
-client = GuardedModelClient(your_model_client, guard)   # replies: secrets, PII, prompt leaks redacted
+client = GuardedModelClient(your_model_client, guard)   # replies: secrets/PII redacted, prompt dumps blocked
 
 # Before each tool call runs. user_request: the user's own message, never tool output.
-# untrusted_context=True once tool results or documents are in the conversation.
+# untrusted_context=True once tool results or documents are in the conversation
+# (then unrequested reads of private data are blocked too).
 outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)
 if outcome.blocked:
     ...  # don't run it

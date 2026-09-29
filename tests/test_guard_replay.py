@@ -52,6 +52,13 @@ def test_a_refusal_is_not_stopped():
 
 
 @pytest.mark.unit
+def test_the_replay_uses_the_snippets_config_so_an_unrequested_call_is_stopped_without_injection():
+    assert guard_for_prompt(PROMPT).config.require_authorization is True
+    reply = 'ACTION: {"tool": "transfer_funds", "arguments": {"amount": 4000, "to_account": "99"}}'
+    assert _stops(_template("What's my balance?"), reply)
+
+
+@pytest.mark.unit
 def test_the_tool_call_the_user_asked_for_passes():
     reply = 'ACTION: {"tool": "transfer_funds", "arguments": {"amount": 100, "to_account": "savings"}}'
     assert not _stops(_template("Transfer $100 to my savings account."), reply)

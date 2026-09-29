@@ -114,7 +114,7 @@
         {
           "label": "In your agent's code",
           "lang": "python",
-          "code": "from fusion.guardrail.guard import Guardrail\nfrom fusion.guardrail.policy import GuardConfig\nfrom fusion.guardrail.client import GuardedModelClient\n\nguard = Guardrail(GuardConfig(allowlisted_domains=[\"your-co.com\"], secret_values=[\"sk-...\"], system_prompt=SYSTEM_PROMPT))\nclient = GuardedModelClient(your_model_client, guard)  # replies: leaks redacted\n\n# before each tool call runs; user_message = the user's own words\noutcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)\nif outcome.blocked:\n    ...  # don't run it"
+          "code": "from fusion.guardrail.guard import Guardrail\nfrom fusion.guardrail.policy import GuardConfig\nfrom fusion.guardrail.client import GuardedModelClient\n\nguard = Guardrail(GuardConfig(allowlisted_domains=[\"your-co.com\"], secret_values=[\"sk-...\"],\n                              system_prompt=SYSTEM_PROMPT, require_authorization=True))\nclient = GuardedModelClient(your_model_client, guard)  # replies: secrets redacted, prompt dumps blocked\n\n# before each tool call runs; user_message = the user's own words\noutcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)\nif outcome.blocked:\n    ...  # don't run it"
         },
         {
           "label": "For Claude Code",

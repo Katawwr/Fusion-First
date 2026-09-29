@@ -86,8 +86,9 @@ from fusion.guardrail.guard import Guardrail
 from fusion.guardrail.policy import GuardConfig
 from fusion.guardrail.client import GuardedModelClient
 
-guard = Guardrail(GuardConfig(allowlisted_domains=["your-co.com"], secret_values=["sk-..."], system_prompt=SYSTEM_PROMPT))
-client = GuardedModelClient(your_model_client, guard)   # replies: secrets and prompt leaks redacted
+guard = Guardrail(GuardConfig(allowlisted_domains=["your-co.com"], secret_values=["sk-..."],
+                              system_prompt=SYSTEM_PROMPT, require_authorization=True))  # the measured config
+client = GuardedModelClient(your_model_client, guard)   # replies: secrets redacted, prompt dumps blocked
 outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)
 if outcome.blocked: ...                                  # don't run it
 ```

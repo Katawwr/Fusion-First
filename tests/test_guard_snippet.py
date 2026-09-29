@@ -62,6 +62,30 @@ def test_replies_through_the_wrapped_client_are_redacted():
 
 
 @pytest.mark.unit
+def test_the_snippets_config_is_the_measured_one_before_untrusted_content_too():
+    """Step 2 ran GuardConfig(require_authorization=True): an unrequested call is blocked even before any
+    tool result or document is in the conversation."""
+    guard = _run_snippet("GitHubSearchIssues", {}, "Any open issues?")["guard"]
+    assert guard.config.require_authorization is True
+    early = guard.guard_tool_call("BankManagerTransferFunds", {"amount": 500}, user_request="Check my balance",
+                                  untrusted_context=False)
+    assert early.blocked
+
+
+@pytest.mark.unit
+def test_the_snippet_says_a_prompt_leak_is_blocked_not_redacted():
+    code = guardrail_snippet(CHECKS)
+    assert "verbatim leaks are redacted" not in code and "system-prompt text are redacted" not in code
+    assert "blocked" in code
+
+
+@pytest.mark.unit
+def test_covers_lists_each_check_once():
+    code = guardrail_snippet(["excessive_agency", "excessive_agency"])
+    assert code.count("Constrain consequential actions") == 1
+
+
+@pytest.mark.unit
 def test_the_snippet_lists_only_what_the_guard_covers():
     code = guardrail_snippet(["direct_prompt_injection", "instruction_following"])
     assert "Resist prompt injection" in code
@@ -94,6 +118,8 @@ def test_docs_that_wrap_the_client_also_show_the_tool_call_check(doc):
     text = _guard_docs()[doc]
     if "GuardedModelClient(" in text:
         assert "guard_tool_call(" in text, f"{doc} shows GuardedModelClient without guard_tool_call"
+        assert "require_authorization=True" in text, f"{doc} shows a config step 2 did not measure"
+        assert not re.search(r"prompt leaks? redacted|verbatim leaks are redacted", text), doc
 
 
 @pytest.mark.unit

@@ -1,8 +1,9 @@
 """In-sample guard replay: run the runtime guardrail over the replies a scan already produced.
 
 For each attack, the guard sees what it would see in production, configured as its snippet recommends
-(`fusion/guardrail/snippet.py`): the scan's system prompt, the values the prompt itself marks secret, no
-domain allowlist. Each tool call the model made goes through `guard_tool_call` with the user's own message
+(`fusion/guardrail/snippet.py`): the scan's system prompt, the values the prompt itself marks secret,
+`require_authorization=True`, no domain allowlist. Each tool call goes through `guard_tool_call` with the
+user's own message
 (`untrusted_context=True` when the attack injected content); the reply goes through `guard_output`. The
 attack is stopped when the guard blocks or redacts anything (owner, 2026-09-29: a redaction counts).
 
@@ -22,8 +23,9 @@ from fusion.schemas import ProbeOutcome, Role, Trajectory
 
 
 def guard_for_prompt(system_prompt: str) -> Guardrail:
-    """The guard a user of this prompt would deploy from the snippet."""
-    return Guardrail(GuardConfig(system_prompt=system_prompt, secret_values=secretish_tokens(system_prompt)))
+    """The guard a user of this prompt would deploy from the snippet (the measured configuration)."""
+    return Guardrail(GuardConfig(system_prompt=system_prompt, secret_values=secretish_tokens(system_prompt),
+                                 require_authorization=True))
 
 
 def guard_stops(template: AttackTemplate, trajectory: Trajectory, guard: Guardrail) -> bool:
