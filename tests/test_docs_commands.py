@@ -50,7 +50,25 @@ def _example_commands():
                 yield rel, line[len("fusion "):]
 
 
-CASES = list(_commands()) + list(_content_commands()) + list(_example_commands())
+def _app_hint_commands():
+    """CLI commands the web app shows outside /use (the Quality panel's hint when no live model runs)."""
+    rel = "frontend/src/components/scan/QualityPanel.jsx"
+    for code in re.findall(r"<code>(.*?)</code>", (ROOT / rel).read_text(encoding="utf-8"), re.S):
+        line = " ".join(code.split())
+        if line.startswith("fusion "):
+            yield rel, line[len("fusion "):]
+
+
+CASES = list(_commands()) + list(_content_commands()) + list(_example_commands()) + list(_app_hint_commands())
+
+
+@pytest.mark.unit
+def test_the_quality_hint_grades_the_users_own_prompt():
+    """Without --prompt, `fusion measure --stages quality` grades "You are a helpful assistant.", not the
+    agent the user pasted."""
+    parsed = [build_parser().parse_args(shlex.split(a)) for _, a in _app_hint_commands()]
+    graders = [ns for ns in parsed if hasattr(ns, "prompt")]
+    assert graders and all(ns.prompt for ns in graders)
 
 
 @pytest.mark.unit

@@ -53,11 +53,12 @@ export default function QualityPanel({ systemPrompt }) {
 
       {state === "unavailable" && (
         <p className="text-sm text-app-muted">
-          Needs a <strong className="text-app-text">live</strong> model: the
-          claude CLI or Ollama. For Ollama, from the command line:{" "}
+          Needs a <strong className="text-app-text">live</strong> model: run
+          Fusion on your machine (<code>fusion serve</code>) and pick one, or
+          from the command line:{" "}
           <code>
-            fusion measure --backend ollama --target-model llama3.2 --stages
-            quality
+            fusion run start --prompt prompt.txt --check quality --target
+            ollama:llama3.2:1b --grader claude-cli
           </code>
           .
         </p>
