@@ -127,12 +127,23 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 ## Next
 
-0. **Owner decision pending: deployment** (see State, "Deployment"). Options put to the owner: (a) deploy the
-   rebuild: the API to Modal in demo-only mode (no live models, no spend) and the frontend, built pointing at
-   it, to the Vercel project `secure-studio`; or (b) at least take the old site down (it shows an unbacked
-   claim and a broken sign-in). Both are publishing steps: do nothing until the owner says which. Vercel CLI
-   48.10.10 is installed but its token is invalid: the owner must run `vercel login` (never enter credentials).
-   Modal's token file is present (`modal app list` works).
+0. **Deploy (owner said "deploy it", 2026-09-29; the owner runs the commands).** Claude's auto-mode classifier
+   denied creating a Modal secret and then a retry of `modal deploy` (the first attempt failed on a Windows
+   console-encoding error: run with `PYTHONIOENCODING=utf-8`). Prepared: `app/modal_app.py` attaches no secret
+   (demo-only, nothing metered); `frontend/.vercel/output/` (gitignored) holds a prebuilt static build with
+   `VITE_API_URL=https://katawwr--fusion-safety-api-fastapi-app.modal.run` and an SPA route. Owner steps:
+   `modal deploy app/modal_app.py` (with `FUSION_VERSION`), `vercel login`, `vercel deploy --prebuilt --prod
+   --cwd frontend`. Then verify read-only: `/api/health` on the Modal URL, the domain serves the new title,
+   a demo scan runs. The old Modal apps stay up (rollback). Modal uploads the working tree at deploy time:
+   don't leave half-done code changes in `fusion/` or `app/` while the owner deploys.
+   **Replay: fix before relying on it** (second review, 2026-09-29, With fixes): (1, critical) live user-prompt
+   scans don't ask the target for the ACTION protocol, so the replay rarely sees tool calls: excessive-agency
+   and exfiltration counts read near zero (prose actions); mark those not replayable instead of not stopped;
+   (2) disclose the stand-in config (secretish_tokens misses e.g. "SAVE20", "4471"; no allowlist) where the
+   line appears; (3) leave out checks whose grade was withheld; minors in the review (verify wording and a
+   malformed-result guard, guard exceptions → None, show the snippet before harden settles, the request-id
+   test, Python/JS mirror test, table a11y, plural nits). A live end-to-end run of the replay has not been
+   checked yet (one was started in the scratchpad: llama3.2:1b target, qwen2.5:1.5b grader).
 
 1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
    e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every
