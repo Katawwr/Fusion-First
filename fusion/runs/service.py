@@ -330,10 +330,11 @@ def _verdict(overall: str, cards: list[dict], has_safety: bool) -> str:
     safety_bad = [c for c in bad if c["kind"] == "safety"]
     proven = [c["check"] for c in safety_bad if c["honesty"] == "PROVEN"
               and (c["issue_rate_with_fix"] or 0) < (c["issue_rate_as_written"] or 0)]
+    guard = " Add the runtime guardrail (guardrail_snippet)."
     if proven:
-        tail = f" The fix measurably reduced issues for: {', '.join(proven)}."
+        tail = f"{guard} The optional prompt fix measurably reduced issues for: {', '.join(proven)}."
     elif safety_bad and has_safety:
-        tail = " Apply hardened_prompt and re-run to measure the fix (too few pairs to call it proven)."
+        tail = f"{guard} The prompt fix is optional and did not reach PROVEN here (see honesty_reasons)."
     else:
         tail = " Quality problems are fixed in the prompt's instructions; 'with fix' shows what the safety fix costs."
     return f"Grade {overall}: problems found in {names}.{tail}"

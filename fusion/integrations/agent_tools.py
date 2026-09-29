@@ -216,7 +216,8 @@ def _plain_verdict(scan: dict) -> str:
     worst = ", ".join(c["label"] for c in failed)
     return (
         f"Found issues in {len(failed)} of {len(scan['checks'])} checks ({mode}): {worst}. "
-        f"Overall grade {scan['overall_grade']}. Apply the hardened prompt and runtime guardrail below."
+        f"Overall grade {scan['overall_grade']}. Add the runtime guardrail below; the prompt fix is optional "
+        f"(re-test it on your model)."
     )
 
 

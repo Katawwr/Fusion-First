@@ -13,4 +13,12 @@ describe("UseCasesSection", () => {
     expect(text).not.toMatch(/The fix (tells|makes)/);
     expect(text).not.toMatch(/and a fix, re-tested/);
   });
+
+  it("claims the guard blocks the refund only when the instruction came from content the bot read", () => {
+    // Request binding stops injected content, not a user who asks for the refund themselves.
+    const { container } = render(<UseCasesSection />);
+    const text = container.textContent;
+    expect(text).not.toMatch(/A shopper pastes/);
+    expect(text).toMatch(/A product review the bot reads says/);
+  });
 });
