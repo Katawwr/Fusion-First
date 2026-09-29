@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Download } from "lucide-react";
@@ -266,7 +266,10 @@ export default function Scan({ scanState, setScanState }) {
     installed.length && !installed.includes(chosenModel) ? installed[0] : chosenModel;
   const [hardened, setHardened] = useState(null);
   const [snippet, setSnippet] = useState("");
+  const [snippetError, setSnippetError] = useState(null);
   const [fixError, setFixError] = useState(null);
+  // Bumped whenever the Guard step's inputs go stale, so a reply for an earlier prompt is dropped.
+  const guardRequest = useRef(0);
 
   // Quality needs real answers, so it only runs with a live target (demo answers are canned).
   const checks = useMemo(
@@ -317,22 +320,36 @@ export default function Scan({ scanState, setScanState }) {
     );
   }
 
-  // The guardrail snippet loads first: it leads the step, and a failed fix must not hide it.
+  // The snippet and the optional fix load independently: either can fail without hiding the other.
   async function goToGuard() {
     setStep("guard");
+    setSnippetError(null);
     setFixError(null);
-    try {
-      if (!snippet) setSnippet((await guardrailSnippet(checks)).snippet);
-      if (!hardened) setHardened(await apiHarden(systemPrompt, checks));
-    } catch (e) {
-      setFixError(e.message || "Couldn't load this step.");
-    }
+    const id = ++guardRequest.current;
+    const [s, h] = await Promise.allSettled([
+      snippet ? null : guardrailSnippet(checks),
+      hardened ? null : apiHarden(systemPrompt, checks),
+    ]);
+    if (id !== guardRequest.current) return; // the user started over while these were in flight
+    if (s.status === "rejected") setSnippetError(s.reason?.message || "Couldn't load the snippet.");
+    else if (s.value) setSnippet(s.value.snippet);
+    if (h.status === "rejected") setFixError(h.reason?.message || "Couldn't build the hardened prompt.");
+    else if (h.value) setHardened(h.value);
+  }
+
+  // A new prompt (or a cancelled run) makes the Guard step's snippet and fix stale.
+  function forgetGuard() {
+    guardRequest.current += 1;
+    setHardened(null);
+    setSnippet("");
+    setSnippetError(null);
+    setFixError(null);
   }
 
   function restart() {
     scan.reset();
     forgetResult();
-    setHardened(null);
+    forgetGuard();
     setStep("setup");
   }
 
@@ -380,7 +397,10 @@ export default function Scan({ scanState, setScanState }) {
           setGraderSpec={setGraderSpec}
           tier={tier}
           setTier={setTier}
-          onRun={() => runScan()}
+          onRun={() => {
+            forgetGuard();
+            runScan();
+          }}
         />
       )}
 
@@ -391,6 +411,7 @@ export default function Scan({ scanState, setScanState }) {
           onCancel={() => {
             scan.reset();
             forgetResult();
+            forgetGuard();
             setStep("setup");
           }}
         />
@@ -456,7 +477,8 @@ export default function Scan({ scanState, setScanState }) {
           systemPrompt={systemPrompt}
           hardened={hardened}
           snippet={snippet}
-          error={fixError}
+          snippetError={snippetError}
+          fixError={fixError}
           canned={canned}
           onRetry={goToGuard}
           onProve={() => setStep("prove")}
@@ -722,13 +744,40 @@ function RunStep({ scan, checks, onCancel }) {
 const FIX_CAVEAT =
   "On the small open-weight models we measured, it rarely cut attacks and raised refusals of safe requests. Re-test it on your model before you ship it.";
 
+function StepError({ message, onRetry }) {
+  return (
+    <div
+      role="alert"
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "0.75rem",
+        padding: "0.9rem 1.1rem",
+        borderRadius: "0.9rem",
+        border: "1px solid color-mix(in srgb, var(--danger) 40%, transparent)",
+        background: "color-mix(in srgb, var(--danger) 8%, transparent)",
+        color: "var(--text)",
+      }}
+    >
+      <span>{message}</span>
+      <Button variant="outline" onClick={onRetry}>
+        Retry
+      </Button>
+    </div>
+  );
+}
+
 // The runtime guardrail leads (the measured protection); the prompt fix is optional and re-tested per
-// model. `measured` is the adopted rules' pre-registered result from the committed evidence.
+// model. `measured` is the adopted rules' pre-registered result from the committed evidence. Each
+// section loads and fails on its own.
 export function GuardStep({
   systemPrompt,
   hardened,
   snippet,
-  error,
+  snippetError = null,
+  fixError = null,
   onRetry,
   onProve,
   onBack,
@@ -738,28 +787,6 @@ export function GuardStep({
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-      {error && (
-        <div
-          role="alert"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "0.75rem",
-            padding: "0.9rem 1.1rem",
-            borderRadius: "0.9rem",
-            border: "1px solid color-mix(in srgb, var(--danger) 40%, transparent)",
-            background: "color-mix(in srgb, var(--danger) 8%, transparent)",
-            color: "var(--text)",
-          }}
-        >
-          <span>{error}</span>
-          <Button variant="outline" onClick={onRetry}>
-            Retry
-          </Button>
-        </div>
-      )}
       <section>
         <SectionTitle hint="Redacts leaked secrets and blocks tool calls the user's request does not cover.">
           Runtime guardrail
@@ -775,8 +802,8 @@ export function GuardStep({
           )}
           {snippet ? (
             <CodeSnippet code={snippet} language="python" />
-          ) : error ? (
-            <p style={{ color: "var(--subtle)" }}>The snippet couldn't be loaded.</p>
+          ) : snippetError ? (
+            <StepError message={snippetError} onRetry={onRetry} />
           ) : (
             <p style={{ color: "var(--subtle)" }}>Loading snippet…</p>
           )}
@@ -813,8 +840,8 @@ export function GuardStep({
                 </Button>
               </div>
             </>
-          ) : error ? (
-            <p style={{ color: "var(--subtle)" }}>The hardened prompt couldn't be built.</p>
+          ) : fixError ? (
+            <StepError message={fixError} onRetry={onRetry} />
           ) : (
             <p style={{ color: "var(--subtle)" }}>Building the hardened prompt…</p>
           )}
