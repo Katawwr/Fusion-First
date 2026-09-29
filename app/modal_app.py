@@ -4,14 +4,16 @@ Deploys the pure FastAPI app (app.factory.create_app) as a NEW Modal app, entire
 the legacy `fusion-quality-tester`. The legacy deployment is never touched; rollback is a one-line
 frontend env change (point VITE_API_URL back).
 
-    modal deploy app/modal_app.py
+    FUSION_VERSION=$(git rev-parse --short HEAD) modal deploy app/modal_app.py
 
-Secrets (Modal secret `fusion-api-secrets`, all optional — absent keys => demo-only):
-    ANTHROPIC_API_KEY, OPENAI_API_KEY, WEBHOOK_SECRET, VERSION,
-    SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_JWKS_URL   (Supabase wired in M4)
+The hosted app is the public demo: it attaches no secrets, so no provider key can reach it and every
+scan is a labelled demonstration (nothing metered). Live scans run locally (`fusion serve`, the CLI,
+the plugin). VERSION is provenance for /api/version, set as plain config.
 """
 
 from __future__ import annotations
+
+import os
 
 import modal
 
@@ -29,6 +31,7 @@ image = (
         "pyyaml>=6.0",
         "pyjwt[crypto]>=2.9",
     )
+    .env({"VERSION": os.environ.get("FUSION_VERSION", "dev")})
     # The pure core + HTTP layer + committed datasets/cassettes/crosswalk the engine reads at runtime.
     .add_local_python_source("fusion", "app")
     .add_local_dir("datasets", remote_path="/root/datasets")
@@ -39,10 +42,8 @@ image = (
 
 app = modal.App("fusion-safety-api")
 
-_secrets = [modal.Secret.from_name("fusion-api-secrets")]
 
-
-@app.function(image=image, secrets=_secrets, timeout=900, min_containers=0)
+@app.function(image=image, timeout=900, min_containers=0)
 @modal.asgi_app()
 def fastapi_app():
     from app.factory import create_app

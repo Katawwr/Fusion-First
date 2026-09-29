@@ -130,9 +130,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 0. **Owner decision pending: deployment** (see State, "Deployment"). Options put to the owner: (a) deploy the
    rebuild: the API to Modal in demo-only mode (no live models, no spend) and the frontend, built pointing at
    it, to the Vercel project `secure-studio`; or (b) at least take the old site down (it shows an unbacked
-   claim and a broken sign-in). Both are publishing steps: do nothing until the owner says which. Not yet
-   checked: Vercel CLI login on this machine; a live E2E of the in-sample replay (needs a live grader: the
-   claude CLI is logged out; an Ollama grader works but is slow).
+   claim and a broken sign-in). Both are publishing steps: do nothing until the owner says which. Vercel CLI
+   48.10.10 is installed but its token is invalid: the owner must run `vercel login` (never enter credentials).
+   Modal's token file is present (`modal app list` works).
 
 1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
    e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every
