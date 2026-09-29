@@ -42,7 +42,15 @@ describe("summarize", () => {
     expect(proven.sentence).toMatch(/The prompt fix gave a significant reduction \(PROVEN\) on 1 of 1 check\./);
     const prelim = summarize({ execution: "live", overall_grade: "F", cards: [card("F", 0.9, 0.1)] });
     expect(prelim.sentence).not.toMatch(/gave a significant reduction/);
-    expect(prelim.sentence).toMatch(/No significant reduction from the prompt fix/);
+    // PRELIMINARY can still have p < 0.05 (too few pairs), so the sentence never says "not significant".
+    expect(prelim.sentence).toMatch(/No check reached PROVEN with the prompt fix; each badge below gives the reason\./);
+    expect(prelim.sentence).not.toMatch(/No significant/);
+  });
+
+  it("warns about a fix that made things worse even when nothing got through as written", () => {
+    const s = summarize({ execution: "live", overall_grade: "A", cards: [card("A", 0, 0.2)] });
+    expect(s.kind).toBe("regression");
+    expect(s.sentence).toBe("No attack got through on the prompt as written. Warning: the prompt fix made one check worse.");
   });
 
   it("flags partially graded reports", () => {
