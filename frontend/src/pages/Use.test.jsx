@@ -1,17 +1,28 @@
 import React from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import Use from "./Use";
 import content from "../content/integrations.json";
 
-describe("Use page", () => {
-  it("renders every integration section with its commands", () => {
-    render(
+const renderUse = () =>
+  render(
+    <HelmetProvider>
       <MemoryRouter>
         <Use />
-      </MemoryRouter>,
-    );
+      </MemoryRouter>
+    </HelmetProvider>,
+  );
+
+describe("Use page", () => {
+  it("names the page in the browser tab", async () => {
+    renderUse();
+    await waitFor(() => expect(document.title).toBe("Use Fusion | Fusion First"));
+  });
+
+  it("renders every integration section with its commands", () => {
+    renderUse();
     for (const section of content.sections) {
       expect(screen.getByRole("heading", { name: section.title })).toBeInTheDocument();
     }

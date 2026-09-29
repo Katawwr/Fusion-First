@@ -1,4 +1,5 @@
 import React from "react";
+import { Helmet } from "react-helmet-async";
 import evidence from "../content/evidence.json";
 import { fixVerdict, interval, significanceByGrader } from "../lib/evidence";
 
@@ -176,6 +177,9 @@ export default function Trust() {
   const guard = evidence.guard_heldout || [];
   return (
     <main style={{ maxWidth: "1000px", margin: "0 auto", padding: "clamp(2rem, 6vw, 3.5rem) 1rem" }}>
+      <Helmet>
+        <title>How far to trust Fusion | Fusion First</title>
+      </Helmet>
       <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
         How far to trust Fusion
       </h1>

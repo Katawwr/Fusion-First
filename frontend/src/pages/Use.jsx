@@ -1,4 +1,5 @@
 import React from "react";
+import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import CodeSnippet from "../components/fix/CodeSnippet";
 import content from "../content/integrations.json";
@@ -8,6 +9,9 @@ import content from "../content/integrations.json";
 export default function Use() {
   return (
     <main style={{ maxWidth: "960px", margin: "0 auto", padding: "clamp(2rem, 6vw, 3.5rem) 1rem" }}>
+      <Helmet>
+        <title>Use Fusion | Fusion First</title>
+      </Helmet>
       <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
         Use Fusion
       </h1>

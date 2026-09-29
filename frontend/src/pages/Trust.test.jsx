@@ -1,12 +1,27 @@
 import React from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import Trust, { GuardrailSection, LlamaGuardSection, Step2Section } from "./Trust";
 import { fixVerdict, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
 
+const renderTrust = () =>
+  render(
+    <HelmetProvider>
+      <MemoryRouter>
+        <Trust />
+      </MemoryRouter>
+    </HelmetProvider>,
+  );
+
 describe("Trust page", () => {
+  it("names the page in the browser tab", async () => {
+    renderTrust();
+    await waitFor(() => expect(document.title).toBe("How far to trust Fusion | Fusion First"));
+  });
+
   it("formats both interval shapes", () => {
     expect(pct(0.925)).toBe("93%");
     expect(interval({ point: 0.8, low: 0.68, high: 0.88 })).toBe("80% (68%–88%)");
@@ -15,11 +30,7 @@ describe("Trust page", () => {
   });
 
   it("shows the guardrail's results before the prompt fix's", () => {
-    render(
-      <MemoryRouter>
-        <Trust />
-      </MemoryRouter>,
-    );
+    renderTrust();
     const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     const guard = titles.findIndex((t) => /guardrail/i.test(t));
     expect(guard).toBeGreaterThan(-1);
@@ -27,11 +38,7 @@ describe("Trust page", () => {
   });
 
   it("renders only what the evidence contains, and says what isn't measured", () => {
-    render(
-      <MemoryRouter>
-        <Trust />
-      </MemoryRouter>,
-    );
+    renderTrust();
     expect(screen.getByRole("heading", { name: "How far to trust Fusion" })).toBeInTheDocument();
     if (!evidence.fix_efficacy) {
       expect(screen.getByText(/Not yet measured: the as-written vs fixed prompt/)).toBeInTheDocument();
@@ -42,11 +49,7 @@ describe("Trust page", () => {
   });
 
   it("says whether the rubric beats a plain judge, and shows the fix pooled over models", () => {
-    render(
-      <MemoryRouter>
-        <Trust />
-      </MemoryRouter>,
-    );
+    renderTrust();
     const rvp = evidence.rubric_vs_plain;
     if (rvp) {
       expect(screen.getByRole("heading", { name: /Rubric judge vs a plain question/ })).toBeInTheDocument();
