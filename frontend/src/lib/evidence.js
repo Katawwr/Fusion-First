@@ -46,6 +46,19 @@ export function significanceByGrader(rows) {
   });
 }
 
+// The Scan page's Guard step: the adopted rules' pre-registered result, with counts. Unadopted or
+// unmeasured rules claim nothing.
+export function guardResult(step2) {
+  if (step2?.decision?.new_rules !== "adopted") return null;
+  const { fusion: f, llama_guard_b: lg } = step2.systems;
+  return (
+    `Pre-registered test on fresh attacks against ${step2.models.join(" and ")}: ` +
+    `stopped ${pct(f.recall.point)} (${f.stopped} of ${f.attacks}), wrongly blocked ` +
+    `${pct(f.over_block.point)} of clean conversations (${f.blocked} of ${f.clean}). ` +
+    `Llama Guard 3, configured, stopped ${pct(lg.recall.point)}.`
+  );
+}
+
 // The landing page's guardrail sentence. Its numbers come from the generated evidence (the
 // pre-registered measurement on real attacks), never from the page source; unmeasured, it claims none.
 // The current rules' measurement (step 2) is preferred once adopted.

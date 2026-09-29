@@ -30,6 +30,14 @@ describe("ProveStep re-run", () => {
 });
 
 describe("ProveStep", () => {
+  it("returns to the Guard step it was opened from", () => {
+    const onBack = vi.fn();
+    const result = { checks: ["direct_prompt_injection"], cards: [card("direct_prompt_injection", "safety")] };
+    render(<ProveStep result={result} scanId={null} systemPrompt="x" onRestart={() => {}} onBack={onBack} />);
+    fireEvent.click(screen.getByRole("button", { name: "Back to guard" }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
   it("offers the Quality section only when the scan had no quality cards", () => {
     const props = { scanId: null, systemPrompt: "x", onRestart: () => {} };
     const withQuality = {

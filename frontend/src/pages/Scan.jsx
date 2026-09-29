@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
+import { Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Download } from "lucide-react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -29,17 +30,20 @@ import {
   reportHtmlUrl,
 } from "../lib/scanApi";
 import { CHECKS, QUALITY_CHECKS, checkMeta, worstGrade } from "../lib/jargon";
+import { guardResult } from "../lib/evidence";
+import evidence from "../content/evidence.json";
 
 const ALL_CHECKS = Object.keys(CHECKS);
 const QUALITY = Object.keys(QUALITY_CHECKS);
 const QUALITY_NEEDS_LIVE = "Requires a live model (select one below).";
+// The prompt fix's before/after ("prove") opens from the Guard step and is not a step of its own.
 const STEPS = [
   ["setup", "Paste"],
   ["run", "Attack"],
   ["report", "Grade"],
-  ["fix", "Fix"],
-  ["prove", "Prove"],
+  ["guard", "Guard"],
 ];
+const STEP_OF_VIEW = { prove: "guard" };
 
 const EXAMPLES = {
   "Support bot":
@@ -106,8 +110,8 @@ function SectionTitle({ children, hint }) {
   );
 }
 
-function StepBar({ step }) {
-  const idx = STEPS.findIndex((s) => s[0] === step);
+export function StepBar({ step }) {
+  const idx = STEPS.findIndex((s) => s[0] === (STEP_OF_VIEW[step] || step));
   return (
     <nav aria-label="Progress" style={{ marginBottom: "2.5rem" }}>
       <ol
@@ -313,26 +317,35 @@ export default function Scan({ scanState, setScanState }) {
     );
   }
 
-  async function goToFix() {
-    setStep("fix");
+  // The guardrail snippet loads first: it leads the step, and a failed fix must not hide it.
+  async function goToGuard() {
+    setStep("guard");
     setFixError(null);
     try {
-      if (!hardened) setHardened(await apiHarden(systemPrompt, checks));
       if (!snippet) setSnippet((await guardrailSnippet(checks)).snippet);
+      if (!hardened) setHardened(await apiHarden(systemPrompt, checks));
     } catch (e) {
-      setFixError(e.message || "Couldn't prepare the fix.");
+      setFixError(e.message || "Couldn't load this step.");
     }
+  }
+
+  function restart() {
+    scan.reset();
+    forgetResult();
+    setHardened(null);
+    setStep("setup");
   }
 
   const perCheckOutcomes = (check) =>
     (result?.outcomes || []).filter((o) => o.check === check);
+  const canned =Boolean(result?.cards?.some((c) => c.trust?.execution === "canned"));
 
   const HEADERS = {
     setup: { title: "Scan your agent" },
     run: { title: "Running the attack suite" },
     report: { title: "Your report card" },
-    fix: { title: "Two-layer fix" },
-    prove: { title: "Before and after" },
+    guard: { title: "Guard your agent" },
+    prove: { title: "Prompt fix: before and after" },
   };
 
   return (
@@ -432,21 +445,23 @@ export default function Scan({ scanState, setScanState }) {
                   <Button variant="outline">Download report</Button>
                 </a>
               )}
-              <Button onClick={goToFix}>Fix it</Button>
+              <Button onClick={goToGuard}>Guard it</Button>
             </div>
           </div>
         </div>
       )}
 
-      {step === "fix" && (
-        <FixStep
+      {step === "guard" && (
+        <GuardStep
           systemPrompt={systemPrompt}
           hardened={hardened}
           snippet={snippet}
           error={fixError}
-          onRetry={goToFix}
+          canned={canned}
+          onRetry={goToGuard}
           onProve={() => setStep("prove")}
           onBack={() => setStep("report")}
+          onRestart={restart}
         />
       )}
 
@@ -457,12 +472,8 @@ export default function Scan({ scanState, setScanState }) {
           systemPrompt={systemPrompt}
           hardenedPrompt={hardened?.hardened_prompt || ""}
           onRerun={(prompt) => runScan({ hardened_prompt: prompt }, "prove")}
-          onRestart={() => {
-            scan.reset();
-            forgetResult();
-            setHardened(null);
-            setStep("setup");
-          }}
+          onBack={() => setStep("guard")}
+          onRestart={restart}
         />
       )}
     </div>
@@ -706,9 +717,25 @@ function RunStep({ scan, checks, onCancel }) {
   );
 }
 
-/* ---------------------------------------------------------------- 4. Fix */
+/* ---------------------------------------------------------------- 4. Guard */
 
-function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onBack }) {
+const FIX_CAVEAT =
+  "On the small open-weight models we measured, it rarely cut attacks and raised refusals of safe requests. Re-test it on your model before you ship it.";
+
+// The runtime guardrail leads (the measured protection); the prompt fix is optional and re-tested per
+// model. `measured` is the adopted rules' pre-registered result from the committed evidence.
+export function GuardStep({
+  systemPrompt,
+  hardened,
+  snippet,
+  error,
+  onRetry,
+  onProve,
+  onBack,
+  onRestart,
+  canned = false,
+  measured = guardResult(evidence.step2_guard),
+}) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       {error && (
@@ -734,9 +761,30 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
         </div>
       )}
       <section>
-        <SectionTitle>
-          Layer 1: Hardened prompt
+        <SectionTitle hint="Redacts leaked secrets and blocks tool calls the user's request does not cover.">
+          Runtime guardrail
         </SectionTitle>
+        <Card>
+          {measured && (
+            <p style={{ margin: "0 0 1rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
+              {measured}{" "}
+              <Link to="/trust" style={{ color: "var(--accent-ink)", textDecoration: "underline" }}>
+                Trust report
+              </Link>
+            </p>
+          )}
+          {snippet ? (
+            <CodeSnippet code={snippet} language="python" />
+          ) : error ? (
+            <p style={{ color: "var(--subtle)" }}>The snippet couldn't be loaded.</p>
+          ) : (
+            <p style={{ color: "var(--subtle)" }}>Loading snippet…</p>
+          )}
+        </Card>
+      </section>
+
+      <section>
+        <SectionTitle hint={FIX_CAVEAT}>Optional: prompt fix</SectionTitle>
         <Card>
           {hardened ? (
             <>
@@ -760,27 +808,15 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
                   text={hardened.guard_block}
                   label="Copy guard block only"
                 />
+                <Button variant="outline" onClick={onProve}>
+                  {canned ? "See the example before/after" : "Re-test it on your model"}
+                </Button>
               </div>
             </>
           ) : error ? (
             <p style={{ color: "var(--subtle)" }}>The hardened prompt couldn't be built.</p>
           ) : (
             <p style={{ color: "var(--subtle)" }}>Building the hardened prompt…</p>
-          )}
-        </Card>
-      </section>
-
-      <section>
-        <SectionTitle>
-          Layer 2: Runtime guardrail
-        </SectionTitle>
-        <Card>
-          {snippet ? (
-            <CodeSnippet code={snippet} language="python" />
-          ) : error ? (
-            <p style={{ color: "var(--subtle)" }}>The snippet couldn't be loaded.</p>
-          ) : (
-            <p style={{ color: "var(--subtle)" }}>Loading snippet…</p>
           )}
         </Card>
       </section>
@@ -797,7 +833,11 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
         <QuietButton onClick={onBack} icon={ArrowLeft}>
           Back to report
         </QuietButton>
-        <Button onClick={onProve}>See the before/after</Button>
+        {onRestart && (
+          <QuietButton onClick={onRestart} icon={ArrowRight} iconRight>
+            Scan another prompt
+          </QuietButton>
+        )}
       </div>
     </div>
   );
@@ -805,7 +845,7 @@ function FixStep({ systemPrompt, hardened, snippet, error, onRetry, onProve, onB
 
 /* ---------------------------------------------------------------- 5. Prove */
 
-export function ProveStep({ result, scanId, systemPrompt, onRestart, hardenedPrompt = "", onRerun }) {
+export function ProveStep({ result, scanId, systemPrompt, onRestart, onBack, hardenedPrompt = "", onRerun }) {
   const [edited, setEdited] = useState(hardenedPrompt);
   const live = result.cards.some((c) => c.trust?.execution === "live");
   // Both grades are derived from their own arm. `overall_grade` is the BASELINE headline
@@ -904,22 +944,29 @@ export function ProveStep({ result, scanId, systemPrompt, onRestart, hardenedPro
           gap: "1rem",
         }}
       >
-        {scanId && (
-          <a href={reportHtmlUrl(scanId)} target="_blank" rel="noreferrer">
-            <Button variant="outline">
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.45rem",
-                }}
-              >
-                <Download size={16} />
-                Download report
-              </span>
-            </Button>
-          </a>
-        )}
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "1rem" }}>
+          {onBack && (
+            <QuietButton onClick={onBack} icon={ArrowLeft}>
+              Back to guard
+            </QuietButton>
+          )}
+          {scanId && (
+            <a href={reportHtmlUrl(scanId)} target="_blank" rel="noreferrer">
+              <Button variant="outline">
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.45rem",
+                  }}
+                >
+                  <Download size={16} />
+                  Download report
+                </span>
+              </Button>
+            </a>
+          )}
+        </div>
         <QuietButton onClick={onRestart} icon={ArrowRight} iconRight>
           Scan another prompt
         </QuietButton>

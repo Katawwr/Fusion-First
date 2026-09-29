@@ -31,10 +31,12 @@ test.describe("desktop", () => {
     await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/Example report — your prompt was not run/)).toBeVisible();
     await expect(page.getByText(/Illustration only/).first()).toBeVisible();
-    // Fix: the hardened prompt comes back through the token-locked API.
-    await page.getByRole("button", { name: "Fix it" }).click();
-    await page.getByRole("button", { name: "See the before/after" }).click();
-    // Prove: the demo's before/after is labelled an example, never a measurement.
+    // Guard: the guardrail snippet and the hardened prompt come back through the token-locked API.
+    await page.getByRole("button", { name: "Guard it" }).click();
+    await expect(page.getByRole("heading", { name: "Runtime guardrail" })).toBeVisible();
+    await expect(page.getByText(/guard_tool_call/).first()).toBeVisible();
+    await page.getByRole("button", { name: "See the example before/after" }).click();
+    // The fix's before/after: the demo's is labelled an example, never a measurement.
     await expect(page.getByText(/It is not a measurement/)).toBeVisible();
     await expect(page.getByText(/apples-to-apples measurement/)).toHaveCount(0);
     expect(errors).toEqual([]);

@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { significanceByGrader } from "./evidence";
+import { guardResult, significanceByGrader } from "./evidence";
+
+const sys = (stopped, attacks, blocked, clean) => ({
+  stopped, attacks, blocked, clean,
+  recall: { point: stopped / attacks }, over_block: { point: blocked / clean },
+});
+const step2 = {
+  models: ["qwen2.5:7b", "llama3.1:8b"],
+  decision: { new_rules: "adopted" },
+  systems: { fusion: sys(132, 148, 2, 252), llama_guard_b: sys(77, 148, 24, 252) },
+};
+
+describe("guardResult", () => {
+  it("states the adopted rules' result with counts, and Llama Guard on the same attacks", () => {
+    expect(guardResult(step2)).toBe(
+      "Pre-registered test on fresh attacks against qwen2.5:7b and llama3.1:8b: stopped 89% (132 of 148), " +
+        "wrongly blocked 1% of clean conversations (2 of 252). Llama Guard 3, configured, stopped 52%.",
+    );
+  });
+
+  it("claims nothing for rules that were not adopted or not measured", () => {
+    expect(guardResult({ ...step2, decision: { new_rules: "not adopted" } })).toBeNull();
+    expect(guardResult(undefined)).toBeNull();
+  });
+});
 
 const b = (p, better) => ({ f1: 0.5, mcnemar_p: p, grader_more_accurate: better });
 
