@@ -52,6 +52,16 @@ def _count(outcomes: list[ProbeOutcome]) -> dict:
     }
 
 
+def in_sample_sentence(s: dict) -> str:
+    """One line for reports and summaries, labelled in-sample."""
+    lead = "In-sample, this scan's own attacks:"
+    clean = f"{s['acted_on_clean']} of {s['clean']} replies graded clean"
+    if not s["got_through"]:
+        return f"{lead} none got through; the guard blocked or redacted {clean}."
+    return (f"{lead} the guard blocked or redacted {s['stopped']} of {s['got_through']} attacks that got "
+            f"through and {clean}.")
+
+
 def in_sample(outcomes: Iterable[ProbeOutcome]) -> dict | None:
     """Counts over the outcomes that carry a verdict: attacks that got through and were stopped, and
     replies graded clean that the guard acted on — overall and per check. None when nothing was replayed."""

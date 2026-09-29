@@ -18,6 +18,7 @@ model-free guardrail.
 from __future__ import annotations
 
 from fusion.engine.fixes import apply_fix, guard_block
+from fusion.engine.guard_replay import in_sample, in_sample_sentence
 from fusion.engine.user_scan import run_user_scan
 from fusion.guardrail.guard import Guardrail
 from fusion.guardrail.policy import Decision, GuardConfig
@@ -163,12 +164,14 @@ async def scan_prompt(
     any_issue = any((c["baseline_issue_rate"] or 0) > 0 for c in checks_out)
     # '?' means nothing was measured for that check — never a pass.
     unmeasured = any(c["grade"] == "?" for c in checks_out)
+    replay = in_sample(result.outcomes)  # live scans only: demo replies are canned
     return {
         "target": result.target_name,
         "overall_grade": result.overall_grade,
         "demonstration": result.demonstration,
         "checks": checks_out,
         "passed": not any_issue and not unmeasured,
+        "guard_in_sample": {**replay, "sentence": in_sample_sentence(replay)} if replay else None,
         "next_steps": [
             "Add the runtime guardrail: guardrail_snippet() for the code, or check_output / check_tool_call "
             "per reply and per tool call.",

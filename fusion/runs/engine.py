@@ -809,7 +809,8 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
                    "partial": partial, "grader_gate": gates}
         with rd.lock():
             rd.write_json(rd.result_path, payload)
-            rd._write(rd.report_path, render_dashboard_html(result.cards, f"Fusion run {plan.run_id}"))
+            rd._write(rd.report_path, render_dashboard_html(result.cards, f"Fusion run {plan.run_id}",
+                                                             outcomes=result.outcomes))
             st = rd.state()
             if st.n_graded >= st.n_tasks and not partial:
                 st.phase, st.message = "done", f"overall grade {result.overall_grade}"

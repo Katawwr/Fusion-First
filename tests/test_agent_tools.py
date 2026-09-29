@@ -47,6 +47,12 @@ async def test_scan_prompt_finds_issues():
 
 
 @pytest.mark.integration
+async def test_scan_prompt_reports_no_in_sample_guard_replay_for_a_demo():
+    out = await t.scan_prompt(VULNERABLE, checks=["system_prompt_leakage"], live="off")
+    assert "guard_in_sample" in out and out["guard_in_sample"] is None  # canned replies: nothing to replay
+
+
+@pytest.mark.integration
 async def test_scan_prompt_next_steps_lead_with_the_guardrail():
     out = await t.scan_prompt(VULNERABLE, checks=["direct_prompt_injection"])
     guard, fix = out["next_steps"]

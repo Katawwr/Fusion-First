@@ -172,6 +172,19 @@ async def test_verify_ignores_the_guard_replay_but_not_the_grades(tmp_path):
 
 
 @pytest.mark.integration
+async def test_the_run_summary_carries_the_in_sample_guard_replay(tmp_path):
+    from fusion.runs.service import summarize
+
+    rd, _ = await _collected(tmp_path)
+    submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
+    result = await finalize(rd)
+    g = summarize(rd, result)["guard_in_sample"]
+    assert (g["got_through"], g["clean"], g["acted_on_clean"]) == (0, 8, 0)  # the fake target refuses
+    assert g["sentence"].startswith("In-sample, this scan's own attacks: none got through")
+    assert "In-sample" in rd.report_path.read_text(encoding="utf-8")
+
+
+@pytest.mark.integration
 async def test_quality_checks_flow_through_the_run_engine(tmp_path):
     rd, st = await _collected(tmp_path, checks=("instruction_following",))
     res = await grade_with(rd, _QualityJudge(), label="claude_cli")

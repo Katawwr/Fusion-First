@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import html
 
+from fusion.engine.guard_replay import in_sample, in_sample_sentence
 from fusion.guardrail.snippet import guardrail_snippet
-from fusion.schemas import Honesty, SafetyReportCard
+from fusion.schemas import Honesty, ProbeOutcome, SafetyReportCard
 
 # The prompt fix's measured caveat (Trust Report: fix efficacy on small open-weight models).
 FIX_CAVEAT = ("On the small open-weight models measured, the prompt fix rarely cut attacks and raised "
@@ -129,17 +130,20 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
       </section>"""
 
 
-def render_guard_html(cards: list[SafetyReportCard]) -> str:
-    """The runtime-guardrail code for the safety checks graded here; empty for a quality-only report."""
+def render_guard_html(cards: list[SafetyReportCard], outcomes: list[ProbeOutcome] | None = None) -> str:
+    """The runtime-guardrail code for the safety checks graded here, with the scan's in-sample replay when
+    it has one; empty for a quality-only report."""
     checks = [c.check for c in cards if c.kind == "safety"]
     if not checks:
         return ""
+    replay = in_sample(outcomes or [])
+    replay_html = f'\n        <p class="note">{_esc(in_sample_sentence(replay))}</p>' if replay else ""
     return f"""
       <section class="guard">
         <div class="block-h">Runtime guardrail
           <button class="copy" type="button" onclick="fusionCopy('guard', this)">Copy</button></div>
         <p class="note">Redacts leaked secrets and blocks tool calls the user's request does not cover.
-          Add it to your agent's code.</p>
+          Add it to your agent's code.</p>{replay_html}
         <pre id="guard" class="code">{_esc(guardrail_snippet(checks))}</pre>
       </section>"""
 
@@ -277,8 +281,10 @@ function fusionCopy(id, btn){
 """
 
 
-def render_dashboard_html(cards: list[SafetyReportCard], title: str = "Safety Report") -> str:
-    body = "".join(render_report_card_html(c, i) for i, c in enumerate(cards))
+def render_dashboard_html(cards: list[SafetyReportCard], title: str = "Safety Report",
+                          outcomes: list[ProbeOutcome] | None = None) -> str:
+    """The report page. A scan's `outcomes` add its in-sample guard replay to the guardrail block."""
+    body ="".join(render_report_card_html(c, i) for i, c in enumerate(cards))
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Fusion First — {_esc(title)}</title><style>{_CSS}</style></head>
@@ -289,7 +295,7 @@ def render_dashboard_html(cards: list[SafetyReportCard], title: str = "Safety Re
       <p class="lede">Measured agent safety and quality. Every number carries a confidence interval or an honesty badge.</p>
     </header>
     {render_overview_html(cards)}
-    {render_guard_html(cards)}
+    {render_guard_html(cards, outcomes)}
     <div class="grid">{body}</div>
   </div>
   <script>{_JS}</script>

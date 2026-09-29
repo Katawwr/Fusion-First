@@ -290,8 +290,11 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
             "failures": landed.get(c.check, [])[:10],
             "top_fix": c.top_fixes[0] if c.top_fixes else c.fix_title,
         })
+    from fusion.engine.guard_replay import in_sample, in_sample_sentence
+
     safety_checks = [c for c in plan.checks if get_rubric(c).kind == "safety"]
     passed = result.overall_grade in ("A", "B") and all(c["grade"] not in ("?",) for c in cards)
+    replay = in_sample(result.outcomes)
     return {
         "run_id": rd.run_id,
         "overall_grade": result.overall_grade,
@@ -300,6 +303,8 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
         "target": plan.target,
         "grader": plan.grader,
         "cards": cards,
+        # The runtime guardrail over this run's own replies (in-sample; see fusion/engine/guard_replay.py).
+        "guard_in_sample": {**replay, "sentence": in_sample_sentence(replay)} if replay else None,
         "hardened_prompt": apply_fix(rd.prompt(), safety_checks) if safety_checks else None,
         "report_html": str(rd.report_path) if rd.report_path.exists() else None,
         "verify": f"fusion run verify {rd.run_id}",

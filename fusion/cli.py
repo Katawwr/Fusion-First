@@ -321,22 +321,29 @@ async def _scan(args) -> int:
         scan_kwargs = {"demonstration": True}
 
     cards = []
+    outcomes = []
     async for ev in run_user_scan(
         system_prompt=system_prompt, checks=checks, tier=tier, target_name=args.target, **scan_kwargs
     ):
         if ev.type == ScanEventType.CHECK_COMPLETED and ev.card is not None:
             cards.append(ev.card)
         elif ev.type == ScanEventType.SCAN_COMPLETED and ev.result is not None:
+            outcomes = ev.result.outcomes
             print(f"\n=== Overall grade: {ev.result.overall_grade} "
                   f"({'DEMO' if ev.result.demonstration else 'REAL'}) ===\n")
     for card in cards:
         print(render_report_card_text(card))
         print("")
+    from fusion.engine.guard_replay import in_sample, in_sample_sentence
+
+    replay = in_sample(outcomes)
+    if replay:
+        print(in_sample_sentence(replay))
     if args.html:
         from fusion.engine.report_html import render_dashboard_html
 
         title = "All checks" if args.check == "all" else args.check
-        pathlib.Path(args.html).write_text(render_dashboard_html(cards, title), encoding="utf-8")
+        pathlib.Path(args.html).write_text(render_dashboard_html(cards, title, outcomes=outcomes), encoding="utf-8")
         print(f"wrote HTML report -> {args.html}")
     return 0
 

@@ -235,7 +235,7 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
         if result is None:
             raise HTTPException(404, "scan not found")
         title = result.target_name or "Safety Report"
-        return HTMLResponse(render_dashboard_html(result.cards, title))
+        return HTMLResponse(render_dashboard_html(result.cards, title, outcomes=result.outcomes))
 
     # ----------------------------------------------------------------- fix
 

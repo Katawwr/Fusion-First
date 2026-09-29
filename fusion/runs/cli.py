@@ -159,6 +159,8 @@ def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
         rate_s = "n/a" if rate is None else f"{rate:.0%} → {c['issue_rate_with_fix']:.0%} with fix"
         lines.append(f"  {c['check']:26} {c['grade']}  issues {rate_s} [{c['honesty']}] "
                      f"scored {c['scored']} · {acc_s}")
+    if summary.get("guard_in_sample"):
+        lines.append(summary["guard_in_sample"]["sentence"])
     if summary.get("report_html"):
         lines.append(f"Report: {summary['report_html']}")
     lines.append(f"Verify: {summary['verify']}")

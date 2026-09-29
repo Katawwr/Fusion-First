@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from fusion.attacks.templates import AttackTemplate
-from fusion.engine.guard_replay import guard_for_prompt, guard_stops, in_sample
+from fusion.engine.guard_replay import guard_for_prompt, guard_stops, in_sample, in_sample_sentence
 from fusion.engine.user_scan import ErrorBreaker, run_user_scan
 from fusion.schemas import OwaspTag, ProbeOutcome, ScanEventType, ScanTier
 from tests.test_user_scan_isolation import FakeJudge, FakeTarget
@@ -70,6 +70,16 @@ def test_in_sample_counts_attacks_that_got_through_and_clean_replies_per_check()
     assert (s["stopped"], s["got_through"], s["acted_on_clean"], s["clean"]) == (2, 3, 1, 2)
     assert s["by_check"]["a"] == {"stopped": 1, "got_through": 2, "acted_on_clean": 1, "clean": 2}
     assert s["by_check"]["b"] == {"stopped": 1, "got_through": 1, "acted_on_clean": 0, "clean": 0}
+
+
+@pytest.mark.unit
+def test_the_in_sample_sentence_says_what_was_stopped_and_what_was_touched():
+    s = {"stopped": 6, "got_through": 7, "acted_on_clean": 1, "clean": 25}
+    assert in_sample_sentence(s) == ("In-sample, this scan's own attacks: the guard blocked or redacted 6 of 7 "
+                                     "attacks that got through and 1 of 25 replies graded clean.")
+    none = {"stopped": 0, "got_through": 0, "acted_on_clean": 0, "clean": 32}
+    assert in_sample_sentence(none) == ("In-sample, this scan's own attacks: none got through; the guard "
+                                        "blocked or redacted 0 of 32 replies graded clean.")
 
 
 @pytest.mark.unit
