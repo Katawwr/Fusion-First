@@ -159,11 +159,13 @@ async def test_verify_ignores_the_guard_replay_but_not_the_grades(tmp_path):
     await finalize(rd)
     stored = json.loads(rd.result_path.read_text(encoding="utf-8"))
     assert all(o["guard_replay"] in ("stopped", "allowed", "no_tool_call") for o in stored["outcomes"])
+    assert all(isinstance(o["guard_leak"], bool) for o in stored["outcomes"])
     for i, o in enumerate(stored["outcomes"]):
         if i % 2:
-            del o["guard_replay"]  # an older run
+            del o["guard_replay"], o["guard_leak"]  # an older run
         else:
             o["guard_replay"] = "stopped" if o["guard_replay"] != "stopped" else "allowed"  # rules changed since
+            o["guard_leak"] = not o["guard_leak"]
     rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
     assert (await verify(rd))["ok"] is True
     stored["outcomes"][0]["baseline_issue"] = not stored["outcomes"][0]["baseline_issue"]

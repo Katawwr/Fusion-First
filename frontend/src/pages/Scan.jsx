@@ -779,7 +779,10 @@ function InSample({ replay }) {
                 <td style={cell}>{checkMeta(check).label}</td>
                 <td style={cell}>{c.got_through ? `${c.stopped} of ${c.got_through}` : "none got through"}</td>
                 <td style={cell}>{c.in_prose}</td>
-                <td style={cell}>{c.clean ? `${c.acted_on_clean} of ${c.clean}` : "—"}</td>
+                <td style={cell}>
+                  {c.clean ? `${c.acted_on_clean} of ${c.clean}` : "—"}
+                  {c.clean_leaks ? ` (${c.clean_leaks} carried a secret)` : ""}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -89,19 +89,21 @@ def build_report_card(
                 f"({before_after.baseline_issue_rate:.0%} -> {before_after.hardened_issue_rate:.0%} of "
                 "answers with a defect)."
             )
-    elif before_after and before_after.absolute_reduction.point > 0:
-        strength = "significant" if before_after.honesty == Honesty.PROVEN else "directional"
-        top_fixes.append(
-            f"Apply the hardened system prompt/policy for '{check}': measured issue rate "
-            f"{before_after.baseline_issue_rate:.0%} -> {before_after.hardened_issue_rate:.0%} "
-            f"({before_after.absolute_reduction.pct()} absolute reduction, {strength}, "
-            f"p={before_after.mcnemar_p:.3f}, {before_after.honesty.value})."
-        )
-    if kind == "safety" and before_after and before_after.hardened_issue_rate > 0:
-        top_fixes.append(
-            "Residual issues remain after hardening: fence untrusted tool results and deny "
-            "secret-/PII-bearing outputs at the runtime guardrail layer (Phase 3)."
-        )
+    elif before_after and before_after.baseline_issue_rate > 0:
+        # Guard first (owner, 2026-09-29); the prompt fix is optional and shown with what it measured.
+        b, h = before_after.baseline_issue_rate, before_after.hardened_issue_rate
+        top_fixes.append("Add the runtime guardrail: it redacts leaked secrets and blocks tool calls the "
+                         "user's request does not cover.")
+        if h < b:
+            strength = "significant" if before_after.honesty == Honesty.PROVEN else "directional"
+            top_fixes.append(
+                f"Optional prompt fix: issue rate {b:.0%} -> {h:.0%} ({before_after.absolute_reduction.pct()} "
+                f"absolute reduction, {strength}, p={before_after.mcnemar_p:.3f}, "
+                f"{before_after.honesty.value}). Re-test it on your model before you ship it."
+            )
+        elif h > b:
+            top_fixes.append(f"The prompt fix raised the issue rate here ({b:.0%} -> {h:.0%}, "
+                             f"{before_after.honesty.value}). Leave it out.")
 
     prov = _verification_hash(
         {
@@ -147,7 +149,8 @@ def render_report_card_text(card: SafetyReportCard) -> str:
     lines: list[str] = []
     banner = "  [DEMONSTRATION - offline stand-in judge, not a real efficacy claim]" if card.demonstration else ""
     lines.append(f"FUSION SAFETY REPORT CARD — {card.target_name}{banner}")
-    after = f"  →  {card.hardened_grade} after Fusion's fix" if card.hardened_grade not in ("?", card.grade) else ""
+    after = (f"  →  {card.hardened_grade} with the optional prompt fix"
+             if card.hardened_grade not in ("?", card.grade) else "")
     lines.append(f"Check: {card.check}   Grade (your prompt): {card.grade}{after}")
     tags = ", ".join(f"{t.llm}/{t.asi}" for t in card.owasp_tags if t.llm)
     lines.append(f"OWASP: {tags}")

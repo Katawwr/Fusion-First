@@ -59,3 +59,33 @@ def test_no_doc_says_wrapping_the_client_is_the_whole_guard():
     assert "full runtime protection" not in client
     integrations = (ROOT / "integrations" / "README.md").read_text(encoding="utf-8")
     assert "wrap the model client with the guardrail." not in integrations
+
+
+def _card(baseline: list[bool], hardened: list[bool]):
+    from fusion.engine.report import build_report_card
+    from fusion.stats.paired import before_after
+
+    return build_report_card(target_name="t", check="system_prompt_leakage", judge_accuracy=None,
+                             before_after=before_after(baseline, hardened), judge_model="m",
+                             gold_version="g", crosswalk_version="c", demonstration=False)
+
+
+@pytest.mark.unit
+def test_a_card_whose_attacks_got_through_leads_with_the_guardrail_and_the_fix_second():
+    """`top_fixes[0]` is the `top_fix` of `fusion run finalize` and the MCP scan tools."""
+    card = _card([True] * 6 + [False] * 2, [True] + [False] * 7)  # 75% -> 12%: the fix helped here
+    assert "runtime guardrail" in card.top_fixes[0]
+    assert card.top_fixes[1].startswith("Optional prompt fix") and "PRELIMINARY" in card.top_fixes[1]
+
+
+@pytest.mark.unit
+def test_a_prompt_fix_that_raised_the_issue_rate_is_flagged_not_suggested():
+    card = _card([True] * 2 + [False] * 6, [True] * 5 + [False] * 3)  # 25% -> 62%, as llama3.2:1b did live
+    assert "runtime guardrail" in card.top_fixes[0]
+    assert "raised the issue rate" in card.top_fixes[1]
+    assert not any(f.startswith("Optional prompt fix") for f in card.top_fixes)
+
+
+@pytest.mark.unit
+def test_a_check_nothing_got_through_recommends_nothing():
+    assert _card([False] * 8, [False] * 8).top_fixes == []

@@ -44,8 +44,10 @@ Bar A compares `Verdict.is_issue` (judge) against `Label.is_issue` (oracle). We 
   `hardened_issue`, None = unscored). `ProbeOutcome.guard_replay` is the in-sample guard replay on that
   prompt-as-written reply (`fusion/engine/guard_replay.py`): `stopped` (the snippet-configured guard
   blocked or redacted something), `allowed`, or `no_tool_call` (a tool-action attack answered in prose:
-  nothing for the tool-call check to see). It comes from the current guard rules, not the recordings,
-  so `fusion run verify` leaves it out; None = not evaluated (unscored, quality, demo).
+  nothing for the tool-call check to see). `guard_leak` marks a stop because the reply carried a value
+  the prompt marks secret, or the prompt itself: a catch even when the attack's own check graded the
+  reply clean. Both come from the current guard rules, not the recordings, so `fusion run verify`
+  leaves them out; None = not evaluated (unscored, quality, demo).
 
 ## Persistence mapping (target Supabase tables — Phase 1/3, not yet migrated)
 

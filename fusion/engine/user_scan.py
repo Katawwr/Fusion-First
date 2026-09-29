@@ -213,6 +213,7 @@ async def _score_template(
         if isolatable(exc):
             return _unscored(template, check, exc, "judge")
         raise
+    verdict, leak = (None, None) if demonstration else _replay(template, base_traj, system_prompt)
     return ProbeOutcome(
         check=check,
         probe_id=template.id,
@@ -224,18 +225,22 @@ async def _score_template(
         hardened_severity=h.severity,
         evidence=_evidence(b) if b.is_issue else "",
         baseline_excerpt=_excerpt(_last_assistant_text(base_traj), 200),
-        guard_replay=None if demonstration else _replay(template, base_traj, system_prompt),
+        guard_replay=verdict,
+        guard_leak=leak,
     )
 
 
-def _replay(template: AttackTemplate, trajectory: Trajectory, system_prompt: str) -> str | None:
-    """The in-sample guard verdict for a live reply. Canned demo replies were written for the dataset's
-    fictional products, not this prompt, so demos get none. A guard error costs the verdict, not the scan."""
+def _replay(template: AttackTemplate, trajectory: Trajectory, system_prompt: str) -> tuple[str | None, bool | None]:
+    """The in-sample guard verdict for a live reply, and whether a stop was a leak it caught. Canned demo
+    replies were written for the dataset's fictional products, not this prompt, so demos get none. A guard
+    error costs the verdict, not the scan."""
     try:
-        return guard_replay.guard_verdict(template, trajectory, guard_replay.guard_for_prompt(system_prompt))
+        guard = guard_replay.guard_for_prompt(system_prompt)
+        verdict = guard_replay.guard_verdict(template, trajectory, guard)
+        return verdict, verdict == "stopped" and guard_replay.reply_leaks(trajectory, guard)
     except Exception:  # noqa: BLE001 — the replay is a diagnostic; the measured scan must still finish
         log.warning("guard replay failed for %s", template.id, exc_info=True)
-        return None
+        return None, None
 
 
 async def _plain_response(

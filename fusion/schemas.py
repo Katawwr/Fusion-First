@@ -337,6 +337,10 @@ class ProbeOutcome(BaseModel):
     # quality, demo, or an older result). Derived from the current guard rules, not from the recordings, so
     # `fusion run verify` leaves it out.
     guard_replay: Literal["stopped", "allowed", "no_tool_call"] | None = None
+    # The guard stopped this reply because it carried a value the prompt marks secret, or the prompt itself:
+    # a catch whatever this attack's own check graded (a refusal naming the override code is still a leak).
+    # None whenever guard_replay is None; also left out by `fusion run verify`.
+    guard_leak: bool | None = None
 
     @property
     def scored(self) -> bool:

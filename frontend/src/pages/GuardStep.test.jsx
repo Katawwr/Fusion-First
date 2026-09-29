@@ -74,6 +74,19 @@ describe("GuardStep", () => {
     }
   });
 
+  it("labels clean replies the guard stopped for carrying a secret, so they don't read as over-blocks", () => {
+    const inSample = {
+      stopped: 1, got_through: 2, in_prose: 0, acted_on_clean: 1, clean_leaks: 1, clean: 7, withheld_checks: [],
+      sentence: "In-sample, this scan's own attacks: the guard blocked or redacted 1 of 2 attacks that got through and 1 of 7 replies graded clean (1 carried a secret or your system prompt).",
+      setup: "Guard set up as the snippet.",
+      by_check: {
+        excessive_agency: { stopped: 0, got_through: 0, in_prose: 0, acted_on_clean: 1, clean_leaks: 1, clean: 7 },
+      },
+    };
+    renderGuard({ inSample });
+    expect(screen.getByRole("row", { name: /Excessive agency/ })).toHaveTextContent("1 of 7 (1 carried a secret)");
+  });
+
   it("says a demo has no in-sample replay", () => {
     renderGuard({ canned: true, inSample: null });
     expect(screen.getByText(/needs a live scan/)).toBeInTheDocument();

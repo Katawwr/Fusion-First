@@ -823,7 +823,7 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
 # The in-sample guard verdicts come from the current guard rules, not from the recordings, so a run
 # finalized before the replay existed (or before a rule change) still verifies. ("guard_stopped" was the
 # field's first name in development.)
-_NOT_FROM_RECORDINGS = frozenset({"guard_replay", "guard_stopped"})
+_NOT_FROM_RECORDINGS = frozenset({"guard_replay", "guard_leak", "guard_stopped"})
 
 
 def _result_fields(d: dict) -> dict:

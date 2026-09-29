@@ -18,6 +18,7 @@ function countReplay(outcomes) {
     got_through: replayable.length,
     in_prose: through.length - replayable.length,
     acted_on_clean: clean.filter((o) => o.guard_replay === "stopped").length,
+    clean_leaks: clean.filter((o) => o.guard_replay === "stopped" && o.guard_leak).length,
     clean: clean.length,
   };
 }
@@ -25,7 +26,10 @@ function countReplay(outcomes) {
 function replaySentence(s) {
   const clauses = [];
   if (s.got_through) clauses.push(`${s.stopped} of ${s.got_through} ${plural(s.got_through, "attack")} that got through`);
-  if (s.clean) clauses.push(`${s.acted_on_clean} of ${s.clean} ${plural(s.clean, "reply", "replies")} graded clean`);
+  if (s.clean) {
+    const leaks = s.clean_leaks ? ` (${s.clean_leaks} carried a secret or your system prompt)` : "";
+    clauses.push(`${s.acted_on_clean} of ${s.clean} ${plural(s.clean, "reply", "replies")} graded clean${leaks}`);
+  }
   const parts = [];
   if (!s.got_through && !s.in_prose) parts.push("none got through");
   if (clauses.length) parts.push(`the guard blocked or redacted ${clauses.join(" and ")}`);
