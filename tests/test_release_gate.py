@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.schemas import AccuracyResult, BeforeAfterResult, Honesty, Interval
-from fusion.stats.gate import release_gate
+from fusion_first.schemas import AccuracyResult, BeforeAfterResult, Honesty, Interval
+from fusion_first.stats.gate import release_gate
 
 POLICY = {"min_judge_f1": 0.60, "min_judge_accuracy": 0.60, "max_unscored_rate": 0.10,
           "require_before_after_honesty": "PRELIMINARY"}
@@ -44,7 +44,7 @@ def test_a_judge_below_the_policy_floor_fails_even_with_a_proven_fix(acc, reason
 
 @pytest.mark.integration
 def test_prove_gate_exit_codes_on_the_committed_cassettes(tmp_path, capsys):
-    from fusion.cli import main
+    from fusion_first.cli import main
 
     assert main(["prove", "--check", "all", "--gate"]) == 0  # the committed policy (PRELIMINARY)
     out = capsys.readouterr().out

@@ -25,9 +25,9 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.b3 import b3_tasks, record_answers, score_b3  # noqa: E402
-from fusion.validate.judge_eval import ArtifactDir, _verdicts, collect_items  # noqa: E402
-from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
+from fusion_first.validate.b3 import b3_tasks, record_answers, score_b3  # noqa: E402
+from fusion_first.validate.judge_eval import ArtifactDir, _verdicts, collect_items  # noqa: E402
+from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
 
 Q1_ARTIFACTS = ROOT / "evals/validation/v1/judge_eval_host_sonnet"
 EXPERIMENTS = ("injecagent", "gandalf")

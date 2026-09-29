@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.validate.guard_heldout import score_heldout
+from fusion_first.validate.guard_heldout import score_heldout
 
 
 def _row(i, label, command, category="c"):

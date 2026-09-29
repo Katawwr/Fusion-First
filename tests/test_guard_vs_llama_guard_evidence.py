@@ -8,7 +8,7 @@ import pathlib
 
 import pytest
 
-from fusion.validate.llama_guard import parse_verdict, score
+from fusion_first.validate.llama_guard import parse_verdict, score
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 EVIDENCE = ROOT / "evals/validation/v1/guard_vs_llama_guard.json"

@@ -11,8 +11,8 @@ import json
 
 import pytest
 
-from fusion.model.client import ModelRequest, ModelRole
-from fusion.model.providers.claude_cli import (
+from fusion_first.model.client import ModelRequest, ModelRole
+from fusion_first.model.providers.claude_cli import (
     ClaudeCliModelClient,
     ClaudeCliUnavailable,
     claude_cli_available,
@@ -170,7 +170,7 @@ def test_parse_cli_json_empty_result_is_empty_text():
 
 def test_missing_binary_raises_unavailable(monkeypatch):
     monkeypatch.delenv("FUSION_CLAUDE_BIN", raising=False)
-    monkeypatch.setattr("fusion.model.providers.claude_cli.shutil.which", lambda _: None)
+    monkeypatch.setattr("fusion_first.model.providers.claude_cli.shutil.which", lambda _: None)
     c = ClaudeCliModelClient(binary=None)
     with pytest.raises(ClaudeCliUnavailable):
         c._resolve_binary()
@@ -194,7 +194,7 @@ async def test_live_smoke_returns_text():
 def test_windows_shell_shims_are_refused():
     """A prompt with `"` and `&` passed through a .cmd/.bat shim would be re-parsed by cmd.exe and
     could run commands; only a native executable may receive the prompt under test."""
-    from fusion.model.providers.claude_cli import (
+    from fusion_first.model.providers.claude_cli import (
         ClaudeCliModelClient,
         ClaudeCliUnavailable,
         refuse_shell_shim,

@@ -21,9 +21,9 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.guard_heldout import score_heldout  # noqa: E402
+from fusion_first.validate.guard_heldout import score_heldout  # noqa: E402
 
-RULES = "fusion/integrations/claude_hooks.py"
+RULES = "fusion_first/integrations/claude_hooks.py"
 
 
 def _git(*args: str) -> subprocess.CompletedProcess:

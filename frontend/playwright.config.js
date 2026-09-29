@@ -14,7 +14,7 @@ export default defineConfig({
   reporter: [["list"]],
   use: { baseURL: `http://127.0.0.1:${PORT}`, trace: "retain-on-failure" },
   webServer: {
-    command: `python -m fusion.cli serve --no-open --port ${PORT} --dist frontend/dist`,
+    command: `python -m fusion_first.cli serve --no-open --port ${PORT} --dist frontend/dist`,
     cwd: "..",
     url: `http://127.0.0.1:${PORT}/api/health`,
     env: { FUSION_OFFLINE: "1" },

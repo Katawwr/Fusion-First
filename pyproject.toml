@@ -25,8 +25,8 @@ dependencies = [
 ]
 
 [project.scripts]
-fusion = "fusion.cli:main"
-fusion-mcp = "fusion.integrations.mcp_server:main"
+fusion = "fusion_first.cli:main"
+fusion-mcp = "fusion_first.integrations.mcp_server:main"
 
 [project.urls]
 Homepage = "https://fusion-first-testing.com"
@@ -62,15 +62,15 @@ dev = [
     "ruff>=0.6",
 ]
 
-# The pure core lives in `fusion/`; the Modal/FastAPI wrappers live in `app/`.
-# NOTHING under `fusion/` may import `modal` — enforced by tests/test_no_modal_import.py
+# The pure core lives in `fusion_first/`; the Modal/FastAPI wrappers live in `app/`.
+# NOTHING under `fusion_first/` may import `modal` — enforced by tests/test_no_modal_import.py
 [tool.setuptools.packages.find]
-include = ["fusion*"]
+include = ["fusion_first*"]
 
-# Corpora copied into fusion/_bundled/ by setup.py's build step (see that file) so a bare install
+# Corpora copied into fusion_first/_bundled/ by setup.py's build step (see that file) so a bare install
 # has datasets/cassettes/crosswalk/evals without a source checkout.
 [tool.setuptools.package-data]
-fusion = ["model/models.yaml",  # the model registry (roles, allowlist)
+fusion_first = ["model/models.yaml",  # the model registry (roles, allowlist)
           "_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_bundled/**/*.yml",
           "_bundled/web/**/*",  # the built web app for `fusion serve`
           # the Claude Code marketplace for `fusion plugin-dir`; globs skip dot-paths, so name them

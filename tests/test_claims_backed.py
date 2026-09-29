@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from fusion.validate.claims import (
+from fusion_first.validate.claims import (
     check_claim,
     load_registry,
     repo_root,
@@ -54,7 +54,7 @@ def test_claim_checker_rejects_demo_and_mismatched_evidence(tmp_path):
 
 @pytest.mark.unit
 def test_scanner_catches_classic_unbacked_claims(tmp_path):
-    from fusion.validate.claims import PROOF_PATTERNS
+    from fusion_first.validate.claims import PROOF_PATTERNS
 
     for line in [
         'stat: "62% injection · 67% data-leak",',
@@ -91,7 +91,7 @@ def test_per_metric_denominator_is_enforced(tmp_path):
 
 @pytest.mark.unit
 def test_registered_claim_cannot_shelter_a_second_number(tmp_path):
-    from fusion.validate.claims import Registry, unregistered_proof_strings
+    from fusion_first.validate.claims import Registry, unregistered_proof_strings
 
     (tmp_path / "README.md").write_text(
         "Guard: 100% recall / 0% over-block, and llama fails 62% of injection attacks.\n",
@@ -103,7 +103,7 @@ def test_registered_claim_cannot_shelter_a_second_number(tmp_path):
 
 @pytest.mark.unit
 def test_scanner_catches_numbers_split_across_lines(tmp_path):
-    from fusion.validate.claims import Registry, unregistered_proof_strings
+    from fusion_first.validate.claims import Registry, unregistered_proof_strings
 
     (tmp_path / "README.md").write_text("our judge scores an F1 of\n0.97 on the blind set\n", encoding="utf-8")
     assert unregistered_proof_strings(Registry(), tmp_path)
@@ -111,7 +111,7 @@ def test_scanner_catches_numbers_split_across_lines(tmp_path):
 
 @pytest.mark.unit
 def test_scanner_catches_more_claim_shapes():
-    from fusion.validate.claims import PROOF_PATTERNS
+    from fusion_first.validate.claims import PROOF_PATTERNS
 
     for line in ["recall 100%", "accuracy of 92%", "issue rate 72% -> 11%", "5 percent got through",
                  "kappa of 0.8", "precision: .95"]:
@@ -120,7 +120,7 @@ def test_scanner_catches_more_claim_shapes():
 
 @pytest.mark.unit
 def test_scanner_skips_test_fixtures_but_not_components(tmp_path):
-    from fusion.validate.claims import scanned_files
+    from fusion_first.validate.claims import scanned_files
 
     lib = tmp_path / "frontend/src/lib"
     lib.mkdir(parents=True)

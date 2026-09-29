@@ -11,12 +11,12 @@ import json
 
 import pytest
 
-from fusion.goldset import load_gold
-from fusion.judge.rubric import get_rubric
-from fusion.model.client import ModelResponse
-from fusion.model.replay import ReplayModelClient
-from fusion.recording import record_gold_cassette_live
-from fusion.stats.calibration import run_calibration
+from fusion_first.goldset import load_gold
+from fusion_first.judge.rubric import get_rubric
+from fusion_first.model.client import ModelResponse
+from fusion_first.model.replay import ReplayModelClient
+from fusion_first.recording import record_gold_cassette_live
+from fusion_first.stats.calibration import run_calibration
 
 CHECK = "direct_prompt_injection"
 

@@ -23,15 +23,15 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.runs.engine import RunDir  # noqa: E402
-from fusion.validate.judge_eval import (  # noqa: E402
+from fusion_first.runs.engine import RunDir  # noqa: E402
+from fusion_first.validate.judge_eval import (  # noqa: E402
     JUDGE_CHECK,
     collect_items,
     prepare_run,
     score,
     write_report,
 )
-from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
+from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
 
 
 def _args(argv):
@@ -61,15 +61,15 @@ def main(argv=None) -> int:
         return 0
     rd = RunDir(pathlib.Path(a.workspace).resolve(), a.run_id)
     if a.cmd == "grade":
-        from fusion.backends.resolve import build_grader_client, parse_grader
-        from fusion.runs.engine import grade_with
+        from fusion_first.backends.resolve import build_grader_client, parse_grader
+        from fusion_first.runs.engine import grade_with
 
         g = parse_grader(a.grader)
         res = asyncio.run(grade_with(rd, build_grader_client(g), label=g.label))
         print(json.dumps(res))
         return 0
     if a.artifacts:
-        from fusion.validate.judge_eval import export_artifacts
+        from fusion_first.validate.judge_eval import export_artifacts
 
         export_artifacts(rd, a.artifacts)
     rep = score(rd, items, a.grader_label)

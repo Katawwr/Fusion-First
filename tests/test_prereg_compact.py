@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.validate.analysis import attack_success_by_model
-from fusion.validate.experiments import build_items
-from fusion.validate.prereg import compact_decision
-from fusion.validate.transcripts import TranscriptRecord, TranscriptStore
+from fusion_first.validate.analysis import attack_success_by_model
+from fusion_first.validate.experiments import build_items
+from fusion_first.validate.prereg import compact_decision
+from fusion_first.validate.transcripts import TranscriptRecord, TranscriptStore
 
 ARMS = ("baseline", "compact")
 

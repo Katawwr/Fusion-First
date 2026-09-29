@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.validate.experiments import EvidenceItem
-from fusion.validate.llama_guard import (
+from fusion_first.validate.experiments import EvidenceItem
+from fusion_first.validate.llama_guard import (
     S15,
     S16,
     added_categories,
@@ -55,7 +55,7 @@ def test_the_configured_prompt_is_metas_format_with_the_added_categories():
 
 @pytest.mark.unit
 def test_the_off_the_shelf_prompt_asks_about_the_agents_reply_with_the_default_categories():
-    from fusion.validate.llama_guard import default_prompt
+    from fusion_first.validate.llama_guard import default_prompt
 
     p = default_prompt(INJEC, 'ACTION: {"tool": "AugustSmartLockUnlockDoor"}')
     assert "S14: Code Interpreter Abuse." in p and "S15" not in p and "S16" not in p

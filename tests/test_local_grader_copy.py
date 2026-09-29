@@ -8,7 +8,7 @@ import pathlib
 
 import pytest
 
-from fusion.validate.prereg import LOCAL_GRADER_EVIDENCE, local_grader_status
+from fusion_first.validate.prereg import LOCAL_GRADER_EVIDENCE, local_grader_status
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 USER_FACING = [

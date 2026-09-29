@@ -8,7 +8,7 @@ import shlex
 
 import pytest
 
-from fusion.cli import build_parser
+from fusion_first.cli import build_parser
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 DOCS = ["README.md", "CLAUDE.md", "plugins/fusion/README.md", "plugins/fusion-guard/README.md"]
@@ -22,7 +22,7 @@ def _commands():
                 line = line.split(" #")[0].strip()
                 for part in re.split(r"&&|;|\|", line):
                     part = re.sub(r"\s[<>]\s*\S+", "", part).strip()
-                    for prefix in ("python -m fusion.cli ", "fusion "):
+                    for prefix in ("python -m fusion_first.cli ", "fusion "):
                         if part.startswith(prefix):
                             yield doc, part[len(prefix):]
 

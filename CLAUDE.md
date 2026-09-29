@@ -21,13 +21,13 @@ don't. **Numbers come only from committed evidence** (`evals/claims.yaml`, enfor
 
 ## The one rule that matters most
 
-**Nothing under `fusion/` may import `modal`.** The pure core must stay runnable offline under
+**Nothing under `fusion_first/` may import `modal`.** The pure core must stay runnable offline under
 plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
 `tests/test_no_modal_import.py` — do not defeat it.
 
 ## Layout
 
-- `fusion/` — pure core (no `modal`):
+- `fusion_first/` — pure core (no `modal`):
   - `schemas.py` — the canonical data model (Trajectory/Step/ToolResult, Label vs Verdict, proof
     result types). Every module imports these; none redefine them. See `SCHEMA.md`.
   - `model/` — provider-agnostic `ModelClient`, `registry.py` (roles + allowlist + self-family
@@ -56,7 +56,7 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
   - `validate/` — oracles, IFEval-lite, baselines, importers, evidence experiments, claims registry,
     `judge_eval.py` (grader vs deterministic oracles on real transcripts), `trust_report.py`
     (GENERATES `TRUST_REPORT.md` + `frontend/src/content/evidence.json` from `evals/`; a test
-    fails if they drift — regenerate with `python -m fusion.validate.trust_report`).
+    fails if they drift — regenerate with `python -m fusion_first.validate.trust_report`).
   - `integrations/` — `mcp_server.py` + `run_tools.py` (MCP v2), `agent_tools.py` (one-shot tools),
     `claude_hooks.py` (fusion-guard PreToolUse/PostToolUse), `live.py`.
 - `plugins/fusion/` — Claude Code plugin (skills audit/grade/harden/setup/guard, `fusion-judge`
@@ -65,7 +65,7 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
   pins `fusion-safety==<version>`). `tests/test_plugin.py` pins tool names against the server.
   - `web/` — the pure FastAPI layer (`factory.py`, SSE, settings) and `serve.py` (`fusion serve`).
 - `app/` — the Modal wrapper (`modal_app.py`, the only place `modal` may appear) plus alias shims
-  re-exporting `fusion/web`.
+  re-exporting `fusion_first/web`.
 - `backend/main.py` — the legacy 6,664-line monolith being decomposed. Do not add features here.
 - `datasets/gold/`, `datasets/probes/` — jsonl gold set + paired probes (diffable, in git).
 - `cassettes/` — committed deterministic model responses keyed by request hash.
@@ -86,32 +86,32 @@ python scripts/fusion_cli.py prove  --check all --html report.html   # Safety Re
 python scripts/fusion_cli.py fix    --check excessive_agency         # print the optional prompt-fix block
 python scripts/fusion_cli.py harden --prompt my_prompt.txt --write   # optional: append the prompt fix in place
 python scripts/fusion_cli.py guard-proof --check all                 # runtime guardrail reduction
-python -m fusion.cli doctor                                          # keyless backends (no model calls)
-python -m fusion.cli run start --prompt p.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
-python -m fusion.cli run finalize && python -m fusion.cli run verify # card + offline re-derivation
+python -m fusion_first.cli doctor                                          # keyless backends (no model calls)
+python -m fusion_first.cli run start --prompt p.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
+python -m fusion_first.cli run finalize && python -m fusion_first.cli run verify # card + offline re-derivation
 python scripts/run_evidence.py run|analyze --n 30                    # oracle-labelled evidence (local)
 python scripts/judge_eval.py prepare|grade|score --workspace W --run-id R   # grader vs oracle (Q1)
-python -m fusion.cli run logs --file logs.jsonl --check everything   # grade existing transcripts
-python -m fusion.cli import-promptfoo results.json                   # honest stats on promptfoo output
-python -m fusion.validate.trust_report                               # regenerate TRUST_REPORT.md
+python -m fusion_first.cli run logs --file logs.jsonl --check everything   # grade existing transcripts
+python -m fusion_first.cli import-promptfoo results.json                   # honest stats on promptfoo output
+python -m fusion_first.validate.trust_report                               # regenerate TRUST_REPORT.md
 claude plugin validate plugins/fusion                                # plugin manifest check
-python -m fusion.cli serve                                           # local web app, 127.0.0.1:8765
+python -m fusion_first.cli serve                                           # local web app, 127.0.0.1:8765
 npm --prefix frontend run build && npm --prefix frontend run test:e2e   # Playwright E2E on `fusion serve` (offline)
 npm --prefix frontend run build && python -m pip wheel . --no-deps --no-build-isolation -w dist  # wheel bundles corpora + frontend/dist
 ```
 
-`fusion serve` (`fusion/web/serve.py`) has three locks, each pinned by `tests/test_serve.py`: loopback
+`fusion serve` (`fusion_first/web/serve.py`) has three locks, each pinned by `tests/test_serve.py`: loopback
 bind, Host allowlist (DNS rebinding), and a per-launch token injected into the served page and
 required on every non-GET `/api/` call. A page it serves always calls its own origin
 (`frontend/src/lib/scanApi.js`), whatever `VITE_API_URL` the build baked in.
 
 Checks: `direct_prompt_injection`, `excessive_agency`, `data_exfiltration`, `system_prompt_leakage`
-(use `--check all` to run every one). The runtime guardrail (`fusion/guardrail/`) covers all four;
-its snippet (`fusion/guardrail/snippet.py`) sets `require_authorization=True`, wraps the model client
+(use `--check all` to run every one). The runtime guardrail (`fusion_first/guardrail/`) covers all four;
+its snippet (`fusion_first/guardrail/snippet.py`) sets `require_authorization=True`, wraps the model client
 for replies and calls `guard_tool_call(..., user_request=..., untrusted_context=True)` per tool call,
 the configuration step 2 measured. Every live scan replays it over its own replies (in-sample,
-`fusion/engine/guard_replay.py`). Each check also has an optional prompt fix in `fusion/engine/fixes.py`; `harden`
-appends it idempotently. The branded, theme-aware HTML card lives in `fusion/engine/report_html.py`
+`fusion_first/engine/guard_replay.py`). Each check also has an optional prompt fix in `fusion_first/engine/fixes.py`; `harden`
+appends it idempotently. The branded, theme-aware HTML card lives in `fusion_first/engine/report_html.py`
 (no gradient; clean/professional; guardrail block first, optional fix block per card).
 
 ## How "proof" works (and stays honest)
@@ -131,7 +131,7 @@ appends it idempotently. The branded, theme-aware HTML card lives in `fusion/eng
 - TDD: add/extend a test with every change; keep `pytest -q` green before moving on.
 - The **Stop hook** runs unit tests + the eval gate (advisory). The **PreToolUse hook** blocks
   `modal deploy` if the accuracy gate is red. The **PostToolUse hook** lints edited Python.
-- Model IDs live only in `fusion/model/models.yaml`; reference models by **role**, never hardcode
+- Model IDs live only in `fusion_first/model/models.yaml`; reference models by **role**, never hardcode
   IDs in logic. Default judge role → `claude-sonnet-5`; calibration/escalation → `claude-opus-4-8`.
 - Security posture is load-bearing: keys server-side only, per-user budgets/allowlist, fail-closed
   webhooks. Never reintroduce the deleted `/api/debug/*` endpoints or `modal.Dict` money state.

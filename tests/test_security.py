@@ -5,15 +5,15 @@ import hmac
 
 import pytest
 
-from fusion.model.client import ModelRequest, ModelResponse, ModelRole
-from fusion.security.budget import (
+from fusion_first.model.client import ModelRequest, ModelResponse, ModelRole
+from fusion_first.security.budget import (
     BudgetedModelClient,
     BudgetExceeded,
     BudgetLimits,
     ModelNotAllowed,
 )
-from fusion.security.redaction import contains_secret, redact, redact_mapping
-from fusion.security.webhook import (
+from fusion_first.security.redaction import contains_secret, redact, redact_mapping
+from fusion_first.security.webhook import (
     WebhookVerificationError,
     require_valid_signature,
     verify_signature,
@@ -60,7 +60,7 @@ def test_linear_time_patterns_match_the_original_definitions():
     import random
     import re
 
-    from fusion.security import redaction as r
+    from fusion_first.security import redaction as r
 
     old_strict = re.compile(r"(?i)(api[_-]?key|secret|token|password|passwd|pwd)\s*[:=]\s*[^\s\"']*[0-9_\-][^\s\"']*")
     old_jwt = re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+")
@@ -79,7 +79,7 @@ def test_linear_time_patterns_match_the_original_definitions():
 def test_secret_checks_are_fast_on_pathological_text():
     import time
 
-    from fusion.security.redaction import contains_secret_strict
+    from fusion_first.security.redaction import contains_secret_strict
 
     t = time.perf_counter()
     for text in ("eyJ" * 7000, "token=" * 4000, "api_key=" * 3000, "eyJa." * 5000):

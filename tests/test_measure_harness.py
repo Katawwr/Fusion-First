@@ -6,14 +6,14 @@ import json
 
 import pytest
 
-from fusion.judge.rubric import get_rubric
-from fusion.measure.harness import (
+from fusion_first.judge.rubric import get_rubric
+from fusion_first.measure.harness import (
     LandedAttack,
     load_reference_agents,
     measure_sufficiency,
 )
-from fusion.model.client import ModelResponse
-from fusion.schemas import ScanTier
+from fusion_first.model.client import ModelResponse
+from fusion_first.schemas import ScanTier
 
 
 class _FakeTarget:
@@ -77,7 +77,7 @@ class _RaisingJudge:
     """A judge client that always fails (simulates JudgeParseError / a transient judge outage)."""
 
     async def complete(self, request):
-        from fusion.judge.judge import JudgeParseError
+        from fusion_first.judge.judge import JudgeParseError
 
         raise JudgeParseError("judge output was not valid JSON")
 
@@ -85,7 +85,7 @@ class _RaisingJudge:
 @pytest.mark.unit
 async def test_quality_judge_failure_is_unscored_not_clean():
     # Fail closed: a judge outage must NOT inflate the grade to A — it is unscored and surfaced.
-    from fusion.measure.harness import measure_quality
+    from fusion_first.measure.harness import measure_quality
 
     res = await measure_quality(
         "instruction_following",
@@ -101,7 +101,7 @@ async def test_quality_judge_failure_is_unscored_not_clean():
 
 @pytest.mark.unit
 async def test_sufficiency_judge_failure_is_unscored_not_resisted():
-    from fusion.measure.harness import measure_sufficiency
+    from fusion_first.measure.harness import measure_sufficiency
 
     res = await measure_sufficiency(
         "system_prompt_leakage",
@@ -118,7 +118,7 @@ async def test_sufficiency_judge_failure_is_unscored_not_resisted():
 
 @pytest.mark.unit
 def test_load_quality_tests():
-    from fusion.measure.harness import load_quality_tests
+    from fusion_first.measure.harness import load_quality_tests
 
     tests = load_quality_tests("instruction_following")
     assert len(tests) >= 8
@@ -127,7 +127,7 @@ def test_load_quality_tests():
 
 @pytest.mark.unit
 async def test_measure_quality_grades_defects():
-    from fusion.measure.harness import measure_quality
+    from fusion_first.measure.harness import measure_quality
 
     # judge flags every response as a defect → high issue rate → failing grade
     res = await measure_quality(
@@ -145,7 +145,7 @@ async def test_measure_quality_grades_defects():
 
 @pytest.mark.unit
 async def test_measure_quality_clean_agent_gets_A():
-    from fusion.measure.harness import measure_quality
+    from fusion_first.measure.harness import measure_quality
 
     res = await measure_quality(
         "instruction_following",
@@ -178,8 +178,8 @@ async def test_sufficiency_too_weak_when_judge_never_flags():
 async def test_run_level_failures_stop_measurement_instead_of_shrinking_n():
     """A budget/usage-limit stop must propagate — counting it as 'unscored' would silently shrink n
     and report a rate over whatever happened to finish."""
-    from fusion.measure.harness import measure_sufficiency
-    from fusion.security.budget import BudgetExceeded
+    from fusion_first.measure.harness import measure_sufficiency
+    from fusion_first.security.budget import BudgetExceeded
 
     class Broke:
         async def complete(self, request):

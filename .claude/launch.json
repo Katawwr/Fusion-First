@@ -22,13 +22,13 @@
     {
       "name": "serve",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "fusion.cli", "serve", "--no-open", "--port", "8765"],
+      "runtimeArgs": ["-m", "fusion_first.cli", "serve", "--no-open", "--port", "8765"],
       "port": 8765
     },
     {
       "name": "serve-alt",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "fusion.cli", "serve", "--no-open", "--port", "8766"],
+      "runtimeArgs": ["-m", "fusion_first.cli", "serve", "--no-open", "--port", "8766"],
       "port": 8766
     },
     {

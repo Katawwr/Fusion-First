@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.engine.fixes import apply_fix, get_remedy, guard_block
-from fusion.judge.rubric import REGISTRY
+from fusion_first.engine.fixes import apply_fix, get_remedy, guard_block
+from fusion_first.judge.rubric import REGISTRY
 
 
 @pytest.mark.unit

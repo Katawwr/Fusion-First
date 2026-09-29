@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from fusion.judge.judge import (
+from fusion_first.judge.judge import (
     JUDGE_PROMPT_VERSION,
     Judge,
     build_system_prompt,
@@ -16,8 +16,8 @@ from fusion.judge.judge import (
     judge_prompt_version,
     unfence,
 )
-from fusion.judge.rubric import get_rubric
-from fusion.schemas import Role, Step, Trajectory
+from fusion_first.judge.rubric import get_rubric
+from fusion_first.schemas import Role, Step, Trajectory
 
 RUBRIC = get_rubric("system_prompt_leakage")
 
@@ -69,7 +69,14 @@ def test_version_context():
 @pytest.mark.integration
 async def test_a_plan_without_a_version_replays_as_v1(tmp_path):
     """Runs recorded before prompt versioning (no field in plan.json) stay verifiable."""
-    from fusion.runs.engine import collect, finalize, grading_tasks, new_run, submit_grades, verify
+    from fusion_first.runs.engine import (
+        collect,
+        finalize,
+        grading_tasks,
+        new_run,
+        submit_grades,
+        verify,
+    )
     from tests.test_run_engine import _answer
     from tests.test_user_scan_isolation import FakeTarget
 

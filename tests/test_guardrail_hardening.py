@@ -9,8 +9,8 @@ import base64
 
 import pytest
 
-from fusion.guardrail import Decision, GuardConfig, Guardrail
-from fusion.security.normalize import fold, normalized_views
+from fusion_first.guardrail import Decision, GuardConfig, Guardrail
+from fusion_first.security.normalize import fold, normalized_views
 
 
 @pytest.mark.unit

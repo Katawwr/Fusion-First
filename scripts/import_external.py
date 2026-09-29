@@ -22,8 +22,8 @@ import sys
 # Allow running as a plain script from a source checkout (no install needed).
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from fusion._data import data_root  # noqa: E402
-from fusion.validate.importers import (  # noqa: E402
+from fusion_first._data import data_root  # noqa: E402
+from fusion_first.validate.importers import (  # noqa: E402
     SOURCES,
     LicenseNotAllowedError,
     import_all,

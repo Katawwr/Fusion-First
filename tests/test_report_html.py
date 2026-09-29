@@ -4,8 +4,8 @@ import html
 
 import pytest
 
-from fusion.engine.report_html import render_dashboard_html, render_report_card_html
-from fusion.schemas import (
+from fusion_first.engine.report_html import render_dashboard_html, render_report_card_html
+from fusion_first.schemas import (
     AccuracyResult,
     BeforeAfterResult,
     Honesty,
@@ -73,8 +73,8 @@ def test_dashboard_leads_with_the_runtime_guardrail():
 
 @pytest.mark.unit
 def test_the_guardrail_block_states_the_in_sample_replay_when_the_scan_has_one():
-    from fusion.engine.guard_replay import REPLAY_SETUP
-    from fusion.schemas import ProbeOutcome
+    from fusion_first.engine.guard_replay import REPLAY_SETUP
+    from fusion_first.schemas import ProbeOutcome
 
     def o(issue, replay):
         return ProbeOutcome(check="excessive_agency", probe_id=f"{issue}{replay}", attack_label="a",

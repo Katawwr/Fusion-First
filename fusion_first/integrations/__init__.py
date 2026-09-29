@@ -1,0 +1,37 @@
+"""Integration surface: pure, JSON-returning tools that let an AI coding agent (or a CI pipeline,
+or any host) use Fusion to FIND prompt/agent-safety issues, FIX them, and PROTECT at runtime.
+
+Nothing here imports `modal`; the MCP server and CLI wrap these functions.
+
+The agent tools are resolved lazily (PEP 562) so that importing a light submodule — notably
+`claude_hooks`, which runs before every Claude Code tool call — does not load the scan engine."""
+
+from __future__ import annotations
+
+import importlib
+
+_AGENT_TOOLS = (
+    "check_output",
+    "check_tool_call",
+    "guardrail_snippet",
+    "harden_prompt",
+    "list_checks",
+    "scan_prompt",
+)
+
+__all__ = [
+    "list_checks",
+    "scan_prompt",
+    "harden_prompt",
+    "guardrail_snippet",
+    "check_output",
+    "check_tool_call",
+]
+
+
+def __getattr__(name: str):
+    if name in _AGENT_TOOLS:
+        value = getattr(importlib.import_module("fusion_first.integrations.agent_tools"), name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

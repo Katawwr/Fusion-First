@@ -21,10 +21,19 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.analysis import analyze, attack_success_by_model  # noqa: E402
-from fusion.validate.experiments import EXPERIMENTS, SPENT, build_items, iter_plan  # noqa: E402
-from fusion.validate.prereg import compact_decision  # noqa: E402
-from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore, generate  # noqa: E402
+from fusion_first.validate.analysis import analyze, attack_success_by_model  # noqa: E402
+from fusion_first.validate.experiments import (  # noqa: E402
+    EXPERIMENTS,
+    SPENT,
+    build_items,
+    iter_plan,
+)
+from fusion_first.validate.prereg import compact_decision  # noqa: E402
+from fusion_first.validate.transcripts import (  # noqa: E402
+    STORE_DIR_DEFAULT,
+    TranscriptStore,
+    generate,
+)
 
 DEFAULT_MODELS = "llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b"
 # Experiments whose oracle reads only the opening of a reply (over-refusal) use the short cap too;
@@ -79,7 +88,7 @@ def main(argv=None) -> int:
         return 0
 
     if a.cmd == "run":
-        from fusion.model.providers.ollama import OllamaModelClient, ollama_available
+        from fusion_first.model.providers.ollama import OllamaModelClient, ollama_available
 
         if not ollama_available():
             print("Ollama is not reachable at 127.0.0.1:11434 — start `ollama serve`.")
@@ -98,8 +107,8 @@ def main(argv=None) -> int:
         print(json.dumps(counts))
         return 0
 
-    from fusion.model.providers.ollama import model_digest
-    from fusion.validate.seal import remedies_hash
+    from fusion_first.model.providers.ollama import model_digest
+    from fusion_first.validate.seal import remedies_hash
 
     if len(arms) != 2:
         print("analyze compares exactly two arms, e.g. --arms baseline,compact")

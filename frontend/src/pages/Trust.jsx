@@ -4,7 +4,7 @@ import evidence from "../content/evidence.json";
 import { fixVerdict, interval, significanceByGrader } from "../lib/evidence";
 
 // Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
-// committed evidence files (python -m fusion.validate.trust_report) and checked by a test — the
+// committed evidence files (python -m fusion_first.validate.trust_report) and checked by a test — the
 // page can't show a number the evidence doesn't back.
 
 const CHECK_NAMES = {

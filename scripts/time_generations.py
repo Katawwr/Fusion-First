@@ -20,7 +20,7 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.experiments import build_items  # noqa: E402
+from fusion_first.validate.experiments import build_items  # noqa: E402
 
 BASE = "http://127.0.0.1:11434"
 EXPERIMENTS = ("injecagent", "gandalf", "xstest")

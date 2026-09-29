@@ -7,7 +7,7 @@ import types
 
 import pytest
 
-from fusion.backends.resolve import (
+from fusion_first.backends.resolve import (
     BackendUnavailable,
     GraderSpec,
     SpecError,
@@ -90,8 +90,8 @@ def test_doctor_offline_recommends_the_host_grader():
 
 def _local_only(monkeypatch, installed):
     """No claude CLI; a reachable Ollama with `installed` models."""
-    import fusion.model.providers.claude_cli as cc
-    import fusion.model.providers.ollama as ol
+    import fusion_first.model.providers.claude_cli as cc
+    import fusion_first.model.providers.ollama as ol
 
     monkeypatch.setattr(cc, "claude_cli_available", lambda *a, **k: False)
     monkeypatch.setattr(ol, "ollama_available", lambda *a, **k: True)
@@ -114,7 +114,7 @@ def test_doctor_recommends_the_local_grader_only_if_it_met_its_registered_floor(
                                                                                 expected):
     _local_only(monkeypatch, ["llama3.2:1b", "qwen2.5:7b"])
     _local_grader_evidence(tmp_path, acc, f1)
-    monkeypatch.setattr("fusion.validate.prereg._evidence_root", lambda: tmp_path)
+    monkeypatch.setattr("fusion_first.validate.prereg._evidence_root", lambda: tmp_path)
     d = doctor()
     assert d["recommended"]["grader"] == expected
     if expected == "host":  # says why, and that it can still be chosen explicitly
@@ -124,7 +124,7 @@ def test_doctor_recommends_the_local_grader_only_if_it_met_its_registered_floor(
 @pytest.mark.unit
 def test_doctor_does_not_recommend_an_unmeasured_local_grader(monkeypatch, tmp_path):
     _local_only(monkeypatch, ["llama3.2:1b", "qwen2.5:3b"])
-    monkeypatch.setattr("fusion.validate.prereg._evidence_root", lambda: tmp_path)  # no grader evidence at all
+    monkeypatch.setattr("fusion_first.validate.prereg._evidence_root", lambda: tmp_path)  # no grader evidence at all
     d = doctor()
     assert d["recommended"]["grader"] == "host"
     assert any("qwen2.5:3b" in h and "not been measured" in h for h in d["hints"])
@@ -132,12 +132,12 @@ def test_doctor_does_not_recommend_an_unmeasured_local_grader(monkeypatch, tmp_p
 
 @pytest.mark.unit
 def test_doctor_reports_a_refused_subscription(monkeypatch):
-    import fusion.model.providers.claude_cli as cc
+    import fusion_first.model.providers.claude_cli as cc
 
     monkeypatch.delenv("FUSION_OFFLINE", raising=False)
     monkeypatch.setattr(cc, "_AUTH_OK", {})
     monkeypatch.setenv("FUSION_CLAUDE_BIN", "claude-fake")
-    import fusion.model.providers.ollama as ol
+    import fusion_first.model.providers.ollama as ol
 
     monkeypatch.setattr(ol, "ollama_available", lambda *a, **k: False)
 

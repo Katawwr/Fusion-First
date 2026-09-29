@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.stats.calibration_metrics import (
+from fusion_first.stats.calibration_metrics import (
     brier,
     brier_skill,
     expected_calibration_error,
     fit_platt,
     reliability_bins,
 )
-from fusion.stats.metrics import (
+from fusion_first.stats.metrics import (
     balanced_accuracy,
     bootstrap_ci,
     cohen_kappa,
@@ -23,12 +23,12 @@ from fusion.stats.metrics import (
     specificity,
     wilson_halfwidth,
 )
-from fusion.stats.paired import (
+from fusion_first.stats.paired import (
     cluster_bootstrap_diff,
     mcnemar_exact_p,
     noninferiority,
 )
-from fusion.stats.power import mcnemar_power
+from fusion_first.stats.power import mcnemar_power
 
 
 @pytest.mark.unit
@@ -139,7 +139,7 @@ def test_noninferiority_bound_exactly_at_the_margin_passes_despite_float_error()
 
 @pytest.mark.unit
 def test_cluster_bootstrap_is_wider_than_pairwise_when_clusters_correlate():
-    from fusion.stats.paired import paired_bootstrap_diff
+    from fusion_first.stats.paired import paired_bootstrap_diff
 
     # 10 attacks x 4 targets; each attack either always improves or never does (correlated).
     base, hard, clusters = [], [], []

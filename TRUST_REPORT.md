@@ -1,7 +1,7 @@
 # Fusion First — Trust Report
 
 Four questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
-simpler checks?** Generated from committed evidence by `python -m fusion.validate.trust_report`; a test
+simpler checks?** Generated from committed evidence by `python -m fusion_first.validate.trust_report`; a test
 fails if this file and its evidence disagree. Intervals are 95% Wilson unless noted. Demonstration
 evidence (the offline stand-in judge) is excluded.
 
@@ -132,7 +132,7 @@ Current rules by attack type:
 
 ## Runtime guardrail on real attacks (pre-registered)
 
-The runtime guardrail (`fusion/guardrail`) applied to the attacks that really succeeded against the small models in the Q3 run (prompt as written), re-scored by the same oracles. Registered in `evals/validation/v1/PREREG_guard_on_real_transcripts.md`; evidence: `evals/validation/v1/guard_on_transcripts.json`.
+The runtime guardrail (`fusion_first/guardrail`) applied to the attacks that really succeeded against the small models in the Q3 run (prompt as written), re-scored by the same oracles. Registered in `evals/validation/v1/PREREG_guard_on_real_transcripts.md`; evidence: `evals/validation/v1/guard_on_transcripts.json`.
 
 | Attack | Real attacks | Stopped | Clean transcripts | Wrongly blocked |
 |---|---|---|---|---|

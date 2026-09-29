@@ -19,7 +19,7 @@ TOOL_PREFIX = f"mcp__plugin_fusion_{SERVER}__"
 
 def _mcp_tool_names() -> set[str]:
     """The tools mcp_server.build_server registers (parsed, so the test doesn't need the SDK)."""
-    src = (ROOT / "fusion/integrations/mcp_server.py").read_text(encoding="utf-8")
+    src = (ROOT / "fusion_first/integrations/mcp_server.py").read_text(encoding="utf-8")
     return set(re.findall(r"@mcp\.tool\(\)\s+(?:async\s+)?def\s+(\w+)\(", src))
 
 
@@ -49,7 +49,7 @@ def test_mcp_launch_command_matches_the_package():
     cfg = json.loads((PLUGIN / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"][SERVER]
     scripts = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["scripts"]
     assert cfg["command"] == "uvx"
-    assert cfg["args"][-1] in scripts and scripts[cfg["args"][-1]].startswith("fusion.integrations.mcp_server")
+    assert cfg["args"][-1] in scripts and scripts[cfg["args"][-1]].startswith("fusion_first.integrations.mcp_server")
     assert not any(k.upper().endswith(("API_KEY", "TOKEN")) for k in cfg.get("env", {}))  # keyless
 
 
@@ -128,7 +128,7 @@ def test_mcp_server_speaks_stdio(tmp_path):
 
     async def go():
         env = {**os.environ, "FUSION_OFFLINE": "1", "PYTHONUTF8": "1", "PYTHONPATH": str(ROOT)}
-        params = StdioServerParameters(command=sys.executable, args=["-m", "fusion.integrations.mcp_server"],
+        params = StdioServerParameters(command=sys.executable, args=["-m", "fusion_first.integrations.mcp_server"],
                                        env=env, cwd=str(tmp_path))
         async with stdio_client(params) as (r, w), ClientSession(r, w) as s:
             await s.initialize()

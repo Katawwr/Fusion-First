@@ -1,4 +1,4 @@
-"""The runtime-guardrail snippet (fusion/guardrail/snippet.py) is the code users paste into their agent.
+"""The runtime-guardrail snippet (fusion_first/guardrail/snippet.py) is the code users paste into their agent.
 
 It must run against the real API and use the configuration the published guardrail result measured:
 replies through GuardedModelClient, each tool call through guard_tool_call with the user's own request
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from fusion.guardrail.snippet import guardrail_snippet
-from fusion.model.client import ModelRequest, ModelResponse, ModelRole
+from fusion_first.guardrail.snippet import guardrail_snippet
+from fusion_first.model.client import ModelRequest, ModelResponse, ModelRole
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKS = ["direct_prompt_injection", "excessive_agency", "data_exfiltration", "system_prompt_leakage"]

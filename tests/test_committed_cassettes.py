@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.cli import main
-from fusion.judge.rubric import checks_of_kind
-from fusion.model.replay import Cassette
-from fusion.recording import CASSETTE_DIR, build_full_cassette
+from fusion_first.cli import main
+from fusion_first.judge.rubric import checks_of_kind
+from fusion_first.model.replay import Cassette
+from fusion_first.recording import CASSETTE_DIR, build_full_cassette
 
 SAFETY = checks_of_kind("safety")
 
@@ -48,9 +48,9 @@ def test_committed_demo_cassettes_are_fresh(check):
 
 @pytest.mark.integration
 def test_quality_eval_without_cassette_is_clean_usage_error(capsys, monkeypatch, tmp_path):
-    import fusion.cli
+    import fusion_first.cli
 
-    monkeypatch.setattr(fusion.cli, "CASSETTE_DIR", tmp_path)  # independent of local recordings
+    monkeypatch.setattr(fusion_first.cli, "CASSETTE_DIR", tmp_path)  # independent of local recordings
     code = main(["eval", "--check", "instruction_following"])
     out = capsys.readouterr().out
     assert code == 2
@@ -60,7 +60,7 @@ def test_quality_eval_without_cassette_is_clean_usage_error(capsys, monkeypatch,
 
 @pytest.mark.unit
 def test_gold_hash_is_line_ending_independent(tmp_path, monkeypatch):
-    from fusion import goldset
+    from fusion_first import goldset
 
     lf = tmp_path / "x.v1.jsonl"
     lf.write_bytes(b'{"a": 1}\n{"b": 2}\n')

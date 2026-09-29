@@ -7,10 +7,10 @@ import json
 
 import pytest
 
-from fusion.attacks.agentic import build_agentic_trajectory
-from fusion.validate.b3 import b3_tasks, record_answers, score_b3
-from fusion.validate.baselines import SingleQuestionJudge
-from fusion.validate.judge_eval import JudgeEvalItem
+from fusion_first.attacks.agentic import build_agentic_trajectory
+from fusion_first.validate.b3 import b3_tasks, record_answers, score_b3
+from fusion_first.validate.baselines import SingleQuestionJudge
+from fusion_first.validate.judge_eval import JudgeEvalItem
 
 CHECK = "direct_prompt_injection"
 
@@ -90,8 +90,8 @@ def test_committed_b3_evidence_is_rederivable():
     judge's recorded answers and the plain judge's recorded answers — no model involved."""
     import pathlib
 
-    from fusion.validate.judge_eval import ArtifactDir, _verdicts, collect_items
-    from fusion.validate.transcripts import TranscriptStore
+    from fusion_first.validate.judge_eval import ArtifactDir, _verdicts, collect_items
+    from fusion_first.validate.transcripts import TranscriptStore
 
     root = pathlib.Path(__file__).resolve().parents[1]
     v1 = root / "evals/validation/v1"

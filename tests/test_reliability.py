@@ -13,11 +13,11 @@ import json
 
 import pytest
 
-from fusion.attacks.agentic import build_agentic_trajectory
-from fusion.judge.judge import Judge, _fence_untrusted
-from fusion.judge.rubric import get_rubric
-from fusion.model.providers.heuristic import heuristic_verdict_json
-from fusion.schemas import (
+from fusion_first.attacks.agentic import build_agentic_trajectory
+from fusion_first.judge.judge import Judge, _fence_untrusted
+from fusion_first.judge.rubric import get_rubric
+from fusion_first.model.providers.heuristic import heuristic_verdict_json
+from fusion_first.schemas import (
     CriterionVerdict,
     ProbeOutcome,
     Role,
@@ -27,8 +27,8 @@ from fusion.schemas import (
     Trajectory,
     Verdict,
 )
-from fusion.validate.oracles import agent_output_text
-from fusion.validate.reliability import (
+from fusion_first.validate.oracles import agent_output_text
+from fusion_first.validate.reliability import (
     RunReliability,
     count_ungrounded,
     evidence_grounded,

@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from fusion.cli import main
-from fusion.runs.service import drive, start_run
+from fusion_first.cli import main
+from fusion_first.runs.service import drive, start_run
 from tests.test_run_engine import _answer
 from tests.test_user_scan_isolation import FakeTarget
 

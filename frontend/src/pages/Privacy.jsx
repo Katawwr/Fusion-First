@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import useReveal from "../hooks/useReveal";
 
 // Describes the REAL data flows (no accounts, no payments, no analytics). Keep this page in sync
-// with app/ (in-memory scan store) and fusion/ (local-only live backends) when either changes.
+// with app/ (in-memory scan store) and fusion_first/ (local-only live backends) when either changes.
 
 const h2 = {
   fontSize: "clamp(1.25rem, 3vw, 1.5rem)",

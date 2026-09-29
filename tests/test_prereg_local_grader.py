@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.validate.prereg import local_grader_decision
+from fusion_first.validate.prereg import local_grader_decision
 
 
 def _ev(inj_acc, inj_f1, leak_acc, leak_f1):

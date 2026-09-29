@@ -48,7 +48,7 @@ evals/scratch/
 /build/
 *.whl
 # Data copied into the wheel at build time (source of truth stays at repo top level)
-fusion/_bundled/
+fusion_first/_bundled/
 # Playwright verification screenshots
 .playwright-mcp/
 

@@ -2,7 +2,7 @@
 
     python scripts/power_plan.py
 
-Paired questions use `fusion.stats.power.mcnemar_power` (exact McNemar, alpha 0.05, 2,000 simulations);
+Paired questions use `fusion_first.stats.power.mcnemar_power` (exact McNemar, alpha 0.05, 2,000 simulations);
 proportions use the Wilson interval. Assumed rates are read from evals/validation/v1 (small models), so a
 stronger model that lands fewer attacks needs MORE items than shown for the same number of attacks.
 """
@@ -16,8 +16,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.stats.metrics import wilson_interval  # noqa: E402
-from fusion.stats.power import mcnemar_power  # noqa: E402
+from fusion_first.stats.metrics import wilson_interval  # noqa: E402
+from fusion_first.stats.power import mcnemar_power  # noqa: E402
 
 V1 = ROOT / "evals/validation/v1"
 GRID = (30, 60, 100, 150, 200, 300, 400, 600, 800)

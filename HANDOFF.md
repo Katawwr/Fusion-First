@@ -30,7 +30,7 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   artifacts are in this session's scratchpad `old-dist/`. Rebuild dist/ after ANY code change before upload:
   PyPI never accepts the same version twice.
 - `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
-  (`python -m fusion.validate.trust_report`); tests fail on drift.
+  (`python -m fusion_first.validate.trust_report`); tests fail on drift.
 - Ollama models: llama3.2:1b, qwen2.5:1.5b, gemma3:1b, qwen2.5:3b, qwen2.5:7b, llama3.1:8b, llama-guard3:8b.
   GPU idle.
 - **Step 2 scored and committed** (c6fe064; `evals/validation/v1/step2_guard.json`, re-derived by
@@ -73,9 +73,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   fusion-safety`), /use said `claude plugin marketplace add /path/to/fusion`, no public repo. Owner chose:
   PyPI (owner uploads) + the plugin bundled in the package (memory `distribution-pypi-decision`).
 - **Packaging** (e091796, e0be8f8, 558f482): the wheel ships `.claude-plugin/` + `plugins/` under
-  `fusion/_bundled/marketplace` (dot-paths named in package-data); `fusion plugin-dir` prints it; the
+  `fusion_first/_bundled/marketplace` (dot-paths named in package-data); `fusion plugin-dir` prints it; the
   plugin pins `fusion-safety==0.1.0` and `mcp>=1.2,<2`. Installing the built wheel found two blockers,
-  both fixed with tests: `fusion/model/models.yaml` was missing (every installed `doctor`/run crashed), and
+  both fixed with tests: `fusion_first/model/models.yaml` was missing (every installed `doctor`/run crashed), and
   mcp 2.2.0 (what `mcp>=1.2` resolves to) renamed FastMCP, so the MCP server exited at startup. Also: the
   build failed on Windows once a bundled folder had OneDrive's read-only attribute (rmtree now clears it);
   MANIFEST.in ships the marketplace + web app; PyPI summary "Measure and guard AI agents: ..."; a
@@ -128,7 +128,7 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   Deferred minors: the web copy doesn't name rules 0c560b5; `/api/guardrail-snippet` returns quality checks
   it doesn't cover.
 - **In-sample guard replay built** (owner: build it; a redaction counts as stopped; label it in-sample):
-  every scored attack of a LIVE scan carries `ProbeOutcome.guard_stopped` (`fusion/engine/guard_replay.py`:
+  every scored attack of a LIVE scan carries `ProbeOutcome.guard_stopped` (`fusion_first/engine/guard_replay.py`:
   the snippet's config with the scan's prompt and the values it marks secret; tool calls against the user's
   own message, `untrusted_context` when the attack injected content). Shown as "In-sample, this scan's own
   attacks: the guard blocked or redacted X of Y attacks that got through and Z of W replies graded clean" in
@@ -150,9 +150,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   DIAGNOSTIC on spent samples (`scripts/guard_dev.py`, never quote): tool hijacks stopped compact 29/33
   (was 13/33), v1 33/34; clean wrongly blocked 0/87, 1/86. Remaining misses: same-service reads
   (GitHubGetUserDetails after a GitHub request) and FedEx shipment searches (not in the private-data list).
-- **Harness v2** (`fusion/validate/guard_on_transcripts.py`): the guard gets the user's instruction only (v1
+- **Harness v2** (`fusion_first/validate/guard_on_transcripts.py`): the guard gets the user's instruction only (v1
   passed the injected tool result too), `untrusted_context=True`, scenario tool spelling. `HARNESS` string.
-- **Step 2 benign set:** `fusion/validate/benign_actions.py`: InjecAgent attacker cases with the user asking
+- **Step 2 benign set:** `fusion_first/validate/benign_actions.py`: InjecAgent attacker cases with the user asking
   (62) + InjecAgent user cases (17). 42 `dev` (tools seen in v1/compact) + 17 user cases; **20 `heldout` sealed**
   (never run through the guard). DIAGNOSTIC dev: new rules block 1/21 direct-harm actions (TerminalExecute for
   "move files"), 0/17 user cases; every data-stealing send to the user's gmail is blocked by the pre-existing
@@ -223,10 +223,10 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 | What | Where |
 |---|---|
-| Specs, doctor, presets | `fusion/backends/resolve.py`, `fusion/backends/presets.py`, `fusion/model/providers/` |
-| Run engine, gates | `fusion/runs/`, `fusion/stats/gate.py` |
-| Pre-registered decisions in code | `fusion/validate/prereg.py`, `fusion/validate/llama_guard.py` |
-| Runtime guardrail + measurements | `fusion/guardrail/`, `fusion/validate/guard_on_transcripts.py`, `fusion/validate/benign_actions.py`, `scripts/guard_*.py` |
-| Web app + E2E | `fusion/web/`, `frontend/src/`, `frontend/e2e/` |
-| Evidence + Trust Report | `evals/validation/v1/`, `fusion/validate/trust_report.py` |
+| Specs, doctor, presets | `fusion_first/backends/resolve.py`, `fusion_first/backends/presets.py`, `fusion_first/model/providers/` |
+| Run engine, gates | `fusion_first/runs/`, `fusion_first/stats/gate.py` |
+| Pre-registered decisions in code | `fusion_first/validate/prereg.py`, `fusion_first/validate/llama_guard.py` |
+| Runtime guardrail + measurements | `fusion_first/guardrail/`, `fusion_first/validate/guard_on_transcripts.py`, `fusion_first/validate/benign_actions.py`, `scripts/guard_*.py` |
+| Web app + E2E | `fusion_first/web/`, `frontend/src/`, `frontend/e2e/` |
+| Evidence + Trust Report | `evals/validation/v1/`, `fusion_first/validate/trust_report.py` |
 | Claims registry | `evals/claims.yaml`, `tests/test_claims_backed.py` |

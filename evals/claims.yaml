@@ -76,7 +76,7 @@ claims:
 
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.
 allowlist:
-  - file: fusion/engine/report_html.py
+  - file: fusion_first/engine/report_html.py
     text: '<span class="mv">{a.f1:.2f}</span><span class="ml">F1</span>'
     reason: "HTML template that renders the card's measured value — not a static claim"
   - file: frontend/src/pages/Privacy.jsx

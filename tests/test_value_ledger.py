@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.validate.experiments import build_items
-from fusion.validate.transcripts import TranscriptRecord, TranscriptStore
-from fusion.validate.value_ledger import value_ledger
+from fusion_first.validate.experiments import build_items
+from fusion_first.validate.transcripts import TranscriptRecord, TranscriptStore
+from fusion_first.validate.value_ledger import value_ledger
 
 
 def _say(store, item, arm, leak):

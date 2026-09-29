@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.engine.fixes import apply_fix, guard_block
-from fusion.goldset import load_gold
-from fusion.judge.rubric import checks_of_kind, get_rubric
+from fusion_first.engine.fixes import apply_fix, guard_block
+from fusion_first.goldset import load_gold
+from fusion_first.judge.rubric import checks_of_kind, get_rubric
 
 
 @pytest.mark.unit

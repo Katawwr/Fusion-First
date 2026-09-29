@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.attacks.taxonomy import Crosswalk
-from fusion.engine.before_after import run_before_after
-from fusion.engine.report import build_report_card
-from fusion.goldset import gold_version_hash, load_gold, load_probes
-from fusion.judge.rubric import REGISTRY, get_rubric
-from fusion.model.replay import ReplayModelClient
-from fusion.recording import build_full_cassette
-from fusion.stats.calibration import run_calibration
+from fusion_first.attacks.taxonomy import Crosswalk
+from fusion_first.engine.before_after import run_before_after
+from fusion_first.engine.report import build_report_card
+from fusion_first.goldset import gold_version_hash, load_gold, load_probes
+from fusion_first.judge.rubric import REGISTRY, get_rubric
+from fusion_first.model.replay import ReplayModelClient
+from fusion_first.recording import build_full_cassette
+from fusion_first.stats.calibration import run_calibration
 
 AGENTIC_CHECKS = ["excessive_agency", "data_exfiltration", "system_prompt_leakage"]
 

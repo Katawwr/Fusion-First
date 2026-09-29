@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from fusion.web.serve import ServeError, create_local_app, find_dist, serve
-from fusion.web.settings import Settings
+from fusion_first.web.serve import ServeError, create_local_app, find_dist, serve
+from fusion_first.web.settings import Settings
 
 TOKEN = "t0k3n-for-tests-only"
 INDEX = "<!doctype html><html><head><title>Fusion</title></head><body><div id=root></div></body></html>"
@@ -222,7 +222,7 @@ def test_a_server_that_cannot_start_is_a_clean_error(dist):
 
 @pytest.mark.unit
 def test_cli_serve_reports_a_missing_build(tmp_path, capsys):
-    from fusion.cli import main
+    from fusion_first.cli import main
 
     assert main(["serve", "--dist", str(tmp_path), "--no-open"]) == 2
     assert "npm --prefix frontend run build" in capsys.readouterr().out

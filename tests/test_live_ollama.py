@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.model.client import ModelRequest, ModelRole
-from fusion.model.providers.ollama import OllamaModelClient, ollama_available, ollama_models
+from fusion_first.model.client import ModelRequest, ModelRole
+from fusion_first.model.providers.ollama import OllamaModelClient, ollama_available, ollama_models
 
 MODEL = "qwen2.5:1.5b"
 

@@ -1,4 +1,4 @@
-"""Build the value ledger from committed evidence (see fusion/validate/value_ledger.py).
+"""Build the value ledger from committed evidence (see fusion_first/validate/value_ledger.py).
 
     python scripts/value_ledger.py [--store DIR] --out evals/validation/v1/value_ledger.json
 
@@ -17,9 +17,9 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.experiments import build_items  # noqa: E402
-from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
-from fusion.validate.value_ledger import value_ledger  # noqa: E402
+from fusion_first.validate.experiments import build_items  # noqa: E402
+from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
+from fusion_first.validate.value_ledger import value_ledger  # noqa: E402
 
 MODELS = ["llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "qwen2.5:3b"]
 GUARD = "evals/validation/v1/guard_on_transcripts.json"

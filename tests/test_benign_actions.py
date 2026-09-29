@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.validate.benign_actions import (
+from fusion_first.validate.benign_actions import (
     BenignCase,
     build_cases,
     dev_attacker_tools,

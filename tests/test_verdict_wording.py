@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.integrations.agent_tools import _plain_verdict
-from fusion.runs.service import _verdict
+from fusion_first.integrations.agent_tools import _plain_verdict
+from fusion_first.runs.service import _verdict
 
 
 @pytest.mark.unit

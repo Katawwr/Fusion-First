@@ -1,6 +1,6 @@
 # Canonical schema (frozen)
 
-The single source of truth is `fusion/schemas.py`. This document explains it; the code is
+The single source of truth is `fusion_first/schemas.py`. This document explains it; the code is
 authoritative. Freezing these names resolved the cross-lens naming conflicts from design — every
 module imports these types and none redefine them.
 
@@ -42,7 +42,7 @@ Bar A compares `Verdict.is_issue` (judge) against `Label.is_issue` (oracle). We 
   flag (True when built from the offline stand-in judge — never a real efficacy claim).
 - `ScanResult` — a user-prompt scan: its cards plus one `ProbeOutcome` per attack (`baseline_issue` /
   `hardened_issue`, None = unscored). `ProbeOutcome.guard_replay` is the in-sample guard replay on that
-  prompt-as-written reply (`fusion/engine/guard_replay.py`): `stopped` (the snippet-configured guard
+  prompt-as-written reply (`fusion_first/engine/guard_replay.py`): `stopped` (the snippet-configured guard
   blocked or redacted something), `allowed`, or `no_tool_call` (a tool-action attack answered in prose:
   nothing for the tool-call check to see). `guard_leak` marks a stop because the reply carried a value
   the prompt marks secret, or the prompt itself: a catch even when the attack's own check graded the

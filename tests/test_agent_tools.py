@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from fusion.integrations import agent_tools as t
+from fusion_first.integrations import agent_tools as t
 
 VULNERABLE = (
     "You are SupportBot for Acme. You can call send_email, issue_refund, lookup_order. "
@@ -48,8 +48,8 @@ async def test_scan_prompt_finds_issues():
 
 @pytest.mark.unit
 def test_the_tool_payload_for_the_replay_carries_the_sentence_and_the_setup():
-    from fusion.engine.guard_replay import REPLAY_SETUP
-    from fusion.schemas import ProbeOutcome
+    from fusion_first.engine.guard_replay import REPLAY_SETUP
+    from fusion_first.schemas import ProbeOutcome
 
     o = ProbeOutcome(check="system_prompt_leakage", probe_id="1", attack_label="a", baseline_issue=True,
                      hardened_issue=True, guard_replay="stopped")
@@ -77,8 +77,8 @@ async def test_scan_prompt_next_steps_lead_with_the_guardrail():
 def test_tool_descriptions_never_call_the_fix_tested_or_lead_with_it():
     import inspect
 
-    from fusion.integrations import mcp_server
-    from fusion.validate.claims import repo_root
+    from fusion_first.integrations import mcp_server
+    from fusion_first.validate.claims import repo_root
 
     readme = (repo_root() / "integrations" / "README.md").read_text(encoding="utf-8")
     for src in (inspect.getsource(t), inspect.getsource(mcp_server), readme):
@@ -90,7 +90,7 @@ def test_tool_descriptions_never_call_the_fix_tested_or_lead_with_it():
 
 @pytest.mark.unit
 def test_cli_help_marks_the_prompt_fix_optional(capsys):
-    from fusion.cli import build_parser
+    from fusion_first.cli import build_parser
 
     with pytest.raises(SystemExit):
         build_parser().parse_args(["--help"])
@@ -230,7 +230,7 @@ async def test_scan_prompt_rejects_quality_check():
 
 @pytest.mark.unit
 def test_autonomy_config_maps_hitl_gates():
-    from fusion.integrations.agent_tools import _autonomy_config
+    from fusion_first.integrations.agent_tools import _autonomy_config
 
     sup = _autonomy_config("supervised")
     assert sup == {"require_authorization": True, "on_external_action": "block", "on_secret_output": "block"}
@@ -247,7 +247,7 @@ async def test_scan_prompt_live_off_is_demo():
 @pytest.mark.unit
 def test_live_kwargs_requires_a_key_or_cli(monkeypatch):
     # With the CLI backend forced off and no API key, live scans have no backend → fail cleanly.
-    from fusion.integrations.live import LiveUnavailable, build_live_scan_kwargs
+    from fusion_first.integrations.live import LiveUnavailable, build_live_scan_kwargs
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("FUSION_TARGET_BACKEND", "api")  # ignore any `claude` binary on PATH
@@ -259,12 +259,12 @@ def test_live_kwargs_requires_a_key_or_cli(monkeypatch):
 def test_live_kwargs_use_cli_when_no_key(monkeypatch):
     # The retrofit contract: no API key + `claude` CLI present → subscription-backed live clients,
     # judged by a stronger same-family tier (Sonnet vs a Haiku target).
-    import fusion.integrations.live as live
+    import fusion_first.integrations.live as live
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("FUSION_TARGET_BACKEND", "cli")
     monkeypatch.setattr(  # present AND on subscription auth
-        "fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok")
+        "fusion_first.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok")
     )
     kw = live.build_live_scan_kwargs()
     assert kw["demonstration"] is False
@@ -274,7 +274,7 @@ def test_live_kwargs_use_cli_when_no_key(monkeypatch):
 
 @pytest.mark.unit
 def test_live_kwargs_build_real_clients_with_a_key(monkeypatch):
-    from fusion.integrations.live import build_live_scan_kwargs
+    from fusion_first.integrations.live import build_live_scan_kwargs
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-fake-key-value")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -289,7 +289,7 @@ def test_live_kwargs_build_real_clients_with_a_key(monkeypatch):
 
 @pytest.mark.integration
 async def test_scan_prompt_live_without_backend_raises(monkeypatch):
-    from fusion.integrations.live import LiveUnavailable
+    from fusion_first.integrations.live import LiveUnavailable
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("FUSION_TARGET_BACKEND", "api")  # no key, no CLI fallback → unavailable

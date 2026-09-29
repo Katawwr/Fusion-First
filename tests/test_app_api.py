@@ -94,7 +94,7 @@ def test_an_edited_prompt_needs_a_live_model(client):
 @pytest.mark.integration
 def test_scan_live_ollama_unavailable_returns_402(client, monkeypatch):
     # backend=ollama with no local server fails closed (never a silent demo card).
-    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: False)
+    monkeypatch.setattr("fusion_first.model.providers.ollama.ollama_available", lambda base_url=None: False)
     r = client.post("/api/scan", json={"system_prompt": WEAK_PROMPT, "mode": "live", "backend": "ollama"})
     assert r.status_code == 402
 
@@ -236,7 +236,7 @@ def test_create_app_builds_with_no_keys_in_settings():
 @pytest.mark.parametrize("ready", [(False, "the `claude` CLI is not logged in"), (True, "ok")])
 def test_version_reports_whether_the_cli_can_actually_run(monkeypatch, ready):
     """A logged-out CLI must not be offered as a live backend (it would only fail at scan time)."""
-    from fusion.model.providers import claude_cli
+    from fusion_first.model.providers import claude_cli
 
     monkeypatch.setattr(claude_cli, "claude_cli_ready", lambda *a, **k: ready)
     app = create_app(settings=Settings(version="test", allow_local_backends=True))

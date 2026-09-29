@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.schemas import (
+from fusion_first.schemas import (
     Label,
     Role,
     Severity,

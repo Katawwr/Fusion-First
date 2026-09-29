@@ -7,10 +7,10 @@ import json
 
 import pytest
 
-from fusion.goldset import load_gold
-from fusion.judge.rubric import get_rubric
-from fusion.model.client import ModelResponse
-from fusion.runs.engine import (
+from fusion_first.goldset import load_gold
+from fusion_first.judge.rubric import get_rubric
+from fusion_first.model.client import ModelResponse
+from fusion_first.runs.engine import (
     RunError,
     collect,
     finalize,
@@ -187,12 +187,12 @@ async def test_verify_reports_a_malformed_stored_result_instead_of_crashing(tmp_
 
 @pytest.mark.integration
 async def test_the_run_summary_carries_the_in_sample_guard_replay(tmp_path):
-    from fusion.runs.service import summarize
+    from fusion_first.runs.service import summarize
 
     rd, _ = await _collected(tmp_path)
     submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
     result = await finalize(rd)
-    from fusion.engine.guard_replay import REPLAY_SETUP
+    from fusion_first.engine.guard_replay import REPLAY_SETUP
 
     # This grader answered every known-answer question "clean", so its grade is withheld: its "got
     # through" and "clean" labels can't be trusted, and the replay is not counted.
@@ -255,8 +255,8 @@ class _MixedJudge:
 async def test_parity_run_engine_equals_a_direct_scan_with_the_same_judge(tmp_path):
     """collect -> grade -> finalize must reproduce EXACTLY what a direct scan with the same judge
     produces: the engine changes who answers, never what is measured."""
-    from fusion.engine.user_scan import run_user_scan
-    from fusion.schemas import ScanEventType, ScanTier
+    from fusion_first.engine.user_scan import run_user_scan
+    from fusion_first.schemas import ScanEventType, ScanTier
 
     checks = ["direct_prompt_injection", "system_prompt_leakage"]
     direct = None

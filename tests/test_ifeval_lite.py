@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.validate import ifeval_lite as ifl
-from fusion.validate.ifeval_lite import (
+from fusion_first.validate import ifeval_lite as ifl
+from fusion_first.validate.ifeval_lite import (
     APPROXIMATE,
     SUPPORTED,
     count_capital_words,

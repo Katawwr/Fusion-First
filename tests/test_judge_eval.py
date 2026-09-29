@@ -6,11 +6,11 @@ import json
 
 import pytest
 
-from fusion.model.client import ModelResponse
-from fusion.runs.engine import grade_with, grading_tasks
-from fusion.validate.experiments import build_items
-from fusion.validate.judge_eval import collect_items, prepare_run, score
-from fusion.validate.transcripts import TranscriptRecord, TranscriptStore
+from fusion_first.model.client import ModelResponse
+from fusion_first.runs.engine import grade_with, grading_tasks
+from fusion_first.validate.experiments import build_items
+from fusion_first.validate.judge_eval import collect_items, prepare_run, score
+from fusion_first.validate.transcripts import TranscriptRecord, TranscriptStore
 
 
 def _store(tmp_path, leak_every=3):
@@ -65,7 +65,7 @@ def test_committed_q1_evidence_is_rederivable():
     the grader's recorded answers — no model involved."""
     import pathlib
 
-    from fusion.validate.judge_eval import ArtifactDir
+    from fusion_first.validate.judge_eval import ArtifactDir
 
     root = pathlib.Path(__file__).resolve().parents[1]
     committed = json.loads((root / "evals/validation/v1/judge_eval_host_sonnet.json").read_text(encoding="utf-8"))

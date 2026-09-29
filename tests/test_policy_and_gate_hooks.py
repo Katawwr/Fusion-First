@@ -12,7 +12,7 @@ import types
 import pytest
 import yaml
 
-from fusion.stats.gate import PolicyError, load_policy, validate_policy
+from fusion_first.stats.gate import PolicyError, load_policy, validate_policy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 

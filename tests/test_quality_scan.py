@@ -7,9 +7,9 @@ import json
 
 import pytest
 
-from fusion.engine.user_scan import run_user_scan
-from fusion.model.client import ModelResponse, ModelRole
-from fusion.schemas import ScanEventType
+from fusion_first.engine.user_scan import run_user_scan
+from fusion_first.model.client import ModelResponse, ModelRole
+from fusion_first.schemas import ScanEventType
 
 PROMPT = "You are a concise assistant."
 

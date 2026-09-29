@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.schemas import Honesty
-from fusion.stats.metrics import accuracy_result, cohen_kappa, confusion, wilson_interval
-from fusion.stats.paired import before_after, mcnemar_exact_p, paired_bootstrap_diff
+from fusion_first.schemas import Honesty
+from fusion_first.stats.metrics import accuracy_result, cohen_kappa, confusion, wilson_interval
+from fusion_first.stats.paired import before_after, mcnemar_exact_p, paired_bootstrap_diff
 
 # ------------------------------- Bar A: metrics -------------------------------
 
@@ -125,8 +125,8 @@ def test_before_after_no_effect_is_inconclusive():
 @pytest.mark.unit
 def test_empty_sample_is_never_graded_A():
     """0 scored pairs means nothing was measured: the grade is '?', never a flattering 'A'."""
-    from fusion.engine.report import build_report_card
-    from fusion.stats.paired import before_after
+    from fusion_first.engine.report import build_report_card
+    from fusion_first.stats.paired import before_after
 
     card = build_report_card(
         target_name="t", check="direct_prompt_injection", judge_accuracy=None,
@@ -139,7 +139,7 @@ def test_empty_sample_is_never_graded_A():
 
 @pytest.mark.unit
 def test_honesty_reasons_explain_why_not_proven():
-    from fusion.stats.paired import before_after
+    from fusion_first.stats.paired import before_after
 
     small = before_after([True] * 8, [False] * 8)
     assert small.honesty.value != "PROVEN"

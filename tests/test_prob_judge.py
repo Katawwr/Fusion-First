@@ -12,19 +12,19 @@ import time
 
 import pytest
 
-from fusion.errors import IsolatableError, isolatable
-from fusion.judge.judge import Judge, JudgeParseError
-from fusion.judge.prob_judge import (
+from fusion_first.errors import IsolatableError, isolatable
+from fusion_first.judge.judge import Judge, JudgeParseError
+from fusion_first.judge.prob_judge import (
     PROB_SYSTEM_PROMPT,
     JudgeAbstained,
     ProbabilityJudge,
     ProbVerdict,
     p_yes_from_top,
 )
-from fusion.judge.rubric import DIRECT_PROMPT_INJECTION, get_rubric
-from fusion.model.client import ModelRequest, ModelResponse, ModelRole
-from fusion.schemas import Role, Severity, Step, ToolResult, Trajectory, Verdict
-from fusion.stats.calibration_metrics import PlattScaler
+from fusion_first.judge.rubric import DIRECT_PROMPT_INJECTION, get_rubric
+from fusion_first.model.client import ModelRequest, ModelResponse, ModelRole
+from fusion_first.schemas import Role, Severity, Step, ToolResult, Trajectory, Verdict
+from fusion_first.stats.calibration_metrics import PlattScaler
 
 RUBRIC = DIRECT_PROMPT_INJECTION
 IDS = RUBRIC.criterion_ids()  # obeyed_injected (CRIT), leaked_secret (CRIT), unsafe_action (HIGH)
@@ -241,7 +241,7 @@ def test_transcript_is_byte_identical_to_the_real_judge(final):
         t, RUBRIC, RUBRIC.criteria[0]
     )
     real = Judge(_FakeClient({}), evidence_chars=2000)._build_request(t, RUBRIC)
-    from fusion.judge.judge import unfence
+    from fusion_first.judge.judge import unfence
 
     real_body = unfence(real.messages[0]["content"].removeprefix("TRANSCRIPT:\n"))
     assert prob.messages[0]["content"].split("\n\nQUESTION: ")[0] == f"TRANSCRIPT:\n{real_body}"
@@ -444,7 +444,7 @@ async def test_non_strict_reports_abstentions_without_a_verdict():
 
 @pytest.mark.unit
 async def test_provider_errors_propagate_unchanged():
-    from fusion.errors import FusionProviderError
+    from fusion_first.errors import FusionProviderError
 
     class _Down:
         async def complete(self, request):
@@ -463,7 +463,11 @@ LIVE_MODEL = "qwen2.5:1.5b"
 
 @pytest.mark.live
 async def test_live_probability_judge_on_ollama():
-    from fusion.model.providers.ollama import OllamaModelClient, ollama_available, ollama_models
+    from fusion_first.model.providers.ollama import (
+        OllamaModelClient,
+        ollama_available,
+        ollama_models,
+    )
 
     if not ollama_available() or not any(m["name"] == LIVE_MODEL for m in ollama_models()):
         pytest.skip(f"Ollama with {LIVE_MODEL} not available")
@@ -489,7 +493,7 @@ async def test_live_probability_judge_on_ollama():
 
 @pytest.mark.unit
 async def test_prob_judge_client_answers_a_generative_judge_request():
-    from fusion.judge.prob_judge import ProbJudgeClient
+    from fusion_first.judge.prob_judge import ProbJudgeClient
 
     client = _client({IDS[0]: (0.9, 0.1), IDS[1]: (0.2, 0.8), IDS[2]: (0.1, 0.9)})
     judge_req = Judge(_FakeClient({}))._build_request(_traj(), RUBRIC)
@@ -503,7 +507,7 @@ async def test_prob_judge_client_answers_a_generative_judge_request():
 
 @pytest.mark.unit
 async def test_prob_judge_client_abstains_and_rejects_foreign_requests():
-    from fusion.judge.prob_judge import ProbJudgeClient
+    from fusion_first.judge.prob_judge import ProbJudgeClient
 
     client = _FakeClient({cid: _resp(None) for cid in IDS})
     judge_req = Judge(_FakeClient({}))._build_request(_traj(), RUBRIC)

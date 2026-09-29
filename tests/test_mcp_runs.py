@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from fusion.backends.resolve import BackendUnavailable
-from fusion.integrations.run_tools import MAX_TASKS_PER_CALL, RunTools
+from fusion_first.backends.resolve import BackendUnavailable
+from fusion_first.integrations.run_tools import MAX_TASKS_PER_CALL, RunTools
 from tests.test_run_engine import _answer
 from tests.test_user_scan_isolation import FakeJudge, FakeTarget
 
@@ -78,7 +78,7 @@ async def test_unavailable_backend_is_an_immediate_error_and_creates_no_run(tmp_
 @pytest.mark.integration
 async def test_through_the_fastmcp_server(tmp_path):
     pytest.importorskip("mcp")
-    from fusion.integrations.mcp_server import build_server
+    from fusion_first.integrations.mcp_server import build_server
 
     server = build_server(_tools(tmp_path))
     assert {t.name for t in await server.list_tools()} == EXPECTED_TOOLS
@@ -104,7 +104,7 @@ async def test_through_the_fastmcp_server(tmp_path):
 @pytest.mark.integration
 async def test_stalled_run_is_detected_and_resumed(tmp_path):
     """Finding: a run orphaned mid-collect (server restart) said 'check again shortly' forever."""
-    from fusion.runs.service import start_run as svc_start
+    from fusion_first.runs.service import start_run as svc_start
 
     tools = _tools(tmp_path)
     rd = svc_start(str(tmp_path), PROMPT, checks=["direct_prompt_injection"], target="ollama:m")
@@ -121,8 +121,8 @@ def test_the_cli_status_of_a_run_left_grading_says_how_to_resume(tmp_path):
     """Seen live: a built-in grader's process died with its session and `fusion run status` said "check
     again shortly" for an hour. The CLI can't see whether a process still works on the run, so it says how
     to resume one that stopped (resuming keeps every recorded answer)."""
-    from fusion.runs.service import start_run as svc_start
-    from fusion.runs.service import status
+    from fusion_first.runs.service import start_run as svc_start
+    from fusion_first.runs.service import status
 
     rd = svc_start(str(tmp_path), PROMPT, checks=["direct_prompt_injection"], target="ollama:m",
                    grader="ollama:g")

@@ -13,20 +13,20 @@ import json
 
 import pytest
 
-from fusion.goldset import load_gold
-from fusion.judge.judge import JudgeParseError
-from fusion.judge.rubric import get_rubric
-from fusion.model.client import ModelResponse
-from fusion.model.providers.claude_cli import ClaudeCliQuotaExhausted, ClaudeCliUnavailable
-from fusion.model.replay import (
+from fusion_first.goldset import load_gold
+from fusion_first.judge.judge import JudgeParseError
+from fusion_first.judge.rubric import get_rubric
+from fusion_first.model.client import ModelResponse
+from fusion_first.model.providers.claude_cli import ClaudeCliQuotaExhausted, ClaudeCliUnavailable
+from fusion_first.model.replay import (
     Cassette,
     ProvenanceMismatch,
     ReplayModelClient,
     cassette_provenance,
 )
-from fusion.recording import build_full_cassette, record_gold_cassette_live
-from fusion.stats.calibration import run_calibration
-from fusion.stats.gate import evaluate_gate
+from fusion_first.recording import build_full_cassette, record_gold_cassette_live
+from fusion_first.stats.calibration import run_calibration
+from fusion_first.stats.gate import evaluate_gate
 
 CHECK = "direct_prompt_injection"
 BLIND = [c for c in load_gold(CHECK) if c.split == "blind"]
@@ -132,14 +132,14 @@ def test_provenance_flags_demo_and_mixed():
 def test_prove_labels_real_recordings_as_real(tmp_path, monkeypatch):
     import asyncio
 
-    import fusion.cli
-    from fusion.cli import main
+    import fusion_first.cli
+    from fusion_first.cli import main
 
     report = asyncio.run(record_gold_cassette_live(
         CHECK, Judge(), splits=("dev", "blind"), include_probes=True, path=tmp_path / f"{CHECK}.v1.json",
     ))
     assert report.ok
-    monkeypatch.setattr(fusion.cli, "CASSETTE_DIR", tmp_path)
+    monkeypatch.setattr(fusion_first.cli, "CASSETTE_DIR", tmp_path)
     out = tmp_path / "card.json"
     assert main(["prove", "--check", CHECK, "--json", str(out)]) == 0
     card = json.loads(out.read_text(encoding="utf-8"))

@@ -3,7 +3,7 @@
   "mcpServers": {
     "fusion-safety": {
       "command": "python",
-      "args": ["-m", "fusion.integrations.mcp_server"]
+      "args": ["-m", "fusion_first.integrations.mcp_server"]
     }
   }
 }

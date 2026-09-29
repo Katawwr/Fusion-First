@@ -27,7 +27,7 @@ def main() -> int:
         rel = p.resolve().relative_to(ROOT)
     except ValueError:
         return 0
-    if rel.parts and rel.parts[0] not in {"fusion", "tests", "scripts", "app"}:
+    if rel.parts and rel.parts[0] not in {"fusion_first", "tests", "scripts", "app"}:
         return 0
     try:
         r = subprocess.run(

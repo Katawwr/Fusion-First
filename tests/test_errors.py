@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.errors import (
+from fusion_first.errors import (
     ErrorKind,
     FatalRunError,
     PromptTooLong,
@@ -14,11 +14,11 @@ from fusion.errors import (
     classify,
     isolatable,
 )
-from fusion.judge.judge import JudgeParseError
-from fusion.model.providers.claude_cli import ClaudeCliUnavailable, PaidAuthRefused
-from fusion.model.providers.ollama import OllamaUnavailable
-from fusion.model.replay import CassetteMiss
-from fusion.security.budget import BudgetExceeded, ModelNotAllowed
+from fusion_first.judge.judge import JudgeParseError
+from fusion_first.model.providers.claude_cli import ClaudeCliUnavailable, PaidAuthRefused
+from fusion_first.model.providers.ollama import OllamaUnavailable
+from fusion_first.model.replay import CassetteMiss
+from fusion_first.security.budget import BudgetExceeded, ModelNotAllowed
 
 
 @pytest.mark.unit

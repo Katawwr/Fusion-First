@@ -17,15 +17,19 @@ from collections import defaultdict
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.benign_actions import (  # noqa: E402
+from fusion_first.validate.benign_actions import (  # noqa: E402
     build_cases,
     dev_attacker_tools,
     evaluate,
     split_of,
 )
-from fusion.validate.experiments import SPENT, build_items  # noqa: E402
-from fusion.validate.guard_on_transcripts import HARNESS, _calls, injecagent_outcome  # noqa: E402
-from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
+from fusion_first.validate.experiments import SPENT, build_items  # noqa: E402
+from fusion_first.validate.guard_on_transcripts import (  # noqa: E402
+    HARNESS,
+    _calls,
+    injecagent_outcome,
+)
+from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
 
 MODELS = ("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "qwen2.5:3b")
 SAMPLE_NAMES = ("v1", "compact")

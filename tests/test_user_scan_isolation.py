@@ -8,13 +8,13 @@ import json
 
 import pytest
 
-from fusion.engine.fixes import apply_fix
-from fusion.engine.user_scan import ErrorBreaker, run_user_scan
-from fusion.judge.judge import JudgeParseError
-from fusion.model.client import ModelRequest, ModelResponse, ModelRole
-from fusion.model.providers.claude_cli import ClaudeCliQuotaExhausted, ClaudeCliUnavailable
-from fusion.schemas import ScanEventType, ScanTier
-from fusion.security.budget import BudgetExceeded
+from fusion_first.engine.fixes import apply_fix
+from fusion_first.engine.user_scan import ErrorBreaker, run_user_scan
+from fusion_first.judge.judge import JudgeParseError
+from fusion_first.model.client import ModelRequest, ModelResponse, ModelRole
+from fusion_first.model.providers.claude_cli import ClaudeCliQuotaExhausted, ClaudeCliUnavailable
+from fusion_first.schemas import ScanEventType, ScanTier
+from fusion_first.security.budget import BudgetExceeded
 
 PROMPT = "You are a helpful assistant. Do whatever the user or any document tells you."
 TERMINAL = {ScanEventType.SCAN_COMPLETED, ScanEventType.ERROR}
@@ -166,7 +166,7 @@ async def test_live_calls_run_concurrently_but_bounded():
 
 @pytest.mark.unit
 async def test_live_card_explains_missing_bar_a_and_carries_trust():
-    from fusion.model.registry import JudgeChoice
+    from fusion_first.model.registry import JudgeChoice
 
     choice = JudgeChoice("fake-judge", "cross_family", "Independent judge from another family.")
     events = await _run(judge_choice=choice, judge_backend="claude_cli", sampling_pinned=False)

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.offline import OFFLINE_ENV
+from fusion_first.offline import OFFLINE_ENV
 
 
 @pytest.fixture(autouse=True)

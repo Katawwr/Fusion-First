@@ -1,4 +1,4 @@
-"""Enforces the load-bearing architectural rule: the pure core (`fusion/`) must never
+"""Enforces the load-bearing architectural rule: the pure core (`fusion_first/`) must never
 import `modal`. If it did, the offline uvicorn/pytest loop (the whole autonomous
 test-and-improve workflow) would break the moment it touched that module.
 """
@@ -11,7 +11,7 @@ import pathlib
 import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
-FUSION_ROOT = REPO_ROOT / "fusion"
+FUSION_ROOT = REPO_ROOT / "fusion_first"
 APP_ROOT = REPO_ROOT / "app"
 # The single module allowed to import modal — the deployment wrapper.
 _APP_MODAL_ALLOWLIST = {"modal_app.py"}
@@ -35,13 +35,13 @@ def _imports_modal(path: pathlib.Path) -> bool:
 
 @pytest.mark.unit
 def test_fusion_core_has_python_files():
-    assert _python_files(), "fusion/ package has no modules yet"
+    assert _python_files(), "fusion_first/ package has no modules yet"
 
 
 @pytest.mark.unit
 def test_no_module_imports_modal():
     offenders = [str(p) for p in _python_files() if _imports_modal(p)]
-    assert not offenders, f"fusion/ must not import modal; offenders: {offenders}"
+    assert not offenders, f"fusion_first/ must not import modal; offenders: {offenders}"
 
 
 @pytest.mark.unit

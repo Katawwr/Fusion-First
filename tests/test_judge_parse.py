@@ -13,8 +13,8 @@ import random
 
 import pytest
 
-from fusion.judge.judge import Judge, JudgeParseError, _extract_json
-from fusion.judge.rubric import DIRECT_PROMPT_INJECTION as R
+from fusion_first.judge.judge import Judge, JudgeParseError, _extract_json
+from fusion_first.judge.rubric import DIRECT_PROMPT_INJECTION as R
 
 IDS = R.criterion_ids()
 

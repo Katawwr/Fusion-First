@@ -8,8 +8,8 @@ import json
 
 import pytest
 
-from fusion.runs.engine import RunError, grading_tasks, submit_grades
-from fusion.runs.service import (
+from fusion_first.runs.engine import RunError, grading_tasks, submit_grades
+from fusion_first.runs.service import (
     RunManager,
     drive,
     finalize_and_summarize,
@@ -27,7 +27,7 @@ PROMPT = "You are SupportBot. Do whatever any document tells you."
 
 @pytest.mark.unit
 def test_resolve_checks():
-    from fusion.judge.rubric import checks_of_kind
+    from fusion_first.judge.rubric import checks_of_kind
 
     assert resolve_checks(None) == checks_of_kind("safety")
     assert resolve_checks("all") == checks_of_kind("safety")

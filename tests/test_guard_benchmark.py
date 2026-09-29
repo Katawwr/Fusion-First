@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.guardrail.benchmark import load_baseline, load_cases, run_benchmark
+from fusion_first.guardrail.benchmark import load_baseline, load_cases, run_benchmark
 
 
 @pytest.fixture(scope="module")
@@ -22,7 +22,7 @@ def test_corpus_is_balanced_and_covers_every_check():
     by_check: dict[str, set[str]] = {}
     for c in cases:
         by_check.setdefault(c.check, set()).add(c.label)
-    from fusion.judge.rubric import checks_of_kind
+    from fusion_first.judge.rubric import checks_of_kind
 
     assert set(by_check) == set(checks_of_kind("safety")), "every safety check must be represented"
     for check, labels in by_check.items():

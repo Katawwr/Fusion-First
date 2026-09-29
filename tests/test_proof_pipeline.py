@@ -4,18 +4,18 @@ import json
 
 import pytest
 
-from fusion.attacks.taxonomy import Crosswalk
-from fusion.engine.before_after import run_before_after
-from fusion.engine.report import build_report_card, grade_for_rate, render_report_card_text
-from fusion.goldset import gold_version_hash, load_gold
-from fusion.judge.judge import Judge
-from fusion.judge.rubric import REGISTRY, get_rubric
-from fusion.model.client import ModelResponse
-from fusion.model.replay import Cassette, ReplayModelClient
-from fusion.recording import build_full_cassette
-from fusion.schemas import Honesty
-from fusion.stats.calibration import run_calibration
-from fusion.stats.gate import evaluate_gate, run_eval_gate, save_baseline
+from fusion_first.attacks.taxonomy import Crosswalk
+from fusion_first.engine.before_after import run_before_after
+from fusion_first.engine.report import build_report_card, grade_for_rate, render_report_card_text
+from fusion_first.goldset import gold_version_hash, load_gold
+from fusion_first.judge.judge import Judge
+from fusion_first.judge.rubric import REGISTRY, get_rubric
+from fusion_first.model.client import ModelResponse
+from fusion_first.model.replay import Cassette, ReplayModelClient
+from fusion_first.recording import build_full_cassette
+from fusion_first.schemas import Honesty
+from fusion_first.stats.calibration import run_calibration
+from fusion_first.stats.gate import evaluate_gate, run_eval_gate, save_baseline
 
 CHECK = "direct_prompt_injection"
 
@@ -85,7 +85,7 @@ def _always_safe_cassette() -> Cassette:
 
 @pytest.mark.integration
 async def test_gate_passes_against_its_own_baseline(cassette, tmp_path, monkeypatch):
-    import fusion.stats.gate as gate_mod
+    import fusion_first.stats.gate as gate_mod
 
     monkeypatch.setattr(gate_mod, "EVALS_DIR", tmp_path)
     client = ReplayModelClient(cassette, strict=True)
@@ -98,7 +98,7 @@ async def test_gate_passes_against_its_own_baseline(cassette, tmp_path, monkeypa
 
 @pytest.mark.integration
 async def test_gate_fails_on_regressed_judge(cassette, tmp_path, monkeypatch):
-    import fusion.stats.gate as gate_mod
+    import fusion_first.stats.gate as gate_mod
 
     monkeypatch.setattr(gate_mod, "EVALS_DIR", tmp_path)
     # Baseline from the good judge.
@@ -119,7 +119,7 @@ async def test_gate_fails_on_regressed_judge(cassette, tmp_path, monkeypatch):
 
 @pytest.mark.integration
 async def test_gate_is_advisory_without_baseline(cassette, tmp_path, monkeypatch):
-    import fusion.stats.gate as gate_mod
+    import fusion_first.stats.gate as gate_mod
 
     monkeypatch.setattr(gate_mod, "EVALS_DIR", tmp_path)  # empty dir -> no baseline/policy files
     gate, _ = await run_eval_gate(CHECK, ReplayModelClient(cassette, strict=True))
@@ -179,7 +179,7 @@ async def test_report_card_fuses_bars_and_is_flagged_demo(cassette):
 
 @pytest.mark.unit
 def test_every_rubric_has_valid_crosswalk_codes():
-    from fusion.judge.rubric import checks_of_kind
+    from fusion_first.judge.rubric import checks_of_kind
 
     cw = Crosswalk()
     for check in checks_of_kind("safety"):  # only safety checks carry OWASP codes
@@ -190,7 +190,7 @@ def test_every_rubric_has_valid_crosswalk_codes():
 
 @pytest.mark.unit
 def test_crosswalk_rejects_unknown_code():
-    from fusion.schemas import OwaspTag
+    from fusion_first.schemas import OwaspTag
 
     with pytest.raises(ValueError):
         Crosswalk().validate_code(OwaspTag(llm="LLM99"))

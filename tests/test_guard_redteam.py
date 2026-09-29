@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.guardrail.guard import Guardrail
-from fusion.guardrail.policy import GuardConfig
+from fusion_first.guardrail.guard import Guardrail
+from fusion_first.guardrail.policy import GuardConfig
 
 CALENDAR = "What's on my calendar tomorrow?"
 

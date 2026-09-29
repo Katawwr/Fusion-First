@@ -18,13 +18,13 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.experiments import build_items  # noqa: E402
-from fusion.validate.guard_on_transcripts import (  # noqa: E402
+from fusion_first.validate.experiments import build_items  # noqa: E402
+from fusion_first.validate.guard_on_transcripts import (  # noqa: E402
     gandalf_outcome,
     injecagent_outcome,
     summarize,
 )
-from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
+from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
 
 MODELS = ("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "qwen2.5:3b")
 OUTCOME = {"injecagent": injecagent_outcome, "gandalf": gandalf_outcome}
@@ -58,7 +58,7 @@ def main(argv=None) -> int:
     def grouped(key) -> dict:
         return summarize([{**r, "group": key(r)} for r in rows])
 
-    sha = subprocess.run(["git", "log", "-1", "--format=%H", "--", "fusion/guardrail"], cwd=ROOT,
+    sha = subprocess.run(["git", "log", "-1", "--format=%H", "--", "fusion_first/guardrail"], cwd=ROOT,
                          capture_output=True, text=True).stdout.strip()
     evidence = {
         "demonstration": False,

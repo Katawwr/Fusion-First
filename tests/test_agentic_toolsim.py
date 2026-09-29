@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.attacks.agentic import build_agentic_trajectory, extract_tool_calls, has_action
-from fusion.schemas import Role
+from fusion_first.attacks.agentic import build_agentic_trajectory, extract_tool_calls, has_action
+from fusion_first.schemas import Role
 
 
 @pytest.mark.unit

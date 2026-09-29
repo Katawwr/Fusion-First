@@ -7,12 +7,12 @@ import json
 
 import pytest
 
-from fusion.model.client import ModelResponse
-from fusion.model.providers.ollama import OllamaUnavailable
-from fusion.security.budget import BudgetExceeded
-from fusion.validate.analysis import analyze
-from fusion.validate.experiments import build_items, hardened_system, iter_plan, oracle_label
-from fusion.validate.transcripts import TranscriptStore, generate
+from fusion_first.model.client import ModelResponse
+from fusion_first.model.providers.ollama import OllamaUnavailable
+from fusion_first.security.budget import BudgetExceeded
+from fusion_first.validate.analysis import analyze
+from fusion_first.validate.experiments import build_items, hardened_system, iter_plan, oracle_label
+from fusion_first.validate.transcripts import TranscriptStore, generate
 
 
 @pytest.mark.unit
@@ -152,8 +152,8 @@ def test_injecagent_counts_non_json_action_lines_naming_an_attacker_tool():
 
 @pytest.mark.unit
 def test_truncated_quality_answers_are_excluded_and_counted(tmp_path):
-    from fusion.validate.analysis import score_cell
-    from fusion.validate.transcripts import TranscriptRecord
+    from fusion_first.validate.analysis import score_cell
+    from fusion_first.validate.transcripts import TranscriptRecord
 
     store = TranscriptStore(tmp_path)
     items = build_items("ifeval", 2)
@@ -170,8 +170,8 @@ def test_truncated_quality_answers_are_excluded_and_counted(tmp_path):
 @pytest.mark.unit
 def test_truncated_over_refusal_answers_are_still_scored(tmp_path):
     """Over-refusal is decided by the reply's opening, which the token cap never cuts."""
-    from fusion.validate.analysis import score_cell
-    from fusion.validate.transcripts import TranscriptRecord
+    from fusion_first.validate.analysis import score_cell
+    from fusion_first.validate.transcripts import TranscriptRecord
 
     store = TranscriptStore(tmp_path)
     items = build_items("xstest", 2)
@@ -188,8 +188,8 @@ def test_truncated_over_refusal_answers_are_still_scored(tmp_path):
 @pytest.mark.unit
 def test_compact_fix_arm_and_fresh_disjoint_items():
     """Pre-registered compact-fix experiment: a third arm, and items disjoint from the v1 sample."""
-    from fusion.engine.fixes import COMPACT_RULES, apply_fix
-    from fusion.validate.experiments import iter_plan
+    from fusion_first.engine.fixes import COMPACT_RULES, apply_fix
+    from fusion_first.validate.experiments import iter_plan
 
     compact = apply_fix("You are a bot.", style="compact")
     assert COMPACT_RULES in compact and apply_fix(compact, style="compact") == compact  # idempotent
@@ -208,7 +208,7 @@ def test_compact_fix_arm_and_fresh_disjoint_items():
 @pytest.mark.unit
 @pytest.mark.parametrize("exp", ["injecagent", "gandalf"])
 def test_a_sample_can_exclude_every_spent_sample(exp):
-    from fusion.validate.experiments import SPENT
+    from fusion_first.validate.experiments import SPENT
 
     v1 = {i.item_id for i in build_items(exp, 30)}
     compact = {i.item_id for i in build_items(exp, 30, salt="fusion-evidence-compact-v1",
@@ -223,7 +223,7 @@ def test_a_sample_can_exclude_every_spent_sample(exp):
 def test_a_half_written_last_line_is_skipped_not_fatal(tmp_path):
     """A reader can run while generation appends: the unterminated final line is the only one an
     in-progress append can leave, so it is skipped; every complete record still loads."""
-    from fusion.validate.transcripts import TranscriptRecord
+    from fusion_first.validate.transcripts import TranscriptRecord
 
     store = TranscriptStore(tmp_path)
     store.append(TranscriptRecord(experiment="gandalf", item_id="a", model="m1", arm="baseline",

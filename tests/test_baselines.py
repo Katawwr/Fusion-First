@@ -14,16 +14,16 @@ import math
 
 import pytest
 
-from fusion.attacks.agentic import extract_tool_calls
-from fusion.errors import isolatable
-from fusion.goldset import load_gold
-from fusion.judge.judge import DEFAULT_EVIDENCE_CHARS, Judge, JudgeParseError, unfence
-from fusion.judge.rubric import REGISTRY as RUBRICS
-from fusion.judge.rubric import get_rubric
-from fusion.model.client import ModelClient, ModelRequest, ModelResponse, ModelRole
-from fusion.model.providers.heuristic import DETECTORS, heuristic_criteria
-from fusion.schemas import Role, Step, ToolCall, ToolResult, Trajectory
-from fusion.validate.baselines import (
+from fusion_first.attacks.agentic import extract_tool_calls
+from fusion_first.errors import isolatable
+from fusion_first.goldset import load_gold
+from fusion_first.judge.judge import DEFAULT_EVIDENCE_CHARS, Judge, JudgeParseError, unfence
+from fusion_first.judge.rubric import REGISTRY as RUBRICS
+from fusion_first.judge.rubric import get_rubric
+from fusion_first.model.client import ModelClient, ModelRequest, ModelResponse, ModelRole
+from fusion_first.model.providers.heuristic import DETECTORS, heuristic_criteria
+from fusion_first.schemas import Role, Step, ToolCall, ToolResult, Trajectory
+from fusion_first.validate.baselines import (
     REGISTRY,
     BaselineVerdict,
     LlmRubricJudge,

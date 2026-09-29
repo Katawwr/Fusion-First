@@ -21,8 +21,8 @@ import sys
 import pytest
 import yaml
 
-from fusion.validate import importers
-from fusion.validate.importers import (
+from fusion_first.validate import importers
+from fusion_first.validate.importers import (
     LICENSE_ALLOWLIST,
     SOURCES,
     LicenseNotAllowedError,
@@ -499,7 +499,7 @@ def test_script_rejects_malformed_date(tmp_path):
 @pytest.mark.integration
 def test_importing_the_package_does_not_import_pyarrow():
     """pyarrow is optional: importing the registry must stay cheap and dependency-free."""
-    code = "import sys, fusion.validate.importers; print('pyarrow' in sys.modules)"
+    code = "import sys, fusion_first.validate.importers; print('pyarrow' in sys.modules)"
     res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=REPO,
                          check=True)
     assert res.stdout.strip() == "False"

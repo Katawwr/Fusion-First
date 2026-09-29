@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-import fusion.integrations.live as live
+import fusion_first.integrations.live as live
 
 METERED = ("AnthropicModelClient", "OpenAIModelClient")
 
@@ -25,8 +25,8 @@ def ambient_keys(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-fake-ambient")
     monkeypatch.delenv("FUSION_TARGET_BACKEND", raising=False)
     monkeypatch.delenv(live.METERED_OPT_IN_ENV, raising=False)
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
-    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
+    monkeypatch.setattr("fusion_first.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
+    monkeypatch.setattr("fusion_first.model.providers.ollama.ollama_available", lambda base_url=None: True)
 
 
 @pytest.mark.unit
@@ -61,7 +61,7 @@ def test_opt_in_alone_does_not_make_auto_metered(ambient_keys, monkeypatch):
 
 @pytest.mark.unit
 def test_no_cli_and_ambient_keys_fails_closed_not_metered(ambient_keys, monkeypatch):
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready",
+    monkeypatch.setattr("fusion_first.model.providers.claude_cli.claude_cli_ready",
                         lambda *a, **k: (False, "the `claude` CLI isn't installed here"))
     for prefer in (None, "auto", "cli", "ollama"):
         with pytest.raises(live.LiveUnavailable):
@@ -70,7 +70,7 @@ def test_no_cli_and_ambient_keys_fails_closed_not_metered(ambient_keys, monkeypa
 
 @pytest.mark.unit
 async def test_mcp_auto_mode_with_ambient_keys_is_not_metered(ambient_keys, monkeypatch):
-    from fusion.integrations import agent_tools
+    from fusion_first.integrations import agent_tools
 
     kwargs, mode = agent_tools._resolve_live_kwargs("auto", None, None)
     assert mode == "live"
@@ -85,8 +85,8 @@ def test_web_app_keyless_backends_ignore_server_keys(monkeypatch, backend):
     from app.settings import Settings
 
     monkeypatch.delenv(live.METERED_OPT_IN_ENV, raising=False)
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
-    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
+    monkeypatch.setattr("fusion_first.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
+    monkeypatch.setattr("fusion_first.model.providers.ollama.ollama_available", lambda base_url=None: True)
     settings = Settings(anthropic_api_key="sk-ant-fake", openai_api_key="sk-fake", allow_local_backends=True)
     if backend is None:
         # The default backend used to be "api" with server keys; now metered needs explicit opt-in.
@@ -105,8 +105,8 @@ def test_web_app_local_backends_are_off_by_default(monkeypatch, backend):
     from app.clients import LiveUnavailable, build_scan_kwargs
     from app.settings import Settings
 
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
-    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: True)
+    monkeypatch.setattr("fusion_first.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
+    monkeypatch.setattr("fusion_first.model.providers.ollama.ollama_available", lambda base_url=None: True)
     with pytest.raises(LiveUnavailable, match="FUSION_ALLOW_LOCAL_BACKENDS"):
         build_scan_kwargs("live", Settings(), backend=backend)
 
@@ -115,8 +115,8 @@ def test_web_app_local_backends_are_off_by_default(monkeypatch, backend):
 def test_offline_switch_disables_real_clients(monkeypatch):
     """FUSION_OFFLINE=1 (set for every non-live test by conftest) must make both real providers
     report unavailable and refuse to run."""
-    from fusion.model.providers.claude_cli import claude_cli_available
-    from fusion.model.providers.ollama import ollama_available
+    from fusion_first.model.providers.claude_cli import claude_cli_available
+    from fusion_first.model.providers.ollama import ollama_available
 
     monkeypatch.setenv("FUSION_OFFLINE", "1")
     assert claude_cli_available("claude") is False

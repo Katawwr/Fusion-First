@@ -13,13 +13,13 @@ import json
 
 import pytest
 
-from fusion._data import data_root
-from fusion.engine import fixes
-from fusion.engine.fixes import Remedy
-from fusion.judge.judge import build_system_prompt
-from fusion.judge.rubric import REGISTRY, get_rubric
-from fusion.schemas import Criterion
-from fusion.validate.seal import (
+from fusion_first._data import data_root
+from fusion_first.engine import fixes
+from fusion_first.engine.fixes import Remedy
+from fusion_first.judge.judge import build_system_prompt
+from fusion_first.judge.rubric import REGISTRY, get_rubric
+from fusion_first.schemas import Criterion
+from fusion_first.validate.seal import (
     BlindLedger,
     compute_seal,
     judge_prompt_hash,

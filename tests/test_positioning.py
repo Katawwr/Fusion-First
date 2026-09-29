@@ -55,15 +55,15 @@ def test_the_docs_describe_the_in_sample_guard_replay():
 
 @pytest.mark.unit
 def test_no_doc_says_wrapping_the_client_is_the_whole_guard():
-    client = (ROOT / "fusion" / "guardrail" / "client.py").read_text(encoding="utf-8")
+    client = (ROOT / "fusion_first" / "guardrail" / "client.py").read_text(encoding="utf-8")
     assert "full runtime protection" not in client
     integrations = (ROOT / "integrations" / "README.md").read_text(encoding="utf-8")
     assert "wrap the model client with the guardrail." not in integrations
 
 
 def _card(baseline: list[bool], hardened: list[bool]):
-    from fusion.engine.report import build_report_card
-    from fusion.stats.paired import before_after
+    from fusion_first.engine.report import build_report_card
+    from fusion_first.stats.paired import before_after
 
     return build_report_card(target_name="t", check="system_prompt_leakage", judge_accuracy=None,
                              before_after=before_after(baseline, hardened), judge_model="m",

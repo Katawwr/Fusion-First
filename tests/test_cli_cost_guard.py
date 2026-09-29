@@ -13,8 +13,8 @@ import subprocess
 
 import pytest
 
-from fusion.model.providers import claude_cli
-from fusion.model.providers.claude_cli import (
+from fusion_first.model.providers import claude_cli
+from fusion_first.model.providers.claude_cli import (
     ClaudeCliModelClient,
     PaidAuthRefused,
     assert_subscription_auth,
@@ -159,7 +159,7 @@ async def test_complete_refuses_before_spawning_when_auth_is_paid(monkeypatch):
     monkeypatch.setattr(claude_cli, "assert_subscription_auth", refuse)
     monkeypatch.setattr(claude_cli.asyncio, "create_subprocess_exec", fake_exec)
     client = ClaudeCliModelClient(binary="claude")
-    from fusion.model.client import ModelRequest, ModelRole
+    from fusion_first.model.client import ModelRequest, ModelRole
 
     req = ModelRequest(role=ModelRole.JUDGE, system="s", messages=[{"role": "user", "content": "x"}])
     with pytest.raises(PaidAuthRefused):
@@ -169,7 +169,7 @@ async def test_complete_refuses_before_spawning_when_auth_is_paid(monkeypatch):
 
 @pytest.mark.unit
 def test_cli_ready_reports_a_logged_out_cli_as_not_ready(monkeypatch):
-    from fusion.model.providers.claude_cli import claude_cli_ready
+    from fusion_first.model.providers.claude_cli import claude_cli_ready
 
     monkeypatch.delenv("FUSION_OFFLINE", raising=False)
     ready, reason = claude_cli_ready("claude", runner=_runner({"loggedIn": False, "authMethod": "none"}, returncode=1))
@@ -178,7 +178,7 @@ def test_cli_ready_reports_a_logged_out_cli_as_not_ready(monkeypatch):
 
 @pytest.mark.unit
 def test_cli_ready_on_subscription_auth(monkeypatch):
-    from fusion.model.providers.claude_cli import claude_cli_ready
+    from fusion_first.model.providers.claude_cli import claude_cli_ready
 
     monkeypatch.delenv("FUSION_OFFLINE", raising=False)
     assert claude_cli_ready("claude", runner=_runner(_SUB)) == (True, "ok")
@@ -186,7 +186,7 @@ def test_cli_ready_on_subscription_auth(monkeypatch):
 
 @pytest.mark.unit
 def test_cli_ready_is_false_offline_without_running_anything(monkeypatch):
-    from fusion.model.providers.claude_cli import claude_cli_ready
+    from fusion_first.model.providers.claude_cli import claude_cli_ready
 
     monkeypatch.setenv("FUSION_OFFLINE", "1")
     calls = []

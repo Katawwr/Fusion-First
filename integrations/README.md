@@ -33,7 +33,7 @@ the system prompt it just wrote and gate its own outputs and tool calls; the pro
 
 ```bash
 pip install "fusion-safety[mcp]"
-python -m fusion.integrations.mcp_server   # stdio transport
+python -m fusion_first.integrations.mcp_server   # stdio transport
 ```
 
 Register it with your editor (`examples/mcp-config.json`):
@@ -41,7 +41,7 @@ Register it with your editor (`examples/mcp-config.json`):
 ```json
 {
   "mcpServers": {
-    "fusion-safety": { "command": "python", "args": ["-m", "fusion.integrations.mcp_server"] }
+    "fusion-safety": { "command": "python", "args": ["-m", "fusion_first.integrations.mcp_server"] }
   }
 }
 ```
@@ -66,7 +66,7 @@ Tools the agent gets:
 Audit an **open-weight** agent locally (free, no key), judged by Claude:
 
 ```python
-from fusion.integrations import agent_tools
+from fusion_first.integrations import agent_tools
 report = await agent_tools.audit_agent(MY_PROMPT, backend="ollama", target_model="llama3.2:1b")
 # report["safety"] (attacks that landed) + report["quality"] (grade + failing inputs) + guardrail_snippet
 ```
@@ -77,7 +77,7 @@ instruction-following → wire the runtime guard → optionally try the hardened
 The same functions are a plain Python library too:
 
 ```python
-from fusion.integrations import agent_tools
+from fusion_first.integrations import agent_tools
 report = await agent_tools.scan_prompt(MY_SYSTEM_PROMPT)
 guard = agent_tools.guardrail_snippet()["snippet"]
 fixed = agent_tools.harden_prompt(MY_SYSTEM_PROMPT)["hardened_prompt"]   # optional; re-test it
@@ -147,9 +147,9 @@ Llama Guard 3 8B, configured, stopped 52% of the same attacks (`TRUST_REPORT.md`
 which is in-distribution: 100% recall / 0% over-block (`fusion guard-bench`).
 
 ```python
-from fusion.guardrail.guard import Guardrail
-from fusion.guardrail.policy import GuardConfig
-from fusion.guardrail.client import GuardedModelClient
+from fusion_first.guardrail.guard import Guardrail
+from fusion_first.guardrail.policy import GuardConfig
+from fusion_first.guardrail.client import GuardedModelClient
 
 guard = Guardrail(GuardConfig(
     allowlisted_domains=["your-company.com"],

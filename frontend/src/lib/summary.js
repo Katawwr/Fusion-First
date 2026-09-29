@@ -1,7 +1,7 @@
 // The report's headline sentence — derived from what was actually measured, never a canned boast.
 import { pct } from "./jargon";
 
-// The scan's in-sample guard replay: a mirror of fusion/engine/guard_replay.py (in_sample_payload), kept
+// The scan's in-sample guard replay: a mirror of fusion_first/engine/guard_replay.py (in_sample_payload), kept
 // in step by the shared guardInSample.fixture.json. Null when nothing was replayed (demo scans: their
 // replies are canned; results from before the replay existed; only withheld grades).
 export const REPLAY_SETUP =

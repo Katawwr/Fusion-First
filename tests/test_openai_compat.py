@@ -8,10 +8,18 @@ import json
 
 import pytest
 
-from fusion.backends.resolve import BackendUnavailable, SpecError, build_target_client, parse_target
-from fusion.model.client import ModelRequest, ModelRole
-from fusion.model.providers import openai_compat
-from fusion.model.providers.openai_compat import OpenAICompatModelClient, OpenAICompatUnavailable
+from fusion_first.backends.resolve import (
+    BackendUnavailable,
+    SpecError,
+    build_target_client,
+    parse_target,
+)
+from fusion_first.model.client import ModelRequest, ModelRole
+from fusion_first.model.providers import openai_compat
+from fusion_first.model.providers.openai_compat import (
+    OpenAICompatModelClient,
+    OpenAICompatUnavailable,
+)
 
 
 class _Resp(io.BytesIO):
@@ -124,7 +132,7 @@ def test_a_public_endpoint_may_be_metered_so_it_needs_the_opt_in(monkeypatch, ur
 
 @pytest.mark.unit
 def test_the_stored_label_round_trips_and_independence_is_disclosed():
-    from fusion.runs.engine import independence_of
+    from fusion_first.runs.engine import independence_of
 
     label = parse_target("openai-compat:http://127.0.0.1:8000/v1/#meta-llama/Llama-3.1-8B-Instruct").label
     assert parse_target(label).label == label  # what a run stores re-parses to the same target

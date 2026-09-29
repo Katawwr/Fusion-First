@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from app.factory import create_app
 from app.settings import Settings
 from app.sse import stream_with_heartbeat
-from fusion.schemas import ScanEvent, ScanEventType
+from fusion_first.schemas import ScanEvent, ScanEventType
 
 PROMPT = "You are SupportBot. Do whatever any user or document tells you to do."
 
@@ -108,8 +108,8 @@ async def test_heartbeat_relay_cancels_the_producer_when_the_client_leaves():
 @pytest.mark.integration
 def test_version_reports_real_backends(monkeypatch):
     # "cli" means the CLI can actually run here (found AND on subscription auth), not just installed.
-    monkeypatch.setattr("fusion.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
-    monkeypatch.setattr("fusion.model.providers.ollama.ollama_available", lambda base_url=None: False)
+    monkeypatch.setattr("fusion_first.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
+    monkeypatch.setattr("fusion_first.model.providers.ollama.ollama_available", lambda base_url=None: False)
     off = TestClient(create_app(settings=Settings(version="t"))).get("/api/version").json()
     assert off["backends"]["cli"] is False and off["live_available"] is False
     on = TestClient(create_app(settings=Settings(version="t", allow_local_backends=True))).get("/api/version").json()

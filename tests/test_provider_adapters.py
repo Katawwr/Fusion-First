@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.model.client import ModelRequest, ModelRole
-from fusion.model.providers._common import strictify_schema
-from fusion.model.providers.anthropic import AnthropicModelClient
-from fusion.model.providers.openai import OpenAIModelClient
+from fusion_first.model.client import ModelRequest, ModelRole
+from fusion_first.model.providers._common import strictify_schema
+from fusion_first.model.providers.anthropic import AnthropicModelClient
+from fusion_first.model.providers.openai import OpenAIModelClient
 
 JUDGE_SCHEMA = {
     "type": "object",

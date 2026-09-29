@@ -6,7 +6,7 @@ import pathlib
 
 import pytest
 
-from fusion.validate.trust_report import render
+from fusion_first.validate.trust_report import render
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -14,7 +14,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 @pytest.mark.unit
 def test_trust_report_matches_its_evidence():
     committed = (ROOT / "TRUST_REPORT.md").read_text(encoding="utf-8").replace("\r\n", "\n")
-    assert committed == render(ROOT), "regenerate with: python -m fusion.validate.trust_report"
+    assert committed == render(ROOT), "regenerate with: python -m fusion_first.validate.trust_report"
 
 
 @pytest.mark.unit
@@ -69,7 +69,7 @@ def test_fix_evidence_is_summarised_pooled_over_models(tmp_path):
     assert "no clear change" in rows["gandalf (pooled)"]
     assert "significantly better with the fix" in rows["injecagent (pooled)"]
     assert "xstest on m1" in out.split("## Q1")[0]  # the bottom line names the model, not just the test
-    from fusion.validate.trust_report import evidence_json
+    from fusion_first.validate.trust_report import evidence_json
 
     pooled = {p["experiment"]: p for p in evidence_json(tmp_path)["fix_pooled"]}
     assert pooled["xstest"]["verdict"] == "significantly worse with the fix"
@@ -101,7 +101,7 @@ def test_rubric_vs_plain_judge_is_reported_with_its_preregistered_verdict(tmp_pa
         assert "significantly more accurate than a plain" in out
     else:
         assert "not significantly more accurate than asking the same model one plain question" in out
-    from fusion.validate.trust_report import evidence_json
+    from fusion_first.validate.trust_report import evidence_json
 
     site = evidence_json(tmp_path)["rubric_vs_plain"]
     assert site["claim_allowed"] is claim and site["pooled"]["n"] == 119
@@ -201,7 +201,7 @@ def test_the_free_local_grader_is_reported_against_its_registered_floor(tmp_path
     assert "**Claude Sonnet (host):** None of the 4" in q1
     bottom = out.split("## Q1")[0]  # each grader named with its own numbers, never merged
     assert "Claude Sonnet (host)" in bottom and "The free local grader, qwen2.5:7b probability judge (local)," in bottom
-    from fusion.validate.trust_report import evidence_json
+    from fusion_first.validate.trust_report import evidence_json
 
     site = evidence_json(tmp_path)["local_grader"]
     assert site["meets_floor"] is meets and site["evidence"] == "evals/validation/v1/judge_eval_prob_qwen7b.json"
@@ -260,7 +260,7 @@ def test_the_runtime_guardrail_on_real_attacks_is_reported(tmp_path):
     rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
     assert "97%" in rows["password leaks (Gandalf)"]
     assert "first run differed" in out  # the deviation is disclosed, not hidden
-    from fusion.validate.trust_report import evidence_json
+    from fusion_first.validate.trust_report import evidence_json
 
     site = evidence_json(tmp_path)["runtime_guardrail"]
     assert site["all"]["stopped"] == 54 and site["by_attack_type"]["gandalf:leak"]["stopped"] == 34
@@ -299,7 +299,7 @@ def test_the_fresh_guardrail_measurement_becomes_the_headline(tmp_path):
     sec = out.split("## Runtime guardrail on real attacks")[1].split("\n## ")[0]
     assert "PREREG_guard_on_fresh_transcripts.md" in sec and "a6fa0f5" in sec and "a fresh finding" in sec
     assert len([line for line in sec.splitlines() if line.startswith("| all |")]) == 2  # a table per measurement
-    from fusion.validate.trust_report import evidence_json
+    from fusion_first.validate.trust_report import evidence_json
 
     site = evidence_json(tmp_path)["runtime_guardrail"]
     assert site["evidence"] == "evals/validation/v1/guard_on_fresh_transcripts.json"
@@ -331,7 +331,7 @@ def test_the_llama_guard_comparison_is_reported_with_its_registered_decision(tmp
     assert "25 of 70" in rows["Llama Guard 3, configured"] and "55 of 70" in rows["Fusion + Llama Guard 3 (configured)"]
     verdict = ("stops significantly more real attacks" if decision == "fusion_better" else "no significant difference")
     assert verdict in sec
-    from fusion.validate.trust_report import evidence_json
+    from fusion_first.validate.trust_report import evidence_json
 
     site = evidence_json(tmp_path)["guard_vs_llama_guard"]
     assert site["systems"]["fusion"]["stopped"] == 50 and site["comparisons"]["configured"]["decision"] == decision
@@ -358,7 +358,7 @@ def test_the_value_ledger_is_reported_with_its_caveat(tmp_path):
     rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
     assert "| 69 | 36 | 21 | 54 | 64 | 5 |" in rows["all models"]
     assert "guard measured on the prompt as written" in out
-    from fusion.validate.trust_report import evidence_json
+    from fusion_first.validate.trust_report import evidence_json
 
     site = evidence_json(tmp_path)["value_ledger"]
     assert site["total"]["fix_caused"] == 21 and site["by_model"]["m2"]["either"] == 13
@@ -368,8 +368,8 @@ def test_the_value_ledger_is_reported_with_its_caveat(tmp_path):
 def test_website_evidence_matches_its_sources():
     import json
 
-    from fusion.validate.trust_report import evidence_json
+    from fusion_first.validate.trust_report import evidence_json
 
     committed = json.loads((ROOT / "frontend/src/content/evidence.json").read_text(encoding="utf-8"))
     assert committed == json.loads(json.dumps(evidence_json(ROOT))), \
-        "regenerate with: python -m fusion.validate.trust_report"
+        "regenerate with: python -m fusion_first.validate.trust_report"

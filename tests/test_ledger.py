@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.judge.ledger import (
+from fusion_first.judge.ledger import (
     LedgerEntry,
     Qualification,
     judge_fingerprint,
@@ -13,7 +13,7 @@ from fusion.judge.ledger import (
     qualify,
     save_entry,
 )
-from fusion.stats.metrics import accuracy_result
+from fusion_first.stats.metrics import accuracy_result
 
 CHECK = "direct_prompt_injection"
 

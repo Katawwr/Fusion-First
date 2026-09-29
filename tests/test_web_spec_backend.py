@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.integrations.live import LiveUnavailable
-from fusion.web.clients import build_scan_kwargs
-from fusion.web.settings import Settings
+from fusion_first.integrations.live import LiveUnavailable
+from fusion_first.web.clients import build_scan_kwargs
+from fusion_first.web.settings import Settings
 
 LOCAL = Settings(version="test", allow_local_backends=True)
 

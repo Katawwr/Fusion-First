@@ -6,14 +6,14 @@ import json
 
 import pytest
 
-from fusion.attacks.adaptive import (
+from fusion_first.attacks.adaptive import (
     AdaptiveAttacker,
     AdaptiveConfig,
     _parse_candidates,
     promote_to_corpus,
 )
-from fusion.judge.rubric import get_rubric
-from fusion.model.client import ModelResponse, ModelRole
+from fusion_first.judge.rubric import get_rubric
+from fusion_first.model.client import ModelResponse, ModelRole
 
 
 class _FakeAttacker:

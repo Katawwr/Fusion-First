@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.attacks.taxonomy import Crosswalk
-from fusion.attacks.templates import get_templates, select_templates
-from fusion.judge.rubric import checks_of_kind
-from fusion.schemas import ScanTier
+from fusion_first.attacks.taxonomy import Crosswalk
+from fusion_first.attacks.templates import get_templates, select_templates
+from fusion_first.judge.rubric import checks_of_kind
+from fusion_first.schemas import ScanTier
 
 CHECKS = checks_of_kind("safety")  # only safety checks have attack probes/templates
 

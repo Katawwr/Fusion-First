@@ -33,7 +33,7 @@ image = (
     )
     .env({"VERSION": os.environ.get("FUSION_VERSION", "dev")})
     # The pure core + HTTP layer + committed datasets/cassettes/crosswalk the engine reads at runtime.
-    .add_local_python_source("fusion", "app")
+    .add_local_python_source("fusion_first", "app")
     .add_local_dir("datasets", remote_path="/root/datasets")
     .add_local_dir("cassettes", remote_path="/root/cassettes")
     .add_local_dir("crosswalk", remote_path="/root/crosswalk")

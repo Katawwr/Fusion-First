@@ -23,16 +23,19 @@ import urllib.request
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.experiments import build_items  # noqa: E402
-from fusion.validate.guard_on_transcripts import gandalf_outcome, injecagent_outcome  # noqa: E402
-from fusion.validate.llama_guard import (  # noqa: E402
+from fusion_first.validate.experiments import build_items  # noqa: E402
+from fusion_first.validate.guard_on_transcripts import (  # noqa: E402
+    gandalf_outcome,
+    injecagent_outcome,
+)
+from fusion_first.validate.llama_guard import (  # noqa: E402
     MODEL,
     configured_prompt,
     default_prompt,
     parse_verdict,
     score,
 )
-from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
+from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
 
 MODELS = ("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "qwen2.5:3b")
 SALT, EXCLUDE = "fusion-evidence-compact-v1", ("fusion-evidence-v1", 30)
@@ -132,7 +135,7 @@ def main(argv=None) -> int:
     public = [{k: v for k, v in r.items() if not k.startswith("_")} for r in rows]
     digest = ""
     if not a.offline:
-        from fusion.model.providers.ollama import model_digest
+        from fusion_first.model.providers.ollama import model_digest
 
         digest = model_digest(a.model)
     evidence = {
@@ -141,7 +144,7 @@ def main(argv=None) -> int:
         "preregistration": PREREG,
         "measured": _dt.date.today().isoformat(),
         "git_sha": _git("rev-parse", "HEAD"),
-        "guardrail_git_sha": _git("log", "-1", "--format=%H", "--", "fusion/guardrail"),
+        "guardrail_git_sha": _git("log", "-1", "--format=%H", "--", "fusion_first/guardrail"),
         "llama_guard": {"model": a.model, "digest": digest,
                         "configs": {"a": "Meta's prompt format, default categories (raw mode)",
                                     "b": "Meta's prompt format + S15 (with the planted secret) + S16"}},

@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.guardrail.guard import Guardrail, _is_readonly, _tool_words
-from fusion.guardrail.policy import GuardConfig
+from fusion_first.guardrail.guard import Guardrail, _is_readonly, _tool_words
+from fusion_first.guardrail.policy import GuardConfig
 
 READ_REQUEST = "Can you find the details for the laptop with product ID 'LAP789'?"
 

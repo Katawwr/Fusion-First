@@ -15,8 +15,8 @@ import urllib.parse
 
 import pytest
 
-from fusion.schemas import Role, Severity, Step, ToolCall, ToolResult, Trajectory
-from fusion.validate.oracles import (
+from fusion_first.schemas import Role, Severity, Step, ToolCall, ToolResult, Trajectory
+from fusion_first.validate.oracles import (
     REFUSAL_PHRASES,
     OracleLabel,
     action_oracle,

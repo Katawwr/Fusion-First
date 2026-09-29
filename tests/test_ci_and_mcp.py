@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from fusion.engine.report import grade_for_rate
+from fusion_first.engine.report import grade_for_rate
 
 CLI = [sys.executable, "scripts/fusion_cli.py"]
 
@@ -76,8 +76,8 @@ def _fake_scan(grades: dict[str, str]):
     ],
 )
 def test_ci_live_gate_uses_card_grades(tmp_path, monkeypatch, grades, code):
-    from fusion.cli import main
-    from fusion.integrations import agent_tools
+    from fusion_first.cli import main
+    from fusion_first.integrations import agent_tools
 
     p = tmp_path / "prompt.txt"
     p.write_text("x", encoding="utf-8")
@@ -91,7 +91,7 @@ def test_mcp_module_imports_without_the_extra():
     the offline suite; build_server() then fails loudly with an install hint."""
     import importlib
 
-    mod = importlib.import_module("fusion.integrations.mcp_server")
+    mod = importlib.import_module("fusion_first.integrations.mcp_server")
     assert callable(mod.build_server) and callable(mod.main)
 
     try:

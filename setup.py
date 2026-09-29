@@ -3,12 +3,12 @@
 The engine reads committed corpora — datasets/, cassettes/, crosswalk/, evals/ — that live at the
 repo TOP LEVEL (the Modal image mounts them from there, so they are not moved into the package). To
 make a bare `pip install fusion-safety` carry them too, this build step copies them into
-`fusion/_bundled/` at build time; `fusion/_data.py` then finds either the top-level copy (checkout /
+`fusion_first/_bundled/` at build time; `fusion_first/_data.py` then finds either the top-level copy (checkout /
 Modal) or the bundled copy (installed wheel).
 
 The built web app (`frontend/dist`, from `npm --prefix frontend run build`) is copied to
-`fusion/_bundled/web/` the same way, so `fusion serve` works from a bare install, and so is the
-Claude Code plugin marketplace (`.claude-plugin/` + `plugins/`, to `fusion/_bundled/marketplace/`),
+`fusion_first/_bundled/web/` the same way, so `fusion serve` works from a bare install, and so is the
+Claude Code plugin marketplace (`.claude-plugin/` + `plugins/`, to `fusion_first/_bundled/marketplace/`),
 so `claude plugin marketplace add "$(fusion plugin-dir)"` works without a checkout.
 """
 
@@ -68,7 +68,7 @@ def bundle(root: pathlib.Path, dest: pathlib.Path) -> None:
 class BundleData(build_py):
     def run(self):
         root = pathlib.Path(__file__).parent.resolve()
-        bundle(root, root / "fusion" / "_bundled")
+        bundle(root, root / "fusion_first" / "_bundled")
         super().run()
 
 

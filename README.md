@@ -33,7 +33,7 @@ Any model or workflow can be the target:
 | `claude-cli:<model>` | Claude via the `claude` CLI | subscription |
 | `openai:` `hf:` `anthropic:` `openrouter:` `together:` `groq:` `fireworks:` `mistral-api:` `deepseek:` + `<model>` | a hosted API with your key (`OPENAI_API_KEY`, `HF_TOKEN`, ...) | metered; needs `FUSION_ALLOW_API_SPEND=1` |
 | `cmd:<command>` | any workflow: a program that reads a JSON request on stdin and prints the reply (template: `integrations/examples/fusion_adapter.py`) | yours |
-| `python:<name>` | a Python function, via `fusion.targets.FunctionModelClient` | yours |
+| `python:<name>` | a Python function, via `fusion_first.targets.FunctionModelClient` | yours |
 
 Grader: `host` (the calling agent), `claude-cli`, or any chat target above. Each run measures its
 grader on known-answer questions and withholds the grade ('?') if it falls short.
@@ -87,9 +87,9 @@ user's own request before it runs. Every live scan also replays the guard over i
 and count separately the attacks answered in prose, where there is no tool call to check.
 
 ```python
-from fusion.guardrail.guard import Guardrail
-from fusion.guardrail.policy import GuardConfig
-from fusion.guardrail.client import GuardedModelClient
+from fusion_first.guardrail.guard import Guardrail
+from fusion_first.guardrail.policy import GuardConfig
+from fusion_first.guardrail.client import GuardedModelClient
 
 guard = Guardrail(GuardConfig(allowlisted_domains=["your-co.com"], secret_values=["sk-..."],
                               system_prompt=SYSTEM_PROMPT, require_authorization=True))  # the measured config
@@ -120,5 +120,5 @@ python -m pytest -q                 # offline suite
 python -m ruff check fusion tests scripts
 ```
 
-`fusion/` is the pure core (never imports `modal`); Modal/FastAPI wrappers live in `app/`. See
+`fusion_first/` is the pure core (never imports `modal`); Modal/FastAPI wrappers live in `app/`. See
 `CLAUDE.md` (project guide) and `SCHEMA.md` (data model).

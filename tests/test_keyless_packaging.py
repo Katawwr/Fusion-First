@@ -19,15 +19,15 @@ def test_core_dependencies_have_no_metered_sdk():
     for sdk in ("anthropic", "openai", "scipy", "modal"):
         assert sdk not in core, f"{sdk} must be optional"
     assert set(project["optional-dependencies"]["api"]) >= {"anthropic>=0.40", "openai>=1.50"}
-    assert project["scripts"]["fusion-mcp"] == "fusion.integrations.mcp_server:main"
+    assert project["scripts"]["fusion-mcp"] == "fusion_first.integrations.mcp_server:main"
 
 
 @pytest.mark.unit
 def test_keyless_surfaces_import_no_provider_sdk():
     code = (
         "import sys\n"
-        "import fusion.cli, fusion.runs.cli, fusion.runs.service, fusion.backends.resolve\n"
-        "import fusion.integrations.mcp_server, fusion.integrations.run_tools\n"
+        "import fusion_first.cli, fusion_first.runs.cli, fusion_first.runs.service, fusion_first.backends.resolve\n"
+        "import fusion_first.integrations.mcp_server, fusion_first.integrations.run_tools\n"
         "bad = sorted(m for m in ('anthropic', 'openai', 'scipy', 'modal') if m in sys.modules)\n"
         "print(','.join(bad))\n"
     )

@@ -85,7 +85,7 @@ def wheel_names(tmp_path_factory) -> list[str]:
     for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "README.md"):
         shutil.copy2(ROOT / rel, proj / rel)
     skip = shutil.ignore_patterns("_bundled", "__pycache__", "*.pyc")
-    shutil.copytree(ROOT / "fusion", proj / "fusion", ignore=skip)
+    shutil.copytree(ROOT / "fusion_first", proj / "fusion_first", ignore=skip)
     shutil.copytree(ROOT / "plugins", proj / "plugins", ignore=skip)
     shutil.copytree(ROOT / ".claude-plugin", proj / ".claude-plugin")
     out = tmp / "dist"
@@ -101,7 +101,7 @@ def wheel_names(tmp_path_factory) -> list[str]:
 def test_the_wheel_ships_the_plugin_marketplace(wheel_names):
     """Package-data globs skip dot-paths (.claude-plugin/, .mcp.json) unless they are named, and a
     plugin without them does not load."""
-    prefix = "fusion/_bundled/marketplace/"
+    prefix = "fusion_first/_bundled/marketplace/"
     shipped = sorted(n[len(prefix):] for n in wheel_names if n.startswith(prefix))
     source = sorted(p.relative_to(ROOT).as_posix()
                     for d in ("plugins", ".claude-plugin") for p in (ROOT / d).rglob("*")
@@ -111,9 +111,9 @@ def test_the_wheel_ships_the_plugin_marketplace(wheel_names):
 
 @pytest.mark.integration
 def test_the_wheel_ships_the_package_s_own_data_files(wheel_names):
-    """Code reads non-Python files that sit next to it (fusion/model/models.yaml: without it every
+    """Code reads non-Python files that sit next to it (fusion_first/model/models.yaml: without it every
     installed `fusion doctor` and run crashes); package-data must name each one."""
-    source = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "fusion").rglob("*")
+    source = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "fusion_first").rglob("*")
                     if p.is_file() and p.suffix not in (".py", ".pyc")
                     and "_bundled" not in p.parts and "__pycache__" not in p.parts)
     assert source
@@ -122,7 +122,7 @@ def test_the_wheel_ships_the_package_s_own_data_files(wheel_names):
 
 @pytest.mark.unit
 def test_plugin_root_is_the_checkout_in_a_source_tree():
-    from fusion._data import plugin_root
+    from fusion_first._data import plugin_root
 
     root = plugin_root()
 
@@ -133,9 +133,9 @@ def test_plugin_root_is_the_checkout_in_a_source_tree():
 
 @pytest.mark.unit
 def test_plugin_root_falls_back_to_the_bundled_copy(tmp_path):
-    from fusion._data import plugin_root
+    from fusion_first._data import plugin_root
 
-    pkg = tmp_path / "site-packages" / "fusion"
+    pkg = tmp_path / "site-packages" / "fusion_first"
     pkg.mkdir(parents=True)
     assert plugin_root(pkg) is None
     _write(pkg / "_bundled/marketplace/.claude-plugin/marketplace.json", "{}")
@@ -145,7 +145,7 @@ def test_plugin_root_falls_back_to_the_bundled_copy(tmp_path):
 
 @pytest.mark.unit
 def test_cli_plugin_dir_prints_the_marketplace(capsys):
-    from fusion.cli import main
+    from fusion_first.cli import main
 
     assert main(["plugin-dir"]) == 0
     assert capsys.readouterr().out.strip() == str(ROOT)
@@ -153,10 +153,10 @@ def test_cli_plugin_dir_prints_the_marketplace(capsys):
 
 @pytest.mark.unit
 def test_cli_plugin_dir_without_a_marketplace_fails_with_the_install_line(monkeypatch, capsys):
-    import fusion._data
-    from fusion.cli import main
+    import fusion_first._data
+    from fusion_first.cli import main
 
-    monkeypatch.setattr(fusion._data, "plugin_root", lambda pkg_dir=None: None)
+    monkeypatch.setattr(fusion_first._data, "plugin_root", lambda pkg_dir=None: None)
 
     assert main(["plugin-dir"]) == 1
     captured = capsys.readouterr()
@@ -167,19 +167,19 @@ def test_cli_plugin_dir_without_a_marketplace_fails_with_the_install_line(monkey
 def test_one_version_for_the_package_the_app_and_the_plugin_pin():
     import tomllib
 
-    import fusion
+    import fusion_first
 
-    assert tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"] == fusion.__version__
+    assert tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"] == fusion_first.__version__
 
 
 @pytest.mark.unit
 def test_a_pip_installed_web_app_reports_its_release_not_dev(monkeypatch):
     """Modal sets VERSION; a `fusion serve` from a pip install has none, and "dev" names no release."""
     pytest.importorskip("pydantic_settings")
-    import fusion
-    from fusion.web.settings import Settings
+    import fusion_first
+    from fusion_first.web.settings import Settings
 
     monkeypatch.delenv("VERSION", raising=False)
-    assert Settings().version == fusion.__version__
+    assert Settings().version == fusion_first.__version__
     monkeypatch.setenv("VERSION", "rebuild-abc1234")
     assert Settings().version == "rebuild-abc1234"

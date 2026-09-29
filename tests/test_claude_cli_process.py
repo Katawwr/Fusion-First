@@ -11,10 +11,10 @@ import json
 
 import pytest
 
-from fusion.errors import ProviderTimeout
-from fusion.model.client import ModelRequest, ModelRole
-from fusion.model.providers import claude_cli
-from fusion.model.providers.claude_cli import (
+from fusion_first.errors import ProviderTimeout
+from fusion_first.model.client import ModelRequest, ModelRole
+from fusion_first.model.providers import claude_cli
+from fusion_first.model.providers.claude_cli import (
     ClaudeCliModelClient,
     ClaudeCliPromptTooLong,
     ClaudeCliQuotaExhausted,
@@ -176,7 +176,7 @@ def test_classify_cli_error(text, kind):
 
 @pytest.mark.unit
 def test_quota_exhaustion_is_fatal_not_isolatable():
-    from fusion.errors import isolatable
+    from fusion_first.errors import isolatable
 
     assert not isolatable(ClaudeCliQuotaExhausted("limit"))
     assert isolatable(ClaudeCliRateLimited("429"))

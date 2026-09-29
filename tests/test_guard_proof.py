@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from fusion.guardrail.guard import Guardrail
-from fusion.guardrail.policy import GuardConfig
-from fusion.guardrail.simulate import apply_guard_to_trajectory, run_guard_before_after
-from fusion.model.providers import demo_detectors  # noqa: F401
-from fusion.model.providers.heuristic import heuristic_criteria
-from fusion.schemas import Role, Step, ToolCall, Trajectory
+from fusion_first.guardrail.guard import Guardrail
+from fusion_first.guardrail.policy import GuardConfig
+from fusion_first.guardrail.simulate import apply_guard_to_trajectory, run_guard_before_after
+from fusion_first.model.providers import demo_detectors  # noqa: F401
+from fusion_first.model.providers.heuristic import heuristic_criteria
+from fusion_first.schemas import Role, Step, ToolCall, Trajectory
 
 CHECKS = ["direct_prompt_injection", "excessive_agency", "data_exfiltration", "system_prompt_leakage"]
 

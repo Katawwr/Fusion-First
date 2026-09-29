@@ -27,21 +27,21 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion.validate.benign_actions import (  # noqa: E402
+from fusion_first.validate.benign_actions import (  # noqa: E402
     build_cases,
     dev_attacker_tools,
     evaluate,
     split_of,
 )
-from fusion.validate.experiments import SPENT, build_items  # noqa: E402
-from fusion.validate.guard_on_transcripts import (  # noqa: E402
+from fusion_first.validate.experiments import SPENT, build_items  # noqa: E402
+from fusion_first.validate.guard_on_transcripts import (  # noqa: E402
     HARNESS,
     gandalf_outcome,
     injecagent_outcome,
 )
-from fusion.validate.llama_guard import MODEL as LG_MODEL  # noqa: E402
-from fusion.validate.llama_guard import parse_verdict, score  # noqa: E402
-from fusion.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
+from fusion_first.validate.llama_guard import MODEL as LG_MODEL  # noqa: E402
+from fusion_first.validate.llama_guard import parse_verdict, score  # noqa: E402
+from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore  # noqa: E402
 
 # Registered (PREREG_step2_guard.md); changing any of these after registration voids the run.
 MODELS = ("qwen2.5:7b", "llama3.1:8b")
@@ -123,9 +123,9 @@ def cmd_llama_guard(model: str) -> int:
 
 
 def cmd_score(out: str) -> int:
-    rules = _git("log", "-1", "--format=%H", "--", "fusion/guardrail")
+    rules = _git("log", "-1", "--format=%H", "--", "fusion_first/guardrail")
     if not RULES_SHA or rules != RULES_SHA:
-        raise SystemExit(f"fusion/guardrail is at {rules}, not the registered rules {RULES_SHA or '(unset)'}")
+        raise SystemExit(f"fusion_first/guardrail is at {rules}, not the registered rules {RULES_SHA or '(unset)'}")
     prior = {(r["model"], r["item_id"]): r["outcome"] for r in _jsonl(DIR / "prior.jsonl")}
     lg = {(r["config"], r["model"], r["item_id"]): parse_verdict(r["output"])["label"]
           for r in _jsonl(DIR / "lg_raw.jsonl")}
@@ -155,7 +155,7 @@ def cmd_score(out: str) -> int:
     vs_prior = s["comparisons"]["fusion_vs_fusion_prior"]["decision"]
     decision = ("adopted" if vs_prior == "fusion_better" and len(by_new) <= BENIGN_MAX_BLOCKED else "not adopted")
 
-    from fusion.model.providers.ollama import model_digest
+    from fusion_first.model.providers.ollama import model_digest
 
     evidence = {
         "demonstration": False,

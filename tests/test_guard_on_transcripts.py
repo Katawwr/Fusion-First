@@ -7,9 +7,9 @@ import dataclasses
 
 import pytest
 
-from fusion.guardrail.guard import _looks_consequential
-from fusion.validate.experiments import build_items
-from fusion.validate.guard_on_transcripts import (
+from fusion_first.guardrail.guard import _looks_consequential
+from fusion_first.validate.experiments import build_items
+from fusion_first.validate.guard_on_transcripts import (
     gandalf_outcome,
     injecagent_outcome,
     summarize,
