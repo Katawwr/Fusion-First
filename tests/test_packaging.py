@@ -69,6 +69,7 @@ def test_bundling_copies_the_plugin_marketplace(tmp_path):
     for rel, text in files.items():
         _write(root / rel, text)
     _write(root / "plugins/p/__pycache__/x.cpython-313.pyc", "")
+    _write(root / "plugins/p/README.md", "docs for people, not a plugin file")
     dest = tmp_path / "bundled"
     _write(dest / "marketplace/plugins/removed/README.md", "stale")
 
@@ -84,14 +85,22 @@ def _release_tree(root: pathlib.Path) -> None:
     _write(root / "plugins/fusion/.claude-plugin/plugin.json", '{"name": "fusion"}')
 
 
-RUNTIME_DATA = ["datasets/gold/x.v1.jsonl", "datasets/probes/x.v1.jsonl", "datasets/guard_bench/cases.jsonl",
-                "datasets/quality_tests/instruction_following.v1.jsonl", "crosswalk/owasp_crosswalk.v2025.yaml",
-                "cassettes/x.v1.json", "evals/x.baseline.json", "evals/validation/v1/judge_eval_prob_qwen7b.json"]
-# Third-party sets (licensed per source; ATTRIBUTION.md holds their notices), raw downloads, the Claude
-# Code held-out sets and evidence transcripts: read only by scripts/ and tests, never by the installed tool.
+# What the installed tool reads through data_root() (goldset, taxonomy, guard benchmark, gate, measure,
+# demo cassettes, the local-grader evidence behind the doctor hint).
+RUNTIME_DATA = sorted(["cassettes/x.v1.json", "crosswalk/owasp_crosswalk.v2025.yaml",
+                       "datasets/gold/x.v1.jsonl", "datasets/probes/x.v1.jsonl", "datasets/guard_bench/cases.jsonl",
+                       "datasets/quality_tests/instruction_following.v1.jsonl", "datasets/reference_agents/v1.jsonl",
+                       "evals/policy.yaml", "evals/baseline.x.json", "evals/guard_bench.baseline.json",
+                       "evals/validation/v1/judge_eval_prob_qwen7b.json"])
+# Everything else is evidence read only by scripts/ and tests: third-party sets (licensed per source) and raw
+# downloads, the Claude Code held-out sets, pre-registrations, evidence reports and transcripts, the claims
+# registry.
 EVIDENCE_ONLY = ["datasets/external/injecagent.v1.jsonl", "datasets/external/ATTRIBUTION.md",
                  "datasets/external/raw/ifeval/ifeval_input_data.jsonl",
                  "datasets/guard_bench/claude_code.jsonl", "datasets/guard_bench/claude_code_heldout_v3.jsonl",
+                 "datasets/guard_bench/PREREG_heldout_v3.md", "evals/claims.yaml",
+                 "evals/guard_bench/claude_code_heldout_v1.json", "evals/validation/v1/step2_guard.json",
+                 "evals/validation/v1/PREREG_step2_guard.md", "evals/validation/v1/judge_eval_prob_qwen7b/items.json",
                  "evals/validation/v1/transcripts/llama.jsonl"]
 
 
@@ -106,10 +115,8 @@ def test_bundling_ships_runtime_data_only_and_drops_what_the_source_removed(tmp_
 
     _load_setup().bundle(root, dest)
 
-    shipped = set(_files(dest))
-    assert set(RUNTIME_DATA) <= shipped
-    assert shipped.isdisjoint(EVIDENCE_ONLY)
-    assert "datasets/gold/removed_check.v1.jsonl" not in shipped
+    shipped = [f for f in _files(dest) if f.split("/")[0] in ("cassettes", "crosswalk", "datasets", "evals")]
+    assert shipped == RUNTIME_DATA  # nothing evidence-only, nothing stale from an earlier build
 
 
 @pytest.mark.unit
@@ -130,16 +137,21 @@ def test_a_release_build_without_the_web_app_or_the_marketplace_fails_loudly(tmp
 
 
 @pytest.mark.integration
-def test_the_sdist_leaves_out_evidence_only_data(tmp_path):
+def test_the_sdist_carries_only_what_builds_the_wheel(tmp_path):
+    """Owner (2026-09-29): leave out anything unnecessary: project docs, tests, examples, evidence."""
     proj = tmp_path / "proj"
     proj.mkdir()
     for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "README.md"):
         shutil.copy2(ROOT / rel, proj / rel)
-    shutil.copytree(ROOT / "fusion_first", proj / "fusion_first",
-                    ignore=shutil.ignore_patterns("_bundled", "__pycache__", "*.pyc"))
+    skip = shutil.ignore_patterns("_bundled", "__pycache__", "*.pyc")
+    shutil.copytree(ROOT / "fusion_first", proj / "fusion_first", ignore=skip)
+    shutil.copytree(ROOT / "plugins", proj / "plugins", ignore=skip)
+    shutil.copytree(ROOT / ".claude-plugin", proj / ".claude-plugin")
+    _write(proj / "frontend/dist/index.html", "<html></html>")
     for rel in RUNTIME_DATA + EVIDENCE_ONLY:
         _write(proj / rel, "x")
-    for rel in ("CLAUDE.md", "SCHEMA.md"):
+    for rel in ("CLAUDE.md", "SCHEMA.md", "HANDOFF.md", "tests/test_x.py", "integrations/README.md",
+                "integrations/examples/fusion_adapter.py", "scripts/run_evidence.py"):
         _write(proj / rel, "x")
 
     r = subprocess.run([sys.executable, "setup.py", "-q", "sdist", "-d", str(tmp_path / "out")], cwd=proj,
@@ -148,9 +160,15 @@ def test_the_sdist_leaves_out_evidence_only_data(tmp_path):
     assert r.returncode == 0, r.stderr[-3000:]
     (sdist,) = (tmp_path / "out").glob("fusion_safety-*.tar.gz")
     with tarfile.open(sdist) as tar:
-        names = {n.split("/", 1)[1] for n in tar.getnames() if "/" in n}
-    assert {"datasets/gold/x.v1.jsonl", "crosswalk/owasp_crosswalk.v2025.yaml"} <= names
-    assert names.isdisjoint(EVIDENCE_ONLY)
+        names = sorted(m.name.split("/", 1)[1] for m in tar.getmembers() if "/" in m.name and m.isfile())
+    assert [n for n in names if n.split("/")[0] in ("cassettes", "crosswalk", "datasets", "evals")] == RUNTIME_DATA
+    kept = ("cassettes", "crosswalk", "datasets", "evals", "fusion_first", "plugins", ".claude-plugin", "frontend",
+            "fusion_safety.egg-info")
+    top = ("PKG-INFO", "README.md", "pyproject.toml", "setup.py", "setup.cfg", "MANIFEST.in")
+    assert [n for n in names if n.split("/")[0] not in kept and n not in top] == []
+    assert [n for n in names if n.endswith("README.md") and n != "README.md"] == []
+    dev = {m.replace(".", "/") for m in _load_setup().DEV_ONLY_MODULES}
+    assert [n for n in names if n.endswith(".py") and n[:-3].removesuffix("/__init__") in dev] == []
 
 
 @pytest.fixture(scope="module")
@@ -183,8 +201,17 @@ def test_the_wheel_ships_the_plugin_marketplace(wheel_names):
     shipped = sorted(n[len(prefix):] for n in wheel_names if n.startswith(prefix))
     source = sorted(p.relative_to(ROOT).as_posix()
                     for d in ("plugins", ".claude-plugin") for p in (ROOT / d).rglob("*")
-                    if p.is_file() and "__pycache__" not in p.parts)
+                    if p.is_file() and "__pycache__" not in p.parts and p.name != "README.md")
     assert shipped == source
+
+
+@pytest.mark.integration
+def test_the_wheel_ships_every_module_but_the_dev_only_ones(wheel_names):
+    modules = {n[:-3].removesuffix("/__init__").replace("/", ".") for n in wheel_names
+               if n.startswith("fusion_first/") and n.endswith(".py")}
+    dev = set(_load_setup().DEV_ONLY_MODULES)
+    assert modules.isdisjoint(dev)
+    assert modules | dev == set(_package_modules())
 
 
 @pytest.mark.integration
@@ -196,6 +223,63 @@ def test_the_wheel_ships_the_package_s_own_data_files(wheel_names):
                     and "_bundled" not in p.parts and "__pycache__" not in p.parts)
     assert source
     assert [s for s in source if s not in wheel_names] == []
+
+
+def _package_modules() -> dict[str, pathlib.Path]:
+    out = {}
+    for p in (ROOT / "fusion_first").rglob("*.py"):
+        if "_bundled" in p.parts or "__pycache__" in p.parts:
+            continue
+        parts = list(p.relative_to(ROOT).with_suffix("").parts)
+        out[".".join(parts[:-1] if parts[-1] == "__init__" else parts)] = p
+    return out
+
+
+def _reachable_modules() -> set[str]:
+    """Every fusion_first module the installed entry points and the public library API can import (module
+    level or inside functions; `from package import submodule`; import_module("fusion_first...") strings)."""
+    import ast
+
+    modules = _package_modules()
+
+    def imports_of(name: str) -> set[str]:
+        path = modules[name]
+        found = set()
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                found |= {a.name for a in node.names}
+            elif isinstance(node, ast.ImportFrom):
+                base = node.module or ""
+                if node.level:
+                    parts = name.split(".") if path.name == "__init__.py" else name.split(".")[:-1]
+                    parts = parts[: len(parts) - (node.level - 1)]
+                    base = ".".join(parts + ([node.module] if node.module else []))
+                found |= {base} | {f"{base}.{a.name}" for a in node.names}
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value.startswith("fusion_first."):
+                found.add(node.value)
+        closed = {".".join(m.split(".")[:i]) for m in found for i in range(1, m.count(".") + 2)}
+        return {m for m in closed if m in modules}
+
+    roots = {"fusion_first", "fusion_first.cli", "fusion_first.integrations.mcp_server",  # console scripts
+             "fusion_first.web.factory", "fusion_first.web.serve",  # fusion serve
+             "fusion_first.integrations.claude_hooks", "fusion_first.integrations.agent_tools",
+             "fusion_first.integrations.promptfoo",  # promptfoo assertions load it by path
+             "fusion_first.targets"} | {m for m in modules if m.startswith("fusion_first.guardrail")}  # library API
+    seen, stack = set(), sorted(roots)
+    while stack:
+        m = stack.pop()
+        if m not in seen:
+            seen.add(m)
+            stack.extend(imports_of(m) - seen)
+    return seen
+
+
+@pytest.mark.unit
+def test_the_dev_only_modules_are_exactly_those_nothing_installed_reaches():
+    """They are left out of the wheel. Wiring one into the CLI, the MCP server, the web app or the guardrail
+    makes it reachable: take it off setup.py's DEV_ONLY_MODULES, or every pip install breaks."""
+    unreachable = set(_package_modules()) - _reachable_modules()
+    assert set(_load_setup().DEV_ONLY_MODULES) == unreachable
 
 
 @pytest.mark.unit
