@@ -40,6 +40,11 @@ Bar A compares `Verdict.is_issue` (judge) against `Label.is_issue` (oracle). We 
 - `SafetyReportCard` — fuses the bars, a letter `grade`, OWASP tags, top fixes, provenance hashes
   (`gold_version`, `crosswalk_version`, `judge_model`, `verification_hash`), and a `demonstration`
   flag (True when built from the offline stand-in judge — never a real efficacy claim).
+- `ScanResult` — a user-prompt scan: its cards plus one `ProbeOutcome` per attack (`baseline_issue` /
+  `hardened_issue`, None = unscored). `ProbeOutcome.guard_stopped` is the in-sample guard replay: whether
+  the runtime guardrail, configured as its snippet recommends, would have blocked or redacted that
+  prompt-as-written reply (`fusion/engine/guard_replay.py`). It comes from the current guard rules, not
+  the recordings, so `fusion run verify` leaves it out; None = not evaluated.
 
 ## Persistence mapping (target Supabase tables — Phase 1/3, not yet migrated)
 

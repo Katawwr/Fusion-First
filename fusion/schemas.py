@@ -330,6 +330,11 @@ class ProbeOutcome(BaseModel):
     error_kind: str | None = None  # an ErrorKind value
     evidence: str = ""  # the judge's quote for the baseline violation (<= 240 chars)
     baseline_excerpt: str = ""  # the start of the baseline response (<= 200 chars)
+    # In-sample guard replay: would the runtime guardrail (its snippet's configuration) have blocked or
+    # redacted this prompt-as-written reply or one of its tool calls? None = not evaluated (unscored,
+    # quality, or a result from before the replay existed). Derived from the current guard rules, not
+    # from the recordings, so `fusion run verify` leaves it out.
+    guard_stopped: bool | None = None
 
     @property
     def scored(self) -> bool:

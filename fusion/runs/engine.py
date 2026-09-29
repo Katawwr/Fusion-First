@@ -819,8 +819,16 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
     return result
 
 
+# The guard replay's verdicts come from the current guard rules, not from the recordings, so a run
+# finalized before the replay existed (or before a rule change) still verifies.
+_NOT_FROM_RECORDINGS = frozenset({"guard_stopped"})
+
+
 def _result_fields(d: dict) -> dict:
-    return {k: d.get(k) for k in ScanResult.model_fields}
+    out = {k: d.get(k) for k in ScanResult.model_fields}
+    out["outcomes"] = [{k: v for k, v in o.items() if k not in _NOT_FROM_RECORDINGS}
+                       for o in out.get("outcomes") or []]
+    return out
 
 
 async def verify(rd: RunDir) -> dict:

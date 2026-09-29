@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from fusion.attacks.taxonomy import Crosswalk
 from fusion.attacks.templates import AttackTemplate, select_templates
 from fusion.engine.fixes import apply_fix
+from fusion.engine.guard_replay import guard_for_prompt, guard_stops
 from fusion.engine.report import build_report_card
 from fusion.errors import ErrorKind, classify, isolatable
 from fusion.judge.judge import Judge
@@ -223,6 +224,7 @@ async def _score_template(
         hardened_severity=h.severity,
         evidence=_evidence(b) if b.is_issue else "",
         baseline_excerpt=_excerpt(_last_assistant_text(base_traj), 200),
+        guard_stopped=guard_stops(template, base_traj, guard_for_prompt(system_prompt)),
     )
 
 

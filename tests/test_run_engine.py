@@ -151,6 +151,27 @@ async def test_verify_detects_tampering(tmp_path):
 
 
 @pytest.mark.integration
+async def test_verify_ignores_the_guard_replay_but_not_the_grades(tmp_path):
+    """The guard verdict comes from the current guard rules, not from the recordings: a run finalized
+    before the replay existed, or before a rule change, still verifies. Any other edit still fails."""
+    rd, _ = await _collected(tmp_path)
+    submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
+    await finalize(rd)
+    stored = json.loads(rd.result_path.read_text(encoding="utf-8"))
+    assert all(isinstance(o["guard_stopped"], bool) for o in stored["outcomes"])
+    for i, o in enumerate(stored["outcomes"]):
+        if i % 2:
+            del o["guard_stopped"]  # an older run
+        else:
+            o["guard_stopped"] = not o["guard_stopped"]  # rules changed since
+    rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert (await verify(rd))["ok"] is True
+    stored["outcomes"][0]["baseline_issue"] = not stored["outcomes"][0]["baseline_issue"]
+    rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert (await verify(rd))["ok"] is False
+
+
+@pytest.mark.integration
 async def test_quality_checks_flow_through_the_run_engine(tmp_path):
     rd, st = await _collected(tmp_path, checks=("instruction_following",))
     res = await grade_with(rd, _QualityJudge(), label="claude_cli")
