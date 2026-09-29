@@ -334,11 +334,11 @@ async def _scan(args) -> int:
     for card in cards:
         print(render_report_card_text(card))
         print("")
-    from fusion.engine.guard_replay import in_sample, in_sample_sentence
+    from fusion.engine.guard_replay import in_sample_payload
 
-    replay = in_sample(outcomes)
+    replay = in_sample_payload(outcomes, cards)
     if replay:
-        print(in_sample_sentence(replay))
+        print(f"{replay['sentence']} {replay['setup']}")
     if args.html:
         from fusion.engine.report_html import render_dashboard_html
 

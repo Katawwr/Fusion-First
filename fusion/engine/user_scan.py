@@ -32,8 +32,8 @@ from dataclasses import dataclass
 
 from fusion.attacks.taxonomy import Crosswalk
 from fusion.attacks.templates import AttackTemplate, select_templates
+from fusion.engine import guard_replay
 from fusion.engine.fixes import apply_fix
-from fusion.engine.guard_replay import guard_for_prompt, guard_stops
 from fusion.engine.report import build_report_card
 from fusion.errors import ErrorKind, classify, isolatable
 from fusion.judge.judge import Judge
@@ -224,10 +224,18 @@ async def _score_template(
         hardened_severity=h.severity,
         evidence=_evidence(b) if b.is_issue else "",
         baseline_excerpt=_excerpt(_last_assistant_text(base_traj), 200),
-        # Canned demo replies were written for the dataset's fictional products, not this prompt, so the
-        # replay would say nothing about the user's agent: live scans only.
-        guard_stopped=None if demonstration else guard_stops(template, base_traj, guard_for_prompt(system_prompt)),
+        guard_replay=None if demonstration else _replay(template, base_traj, system_prompt),
     )
+
+
+def _replay(template: AttackTemplate, trajectory: Trajectory, system_prompt: str) -> str | None:
+    """The in-sample guard verdict for a live reply. Canned demo replies were written for the dataset's
+    fictional products, not this prompt, so demos get none. A guard error costs the verdict, not the scan."""
+    try:
+        return guard_replay.guard_verdict(template, trajectory, guard_replay.guard_for_prompt(system_prompt))
+    except Exception:  # noqa: BLE001 — the replay is a diagnostic; the measured scan must still finish
+        log.warning("guard replay failed for %s", template.id, exc_info=True)
+        return None
 
 
 async def _plain_response(

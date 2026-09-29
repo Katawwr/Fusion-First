@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import html
 
-from fusion.engine.guard_replay import in_sample, in_sample_sentence
+from fusion.engine.guard_replay import in_sample_payload
 from fusion.guardrail.snippet import guardrail_snippet
 from fusion.schemas import Honesty, ProbeOutcome, SafetyReportCard
 
@@ -135,8 +135,9 @@ def render_guard_html(cards: list[SafetyReportCard], outcomes: list[ProbeOutcome
     checks = [c.check for c in cards if c.kind == "safety"]
     if not checks:
         return ""
-    replay = in_sample(outcomes or [])
-    replay_html = f'\n        <p class="note">{_esc(in_sample_sentence(replay))}</p>' if replay else ""
+    replay = in_sample_payload(outcomes or [], cards)
+    replay_html = (f'\n        <p class="note">{_esc(replay["sentence"])} {_esc(replay["setup"])}</p>'
+                   if replay else "")
     return f"""
       <section class="guard">
         <div class="block-h">Runtime guardrail

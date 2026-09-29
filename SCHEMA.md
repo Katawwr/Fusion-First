@@ -41,10 +41,11 @@ Bar A compares `Verdict.is_issue` (judge) against `Label.is_issue` (oracle). We 
   (`gold_version`, `crosswalk_version`, `judge_model`, `verification_hash`), and a `demonstration`
   flag (True when built from the offline stand-in judge — never a real efficacy claim).
 - `ScanResult` — a user-prompt scan: its cards plus one `ProbeOutcome` per attack (`baseline_issue` /
-  `hardened_issue`, None = unscored). `ProbeOutcome.guard_stopped` is the in-sample guard replay: whether
-  the runtime guardrail, configured as its snippet recommends, would have blocked or redacted that
-  prompt-as-written reply (`fusion/engine/guard_replay.py`). It comes from the current guard rules, not
-  the recordings, so `fusion run verify` leaves it out; None = not evaluated.
+  `hardened_issue`, None = unscored). `ProbeOutcome.guard_replay` is the in-sample guard replay on that
+  prompt-as-written reply (`fusion/engine/guard_replay.py`): `stopped` (the snippet-configured guard
+  blocked or redacted something), `allowed`, or `no_tool_call` (a tool-action attack answered in prose:
+  nothing for the tool-call check to see). It comes from the current guard rules, not the recordings,
+  so `fusion run verify` leaves it out; None = not evaluated (unscored, quality, demo).
 
 ## Persistence mapping (target Supabase tables — Phase 1/3, not yet migrated)
 

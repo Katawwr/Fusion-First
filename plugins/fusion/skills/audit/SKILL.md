@@ -56,9 +56,10 @@ Present Fusion's result as it is:
   The known-answer questions are public, so this checks an honest grader's skill. It is not proof
   against a grader that games it.
 - The failures that got through (a few examples) and the `report_html` path.
-- The `guard_in_sample` sentence, if present, quoted as is: what the runtime guardrail would have
-  stopped on this run's own replies. Say it is in-sample (the run's own attacks), not a measurement
-  of the guard.
+- The `guard_in_sample` sentence and its `setup`, if present, quoted as is: what the runtime
+  guardrail would have stopped on this run's own replies, and how it was set up. Say it is in-sample
+  (the run's own attacks), not a measurement of the guard. Attacks answered in prose had no tool call
+  for the guard to check: never report them as not stopped.
 - Offer the runtime guardrail first (`guard` skill): it blocks leaked secrets and tool calls the user's
   request does not cover. The prompt fix is optional: give its measured result from the "with fix"
   column (honesty label verbatim) and apply it only if the user wants it (`harden` skill).

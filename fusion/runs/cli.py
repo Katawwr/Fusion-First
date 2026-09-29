@@ -7,7 +7,7 @@
     fusion run submit [RUN] --file answers.json               # validated, one answer per question
     fusion run grade  [RUN]                                   # finish grading with the run's built-in grader
     fusion run finalize [RUN] --min-grade B                   # the card; exit 1 below the bar
-    fusion run verify [RUN]                                   # re-derive offline; exit 1 on any drift
+    fusion run verify [RUN]                                   # re-derive offline; exit 1 on drift
     fusion run status [RUN] | fusion run list
 
 RUN defaults to the most recent run; a unique id prefix works too.
@@ -160,7 +160,7 @@ def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
         lines.append(f"  {c['check']:26} {c['grade']}  issues {rate_s} [{c['honesty']}] "
                      f"scored {c['scored']} · {acc_s}")
     if summary.get("guard_in_sample"):
-        lines.append(summary["guard_in_sample"]["sentence"])
+        lines.append(f"{summary['guard_in_sample']['sentence']} {summary['guard_in_sample']['setup']}")
     if summary.get("report_html"):
         lines.append(f"Report: {summary['report_html']}")
     lines.append(f"Verify: {summary['verify']}")
@@ -281,7 +281,7 @@ def cmd_run(args) -> int:
                     _out(args, res, f"FAILED: {res['reason']}")
                     return 1
             res = asyncio.run(service.verify_any(rd))
-            _out(args, res, "verified: result re-derived exactly" if res["ok"] else f"FAILED: {res['reason']}")
+            _out(args, res, "verified: result re-derived exactly (in-sample guard verdicts excluded)" if res["ok"] else f"FAILED: {res['reason']}")
             return 0 if res["ok"] else 1
     except (RunError, SpecError, BackendUnavailable, FusionError, ValueError, OSError) as e:
         # exit 2 = the run could not proceed; exit 1 is reserved for a failed gate or verify drift

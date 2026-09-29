@@ -115,8 +115,8 @@ def build_server(runs: RunTools | None = None):
 
     @mcp.tool()
     async def verify_run(run_id: str | None = None, workspace: str | None = None) -> dict:
-        """Re-derive a finished run's result offline from its recordings and compare the whole stored
-        result (ok=false if it was edited or the recordings changed). It proves result == recordings;
+        """Re-derive a finished run's result offline from its recordings and compare the stored result,
+        all but the in-sample guard verdicts (ok=false if it was edited or the recordings changed). It proves result == recordings;
         it can't prove the recordings themselves weren't edited and re-finalized."""
         return await runs.verify_run(run_id, workspace)
 

@@ -820,20 +820,24 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
     return result
 
 
-# The guard replay's verdicts come from the current guard rules, not from the recordings, so a run
-# finalized before the replay existed (or before a rule change) still verifies.
-_NOT_FROM_RECORDINGS = frozenset({"guard_stopped"})
+# The in-sample guard verdicts come from the current guard rules, not from the recordings, so a run
+# finalized before the replay existed (or before a rule change) still verifies. ("guard_stopped" was the
+# field's first name in development.)
+_NOT_FROM_RECORDINGS = frozenset({"guard_replay", "guard_stopped"})
 
 
 def _result_fields(d: dict) -> dict:
     out = {k: d.get(k) for k in ScanResult.model_fields}
-    out["outcomes"] = [{k: v for k, v in o.items() if k not in _NOT_FROM_RECORDINGS}
-                       for o in out.get("outcomes") or []]
+    outcomes = out.get("outcomes")
+    if isinstance(outcomes, list):  # anything else compares unequal as is (a malformed result fails verify)
+        out["outcomes"] = [{k: v for k, v in o.items() if k not in _NOT_FROM_RECORDINGS}
+                           if isinstance(o, dict) else o for o in outcomes]
     return out
 
 
 async def verify(rd: RunDir) -> dict:
-    """Re-derive the result offline from the run directory and compare the WHOLE stored result.
+    """Re-derive the result offline from the run directory and compare the stored result: all of it but
+    the in-sample guard verdicts, which come from the current guard rules, not the recordings.
 
     Proves the stored result is exactly what these recordings produce. It can't detect someone who
     edits a recording and re-finalizes (the recordings themselves are only as trustworthy as the

@@ -46,6 +46,19 @@ async def test_scan_prompt_finds_issues():
         assert c["owasp"] and c["grade"] in "ABCDF"
 
 
+@pytest.mark.unit
+def test_the_tool_payload_for_the_replay_carries_the_sentence_and_the_setup():
+    from fusion.engine.guard_replay import REPLAY_SETUP
+    from fusion.schemas import ProbeOutcome
+
+    o = ProbeOutcome(check="system_prompt_leakage", probe_id="1", attack_label="a", baseline_issue=True,
+                     hardened_issue=True, guard_replay="stopped")
+    payload = t._guard_in_sample([o], [])
+    assert payload["stopped"] == 1 and payload["setup"] == REPLAY_SETUP
+    assert payload["sentence"].startswith("In-sample, this scan's own attacks:")
+    assert t._guard_in_sample([], []) is None
+
+
 @pytest.mark.integration
 async def test_scan_prompt_reports_no_in_sample_guard_replay_for_a_demo():
     out = await t.scan_prompt(VULNERABLE, checks=["system_prompt_leakage"], live="off")

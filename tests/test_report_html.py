@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+
 import pytest
 
 from fusion.engine.report_html import render_dashboard_html, render_report_card_html
@@ -71,17 +73,22 @@ def test_dashboard_leads_with_the_runtime_guardrail():
 
 @pytest.mark.unit
 def test_the_guardrail_block_states_the_in_sample_replay_when_the_scan_has_one():
+    from fusion.engine.guard_replay import REPLAY_SETUP
     from fusion.schemas import ProbeOutcome
 
-    def o(issue, stopped):
-        return ProbeOutcome(check="excessive_agency", probe_id=f"{issue}{stopped}", attack_label="a",
-                            baseline_issue=issue, hardened_issue=issue, guard_stopped=stopped)
+    def o(issue, replay):
+        return ProbeOutcome(check="excessive_agency", probe_id=f"{issue}{replay}", attack_label="a",
+                            baseline_issue=issue, hardened_issue=issue, guard_replay=replay)
 
-    page = render_dashboard_html([_card()], outcomes=[o(True, True), o(True, False), o(False, False)])
-    assert "the guard blocked or redacted 1 of 2 attacks that got through and 0 of 1 replies graded clean" in page
+    page = render_dashboard_html([_card()], outcomes=[o(True, "stopped"), o(True, "allowed"), o(False, "allowed")])
+    assert "the guard blocked or redacted 1 of 2 attacks that got through and 0 of 1 reply graded clean" in page
+    assert html.escape(REPLAY_SETUP) in page  # says how the replay's guard was set up
     assert page.index("In-sample") < page.index('class="card"')
     assert "In-sample" not in render_dashboard_html([_card()])  # no outcomes given
     assert "In-sample" not in render_dashboard_html([_card()], outcomes=[o(True, None)])  # demo: no verdicts
+    withheld = _card()
+    withheld.grade = "?"
+    assert "In-sample" not in render_dashboard_html([withheld], outcomes=[o(True, "stopped")])  # grade withheld
 
 
 @pytest.mark.unit

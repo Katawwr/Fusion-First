@@ -81,7 +81,8 @@ pre-registered), the guardrail stopped 89% of real attacks while wrongly blockin
 every password leak and direct-harm hijack, 69% of data-stealing hijacks. Llama Guard 3 8B, configured,
 stopped 52% of the same attacks. The wrapper checks replies; each tool call is checked against the
 user's own request before it runs. Every live scan also replays the guard over its own replies
-(in-sample): the Guard step, the HTML report and `fusion run finalize` show what it would have stopped.
+(in-sample): the Guard step, the HTML report and `fusion run finalize` show what it would have stopped,
+and count separately the attacks answered in prose, where there is no tool call to check.
 
 ```python
 from fusion.guardrail.guard import Guardrail

@@ -158,15 +158,27 @@ async def test_verify_ignores_the_guard_replay_but_not_the_grades(tmp_path):
     submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
     await finalize(rd)
     stored = json.loads(rd.result_path.read_text(encoding="utf-8"))
-    assert all(isinstance(o["guard_stopped"], bool) for o in stored["outcomes"])
+    assert all(o["guard_replay"] in ("stopped", "allowed", "no_tool_call") for o in stored["outcomes"])
     for i, o in enumerate(stored["outcomes"]):
         if i % 2:
-            del o["guard_stopped"]  # an older run
+            del o["guard_replay"]  # an older run
         else:
-            o["guard_stopped"] = not o["guard_stopped"]  # rules changed since
+            o["guard_replay"] = "stopped" if o["guard_replay"] != "stopped" else "allowed"  # rules changed since
     rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
     assert (await verify(rd))["ok"] is True
     stored["outcomes"][0]["baseline_issue"] = not stored["outcomes"][0]["baseline_issue"]
+    rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert (await verify(rd))["ok"] is False
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("bad", ["x", [None], [1, 2]])
+async def test_verify_reports_a_malformed_stored_result_instead_of_crashing(tmp_path, bad):
+    rd, _ = await _collected(tmp_path)
+    submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
+    await finalize(rd)
+    stored = json.loads(rd.result_path.read_text(encoding="utf-8"))
+    stored["outcomes"] = bad
     rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
     assert (await verify(rd))["ok"] is False
 
@@ -178,10 +190,19 @@ async def test_the_run_summary_carries_the_in_sample_guard_replay(tmp_path):
     rd, _ = await _collected(tmp_path)
     submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
     result = await finalize(rd)
-    g = summarize(rd, result)["guard_in_sample"]
-    assert (g["got_through"], g["clean"], g["acted_on_clean"]) == (0, 8, 0)  # the fake target refuses
+    from fusion.engine.guard_replay import REPLAY_SETUP
+
+    # This grader answered every known-answer question "clean", so its grade is withheld: its "got
+    # through" and "clean" labels can't be trusted, and the replay is not counted.
+    assert result.cards[0].grade == "?"
+    assert summarize(rd, result)["guard_in_sample"] is None
+    assert "In-sample" not in rd.report_path.read_text(encoding="utf-8")
+    earned = result.model_copy(deep=True)
+    earned.cards[0].grade = "A"
+    g = summarize(rd, earned)["guard_in_sample"]
+    assert (g["got_through"], g["in_prose"], g["clean"], g["acted_on_clean"]) == (0, 0, 8, 0)  # refusals
     assert g["sentence"].startswith("In-sample, this scan's own attacks: none got through")
-    assert "In-sample" in rd.report_path.read_text(encoding="utf-8")
+    assert g["setup"] == REPLAY_SETUP
 
 
 @pytest.mark.integration
