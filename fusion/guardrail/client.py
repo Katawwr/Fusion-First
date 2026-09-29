@@ -1,5 +1,6 @@
 """GuardedModelClient — wrap any ModelClient so every response passes the output guard before it
-reaches the caller. Compose with BudgetedModelClient for full runtime protection:
+reaches the caller. It checks replies only: tool calls need `guard.guard_tool_call(...)` before they
+run (see `fusion/guardrail/snippet.py`). Composes with BudgetedModelClient:
 
     client = GuardedModelClient(BudgetedModelClient(provider), Guardrail(cfg))
 """

@@ -170,6 +170,7 @@ if outcome.blocked:
 ## Where else this fits
 
 - **Prompt registries / eval suites**: gate every prompt change in review.
-- **Agent frameworks** (LangChain/LlamaIndex/custom): wrap the model client with the guardrail.
+- **Agent frameworks** (LangChain/LlamaIndex/custom): wrap the model client and check each tool call
+  with `guard_tool_call` before it runs.
 - **Data pipelines that call LLMs**: `check_output` before persisting or forwarding a response.
 - **Support/ops copilots**: `check_tool_call` before executing a refund/delete/transfer.

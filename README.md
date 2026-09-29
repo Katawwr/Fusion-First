@@ -3,7 +3,7 @@
 **Measure and guard AI agents.** Fusion attacks an agent's system prompt with an OWASP-mapped suite,
 grades safety and quality with a cross-family judge whose accuracy is measured in the same run, and
 ships a runtime guardrail that blocks leaked secrets and tool calls the user's request does not cover
-(measured results under Use, 3). Every number carries a confidence interval or an honesty badge. The
+(measured results below). Every number carries a confidence interval or an honesty badge. The
 prompt fix is optional and re-tested on your model (paired before/after, McNemar, honesty badge): on
 the small open-weight models measured it rarely cut attacks and raised refusals of safe requests; see
 the [Trust Report](TRUST_REPORT.md).
@@ -80,7 +80,8 @@ On fresh successful attacks against qwen2.5:7b and llama3.1:8b (rules 0c560b5, s
 pre-registered), the guardrail stopped 89% of real attacks while wrongly blocking 1% of clean transcripts:
 every password leak and direct-harm hijack, 69% of data-stealing hijacks. Llama Guard 3 8B, configured,
 stopped 52% of the same attacks. The wrapper checks replies; each tool call is checked against the
-user's own request before it runs.
+user's own request before it runs. Every live scan also replays the guard over its own replies
+(in-sample): the Guard step, the HTML report and `fusion run finalize` show what it would have stopped.
 
 ```python
 from fusion.guardrail.guard import Guardrail

@@ -3,14 +3,23 @@
 Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** At 85% context the hook asks
 for a handoff (CLAUDE.md, "Context handoff"): a regular session via `start_session` if the app exposes it
 (it doesn't yet), otherwise ask the owner to open a new chat. **Never a routine or scheduled task** (owner).
-Plans: `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md` (master),
-`~/.claude/plans/measure-guard-reposition.md` (this session's, done).
+Plans: `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md` (master);
+`~/.claude/plans/measure-guard-reposition.md` and `~/.claude/plans/guard-replay.md` (this session's, done;
+ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md`).
 
 ## State
 
-- Branch `rebuild/agentic-safety-engine`, all committed locally. **Never push or publish.**
-- Green at last run: `python -m pytest -q` (1,638), `ruff check fusion tests scripts app`, frontend vitest (102)
-  + lint + build, Playwright E2E (11), `claude plugin validate plugins/fusion`.
+- Branch `rebuild/agentic-safety-engine`, all committed locally. **Never push or publish** (deploying is the
+  owner's call; see "Deployment" below).
+- Green at last run (2026-09-29): `python -m pytest -q` (1,665), `ruff check fusion tests scripts app`,
+  frontend vitest (117) + lint + build, Playwright E2E (12), `claude plugin validate plugins/fusion`.
+- **Deployment (checked 2026-09-29, read-only):** `fusion-first-testing.com` → Vercel project `secure-studio`
+  (linked in `frontend/.vercel/`) serves the OLD pre-rebuild app (build of 2026-09-12: "Quality Testing Tool",
+  hallucination testing, credits/LemonSqueezy pricing, Supabase sign-in, and the old unbacked claim "100%
+  accuracy in quality issue detection"). Its Supabase project (`redacted-legacy-project`) no longer resolves, so
+  sign-in there is broken. The old Modal apps (`fusion-quality-tester`, healthy; a `fusion-secur…` app) are
+  deployed since Dec 2025; the rebuild's `fusion-safety-api` (app/modal_app.py) was never deployed. No git
+  remote. Modal CLI token present; Vercel CLI login not checked. The rebuild needs no Supabase (no accounts).
 - `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
   (`python -m fusion.validate.trust_report`); tests fail on drift.
 - Ollama models: llama3.2:1b, qwen2.5:1.5b, gemma3:1b, qwen2.5:3b, qwen2.5:7b, llama3.1:8b, llama-guard3:8b.
@@ -65,10 +74,27 @@ Plans: `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md` (m
     caveat; CLI help and CI hint; MCP instructions, tool descriptions and `next_steps` offer the guard first;
     integrations/README; plugin README, `harden` (optional) and `audit` skills; README intro; CLAUDE.md.
 - **Guard snippet correctness:** `GuardedModelClient` guards replies only; tool calls are gated only by
-  `guard.guard_tool_call(name, args, user_request=..., untrusted_context=True)`, which step 2 measured. The
-  snippet now shows that call (a test executes it), lists only safety checks, fits 80 columns; README,
-  integrations/README, the /use page and the guard skill no longer say the wrapper gates tool calls. README
-  cites rules 0c560b5 for the step-2 numbers.
+  `guard.guard_tool_call(name, args, user_request=..., untrusted_context=True)`. The snippet (and its README,
+  integrations/README and /use copies) now uses the measured config, `GuardConfig(require_authorization=True)`,
+  shows that call (a test executes it), lists each safety check once, fits 80 columns, and says a system-prompt
+  dump is blocked (not redacted). README cites rules 0c560b5 for the step-2 numbers.
+- **Final review of the repositioning** (fresh reviewer): 0 critical, 6 important, all fixed with RED→GREEN
+  tests: the snippet config above; the report headline no longer calls a PRELIMINARY fix "not significant";
+  landing use case 1 is an indirect injection (request binding can't stop a user asking for the refund);
+  `audit_agent` / `finalize_run` verdicts lead with the guard; /use shows the guard third and the fix as
+  optional; plain bullets for what got through. Also: the Scan page never shows another prompt's hardened
+  prompt (stale state after cancel/restart, late replies dropped) and the snippet and fix load independently.
+  Deferred minors: the web copy doesn't name rules 0c560b5; `/api/guardrail-snippet` returns quality checks
+  it doesn't cover.
+- **In-sample guard replay built** (owner: build it; a redaction counts as stopped; label it in-sample):
+  every scored attack of a LIVE scan carries `ProbeOutcome.guard_stopped` (`fusion/engine/guard_replay.py`:
+  the snippet's config with the scan's prompt and the values it marks secret; tool calls against the user's
+  own message, `untrusted_context` when the attack injected content). Shown as "In-sample, this scan's own
+  attacks: the guard blocked or redacted X of Y attacks that got through and Z of W replies graded clean" in
+  the Guard step (with a per-check table), the HTML report, `fusion run finalize` / MCP `finalize_run`
+  (`guard_in_sample`), `fusion scan` and `scan_prompt`. Demo scans carry no verdict (canned replies were
+  written for the dataset's fictional products: the replay showed 0–1/8 leaks stopped there). `fusion run
+  verify` leaves the verdict out (it comes from the current rules, not the recordings), so older runs verify.
 - **Handoff:** no routines (owner: "it didn't work"); the routines no longer exist. The app's
   `start_session` / `hand_off_to_session` are not exposed to these sessions and the docs describe no setting.
 
@@ -101,14 +127,12 @@ Plans: `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md` (m
 
 ## Next
 
-0. Owner's optional follow-up to the repositioning, not started: show the guard on the user's own scan ("the
-   guard stopped X of Y attacks found in this scan"). A scan keeps only a 200-character excerpt per attack
-   (`ProbeOutcome.baseline_excerpt`), so the guard must run inside the scan (`fusion/engine/user_scan.py`):
-   `guard_output` on each baseline reply (the prompt's secrets + system prompt) and `guard_tool_call` on
-   parsed tool calls (the probe's user message; `untrusted_context=True` when the probe injects content),
-   recording the verdict per outcome; the Guard step then shows fired-on counts for attacks that got through
-   and for replies graded clean. Decide with the owner before building: whether a redaction counts as
-   stopped, and the label (in-sample, the scan's own attacks; a per-user diagnostic, never evidence).
+0. **Owner decision pending: deployment** (see State, "Deployment"). Options put to the owner: (a) deploy the
+   rebuild: the API to Modal in demo-only mode (no live models, no spend) and the frontend, built pointing at
+   it, to the Vercel project `secure-studio`; or (b) at least take the old site down (it shows an unbacked
+   claim and a broken sign-in). Both are publishing steps: do nothing until the owner says which. Not yet
+   checked: Vercel CLI login on this machine; a live E2E of the in-sample replay (needs a live grader: the
+   claude CLI is logged out; an Ollama grader works but is slow).
 
 1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
    e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every

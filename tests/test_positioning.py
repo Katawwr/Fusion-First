@@ -43,3 +43,19 @@ def test_the_project_guide_names_the_guardrail_and_the_optional_fix():
     intro = _intro("CLAUDE.md")
     assert "runtime guardrail" in intro
     assert "prompt fix" in intro and "optional" in intro
+
+
+@pytest.mark.unit
+def test_the_docs_describe_the_in_sample_guard_replay():
+    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    assert "in-sample" in readme[readme.index("**3. Runtime guardrail**"):]
+    audit = (ROOT / "plugins" / "fusion" / "skills" / "audit" / "SKILL.md").read_text(encoding="utf-8")
+    assert "guard_in_sample" in audit and "in-sample" in audit
+
+
+@pytest.mark.unit
+def test_no_doc_says_wrapping_the_client_is_the_whole_guard():
+    client = (ROOT / "fusion" / "guardrail" / "client.py").read_text(encoding="utf-8")
+    assert "full runtime protection" not in client
+    integrations = (ROOT / "integrations" / "README.md").read_text(encoding="utf-8")
+    assert "wrap the model client with the guardrail." not in integrations
