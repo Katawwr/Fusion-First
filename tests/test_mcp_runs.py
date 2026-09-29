@@ -117,6 +117,20 @@ async def test_stalled_run_is_detected_and_resumed(tmp_path):
 
 
 @pytest.mark.integration
+def test_the_cli_status_of_a_run_left_grading_says_how_to_resume(tmp_path):
+    """Seen live: a built-in grader's process died with its session and `fusion run status` said "check
+    again shortly" for an hour. The CLI can't see whether a process still works on the run, so it says how
+    to resume one that stopped (resuming keeps every recorded answer)."""
+    from fusion.runs.service import start_run as svc_start
+    from fusion.runs.service import status
+
+    rd = svc_start(str(tmp_path), PROMPT, checks=["direct_prompt_injection"], target="ollama:m",
+                   grader="ollama:g")
+    rd.update_state(phase="grading", message="grading 98 questions", n_tasks=98, n_graded=0)
+    assert "fusion run resume" in status(rd)["next"]
+
+
+@pytest.mark.integration
 async def test_empty_batch_explains_leases(tmp_path):
     tools = _tools(tmp_path)
     st = await tools.start_run(PROMPT, target="ollama:m", checks=["direct_prompt_injection"])

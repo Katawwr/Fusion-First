@@ -191,7 +191,9 @@ def _next_step(rd: RunDir, grader: str, st: RunState, running: bool | None) -> s
     if external:
         return (f"{left} questions need grading: call get_grading_tasks, answer each from its "
                 "transcript, then submit_grades (the fusion-judge agent can do this for you).")
-    return f"Grading with {grader} — check run_status again shortly."
+    tail = "" if running else (f" If no process is working on it, resume it (fusion run resume {rd.run_id}); "
+                               "graded answers are kept.")
+    return f"Grading with {grader} — check run_status again shortly.{tail}"
 
 
 def list_runs(workspace: str | os.PathLike | None = None) -> list[dict]:
