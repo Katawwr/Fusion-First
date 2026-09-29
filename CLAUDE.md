@@ -1,8 +1,12 @@
 # Fusion First — project guide for Claude
 
-Fusion First is a **proof-grade evaluation engine for AI agents — safety AND quality**. You connect
-an agent (or paste a prompt), Fusion tests it and returns a **Report Card** where every number carries
-a confidence interval or an honesty badge. The wedge is *proof*: a cross-family judge whose accuracy
+Fusion First is a **proof-grade evaluation engine for AI agents — safety AND quality** with a
+**runtime guardrail**: positioned as *measure + guard* (owner, 2026-09-29). You connect an agent (or
+paste a prompt), Fusion tests it and returns a **Report Card** where every number carries a confidence
+interval or an honesty badge, and the guardrail blocks leaked secrets and tool calls the user's
+request does not cover (its pre-registered step-2 result is the headline). The prompt fix (`harden`)
+is optional and always shown with its measured caveat: on small open-weight models it rarely cut
+attacks and raised refusals of safe requests. The wedge is *proof*: a cross-family judge whose accuracy
 is measured against ground truth in every run, with grades withheld when it can't be trusted (no
 vibes-based metrics). The rubric makes a grade checkable (per-criterion answers, quoted evidence); it
 is NOT shown to be more accurate than a plain one-question judge (pre-registered B3, Trust Report Q4),
@@ -78,8 +82,8 @@ python scripts/fusion_cli.py record --check all      # rebuild demo cassettes (a
 python scripts/fusion_cli.py eval   --check all      # run the accuracy gate for every check
 python scripts/fusion_cli.py eval   --check direct_prompt_injection --update-baseline
 python scripts/fusion_cli.py prove  --check all --html report.html   # Safety Report Card(s) + HTML
-python scripts/fusion_cli.py fix    --check excessive_agency         # print the guardrail block
-python scripts/fusion_cli.py harden --prompt my_prompt.txt --write   # AUTO-APPLY the fix in place
+python scripts/fusion_cli.py fix    --check excessive_agency         # print the optional prompt-fix block
+python scripts/fusion_cli.py harden --prompt my_prompt.txt --write   # optional: append the prompt fix in place
 python scripts/fusion_cli.py guard-proof --check all                 # runtime guardrail reduction
 python -m fusion.cli doctor                                          # keyless backends (no model calls)
 python -m fusion.cli run start --prompt p.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
@@ -101,9 +105,12 @@ required on every non-GET `/api/` call. A page it serves always calls its own or
 (`frontend/src/lib/scanApi.js`), whatever `VITE_API_URL` the build baked in.
 
 Checks: `direct_prompt_injection`, `excessive_agency`, `data_exfiltration`, `system_prompt_leakage`
-(use `--check all` to run every one). Each ships a remedy in `fusion/engine/fixes.py`; `harden`
-appends idempotent guardrails to a system prompt. The branded, theme-aware HTML card lives in
-`fusion/engine/report_html.py` (no gradient; clean/professional; copy-paste fix block).
+(use `--check all` to run every one). The runtime guardrail (`fusion/guardrail/`) covers all four;
+its snippet (`fusion/guardrail/snippet.py`) wraps the model client for replies and calls
+`guard_tool_call(..., user_request=..., untrusted_context=True)` per tool call, the configuration
+step 2 measured. Each check also has an optional prompt fix in `fusion/engine/fixes.py`; `harden`
+appends it idempotently. The branded, theme-aware HTML card lives in `fusion/engine/report_html.py`
+(no gradient; clean/professional; guardrail block first, optional fix block per card).
 
 ## How "proof" works (and stays honest)
 

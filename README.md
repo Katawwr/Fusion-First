@@ -1,11 +1,12 @@
 # Fusion First
 
-**Evaluation engine for AI agents: safety and quality, with measured error bars.** Fusion attacks an
-agent's system prompt with an OWASP-mapped suite, grades the transcripts with a cross-family judge
-whose accuracy is measured in the same run, re-tests a prompt fix on your model (paired before/after,
-McNemar, honesty badge), and ships a runtime guardrail. Every number carries a confidence interval or
-an honesty badge. On the small open-weight models measured, the prompt fix rarely cut attacks and
-raised refusals of safe requests; see the [Trust Report](TRUST_REPORT.md).
+**Measure and guard AI agents.** Fusion attacks an agent's system prompt with an OWASP-mapped suite,
+grades safety and quality with a cross-family judge whose accuracy is measured in the same run, and
+ships a runtime guardrail that blocks leaked secrets and tool calls the user's request does not cover
+(measured results under Use, 3). Every number carries a confidence interval or an honesty badge. The
+prompt fix is optional and re-tested on your model (paired before/after, McNemar, honesty badge): on
+the small open-weight models measured it rarely cut attacks and raised refusals of safe requests; see
+the [Trust Report](TRUST_REPORT.md).
 
 Checks (OWASP LLM Top 10 2025 / Agentic 2026): `direct_prompt_injection` (LLM01),
 `excessive_agency` (LLM06), `data_exfiltration` (LLM02), `system_prompt_leakage` (LLM07).
@@ -13,7 +14,7 @@ Checks (OWASP LLM Top 10 2025 / Agentic 2026): `direct_prompt_injection` (LLM01)
 ## Install
 
 ```bash
-pip install fusion-safety            # core: runs, harden, runtime guardrail, CLI
+pip install fusion-safety            # core: runs, runtime guardrail, CLI, prompt fix
 pip install "fusion-safety[mcp]"     # + MCP server (fusion-mcp)
 pip install "fusion-safety[serve]"   # + local web app (fusion serve)
 ```
@@ -55,7 +56,7 @@ fusion run start --prompt agent.txt --target "cmd:python fusion_adapter.py" --gr
 fusion run tasks > tasks.json;  fusion run submit --file answers.json
 fusion run finalize --min-grade B                               # exit 1 below the bar
 fusion run verify                                               # re-derive offline; exit 1 on drift
-fusion harden --prompt agent.txt --write                        # apply the fix in place
+fusion harden --prompt agent.txt --write                        # optional: append the prompt fix
 fusion run logs --file logs.jsonl --check everything --grader claude-cli  # grade existing transcripts
 fusion import-promptfoo results.json                            # Wilson CIs + paired McNemar on promptfoo results
 fusion guard-bench                              # runtime guard benchmark (in-house corpus: 100% recall / 0% over-block)
