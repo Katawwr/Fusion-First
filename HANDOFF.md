@@ -1,13 +1,16 @@
-# Handoff — Fusion First rebuild (updated 2026-09-28, end of second session)
+# Handoff — Fusion First rebuild (updated 2026-09-29, third session)
 
-Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** At 85% context this happens
-automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md`.
+Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** At 85% context the hook asks
+for a handoff (CLAUDE.md, "Context handoff"): a regular session via `start_session` if the app exposes it
+(it doesn't yet), otherwise ask the owner to open a new chat. **Never a routine or scheduled task** (owner).
+Plans: `~/.claude/plans/continue-autonomously-untril-manually-robust-naur.md` (master),
+`~/.claude/plans/measure-guard-reposition.md` (this session's, done).
 
 ## State
 
 - Branch `rebuild/agentic-safety-engine`, all committed locally. **Never push or publish.**
-- Green at last run: `python -m pytest -q` (1,612), `ruff check fusion tests scripts app`, frontend vitest (83)
-  + lint + build, Playwright E2E (11).
+- Green at last run: `python -m pytest -q` (1,638), `ruff check fusion tests scripts app`, frontend vitest (102)
+  + lint + build, Playwright E2E (11), `claude plugin validate plugins/fusion`.
 - `TRUST_REPORT.md` and `frontend/src/content/evidence.json` are generated
   (`python -m fusion.validate.trust_report`); tests fail on drift.
 - Ollama models: llama3.2:1b, qwen2.5:1.5b, gemma3:1b, qwen2.5:3b, qwen2.5:7b, llama3.1:8b, llama-guard3:8b.
@@ -45,7 +48,31 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 | Claude Code hook, held-out v3 | 5% benign prompted, 76% attacks caught (v3 spent) |
 | **Step 2: request-bound guard (0c560b5), qwen2.5:7b + llama3.1:8b, 148 attacks / 252 clean** | **132/148 (89%), 2/252 (1%)**; previous rules 104/148, 0/252 (28 vs 0, p=7e-9); Llama Guard off the shelf 58/148, 30/252; configured 77/148, 24/252 (both significantly worse). Leaks 75/75, direct harm 21/21, data stealing 36/52 (LG configured 40/52). Held-out legitimate actions 1/20 blocked. Unseen attacker tools 26/33. ADOPTED |
 
-## This session (`git log 4e344f3..HEAD`)
+## This session, 2026-09-29 (`git log 233d687..HEAD`)
+
+- **Measure + guard repositioning done** (plan `~/.claude/plans/measure-guard-reposition.md`; ledger in the
+  gitignored `.superpowers/sdd/measure-guard-reposition/progress.md`, rulings listed there):
+  - Scan wizard Paste → Attack → Grade → **Guard**. The Guard step leads with the guardrail (step-2 result with
+    counts from evidence.json via `guardResult`, /trust link, snippet), then "Optional: prompt fix" (measured
+    caveat, diff, copy buttons, "Re-test it on your model" → the before/after view, which is no longer a step;
+    the step bar keeps Guard current). Demo scans label it "See the example before/after". Report button
+    "Guard it".
+  - Report: the summary grades the prompt as written first, the fix's paired result second; each card shows
+    the trust strip and grader accuracy before "Prompt fix (optional)"; arms read "As written" / "With fix".
+  - Site: hero "Measure and guard AI agents"; features lead with the guardrail and end with the optional fix
+    and its caveat; use cases name the guardrail; page meta; /trust shows the guard sections before the fix.
+  - Backend/docs: the HTML report leads with one guardrail block, each card's fix block is optional with the
+    caveat; CLI help and CI hint; MCP instructions, tool descriptions and `next_steps` offer the guard first;
+    integrations/README; plugin README, `harden` (optional) and `audit` skills; README intro; CLAUDE.md.
+- **Guard snippet correctness:** `GuardedModelClient` guards replies only; tool calls are gated only by
+  `guard.guard_tool_call(name, args, user_request=..., untrusted_context=True)`, which step 2 measured. The
+  snippet now shows that call (a test executes it), lists only safety checks, fits 80 columns; README,
+  integrations/README, the /use page and the guard skill no longer say the wrapper gates tool calls. README
+  cites rules 0c560b5 for the step-2 numbers.
+- **Handoff:** no routines (owner: "it didn't work"); the routines no longer exist. The app's
+  `start_session` / `hand_off_to_session` are not exposed to these sessions and the docs describe no setting.
+
+## Previous session, 2026-09-28 (`git log 4e344f3..233d687`)
 
 - **Step 1 done (dev):** the guard binds tool calls to the user's request (18e424c, 0c560b5). Under
   `require_authorization` or `untrusted_context=True`, a call not shown to be a read needs the request to use
@@ -70,27 +97,18 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
   8192 (48% vs 45% on GPU: no gain). InjecAgent ~70 s/generation, full 256-token answers ~190–205 s.
   Estimate, baseline arm only: 150 InjecAgent + 150 Gandalf ≈ 8 h, Llama Guard verdicts ≈ 3 h; + XSTest both
   arms (150) ≈ 16 h.
-- **Context handoff automation** (5657a66): hook + routines `fusion-continue-a/-b` (CLAUDE.md).
+- **Context handoff automation** (5657a66): hook + routines `fusion-continue-a/-b` (routines dropped 2026-09-29).
 
 ## Next
 
-0. **Owner decided (2026-09-29): reposition as "measure + guard", demote the prompt fix.** Not started (no
-   edits yet). Scoped plan:
-   - Scan wizard (`frontend/src/pages/Scan.jsx`, STEPS): Paste → Attack → Grade → **Guard**. The Guard step
-     leads with the runtime guardrail (snippet + the step-2 result from evidence.json), then an "Optional: prompt
-     fix" section (hardened prompt, copy buttons, "Re-test it on your model" → the existing ProveStep view, which
-     leaves the step bar; map `prove` to the Guard index). Report step button "Fix it" → "Guard it". Update
-     `frontend/e2e/app.spec.js`, `ProveStep.test.jsx` and Scan tests accordingly.
-   - Copy (technical, concise, no lead-ins): README intro (lead: measure with error bars + runtime guard; fix
-     = optional, measured per model), Hero cards (`Hero.jsx`: "as written / Hardened by Fusion" → measured /
-     guarded), FeaturesSection ("Prompt fix and runtime guardrail" → guard first), UseCasesSection, Landing meta
-     + `frontend/index.html`, `Use.jsx`, `lib/summary.js`, `lib/trust.js`, `lib/jargon.js`, report components
-     (`ReportCard.jsx`, `ProveHeadline.jsx`), `fusion/engine/report_html.py` (guard block first, fix block
-     optional with the measured caveat), `fusion/cli.py` help, `fusion/integrations/mcp_server.py` +
-     `agent_tools.py` descriptions, `integrations/README.md`, `plugins/fusion/README.md` + skills (harden skill
-     marked optional), CLAUDE.md summary. Keep every number from evidence (claims test).
-   - Optional follow-up feature: replay a scan's own successful attacks through the guard (Prove = "the guard
-     stopped X of Y attacks found in this scan"); needs a backend endpoint.
+0. Owner's optional follow-up to the repositioning, not started: show the guard on the user's own scan ("the
+   guard stopped X of Y attacks found in this scan"). A scan keeps only a 200-character excerpt per attack
+   (`ProbeOutcome.baseline_excerpt`), so the guard must run inside the scan (`fusion/engine/user_scan.py`):
+   `guard_output` on each baseline reply (the prompt's secrets + system prompt) and `guard_tool_call` on
+   parsed tool calls (the probe's user message; `untrusted_context=True` when the probe injects content),
+   recording the verdict per outcome; the Guard step then shows fired-on counts for attacks that got through
+   and for replies graded clean. Decide with the owner before building: whether a redaction counts as
+   stopped, and the label (in-sample, the scan's own attacks; a per-user diagnostic, never evidence).
 
 1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
    e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every
@@ -105,12 +123,11 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 
 ## Open decisions (owner)
 
-- DECIDED 2026-09-29: reposition as "measure + guard", fix demoted (see Next, 0).
+- DECIDED 2026-09-29: reposition as "measure + guard", fix demoted. DONE this session.
+- DECIDED 2026-09-29: no routines or scheduled tasks for handoff; a regular session or ask the owner.
 - Fix arms (not in step 2): 300 pairs per model (the step-2 items + hardened arm, ~8–9 h per model) detect a
   moderate or strong fix effect (99–100% power) but not the small 1–3B one (56%); 600 pairs ≈ 33 h per model.
 - Decided 2026-09-28: second model llama3.1:8b (pulled); named recipients stay blocked unless allowlisted.
-- Routines `fusion-continue-a/-b` run with their stored permission mode and medium effort: set auto mode in the
-  sidebar (Scheduled) for unattended continuations.
 
 ## Tooling notes
 
