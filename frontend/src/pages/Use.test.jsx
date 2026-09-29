@@ -29,6 +29,11 @@ describe("Use page", () => {
     expect(plugin.indexOf("/fusion:guard")).toBeLessThan(plugin.indexOf("/fusion:harden"));
   });
 
+  it("keeps slash commands copy-safe: no trailing comments", () => {
+    const code = content.sections.flatMap((s) => s.steps).map((s) => s.code).join("\n");
+    for (const line of code.split("\n").filter((l) => l.startsWith("/"))) expect(line).not.toMatch(/#/);
+  });
+
   it("names key variables but never embeds a key", () => {
     const text = JSON.stringify(content);
     expect(text).not.toMatch(/(api[_ ]?key|token)\s*[:=]\s*["']?[\w-]{6,}/i);

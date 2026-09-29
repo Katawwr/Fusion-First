@@ -1,36 +1,56 @@
 // The report's headline sentence — derived from what was actually measured, never a canned boast.
 import { pct } from "./jargon";
 
-// The scan's in-sample guard replay (fusion/engine/guard_replay.py): counts over outcomes carrying a
-// verdict, overall and per check, and the same sentence the backend prints. Null when nothing was
-// replayed (demo scans: their replies are canned; results from before the replay existed).
+// The scan's in-sample guard replay: a mirror of fusion/engine/guard_replay.py (in_sample_payload), kept
+// in step by the shared guardInSample.fixture.json. Null when nothing was replayed (demo scans: their
+// replies are canned; results from before the replay existed; only withheld grades).
+export const REPLAY_SETUP =
+  "Guard set up as the snippet: your system prompt, the code-shaped values it marks secret (like OVR-4471), no domain allowlist; secrets you would list yourself are not included.";
+
+const plural = (n, word, many = `${word}s`) => (n === 1 ? word : many);
+
 function countReplay(outcomes) {
   const through = outcomes.filter((o) => o.baseline_issue === true);
   const clean = outcomes.filter((o) => o.baseline_issue === false);
+  const replayable = through.filter((o) => o.guard_replay !== "no_tool_call");
   return {
-    stopped: through.filter((o) => o.guard_stopped).length,
-    got_through: through.length,
-    acted_on_clean: clean.filter((o) => o.guard_stopped).length,
+    stopped: replayable.filter((o) => o.guard_replay === "stopped").length,
+    got_through: replayable.length,
+    in_prose: through.length - replayable.length,
+    acted_on_clean: clean.filter((o) => o.guard_replay === "stopped").length,
     clean: clean.length,
   };
 }
 
+function replaySentence(s) {
+  const clauses = [];
+  if (s.got_through) clauses.push(`${s.stopped} of ${s.got_through} ${plural(s.got_through, "attack")} that got through`);
+  if (s.clean) clauses.push(`${s.acted_on_clean} of ${s.clean} ${plural(s.clean, "reply", "replies")} graded clean`);
+  const parts = [];
+  if (!s.got_through && !s.in_prose) parts.push("none got through");
+  if (clauses.length) parts.push(`the guard blocked or redacted ${clauses.join(" and ")}`);
+  if (s.in_prose) {
+    parts.push(`${s.in_prose} ${plural(s.in_prose, "attack")} got through in prose, with no tool call for the guard to check`);
+  }
+  let line = `In-sample, this scan's own attacks: ${parts.join("; ")}.`;
+  if (s.withheld_checks.length) {
+    line += ` Not counted (grade withheld): ${s.withheld_checks.map((c) => c.replace(/_/g, " ")).join(", ")}.`;
+  }
+  return line;
+}
+
 export function guardInSample(result) {
+  const withheld = [...new Set((result?.cards || []).filter((c) => c.grade === "?").map((c) => c.check))].sort();
   const judged = (result?.outcomes || []).filter(
-    (o) => o.guard_stopped !== null && o.guard_stopped !== undefined && o.baseline_issue !== null && o.baseline_issue !== undefined,
+    (o) => o.guard_replay != null && o.baseline_issue != null && !withheld.includes(o.check),
   );
   if (!judged.length) return null;
-  const s = countReplay(judged);
   const by_check = {};
   for (const check of [...new Set(judged.map((o) => o.check))]) {
     by_check[check] = countReplay(judged.filter((o) => o.check === check));
   }
-  const lead = "In-sample, this scan's own attacks:";
-  const cleanPart = `${s.acted_on_clean} of ${s.clean} replies graded clean`;
-  const sentence = s.got_through
-    ? `${lead} the guard blocked or redacted ${s.stopped} of ${s.got_through} attacks that got through and ${cleanPart}.`
-    : `${lead} none got through; the guard blocked or redacted ${cleanPart}.`;
-  return { ...s, by_check, sentence };
+  const s = { ...countReplay(judged), by_check, withheld_checks: withheld };
+  return { ...s, sentence: replaySentence(s), setup: REPLAY_SETUP };
 }
 
 const isCanned = (result) =>

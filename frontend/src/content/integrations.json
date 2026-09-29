@@ -13,7 +13,12 @@
         {
           "label": "In Claude Code",
           "lang": "text",
-          "code": "/fusion:audit prompts/support_bot.md ollama:llama3.2:1b\n/fusion:guard\n/fusion:harden prompts/support_bot.md    # optional prompt fix"
+          "code": "/fusion:audit prompts/support_bot.md ollama:llama3.2:1b\n/fusion:guard"
+        },
+        {
+          "label": "Optional: prompt fix",
+          "lang": "text",
+          "code": "/fusion:harden prompts/support_bot.md"
         }
       ]
     },

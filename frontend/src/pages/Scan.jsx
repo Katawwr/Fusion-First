@@ -321,21 +321,26 @@ export default function Scan({ scanState, setScanState }) {
     );
   }
 
-  // The snippet and the optional fix load independently: either can fail without hiding the other.
+  // The snippet and the optional fix load independently and show as each arrives: either can fail or hang
+  // without hiding the other. A reply for an earlier prompt (the user started over) is dropped.
   async function goToGuard() {
     setStep("guard");
     setSnippetError(null);
     setFixError(null);
     const id = ++guardRequest.current;
-    const [s, h] = await Promise.allSettled([
-      snippet ? null : guardrailSnippet(checks),
-      hardened ? null : apiHarden(systemPrompt, checks),
+    const current = () => id === guardRequest.current;
+    await Promise.all([
+      snippet ||
+        guardrailSnippet(checks).then(
+          (r) => current() && setSnippet(r.snippet),
+          (e) => current() && setSnippetError(e?.message || "Couldn't load the snippet."),
+        ),
+      hardened ||
+        apiHarden(systemPrompt, checks).then(
+          (r) => current() && setHardened(r),
+          (e) => current() && setFixError(e?.message || "Couldn't build the hardened prompt."),
+        ),
     ]);
-    if (id !== guardRequest.current) return; // the user started over while these were in flight
-    if (s.status === "rejected") setSnippetError(s.reason?.message || "Couldn't load the snippet.");
-    else if (s.value) setSnippet(s.value.snippet);
-    if (h.status === "rejected") setFixError(h.reason?.message || "Couldn't build the hardened prompt.");
-    else if (h.value) setHardened(h.value);
   }
 
   // A new prompt (or a cancelled run) makes the Guard step's snippet and fix stale.
@@ -746,32 +751,41 @@ function RunStep({ scan, checks, onCancel }) {
 const FIX_CAVEAT =
   "On the small open-weight models we measured, it rarely cut attacks and raised refusals of safe requests. Re-test it on your model before you ship it.";
 
-// What the guard did on this scan's own replies (in-sample), overall and per check.
+// What the guard did on this scan's own replies (in-sample), overall and per check, and how it was set up.
 function InSample({ replay }) {
   const cell = { padding: "0.35rem 0.5rem", borderTop: "1px solid var(--border)" };
+  const head = { ...cell, borderTop: "none", fontWeight: 600 };
   return (
-    <div style={{ marginBottom: "1rem" }}>
-      <p style={{ margin: "0 0 0.6rem", fontSize: "0.9375rem", fontWeight: 600, color: "var(--text)" }}>
+    <div style={{ marginTop: "1rem" }}>
+      <p id="guard-in-sample" style={{ margin: "0 0 0.6rem", fontSize: "0.9375rem", fontWeight: 600, color: "var(--text)" }}>
         {replay.sentence}
       </p>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem", color: "var(--muted)" }}>
-        <thead>
-          <tr style={{ textAlign: "left", color: "var(--subtle)" }}>
-            <th style={{ ...cell, borderTop: "none", fontWeight: 600 }}>Check</th>
-            <th style={{ ...cell, borderTop: "none", fontWeight: 600 }}>Stopped</th>
-            <th style={{ ...cell, borderTop: "none", fontWeight: 600 }}>Clean, blocked or redacted</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(replay.by_check).map(([check, c]) => (
-            <tr key={check}>
-              <td style={cell}>{checkMeta(check).label}</td>
-              <td style={cell}>{c.got_through ? `${c.stopped} of ${c.got_through}` : "none got through"}</td>
-              <td style={cell}>{`${c.acted_on_clean} of ${c.clean}`}</td>
+      <div style={{ overflowX: "auto" }}>
+        <table
+          aria-describedby="guard-in-sample"
+          style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem", color: "var(--muted)" }}
+        >
+          <thead>
+            <tr style={{ textAlign: "left", color: "var(--subtle)" }}>
+              <th scope="col" style={head}>Check</th>
+              <th scope="col" style={head}>Blocked or redacted</th>
+              <th scope="col" style={head}>In prose, no tool call</th>
+              <th scope="col" style={head}>Clean replies blocked or redacted</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {Object.entries(replay.by_check).map(([check, c]) => (
+              <tr key={check}>
+                <td style={cell}>{checkMeta(check).label}</td>
+                <td style={cell}>{c.got_through ? `${c.stopped} of ${c.got_through}` : "none got through"}</td>
+                <td style={cell}>{c.in_prose}</td>
+                <td style={cell}>{c.clean ? `${c.acted_on_clean} of ${c.clean}` : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p style={{ margin: "0.6rem 0 0", fontSize: "0.8125rem", color: "var(--subtle)" }}>{replay.setup}</p>
     </div>
   );
 }
@@ -825,13 +839,7 @@ export function GuardStep({
           Runtime guardrail
         </SectionTitle>
         <Card>
-          {inSample ? (
-            <InSample replay={inSample} />
-          ) : canned ? (
-            <p style={{ margin: "0 0 1rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
-              The in-sample replay needs a live scan: the demo's replies are canned.
-            </p>
-          ) : null}
+          {/* The pre-registered measurement first; this scan's own (in-sample) replay after it. */}
           {measured && (
             <p style={{ margin: "0 0 1rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
               {measured}{" "}
@@ -845,6 +853,15 @@ export function GuardStep({
               </Link>
             </p>
           )}
+          {inSample ? (
+            <div style={{ marginBottom: "1rem" }}>
+              <InSample replay={inSample} />
+            </div>
+          ) : canned ? (
+            <p style={{ margin: "0 0 1rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
+              The in-sample replay needs a live scan: the demo's replies are canned.
+            </p>
+          ) : null}
           {snippet ? (
             <CodeSnippet code={snippet} language="python" />
           ) : snippetError ? (

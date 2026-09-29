@@ -5,6 +5,9 @@ as such, never as "not stopped". Deterministic, no model calls."""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from fusion.attacks.templates import AttackTemplate
@@ -14,6 +17,7 @@ from fusion.engine.guard_replay import (
     guard_for_prompt,
     guard_verdict,
     in_sample,
+    in_sample_payload,
     in_sample_sentence,
 )
 from fusion.engine.user_scan import ErrorBreaker, run_user_scan
@@ -141,6 +145,20 @@ def test_the_sentence_names_checks_left_out_for_a_withheld_grade():
 @pytest.mark.unit
 def test_the_replay_says_how_its_guard_was_set_up():
     assert "no domain allowlist" in REPLAY_SETUP and "marks secret" in REPLAY_SETUP
+
+
+_FIXTURE = json.loads((Path(__file__).resolve().parents[1] / "frontend" / "src" / "lib"
+                       / "guardInSample.fixture.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("case", _FIXTURE["cases"], ids=lambda c: c["name"])
+def test_the_web_mirror_fixture_matches_the_python_replay(case):
+    outcomes = [ProbeOutcome(check=o["check"], probe_id=str(i), attack_label="a", baseline_issue=o["baseline_issue"],
+                             hardened_issue=o["baseline_issue"], guard_replay=o["guard_replay"])
+                for i, o in enumerate(case["outcomes"])]
+    cards = [_Card(c["check"], c["grade"]) for c in case["cards"]]
+    assert in_sample_payload(outcomes, cards) == case["expected"]
 
 
 @pytest.mark.unit

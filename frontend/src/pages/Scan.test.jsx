@@ -80,11 +80,25 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
     await waitFor(() => expect(api.harden).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Scan another prompt" }));
-    await act(async () => release());  // A's late answer
-    await scanPrompt("Prompt B");
+    // B's run starts (which clears the Guard step), THEN A's late answer lands: only the request id
+    // keeps it from filling B's Guard step.
+    fireEvent.change(screen.getByPlaceholderText(/You are a helpful assistant/), { target: { value: "Prompt B" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
+    await act(async () => release());
+    await act(async () => api.starts.at(-1).opts.onCompleted(live("Prompt B")));
     fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
     await screen.findByText("FIX for Prompt B");
     expect(screen.queryByText("FIX for Prompt A")).toBeNull();
+  });
+
+  it("shows the snippet while the optional fix is still loading", async () => {
+    api.guardrailSnippet = vi.fn(async () => ({ snippet: "guard code" }));
+    api.harden = vi.fn(() => new Promise(() => {}));  // never answers
+    render(<Harness />);
+    await scanPrompt("Prompt A");
+    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    expect(await screen.findByText("guard code")).toBeInTheDocument();
+    expect(screen.getByText("Building the hardened prompt…")).toBeInTheDocument();
   });
 
   it("keeps the guardrail when only the optional fix fails", async () => {
@@ -105,12 +119,12 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     fireEvent.change(screen.getByPlaceholderText(/You are a helpful assistant/), { target: { value: "Prompt A" } });
     fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
     const outcomes = [
-      { check: "direct_prompt_injection", probe_id: "1", attack_label: "a", baseline_issue: true, hardened_issue: true, guard_stopped: true },
-      { check: "direct_prompt_injection", probe_id: "2", attack_label: "b", baseline_issue: false, hardened_issue: false, guard_stopped: false },
+      { check: "direct_prompt_injection", probe_id: "1", attack_label: "a", baseline_issue: true, hardened_issue: true, guard_replay: "stopped" },
+      { check: "direct_prompt_injection", probe_id: "2", attack_label: "b", baseline_issue: false, hardened_issue: false, guard_replay: "allowed" },
     ];
     await act(async () => api.starts.at(-1).opts.onCompleted({ ...live("Prompt A"), outcomes }));
     fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
-    expect(await screen.findByText(/the guard blocked or redacted 1 of 1 attacks that got through and 0 of 1/))
+    expect(await screen.findByText(/the guard blocked or redacted 1 of 1 attack that got through and 0 of 1 reply/))
       .toBeInTheDocument();
   });
 

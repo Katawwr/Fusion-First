@@ -51,16 +51,27 @@ describe("GuardStep", () => {
     expect(onProve).toHaveBeenCalled();
   });
 
-  it("shows the scan's in-sample replay, labelled in-sample, with counts per check", () => {
+  it("shows the scan's in-sample replay after the pre-registered result, with its setup and counts per check", () => {
     const inSample = {
-      stopped: 6, got_through: 7, acted_on_clean: 1, clean: 25,
-      sentence: "In-sample, this scan's own attacks: the guard blocked or redacted 6 of 7 attacks that got through and 1 of 25 replies graded clean.",
-      by_check: { system_prompt_leakage: { stopped: 5, got_through: 5, acted_on_clean: 0, clean: 3 } },
+      stopped: 5, got_through: 5, in_prose: 2, acted_on_clean: 0, clean: 3, withheld_checks: [],
+      sentence: "In-sample, this scan's own attacks: the guard blocked or redacted 5 of 5 attacks that got through and 0 of 3 replies graded clean; 2 attacks got through in prose, with no tool call for the guard to check.",
+      setup: "Guard set up as the snippet: your system prompt, the code-shaped values it marks secret.",
+      by_check: {
+        system_prompt_leakage: { stopped: 5, got_through: 5, in_prose: 0, acted_on_clean: 0, clean: 3 },
+        excessive_agency: { stopped: 0, got_through: 0, in_prose: 2, acted_on_clean: 0, clean: 0 },
+      },
     };
     renderGuard({ inSample });
-    expect(screen.getByText(inSample.sentence)).toBeInTheDocument();
-    const row = screen.getByRole("row", { name: /System prompt leakage/ });
-    expect(row).toHaveTextContent("5 of 5");
+    const sentence = screen.getByText(inSample.sentence);
+    expect(screen.getByText(inSample.setup)).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /System prompt leakage/ })).toHaveTextContent("5 of 5");
+    expect(screen.getByRole("row", { name: /Excessive agency/ })).toHaveTextContent(/none got through\s*2/);
+    expect(screen.getByRole("table")).toHaveAccessibleDescription(inSample.sentence);
+    for (const th of screen.getAllByRole("columnheader")) expect(th).toHaveAttribute("scope", "col");
+    if (evidence.step2_guard?.decision?.new_rules === "adopted") {
+      const measuredLine = screen.getByText(/Pre-registered test on fresh attacks/);
+      expect(measuredLine.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
   });
 
   it("says a demo has no in-sample replay", () => {
