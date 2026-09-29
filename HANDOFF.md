@@ -74,6 +74,24 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 
 ## Next
 
+0. **Owner decided (2026-09-29): reposition as "measure + guard", demote the prompt fix.** Not started (no
+   edits yet). Scoped plan:
+   - Scan wizard (`frontend/src/pages/Scan.jsx`, STEPS): Paste → Attack → Grade → **Guard**. The Guard step
+     leads with the runtime guardrail (snippet + the step-2 result from evidence.json), then an "Optional: prompt
+     fix" section (hardened prompt, copy buttons, "Re-test it on your model" → the existing ProveStep view, which
+     leaves the step bar; map `prove` to the Guard index). Report step button "Fix it" → "Guard it". Update
+     `frontend/e2e/app.spec.js`, `ProveStep.test.jsx` and Scan tests accordingly.
+   - Copy (technical, concise, no lead-ins): README intro (lead: measure with error bars + runtime guard; fix
+     = optional, measured per model), Hero cards (`Hero.jsx`: "as written / Hardened by Fusion" → measured /
+     guarded), FeaturesSection ("Prompt fix and runtime guardrail" → guard first), UseCasesSection, Landing meta
+     + `frontend/index.html`, `Use.jsx`, `lib/summary.js`, `lib/trust.js`, `lib/jargon.js`, report components
+     (`ReportCard.jsx`, `ProveHeadline.jsx`), `fusion/engine/report_html.py` (guard block first, fix block
+     optional with the measured caveat), `fusion/cli.py` help, `fusion/integrations/mcp_server.py` +
+     `agent_tools.py` descriptions, `integrations/README.md`, `plugins/fusion/README.md` + skills (harden skill
+     marked optional), CLAUDE.md summary. Keep every number from evidence (claims test).
+   - Optional follow-up feature: replay a scan's own successful attacks through the guard (Prove = "the guard
+     stopped X of Y attacks found in this scan"); needs a backend endpoint.
+
 1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
    e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every
    unrequested read after untrusted content when the conversation also carries an injected send instruction,
@@ -87,9 +105,7 @@ automatically (CLAUDE.md, "Context handoff"). Plan: `~/.claude/plans/continue-au
 
 ## Open decisions (owner)
 
-- Reposition as "measure + guard" with the fix demoted (recommended: step 2 makes the guard the strongest
-  evidence, 89% stopped vs Llama Guard's 52%; proving the fix reduces attacks needs ~600 pairs, ~33 h per model).
-  Not applied.
+- DECIDED 2026-09-29: reposition as "measure + guard", fix demoted (see Next, 0).
 - Fix arms (not in step 2): 300 pairs per model (the step-2 items + hardened arm, ~8–9 h per model) detect a
   moderate or strong fix effect (99–100% power) but not the small 1–3B one (56%); 600 pairs ≈ 33 h per model.
 - Decided 2026-09-28: second model llama3.1:8b (pulled); named recipients stay blocked unless allowlisted.
