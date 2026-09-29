@@ -44,8 +44,8 @@ def build_server(runs: RunTools | None = None):
     try:
         from mcp.server.fastmcp import FastMCP
     except ModuleNotFoundError as e:  # pragma: no cover - depends on optional extra
-        raise SystemExit(
-            "The Fusion MCP server needs the 'mcp' extra. Install it with:\n"
+        raise SystemExit(  # missing, or mcp 2.x (FastMCP was renamed there)
+            "The Fusion MCP server needs the MCP SDK 1.x (mcp>=1.2,<2). Install it with:\n"
             "    pip install \"fusion-safety[mcp]\""
         ) from e
 

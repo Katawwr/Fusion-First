@@ -6,7 +6,7 @@ ships a runtime guardrail that blocks leaked secrets and tool calls the user's r
 (measured results below). Every number carries a confidence interval or an honesty badge. The
 prompt fix is optional and re-tested on your model (paired before/after, McNemar, honesty badge): on
 the small open-weight models measured it rarely cut attacks and raised refusals of safe requests; see
-the [Trust Report](TRUST_REPORT.md).
+the [Trust Report](https://fusion-first-testing.com/trust).
 
 Checks (OWASP LLM Top 10 2025 / Agentic 2026): `direct_prompt_injection` (LLM01),
 `excessive_agency` (LLM06), `data_exfiltration` (LLM02), `system_prompt_leakage` (LLM07).

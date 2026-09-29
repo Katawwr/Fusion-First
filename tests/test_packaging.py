@@ -76,11 +76,11 @@ def test_bundling_copies_the_plugin_marketplace(tmp_path):
     assert _files(dest / "marketplace") == sorted(files)
 
 
-@pytest.mark.integration
-def test_the_wheel_ships_the_plugin_marketplace(tmp_path):
-    """Built for real: package-data globs skip dot-paths (.claude-plugin/, .mcp.json) unless they
-    are named, and a plugin without them does not load."""
-    proj = tmp_path / "proj"
+@pytest.fixture(scope="module")
+def wheel_names(tmp_path_factory) -> list[str]:
+    """The file names in a wheel built for real from a copy of the project (no corpora: faster)."""
+    tmp = tmp_path_factory.mktemp("wheel")
+    proj = tmp / "proj"
     proj.mkdir()
     for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "README.md"):
         shutil.copy2(ROOT / rel, proj / rel)
@@ -88,20 +88,36 @@ def test_the_wheel_ships_the_plugin_marketplace(tmp_path):
     shutil.copytree(ROOT / "fusion", proj / "fusion", ignore=skip)
     shutil.copytree(ROOT / "plugins", proj / "plugins", ignore=skip)
     shutil.copytree(ROOT / ".claude-plugin", proj / ".claude-plugin")
-    out = tmp_path / "dist"
-
+    out = tmp / "dist"
     r = subprocess.run([sys.executable, "-m", "pip", "wheel", str(proj), "--no-deps",
                         "--no-build-isolation", "-q", "-w", str(out)],
                        capture_output=True, text=True, timeout=600)
-
     assert r.returncode == 0, r.stderr[-3000:]
     (wheel,) = out.glob("fusion_safety-*.whl")
+    return zipfile.ZipFile(wheel).namelist()
+
+
+@pytest.mark.integration
+def test_the_wheel_ships_the_plugin_marketplace(wheel_names):
+    """Package-data globs skip dot-paths (.claude-plugin/, .mcp.json) unless they are named, and a
+    plugin without them does not load."""
     prefix = "fusion/_bundled/marketplace/"
-    shipped = sorted(n[len(prefix):] for n in zipfile.ZipFile(wheel).namelist() if n.startswith(prefix))
+    shipped = sorted(n[len(prefix):] for n in wheel_names if n.startswith(prefix))
     source = sorted(p.relative_to(ROOT).as_posix()
                     for d in ("plugins", ".claude-plugin") for p in (ROOT / d).rglob("*")
                     if p.is_file() and "__pycache__" not in p.parts)
     assert shipped == source
+
+
+@pytest.mark.integration
+def test_the_wheel_ships_the_package_s_own_data_files(wheel_names):
+    """Code reads non-Python files that sit next to it (fusion/model/models.yaml: without it every
+    installed `fusion doctor` and run crashes); package-data must name each one."""
+    source = sorted(p.relative_to(ROOT).as_posix() for p in (ROOT / "fusion").rglob("*")
+                    if p.is_file() and p.suffix not in (".py", ".pyc")
+                    and "_bundled" not in p.parts and "__pycache__" not in p.parts)
+    assert source
+    assert [s for s in source if s not in wheel_names] == []
 
 
 @pytest.mark.unit

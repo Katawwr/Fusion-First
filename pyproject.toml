@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fusion-safety"
 version = "0.1.0"
-description = "Fusion First — offline test-and-prove engine for agentic AI safety"
+description = "Measure and guard AI agents: safety and quality evaluation with a runtime guardrail"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
@@ -53,7 +53,7 @@ backend = [
 ]
 # MCP server so an AI coding agent can call Fusion inline (scan / harden / guard).
 mcp = [
-    "mcp>=1.2",
+    "mcp>=1.2,<2",  # 2.x renamed FastMCP (MCPServer) and changed the API
 ]
 dev = [
     "pytest>=8.0",
@@ -70,7 +70,8 @@ include = ["fusion*"]
 # Corpora copied into fusion/_bundled/ by setup.py's build step (see that file) so a bare install
 # has datasets/cassettes/crosswalk/evals without a source checkout.
 [tool.setuptools.package-data]
-fusion = ["_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_bundled/**/*.yml",
+fusion = ["model/models.yaml",  # the model registry (roles, allowlist)
+          "_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_bundled/**/*.yml",
           "_bundled/web/**/*",  # the built web app for `fusion serve`
           # the Claude Code marketplace for `fusion plugin-dir`; globs skip dot-paths, so name them
           "_bundled/marketplace/**/*", "_bundled/marketplace/.claude-plugin/*",

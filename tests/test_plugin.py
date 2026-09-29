@@ -54,6 +54,21 @@ def test_mcp_launch_command_matches_the_package():
 
 
 @pytest.mark.unit
+def test_both_install_paths_stay_on_the_mcp_sdk_the_server_is_written_for():
+    """mcp 2 renamed FastMCP and changed its API: on it the server exits at startup. The plugin's
+    uvx launch and the [mcp] extra must both resolve to mcp 1.x."""
+    from packaging.requirements import Requirement
+
+    args = json.loads((PLUGIN / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"][SERVER]["args"]
+    extra = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"]["mcp"]
+    specs = [Requirement(s) for s in (args[args.index("--with") + 1], *extra)]
+    mcp_specs = [r for r in specs if r.name == "mcp"]
+    assert len(mcp_specs) == 2
+    for r in mcp_specs:
+        assert r.specifier.contains("1.28.1") and not r.specifier.contains("2.0.0"), str(r)
+
+
+@pytest.mark.unit
 def test_the_plugin_runs_the_server_version_it_ships_with():
     """The wheel bundles the plugin, so the plugin's server is that same release from PyPI: an
     unpinned name would run whatever is uploaded next (renamed tools, or someone else's code)."""
