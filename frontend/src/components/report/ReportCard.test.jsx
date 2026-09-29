@@ -26,6 +26,16 @@ describe("ReportCard", () => {
     expect(scored.compareDocumentPosition(fix) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("lists what got through without the fix's per-attack markers", () => {
+    const outcomes = [
+      { probe_id: "a", check: card.check, attack_label: "Posed as admin", baseline_issue: true, hardened_issue: false },
+      { probe_id: "b", check: card.check, attack_label: "Hidden instruction", baseline_issue: true, hardened_issue: true },
+    ];
+    render(<ReportCard card={card} outcomes={outcomes} />);
+    expect(screen.getByText("Posed as admin")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/closed by the fix|still open after the fix/)).toBeNull();
+  });
+
   it("labels the fix's arms as the prompt as written and with the fix", () => {
     render(<ReportCard card={card} outcomes={[]} />);
     expect(screen.getByText("As written")).toBeInTheDocument();

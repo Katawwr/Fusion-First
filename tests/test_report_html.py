@@ -99,11 +99,12 @@ def test_a_quality_only_report_has_no_guardrail_block():
 
 
 @pytest.mark.unit
-def test_the_fix_is_optional_and_carries_its_measured_caveat():
+def test_the_fix_is_optional_and_its_measured_caveat_is_said_once():
     h = render_report_card_html(_card())
     assert "Optional: prompt fix" in h and "Apply this fix" not in h
-    assert "rarely cut attacks and raised refusals of safe requests" in h
     assert "As written" in h and "With fix" in h and "Hardened<" not in h
+    page = render_dashboard_html([_card(), _card()])
+    assert page.count("rarely cut attacks and raised refusals of safe requests") == 1
 
 
 @pytest.mark.unit

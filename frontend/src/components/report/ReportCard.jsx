@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Check, X } from "lucide-react";
 import Card from "../ui/Card";
 import CheckIcon from "../ui/CheckIcon";
 import GradeBadge from "./GradeBadge";
@@ -26,22 +25,18 @@ function AttackList({ outcomes, quality = false }) {
             key={o.probe_id}
             className="flex items-start gap-2 text-sm text-app-muted"
           >
-            {/* The marker alone carries it: green check = the fix closes this, red X = still open. */}
-            {o.hardened_issue ? (
-              <X
-                size={15}
-                color="var(--danger)"
-                style={{ flexShrink: 0, marginTop: "0.2rem" }}
-                aria-label={quality ? "still wrong with the fixed prompt" : "still open after the fix"}
-              />
-            ) : (
-              <Check
-                size={15}
-                color="var(--ok)"
-                style={{ flexShrink: 0, marginTop: "0.2rem" }}
-                aria-label={quality ? "right with the fixed prompt" : "closed by the fix"}
-              />
-            )}
+            {/* A plain bullet: this list is the measurement; the optional fix's effect is its own block. */}
+            <span
+              aria-hidden
+              style={{
+                flexShrink: 0,
+                width: 6,
+                height: 6,
+                marginTop: "0.5rem",
+                borderRadius: "50%",
+                background: "var(--danger)",
+              }}
+            />
             <span>{o.attack_label}</span>
           </li>
         ))}

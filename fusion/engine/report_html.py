@@ -111,7 +111,6 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
         <div class="block fix">
           <div class="block-h">Optional: prompt fix <span class="sub">{_esc(card.fix_title)}</span>
             <button class="copy" type="button" onclick="fusionCopy('{fid}', this)">Copy</button></div>
-          <p class="note">{_esc(FIX_CAVEAT)}</p>
           <pre id="{fid}" class="code">{_esc(card.fix_snippet)}</pre>
           <div class="auto">Append it to your prompt: <code>{_esc(cmd)}</code></div>
         </div>"""
@@ -284,7 +283,7 @@ function fusionCopy(id, btn){
 def render_dashboard_html(cards: list[SafetyReportCard], title: str = "Safety Report",
                           outcomes: list[ProbeOutcome] | None = None) -> str:
     """The report page. A scan's `outcomes` add its in-sample guard replay to the guardrail block."""
-    body ="".join(render_report_card_html(c, i) for i, c in enumerate(cards))
+    body = "".join(render_report_card_html(c, i) for i, c in enumerate(cards))
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Fusion First — {_esc(title)}</title><style>{_CSS}</style></head>
@@ -296,6 +295,7 @@ def render_dashboard_html(cards: list[SafetyReportCard], title: str = "Safety Re
     </header>
     {render_overview_html(cards)}
     {render_guard_html(cards, outcomes)}
+    {f'<p class="note">{_esc(FIX_CAVEAT)}</p>' if any(c.fix_snippet for c in cards) else ""}
     <div class="grid">{body}</div>
   </div>
   <script>{_JS}</script>

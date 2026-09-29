@@ -338,7 +338,7 @@ export default function Scan({ scanState, setScanState }) {
 
   const perCheckOutcomes = (check) =>
     (result?.outcomes || []).filter((o) => o.check === check);
-  const canned =Boolean(result?.cards?.some((c) => c.trust?.execution === "canned"));
+  const canned = Boolean(result?.cards?.some((c) => c.trust?.execution === "canned"));
 
   const HEADERS = {
     setup: { title: "Scan your agent" },
