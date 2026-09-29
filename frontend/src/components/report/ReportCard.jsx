@@ -59,7 +59,8 @@ function AttackList({ outcomes, quality = false }) {
   );
 }
 
-// One check's card: grade, plain title, OWASP chips, what-got-through, before/after, trust block.
+// One check's card: grade, plain title, OWASP chips, what got through, trust block, grader accuracy,
+// then the optional prompt fix's before/after.
 export default function ReportCard({ card, outcomes = [] }) {
   const meta = metaFor(card.check);
   const quality = card.kind === "quality" || isQualityCheck(card.check);
@@ -77,17 +78,23 @@ export default function ReportCard({ card, outcomes = [] }) {
       </div>
 
       <AttackList outcomes={outcomes} quality={quality} />
-      <BeforeAfterBars
-        ba={card.before_after}
-        quality={quality}
-        canned={card.trust?.execution === "canned"}
-      />
       <TrustStrip card={card} />
       <JudgeAccuracyBlock
         acc={card.judge_accuracy}
         note={card.judge_accuracy_note}
         source={card.trust?.judge_accuracy_source}
       />
+      {/* The measurement comes first; the optional prompt fix's paired result follows it. */}
+      {card.before_after && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-app-text">Prompt fix (optional)</p>
+          <BeforeAfterBars
+            ba={card.before_after}
+            quality={quality}
+            canned={card.trust?.execution === "canned"}
+          />
+        </div>
+      )}
       <ProvenanceFooter card={card} />
     </Card>
   );

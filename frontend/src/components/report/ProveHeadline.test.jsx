@@ -12,6 +12,12 @@ describe("ProveHeadline", () => {
     expect(screen.queryByText(/hand-written/i)).toBeNull();
   });
 
+  it("names the two arms: the prompt as written and with the fix", () => {
+    render(<ProveHeadline baselineGrade="D" hardenedGrade="B" />);
+    expect(screen.getByText("as written")).toBeInTheDocument();
+    expect(screen.getByText("with fix")).toBeInTheDocument();
+  });
+
   it("never calls the demo's before and after a measurement", () => {
     render(<ProveHeadline baselineGrade="F" hardenedGrade="A" canned />);
     expect(screen.getByText(/hand-written/i)).toBeInTheDocument();

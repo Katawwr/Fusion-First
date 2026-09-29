@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 import Card from "../ui/Card";
 import GradeBadge from "./GradeBadge";
 
-// The Prove step's headline: the prompt as written vs the hardened prompt. `canned` (the demo)
+// The prompt fix's before/after headline: the prompt as written vs with the fix. `canned` (the demo)
 // replays hand-written "after" answers, so it must never read as a measurement.
 export default function ProveHeadline({ baselineGrade, hardenedGrade, canned = false }) {
   return (
@@ -32,14 +32,14 @@ export default function ProveHeadline({ baselineGrade, hardenedGrade, canned = f
           <div>
             <GradeBadge grade={baselineGrade} size="lg" />
             <p style={{ marginTop: "0.65rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
-              original
+              as written
             </p>
           </div>
           <ArrowRight size={28} color="var(--accent)" style={{ marginBottom: "1.75rem" }} aria-hidden />
           <div>
             <GradeBadge grade={hardenedGrade} size="lg" />
             <p style={{ marginTop: "0.65rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
-              hardened
+              with fix
             </p>
           </div>
         </div>

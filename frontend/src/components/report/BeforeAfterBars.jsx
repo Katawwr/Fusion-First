@@ -12,7 +12,7 @@ function Bar({ label, rate, tone }) {
     <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
       <span
         style={{
-          width: "3.75rem",
+          width: "5.25rem",
           flexShrink: 0,
           fontSize: "0.875rem",
           fontWeight: 500,
@@ -68,12 +68,12 @@ export default function BeforeAfterBars({ ba, quality = false, canned = false })
   return (
     <div className="flex flex-col gap-3">
       <Bar
-        label={quality ? "As written" : "Before"}
+        label="As written"
         rate={ba.baseline_issue_rate}
         tone={quality ? "var(--accent)" : "var(--danger)"}
       />
       <Bar
-        label={quality ? "With fix" : "After"}
+        label="With fix"
         rate={ba.hardened_issue_rate}
         tone={
           quality
@@ -95,7 +95,7 @@ export default function BeforeAfterBars({ ba, quality = false, canned = false })
       </div>
       {canned && (
         <p className="text-sm text-app-muted">
-          Illustration only: these “after” answers are hand-written, not measured.
+          Illustration only: these “with fix” answers are hand-written, not measured.
         </p>
       )}
       <HonestyExplainer ba={ba} />

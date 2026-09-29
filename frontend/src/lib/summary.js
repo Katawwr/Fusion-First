@@ -33,17 +33,18 @@ export function summarize(result) {
   const proven = measured.filter((c) => c.before_after?.honesty === "PROVEN");
   const partial = measured.length < cards.length;
 
+  // The measurement leads; the optional prompt fix's paired result follows it.
   let sentence;
   if (worstBaseline === 0) {
-    sentence = "No attack got through on the original prompt.";
+    sentence = "No attack got through on the prompt as written.";
   } else {
-    sentence = `Worst check: ${pct(worstBaseline)} of attacks got through on the original prompt.`;
+    sentence = `Worst check: ${pct(worstBaseline)} of attacks got through on the prompt as written.`;
     if (regressed.length) {
-      sentence += ` Warning: the fix made ${regressed.length === 1 ? "one check" : `${regressed.length} checks`} worse.`;
+      sentence += ` Warning: the prompt fix made ${regressed.length === 1 ? "one check" : `${regressed.length} checks`} worse.`;
     } else if (proven.length) {
-      sentence += ` The fix gave a significant reduction (PROVEN) on ${proven.length} of ${measured.length} check${measured.length === 1 ? "" : "s"}.`;
+      sentence += ` The prompt fix gave a significant reduction (PROVEN) on ${proven.length} of ${measured.length} check${measured.length === 1 ? "" : "s"}.`;
     } else {
-      sentence += " No check reached PROVEN; each badge below gives the reason.";
+      sentence += " No significant reduction from the prompt fix; each badge below gives the reason.";
     }
   }
   if (partial) sentence += " Some checks had too few scored attacks to grade.";
