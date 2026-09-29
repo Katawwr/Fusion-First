@@ -2,7 +2,7 @@
 // (/api/version → backends; null while unknown). A backend it can't run — or hasn't yet said it can
 // run — is shown disabled with the reason: never offered and left to fail at scan time.
 
-const RUN_LOCALLY = "Needs Fusion running locally: pip install fusion-safety, then fusion serve.";
+const RUN_LOCALLY = 'Needs Fusion running locally: pip install "fusion-safety[serve]", then fusion serve.';
 const WAITING = "Checking what this server can run…";
 
 // Server reasons are written for a terminal (`code` in backticks, advice after a dash); show the

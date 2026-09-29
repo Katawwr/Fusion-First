@@ -71,7 +71,10 @@ include = ["fusion*"]
 # has datasets/cassettes/crosswalk/evals without a source checkout.
 [tool.setuptools.package-data]
 fusion = ["_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_bundled/**/*.yml",
-          "_bundled/web/**/*"]  # the built web app for `fusion serve`
+          "_bundled/web/**/*",  # the built web app for `fusion serve`
+          # the Claude Code marketplace for `fusion plugin-dir`; globs skip dot-paths, so name them
+          "_bundled/marketplace/**/*", "_bundled/marketplace/.claude-plugin/*",
+          "_bundled/marketplace/plugins/*/.claude-plugin/*", "_bundled/marketplace/plugins/*/.mcp.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

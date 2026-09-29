@@ -8,7 +8,7 @@
         {
           "label": "Install",
           "lang": "bash",
-          "code": "claude plugin marketplace add /path/to/fusion\nclaude plugin install fusion@fusion-first\nollama pull llama3.2:1b"
+          "code": "uv tool install fusion-safety\nclaude plugin marketplace add \"$(fusion plugin-dir)\"\nclaude plugin install fusion@fusion-first\nollama pull llama3.2:1b"
         },
         {
           "label": "In Claude Code",
@@ -27,9 +27,9 @@
       "title": "Command line",
       "steps": [
         {
-          "label": "Check available backends",
+          "label": "Install, then check available backends",
           "lang": "bash",
-          "code": "fusion doctor"
+          "code": "pip install fusion-safety\nfusion doctor"
         },
         {
           "label": "Test a prompt",
@@ -70,7 +70,7 @@
         {
           "label": "For Claude Code",
           "lang": "bash",
-          "code": "claude plugin install fusion-guard@fusion-first"
+          "code": "uv tool install fusion-safety\nclaude plugin marketplace add \"$(fusion plugin-dir)\"\nclaude plugin install fusion-guard@fusion-first"
         }
       ]
     },
@@ -110,6 +110,11 @@
       "id": "mcp",
       "title": "Any MCP client",
       "steps": [
+        {
+          "label": "Install",
+          "lang": "bash",
+          "code": "pip install \"fusion-safety[mcp]\""
+        },
         {
           "label": "MCP config",
           "lang": "json",

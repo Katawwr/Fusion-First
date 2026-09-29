@@ -34,3 +34,13 @@ def data_root() -> pathlib.Path:
     if _has_data(bundled):
         return bundled
     return repo  # nothing found — let the caller raise a clear FileNotFoundError on first read
+
+
+def plugin_root(pkg_dir: pathlib.Path | None = None) -> pathlib.Path | None:
+    """The Claude Code plugin marketplace (``.claude-plugin/marketplace.json`` + ``plugins/``): the
+    checkout, else the copy bundled in the wheel; None when neither is there."""
+    pkg = pkg_dir or pathlib.Path(__file__).resolve().parent
+    for root in (pkg.parent, pkg / "_bundled" / "marketplace"):
+        if (root / ".claude-plugin" / "marketplace.json").is_file():
+            return root
+    return None

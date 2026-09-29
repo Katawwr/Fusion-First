@@ -54,6 +54,18 @@ def test_mcp_launch_command_matches_the_package():
 
 
 @pytest.mark.unit
+def test_the_plugin_runs_the_server_version_it_ships_with():
+    """The wheel bundles the plugin, so the plugin's server is that same release from PyPI: an
+    unpinned name would run whatever is uploaded next (renamed tools, or someone else's code)."""
+    version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+    args = json.loads((PLUGIN / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"][SERVER]["args"]
+    assert args[args.index("--from") + 1] == "${FUSION_PKG:-fusion-safety==" + version + "}"
+    for plugin in ("fusion", "fusion-guard"):
+        manifest = json.loads((ROOT / "plugins" / plugin / ".claude-plugin/plugin.json").read_text(encoding="utf-8"))
+        assert manifest["version"] == version, plugin
+
+
+@pytest.mark.unit
 def test_judge_agent_is_restricted_to_grading_tools():
     meta, body = _frontmatter(PLUGIN / "agents/fusion-judge.md")
     tools = [t.strip() for t in meta["tools"].split(",")]

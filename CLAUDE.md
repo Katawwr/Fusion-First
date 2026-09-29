@@ -61,7 +61,8 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
     `claude_hooks.py` (fusion-guard PreToolUse/PostToolUse), `live.py`.
 - `plugins/fusion/` — Claude Code plugin (skills audit/grade/harden/setup/guard, `fusion-judge`
   agent limited to the grading tools); `plugins/fusion-guard/` — opt-in hooks. Marketplace:
-  `.claude-plugin/marketplace.json`. `tests/test_plugin.py` pins tool names against the server.
+  `.claude-plugin/marketplace.json`, bundled in the wheel (`fusion plugin-dir` prints it; `.mcp.json`
+  pins `fusion-safety==<version>`). `tests/test_plugin.py` pins tool names against the server.
   - `web/` — the pure FastAPI layer (`factory.py`, SSE, settings) and `serve.py` (`fusion serve`).
 - `app/` — the Modal wrapper (`modal_app.py`, the only place `modal` may appear) plus alias shims
   re-exporting `fusion/web`.

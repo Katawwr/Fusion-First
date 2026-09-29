@@ -12,17 +12,18 @@ exfiltration, system-prompt leakage; OWASP LLM 2025 / Agentic mapped) and **qual
 - **Proof**: every run is recorded under `.fusion/runs/<id>/` and can be re-derived offline with
   `fusion run verify <id>`.
 
-## Install (local checkout)
+## Install
+
+Needs [uv](https://docs.astral.sh/uv/): the plugin starts its MCP server with `uvx`.
 
 ```bash
-# 1. make the package reachable by uvx (until it is published)
-export FUSION_PKG=/path/to/fusion          # PowerShell: $env:FUSION_PKG = "C:\path\to\fusion"
-# 2. add this repo as a marketplace and install the plugin
-claude plugin marketplace add /path/to/fusion
+uv tool install fusion-safety                          # puts fusion on PATH
+claude plugin marketplace add "$(fusion plugin-dir)"   # the marketplace bundled in the package
 claude plugin install fusion@fusion-first
 ```
 
-For a quick trial without installing: `claude --plugin-dir /path/to/fusion/plugins/fusion`.
+The server is the same release as the plugin (`fusion-safety==<version>` from PyPI). To run a source
+checkout instead, set `FUSION_PKG` to its path (PowerShell: `$env:FUSION_PKG = "C:\path\to\fusion"`).
 
 You also need at least one target:
 

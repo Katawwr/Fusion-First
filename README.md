@@ -19,7 +19,8 @@ pip install "fusion-safety[mcp]"     # + MCP server (fusion-mcp)
 pip install "fusion-safety[serve]"   # + local web app (fusion serve)
 ```
 
-The wheel bundles the corpora (`datasets/`, `cassettes/`, `crosswalk/`, `evals/`) and the web app.
+The wheel bundles the corpora (`datasets/`, `cassettes/`, `crosswalk/`, `evals/`), the web app and
+the Claude Code plugin marketplace (`fusion plugin-dir` prints its path).
 
 ## Use
 
@@ -40,7 +41,8 @@ grader on known-answer questions and withholds the grade ('?') if it falls short
 **1. Claude Code plugin** (recommended): see `plugins/fusion/README.md`.
 
 ```bash
-claude plugin marketplace add /path/to/fusion && claude plugin install fusion@fusion-first
+uv tool install fusion-safety        # puts fusion on PATH; the plugin starts its server with uvx
+claude plugin marketplace add "$(fusion plugin-dir)" && claude plugin install fusion@fusion-first
 # in Claude Code:  /fusion:audit prompts/support_bot.md ollama:llama3.2:1b
 ```
 

@@ -586,6 +586,9 @@ def build_parser() -> argparse.ArgumentParser:
     psv.add_argument("--dist", default=None, help="built frontend dir (default: frontend/dist or the bundled copy)")
     psv.add_argument("--no-open", action="store_true", help="don't open a browser tab")
     psv.add_argument("--demo-only", action="store_true", help="keep live backends (Ollama, claude CLI) off")
+
+    sub.add_parser("plugin-dir", help='print the Claude Code plugin marketplace path: '
+                                      'claude plugin marketplace add "$(fusion plugin-dir)"')
     return p
 
 
@@ -651,6 +654,17 @@ def _cmd_serve(args) -> int:
     return 0
 
 
+def _cmd_plugin_dir(args) -> int:
+    from fusion import _data
+
+    root = _data.plugin_root()
+    if root is None:
+        print("No plugin marketplace in this install. Reinstall: pip install fusion-safety", file=sys.stderr)
+        return 1
+    print(root)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     # Windows consoles default to cp1252; force UTF-8 so output never mojibakes.
     for stream in (sys.stdout, sys.stderr):
@@ -677,6 +691,7 @@ def main(argv: list[str] | None = None) -> int:
         "import-promptfoo": _cmd_import_promptfoo,
         "doctor": _cmd_doctor,
         "serve": _cmd_serve,
+        "plugin-dir": _cmd_plugin_dir,
     }
     if getattr(args, "backend", None):
         import os

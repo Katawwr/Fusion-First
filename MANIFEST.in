@@ -5,6 +5,10 @@ recursive-include crosswalk *.yaml *.yml
 recursive-include evals *.json *.yaml
 include README.md CLAUDE.md SCHEMA.md pyproject.toml setup.py
 recursive-include integrations *.md *.json *.yml *.yaml
+# The Claude Code marketplace and the built web app, bundled by setup.py like the corpora.
+include .claude-plugin/marketplace.json
+graft plugins
+graft frontend/dist
 # fusion/_bundled/ is a build artifact (populated by setup.py), not shipped in the sdist.
 prune fusion/_bundled
 global-exclude __pycache__ *.pyc *.pyo

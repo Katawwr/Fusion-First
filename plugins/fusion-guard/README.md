@@ -29,8 +29,8 @@ Commands longer than 20,000 characters are checked at both ends and always ask.
 ## Install
 
 ```bash
-uv tool install --from /path/to/fusion fusion-safety     # puts `fusion` on PATH (fast hooks)
-claude plugin marketplace add /path/to/fusion
+uv tool install fusion-safety                            # puts `fusion` on PATH (the hooks call it)
+claude plugin marketplace add "$(fusion plugin-dir)"
 claude plugin install fusion-guard@fusion-first
 ```
 
