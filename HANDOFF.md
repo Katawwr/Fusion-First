@@ -127,15 +127,26 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 ## Next
 
-0. **Deploy (owner: "deploy it", then "do it yourself", 2026-09-29).** API DEPLOYED to Modal:
+0. **DEPLOYED 2026-09-29** (owner: "deploy it", then "do it yourself"). API on Modal:
    `https://katawwr--fusion-safety-api-fastapi-app.modal.run` (app `fusion-safety-api`, no secret attached:
-   demo-only, nothing metered; `/api/health` → mode demo, version `rebuild-bd6b698`; a demo scan returns
-   8 scored, labelled demonstration; CORS `*`). Deploy with `PYTHONIOENCODING=utf-8` (Windows console) and
-   `FUSION_VERSION`. The auto-mode classifier denied creating a Modal secret (don't retry that); the deploy
-   ran after the owner's "do it yourself". Frontend: `frontend/.vercel/output/` (gitignored) holds a prebuilt
-   static build at bd6b698 with that API URL and an SPA route; WAITING for the owner's `vercel login` (the
-   CLI had no valid credentials; never sign in for the owner), then `vercel deploy --prebuilt --prod --cwd
-   frontend` and verify the domain (new title, demo scan end to end). The old Modal apps stay up (rollback).
+   demo-only, nothing metered; `/api/health` → mode demo, version `rebuild-bd6b698`; a demo scan via the API
+   returns 8 scored, labelled demonstration; CORS `*`). Frontend on Vercel production (CLI logged in as
+   `katawwr`; deployment `fusion-first-4m7tbzxje-katrinas-projects-35bec1fe.vercel.app`) from the prebuilt
+   `frontend/.vercel/output/` (gitignored; build with `VITE_API_URL=<modal url> npx vite build --outDir
+   .vercel/output/static`, then `vercel deploy --prebuilt --prod --cwd frontend`). `fusion-first-testing.com`
+   now serves title "Fusion First: Measure and guard AI agents", the bundle calls the new API, no
+   Supabase/LemonSqueezy references, `/trust` → 200. **First job next session:** drive a demo scan end to end
+   on the live domain in a browser (Playwright MCP: Paste → Attack → Grade → Guard, before/after), both themes
+   and phone width; fix anything that differs from local. Redeploy the API with `PYTHONIOENCODING=utf-8` and
+   `FUSION_VERSION`. The auto-mode classifier denied creating a Modal secret (don't retry). The old Modal apps
+   (`fusion-quality-tester`, `fusion-secur…`) still run: rollback path; retiring them is the owner's call.
+   **In flight:** a local live run of the replay (background process from the previous session; Ollama busy
+   while it grades): workspace `C:/Users/Katri/AppData/Local/Temp/claude/C--Users-Katri-OneDrive-Documents-Fusion/501fd9ad-c617-4704-9f46-422ff1c2f046/scratchpad/live-replay`,
+   run `33dafde363b4` (llama3.2:1b target, qwen2.5:1.5b grader, Banking prompt). Check with
+   `python -m fusion.cli run status --workspace <that path>` and `ollama ps`; start no other Ollama job while
+   it runs. It was started with the pre-fix code: when done, re-finalize with `fusion run finalize --workspace
+   <path>` to get `guard_replay` and read the in-sample line (expect grades withheld with a 1.5B grader: then
+   the replay is not counted, correctly). If the scratchpad is gone, rerun it.
    **Replay review fixed** (second review: 1 critical, 2 important, all fixed with RED→GREEN tests): verdict is
    `ProbeOutcome.guard_replay` = stopped / allowed / no_tool_call; attacks answered in prose (0 of 64 real
    llama3.2:1b replies had an ACTION line) are counted separately, never as not stopped; every surface states
