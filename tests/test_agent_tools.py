@@ -59,10 +59,9 @@ def test_tool_descriptions_never_call_the_fix_tested_or_lead_with_it():
     import inspect
 
     from fusion.integrations import mcp_server
-
     from fusion.validate.claims import repo_root
 
-    readme = (repo_root() / "integrations" / "README.md").read_text(encoding="utf-8")
+    readme =(repo_root() / "integrations" / "README.md").read_text(encoding="utf-8")
     for src in (inspect.getsource(t), inspect.getsource(mcp_server), readme):
         assert "tested guard rules" not in src
         assert "FIND + FIX + PROTECT" not in src
