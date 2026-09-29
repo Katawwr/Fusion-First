@@ -31,7 +31,7 @@ from fusion.guardrail.policy import GuardConfig
 guard = Guardrail(GuardConfig(
     allowlisted_domains=["your-company.com"],  # other hosts are external
     secret_values=["sk-...your-key..."],       # must never appear in a reply
-    system_prompt=SYSTEM_PROMPT,               # a reply reproducing it is blocked
+    system_prompt=SYSTEM_PROMPT,               # a reply dumping it is blocked
     require_authorization=True,  # calls must match the request (measured)
 ))
 
