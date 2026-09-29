@@ -31,6 +31,7 @@ import {
 } from "../lib/scanApi";
 import { CHECKS, QUALITY_CHECKS, checkMeta, worstGrade } from "../lib/jargon";
 import { guardResult } from "../lib/evidence";
+import { guardInSample } from "../lib/summary";
 import evidence from "../content/evidence.json";
 
 const ALL_CHECKS = Object.keys(CHECKS);
@@ -480,6 +481,7 @@ export default function Scan({ scanState, setScanState }) {
           snippetError={snippetError}
           fixError={fixError}
           canned={canned}
+          inSample={guardInSample(result)}
           onRetry={goToGuard}
           onProve={() => setStep("prove")}
           onBack={() => setStep("report")}
@@ -744,6 +746,36 @@ function RunStep({ scan, checks, onCancel }) {
 const FIX_CAVEAT =
   "On the small open-weight models we measured, it rarely cut attacks and raised refusals of safe requests. Re-test it on your model before you ship it.";
 
+// What the guard did on this scan's own replies (in-sample), overall and per check.
+function InSample({ replay }) {
+  const cell = { padding: "0.35rem 0.5rem", borderTop: "1px solid var(--border)" };
+  return (
+    <div style={{ marginBottom: "1rem" }}>
+      <p style={{ margin: "0 0 0.6rem", fontSize: "0.9375rem", fontWeight: 600, color: "var(--text)" }}>
+        {replay.sentence}
+      </p>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem", color: "var(--muted)" }}>
+        <thead>
+          <tr style={{ textAlign: "left", color: "var(--subtle)" }}>
+            <th style={{ ...cell, borderTop: "none", fontWeight: 600 }}>Check</th>
+            <th style={{ ...cell, borderTop: "none", fontWeight: 600 }}>Stopped</th>
+            <th style={{ ...cell, borderTop: "none", fontWeight: 600 }}>Clean, blocked or redacted</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(replay.by_check).map(([check, c]) => (
+            <tr key={check}>
+              <td style={cell}>{checkMeta(check).label}</td>
+              <td style={cell}>{c.got_through ? `${c.stopped} of ${c.got_through}` : "none got through"}</td>
+              <td style={cell}>{`${c.acted_on_clean} of ${c.clean}`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function StepError({ message, onRetry }) {
   return (
     <div
@@ -783,6 +815,7 @@ export function GuardStep({
   onBack,
   onRestart,
   canned = false,
+  inSample = null,
   measured = guardResult(evidence.step2_guard),
 }) {
   return (
@@ -792,10 +825,22 @@ export function GuardStep({
           Runtime guardrail
         </SectionTitle>
         <Card>
+          {inSample ? (
+            <InSample replay={inSample} />
+          ) : canned ? (
+            <p style={{ margin: "0 0 1rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
+              The in-sample replay needs a live scan: the demo's replies are canned.
+            </p>
+          ) : null}
           {measured && (
             <p style={{ margin: "0 0 1rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
               {measured}{" "}
-              <Link to="/trust" style={{ color: "var(--accent-ink)", textDecoration: "underline" }}>
+              <Link
+                to="/trust"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: "var(--accent-ink)", textDecoration: "underline" }}
+              >
                 Trust report
               </Link>
             </p>
@@ -833,7 +878,7 @@ export function GuardStep({
                 />
                 <CopyButton
                   text={hardened.guard_block}
-                  label="Copy guard block only"
+                  label="Copy fix block only"
                 />
                 <Button variant="outline" onClick={onProve}>
                   {canned ? "See the example before/after" : "Re-test it on your model"}

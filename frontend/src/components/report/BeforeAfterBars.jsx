@@ -6,7 +6,7 @@ import { deltaSentence } from "../../lib/trust";
 
 function Bar({ label, rate, tone }) {
   const width = Math.max(2, Math.round((rate || 0) * 100));
-  // The value always sits OUTSIDE the fill, in a fixed-width column, so Before and After
+  // The value always sits OUTSIDE the fill, in a fixed-width column, so "As written" and "With fix"
   // read down a straight edge instead of jumping in and out of the bar with the value.
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>

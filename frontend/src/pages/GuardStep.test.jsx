@@ -51,6 +51,36 @@ describe("GuardStep", () => {
     expect(onProve).toHaveBeenCalled();
   });
 
+  it("shows the scan's in-sample replay, labelled in-sample, with counts per check", () => {
+    const inSample = {
+      stopped: 6, got_through: 7, acted_on_clean: 1, clean: 25,
+      sentence: "In-sample, this scan's own attacks: the guard blocked or redacted 6 of 7 attacks that got through and 1 of 25 replies graded clean.",
+      by_check: { system_prompt_leakage: { stopped: 5, got_through: 5, acted_on_clean: 0, clean: 3 } },
+    };
+    renderGuard({ inSample });
+    expect(screen.getByText(inSample.sentence)).toBeInTheDocument();
+    const row = screen.getByRole("row", { name: /System prompt leakage/ });
+    expect(row).toHaveTextContent("5 of 5");
+  });
+
+  it("says a demo has no in-sample replay", () => {
+    renderGuard({ canned: true, inSample: null });
+    expect(screen.getByText(/needs a live scan/)).toBeInTheDocument();
+  });
+
+  it("opens the trust report without leaving the step", () => {
+    renderGuard();
+    if (evidence.step2_guard?.decision?.new_rules === "adopted") {
+      expect(screen.getByRole("link", { name: "Trust report" })).toHaveAttribute("target", "_blank");
+    }
+  });
+
+  it("names the fix's block as the fix, not the guard", () => {
+    renderGuard();
+    expect(screen.getByRole("button", { name: /Copy fix block only/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Copy guard block only/ })).toBeNull();
+  });
+
   it("calls the demo's before/after an example, not a re-test", () => {
     renderGuard({ canned: true });
     expect(screen.queryByRole("button", { name: "Re-test it on your model" })).toBeNull();

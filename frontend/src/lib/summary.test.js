@@ -1,5 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { summarize } from "./summary";
+import { guardInSample, summarize } from "./summary";
+
+const o = (check, issue, stopped) => ({ check, baseline_issue: issue, guard_stopped: stopped });
+
+describe("guardInSample", () => {
+  it("counts stopped attacks and clean replies acted on, overall and per check, in the backend's words", () => {
+    const g = guardInSample({ outcomes: [o("a", true, true), o("a", true, false), o("a", false, true),
+      o("b", false, false), o("b", null, null)] });
+    expect([g.stopped, g.got_through, g.acted_on_clean, g.clean]).toEqual([1, 2, 1, 2]);
+    expect(g.by_check.b).toEqual({ stopped: 0, got_through: 0, acted_on_clean: 0, clean: 1 });
+    expect(g.sentence).toBe("In-sample, this scan's own attacks: the guard blocked or redacted 1 of 2 attacks " +
+      "that got through and 1 of 2 replies graded clean.");
+    const none = guardInSample({ outcomes: [o("a", false, false)] });
+    expect(none.sentence).toBe("In-sample, this scan's own attacks: none got through; the guard blocked or " +
+      "redacted 0 of 1 replies graded clean.");
+  });
+
+  it("claims nothing without verdicts (a demo or an older result)", () => {
+    expect(guardInSample({ outcomes: [o("a", true, null)] })).toBeNull();
+    expect(guardInSample(null)).toBeNull();
+  });
+});
 
 const card = (grade, base, hard, honesty = "PRELIMINARY") => ({
   grade,

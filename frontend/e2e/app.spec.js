@@ -35,6 +35,8 @@ test.describe("desktop", () => {
     await page.getByRole("button", { name: "Guard it" }).click();
     await expect(page.getByRole("heading", { name: "Runtime guardrail" })).toBeVisible();
     await expect(page.getByText(/guard_tool_call/).first()).toBeVisible();
+    // The in-sample replay runs on live scans only: demo replies are canned.
+    await expect(page.getByText(/in-sample replay needs a live scan/)).toBeVisible();
     await page.getByRole("button", { name: "See the example before/after" }).click();
     // The fix's before/after: the demo's is labelled an example, never a measurement.
     await expect(page.getByText(/It is not a measurement/)).toBeVisible();
@@ -98,6 +100,16 @@ test.describe("desktop", () => {
 
 // Tagged @phone: only the phone project runs these (see playwright.config.js).
 test.describe("phone", () => {
+  test("no sideways scrolling on the Guard step @phone", async ({ page }) => {
+    await page.goto("/scan");
+    await page.getByRole("button", { name: "Support bot" }).click();
+    await page.getByRole("button", { name: "Run the scan" }).click();
+    await page.getByRole("button", { name: "Guard it" }).click();
+    await expect(page.getByRole("button", { name: "Copy hardened prompt" })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
   for (const path of ["/", "/scan", "/trust", "/use"]) {
     test(`no sideways scrolling on ${path} @phone`, async ({ page }) => {
       await page.goto(path);

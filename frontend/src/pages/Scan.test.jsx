@@ -98,6 +98,22 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     expect(screen.queryByText("The snippet couldn't be loaded.")).toBeNull();
   });
 
+  it("shows the live scan's in-sample guard replay on the Guard step", async () => {
+    api.guardrailSnippet = vi.fn(async () => ({ snippet: "guard code" }));
+    api.harden = vi.fn(async (p) => ({ hardened_prompt: p, guard_block: `FIX for ${p}` }));
+    render(<Harness />);
+    fireEvent.change(screen.getByPlaceholderText(/You are a helpful assistant/), { target: { value: "Prompt A" } });
+    fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
+    const outcomes = [
+      { check: "direct_prompt_injection", probe_id: "1", attack_label: "a", baseline_issue: true, hardened_issue: true, guard_stopped: true },
+      { check: "direct_prompt_injection", probe_id: "2", attack_label: "b", baseline_issue: false, hardened_issue: false, guard_stopped: false },
+    ];
+    await act(async () => api.starts.at(-1).opts.onCompleted({ ...live("Prompt A"), outcomes }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    expect(await screen.findByText(/the guard blocked or redacted 1 of 1 attacks that got through and 0 of 1/))
+      .toBeInTheDocument();
+  });
+
   it("still builds the optional fix when the snippet fails", async () => {
     api.guardrailSnippet = vi.fn(async () => { throw new Error("snippet failed"); });
     api.harden = vi.fn(async (p) => ({ hardened_prompt: p, guard_block: `FIX for ${p}` }));

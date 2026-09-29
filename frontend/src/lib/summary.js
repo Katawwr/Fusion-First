@@ -1,6 +1,38 @@
 // The report's headline sentence — derived from what was actually measured, never a canned boast.
 import { pct } from "./jargon";
 
+// The scan's in-sample guard replay (fusion/engine/guard_replay.py): counts over outcomes carrying a
+// verdict, overall and per check, and the same sentence the backend prints. Null when nothing was
+// replayed (demo scans: their replies are canned; results from before the replay existed).
+function countReplay(outcomes) {
+  const through = outcomes.filter((o) => o.baseline_issue === true);
+  const clean = outcomes.filter((o) => o.baseline_issue === false);
+  return {
+    stopped: through.filter((o) => o.guard_stopped).length,
+    got_through: through.length,
+    acted_on_clean: clean.filter((o) => o.guard_stopped).length,
+    clean: clean.length,
+  };
+}
+
+export function guardInSample(result) {
+  const judged = (result?.outcomes || []).filter(
+    (o) => o.guard_stopped !== null && o.guard_stopped !== undefined && o.baseline_issue !== null && o.baseline_issue !== undefined,
+  );
+  if (!judged.length) return null;
+  const s = countReplay(judged);
+  const by_check = {};
+  for (const check of [...new Set(judged.map((o) => o.check))]) {
+    by_check[check] = countReplay(judged.filter((o) => o.check === check));
+  }
+  const lead = "In-sample, this scan's own attacks:";
+  const cleanPart = `${s.acted_on_clean} of ${s.clean} replies graded clean`;
+  const sentence = s.got_through
+    ? `${lead} the guard blocked or redacted ${s.stopped} of ${s.got_through} attacks that got through and ${cleanPart}.`
+    : `${lead} none got through; the guard blocked or redacted ${cleanPart}.`;
+  return { ...s, by_check, sentence };
+}
+
 const isCanned = (result) =>
   result?.execution === "canned" || (result?.execution == null && result?.demonstration);
 
