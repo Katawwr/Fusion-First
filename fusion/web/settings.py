@@ -9,6 +9,8 @@ from __future__ import annotations
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from fusion import __version__
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=None, extra="ignore", case_sensitive=False)
@@ -29,8 +31,8 @@ class Settings(BaseSettings):
     # Fail-closed webhook (billing effect stubbed; the signature gate is real).
     webhook_secret: str | None = None
 
-    # Surfaced by /api/version for provenance.
-    version: str = "dev"
+    # Surfaced by /api/version for provenance: VERSION (the Modal deploy sets the git sha), else the release.
+    version: str = __version__
 
     # LOCAL backends (the server's `claude` CLI subscription, local Ollama) spend the HOST's own
     # resources, so they are OFF by default: a public server must never let arbitrary visitors drive

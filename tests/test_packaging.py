@@ -161,3 +161,25 @@ def test_cli_plugin_dir_without_a_marketplace_fails_with_the_install_line(monkey
     assert main(["plugin-dir"]) == 1
     captured = capsys.readouterr()
     assert captured.out == "" and "pip install fusion-safety" in captured.err
+
+
+@pytest.mark.unit
+def test_one_version_for_the_package_the_app_and_the_plugin_pin():
+    import tomllib
+
+    import fusion
+
+    assert tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"] == fusion.__version__
+
+
+@pytest.mark.unit
+def test_a_pip_installed_web_app_reports_its_release_not_dev(monkeypatch):
+    """Modal sets VERSION; a `fusion serve` from a pip install has none, and "dev" names no release."""
+    pytest.importorskip("pydantic_settings")
+    import fusion
+    from fusion.web.settings import Settings
+
+    monkeypatch.delenv("VERSION", raising=False)
+    assert Settings().version == fusion.__version__
+    monkeypatch.setenv("VERSION", "rebuild-abc1234")
+    assert Settings().version == "rebuild-abc1234"
