@@ -62,7 +62,21 @@ def _resolve_checks(check: str) -> list[str]:
     return [check]
 
 
+def _refuses_installed_copy(command: str) -> bool:
+    """A pip install keeps the corpora inside site-packages (read-only for a system Python, replaced on
+    upgrade): the dev commands that rewrite them say where to run instead."""
+    from fusion_first import _data
+
+    if not _data.is_installed_copy():
+        return False
+    print(f"`fusion {command}` rewrites Fusion's committed data, which a pip install keeps inside the package. "
+          "Run it from a source checkout, or set FUSION_DATA_DIR to a copy you own.", file=sys.stderr)
+    return True
+
+
 def cmd_record(args) -> int:
+    if not (getattr(args, "live", False) and args.out_dir) and _refuses_installed_copy("record"):
+        return 2
     if getattr(args, "live", False):
         return _record_live(args)
     from fusion_first.model.replay import Cassette
@@ -214,6 +228,8 @@ async def _eval_one(check: str, args) -> int:
     from fusion_first.model.replay import ReplayModelClient
     from fusion_first.stats.gate import run_eval_gate, save_baseline
 
+    if args.update_baseline and _refuses_installed_copy("eval --update-baseline"):
+        return 2
     cas = _load_cassette(check, args.version)
     client = ReplayModelClient(cas, strict=True)
     gate, result = await run_eval_gate(check, client, version=args.version, split=args.split)
@@ -443,6 +459,8 @@ def cmd_guard_bench(args) -> int:
         save_baseline,
     )
 
+    if args.update_baseline and _refuses_installed_copy("guard-bench --update-baseline"):
+        return 2
     report = run_benchmark()
     print(format_report(report))
     if args.update_baseline:

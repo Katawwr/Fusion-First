@@ -39,6 +39,12 @@ def data_root(pkg_dir: pathlib.Path | None = None) -> pathlib.Path:
     return pkg.parent  # nothing found — let the caller raise a clear FileNotFoundError on first read
 
 
+def is_installed_copy() -> bool:
+    """The corpora are the copy bundled in an installed wheel (inside site-packages): commands that rewrite
+    them (record, --update-baseline) refuse there."""
+    return data_root() == pathlib.Path(__file__).resolve().parent / "_bundled"
+
+
 def _is_our_marketplace(root: pathlib.Path) -> bool:
     try:
         manifest = json.loads((root / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))

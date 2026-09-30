@@ -383,3 +383,26 @@ def test_a_pip_installed_web_app_reports_its_release_not_dev(monkeypatch):
     assert Settings().version == fusion_first.__version__
     monkeypatch.setenv("VERSION", "rebuild-abc1234")
     assert Settings().version == "rebuild-abc1234"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("argv", [["record", "--check", "direct_prompt_injection"],
+                                  ["eval", "--check", "direct_prompt_injection", "--update-baseline"],
+                                  ["guard-bench", "--update-baseline"]])
+def test_commands_that_rewrite_the_corpora_refuse_in_a_pip_install(monkeypatch, capsys, argv):
+    """In a pip install the corpora live inside site-packages (read-only for a system Python, replaced on
+    upgrade), so the dev commands that rewrite them say where to run instead of writing there."""
+    import fusion_first._data as data
+    from fusion_first.cli import main
+
+    bundled = pathlib.Path(data.__file__).resolve().parent / "_bundled"
+    monkeypatch.setattr(data, "data_root", lambda pkg_dir=None: bundled)
+    from fusion_first.model.replay import Cassette
+
+    writes = []
+    monkeypatch.setattr(pathlib.Path, "write_text", lambda self, *a, **k: writes.append(self))
+    monkeypatch.setattr(Cassette, "save", lambda self, path: writes.append(path))
+
+    assert main(argv) == 2
+    assert writes == []
+    assert "FUSION_DATA_DIR" in capsys.readouterr().err
