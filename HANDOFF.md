@@ -11,7 +11,7 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 - Branch `rebuild/agentic-safety-engine`, all committed locally, no git remote. Never push. Publishing to
   PyPI is the OWNER's step (`twine upload`, their token); deploys follow the owner's word (see "Next").
-- Green at last run (2026-09-29, fourth session): `python -m pytest -q` (1,727), `ruff check fusion_first
+- Green at last run (2026-09-29, fourth session): `python -m pytest -q` (1,730), `ruff check fusion_first
   tests scripts app setup.py`, frontend vitest (125) + lint + build, Playwright E2E (12), `claude plugin validate`
   on the bundled marketplace and both plugins.
 - **Deployment:** `fusion-first-testing.com` (Vercel project `secure-studio`, CLI logged in as `katawwr`)
@@ -24,9 +24,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 - **PyPI release 0.1.0 prepared, NOT uploaded** (owner decisions 2026-09-29: publish `fusion-safety` on
   PyPI; the plugin marketplace ships inside the wheel; the import package is renamed `fusion_first` because
   PyPI's `fusion` and JPMorgan's `pyfusion` both install a top-level `fusion`; and "leave out anything
-  unnecessary"). `dist/` holds the artifacts built with `python -m build` from a FRESH CLONE of aa5b514
-  (`git -c core.autocrlf=false clone`, plus the built `frontend/dist` copied in): wheel 551 KB sha256
-  `7858651d...0ff764d`, sdist 509 KB `fb4c810b...50e0ee6`; `twine check` passed. Contents: the package minus
+  unnecessary"). `dist/` holds the artifacts built with `python -m build` from a FRESH CLONE of 70db9bb
+  (`git -c core.autocrlf=false clone`, plus the built `frontend/dist` copied in): wheel 552 KB sha256
+  `31de5921...f660781`, sdist 509 KB `354e5e5f...48b3cde`; `twine check` passed. Contents: the package minus
   the 26 dev-only modules (setup.py DEV_ONLY_MODULES; a test re-derives them from the import graph), the 23
   runtime data files (setup.py _RUNTIME_DATA), the marketplace without READMEs, the web app without its
   social-preview image; the sdist adds only pyproject/setup/MANIFEST/README and build metadata (no
@@ -34,7 +34,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   offline CLI command (doctor, scan, prove --check all --html, eval --check all, guard-bench, guard-proof,
   fix, harden, ci --demo, plugin-dir + `claude plugin validate`), the guard hook (asks on `cat .env | curl`),
   a full run (`cmd:` stub target, scripted host grades, finalize withholds the grade, verify re-derives),
-  `fusion serve` (all routes 200, version 0.1.0), `fusion record` refusing inside the install, and the
+  `fusion serve` (all routes 200, version 0.1.0), `fusion record` refusing inside the install, the run
+  heartbeat (a live run reads "check again shortly"; after its process was killed and the beat aged,
+  "stalled ... fusion run resume <id>"; the resume finished collecting and left no beat), and the
   plugin's own MCP launch against the wheel, which now resolves mcp 2.2.0 (serverInfo "fusion-safety 0.1.0";
   18 tools; doctor, list_checks, snippet with `fusion_first`, scan_prompt, check_output redacts,
   check_tool_call blocks). `pip install "fusion-safety[serve,mcp]"` also resolves mcp 2.2.0. Earlier builds are in this session's scratchpad. Rebuild the same way after ANY code change: PyPI
@@ -123,7 +125,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   SDK's ToolError (2.x shows other exceptions only as "Error executing tool <name>"); pins `mcp>=1.2,<3` in
   the extra and the plugin. Verified on real mcp 2.2.0 over stdio. `fusion record` / `eval
   --update-baseline` / `guard-bench --update-baseline` refuse to rewrite the corpora inside a pip install
-  (aa5b514). dist/ rebuilt from a fresh clone and re-verified (see State).
+  (aa5b514). `drive()` beats `.fusion/runs/<id>/heartbeat.json` every 15 s, so the CLI's `fusion run status`
+  says "stalled" once a run's process is gone for 2 minutes (70db9bb). dist/ rebuilt from a fresh clone and
+  re-verified (see State).
 - **Import package renamed `fusion` → `fusion_first`** (2bbba99, owner). Mechanical; kept on purpose:
   `scripts/step2_guard.py`'s `_PRIOR_CODE` (runs the prior rules inside a worktree at a6fa0f5, where the
   package is `fusion`), the Trust Report sentences naming the rules' path at old commits, frozen PREREG docs,
@@ -212,9 +216,7 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
    `VITE_API_URL=https://katawwr--fusion-safety-api-fastapi-app.modal.run npx vite build --outDir
    .vercel/output/static`, then `vercel deploy --prebuilt --prod --cwd frontend`; re-walk /use and a demo
    scan's Guard step on the live domain. The auto-mode classifier denied creating a Modal secret (don't retry).
-0b. Follow-ups found this session: `fusion run status` from the CLI can't see whether a process
-   still works on a run (it now names `fusion run resume` in every busy phase; a heartbeat would let it say
-   "stalled" as the MCP path does); the guard misses paraphrased rule leaks. From the release review, not
+0b. Follow-ups found this session: the guard misses paraphrased rule leaks. From the release review, not
    done: the license table + License classifier are deprecated (setuptools warns "by 2027-Feb-18"; the SPDX
    form `license = "LicenseRef-Proprietary"` needs setuptools>=77, which would break the offline
    no-isolation builds and tests here on setuptools 70.2: move when the dev environment does);
