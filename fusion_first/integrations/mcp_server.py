@@ -20,6 +20,9 @@ extra — the underlying tools (fusion_first.integrations.agent_tools) are pure 
 
 from __future__ import annotations
 
+import functools
+import inspect
+
 from fusion_first.integrations import agent_tools as t
 from fusion_first.integrations.run_tools import RunTools
 
@@ -39,17 +42,67 @@ _INSTRUCTIONS = (
 )
 
 
-def build_server(runs: RunTools | None = None):
-    """Construct the FastMCP server. Requires the `mcp` extra (`pip install fusion-safety[mcp]`)."""
+def _server_class():
+    """The SDK's server class, and whether it is 2.x (FastMCP was renamed MCPServer there, and it takes the
+    server's own version: without one it reports an empty string)."""
+    try:
+        from mcp.server.mcpserver import MCPServer
+
+        return MCPServer, True
+    except ModuleNotFoundError:
+        pass
     try:
         from mcp.server.fastmcp import FastMCP
-    except ModuleNotFoundError as e:  # pragma: no cover - depends on optional extra
-        raise SystemExit(  # missing, or mcp 2.x (FastMCP was renamed there)
-            "The Fusion MCP server needs the MCP SDK 1.x (mcp>=1.2,<2). Install it with:\n"
+
+        return FastMCP, False
+    except ModuleNotFoundError as e:
+        raise SystemExit(
+            "The Fusion MCP server needs the MCP SDK (mcp>=1.2,<3). Install it with:\n"
             "    pip install \"fusion-safety[mcp]\""
         ) from e
 
-    mcp = FastMCP("fusion-safety", instructions=_INSTRUCTIONS)
+
+def _messages_kept(tool, tool_error):
+    """Wrap the SDK's `tool()` decorator so a tool's exception reaches the client as `tool_error` with its
+    message: 2.x shows only `Error executing tool <name>` for any other exception, and Fusion's errors say
+    what to do next (1.x shows every message, so it keeps its own decorator)."""
+    def decorator(*args, **kwargs):
+        register = tool(*args, **kwargs)
+
+        def wrap(fn):
+            if inspect.iscoroutinefunction(fn):
+                @functools.wraps(fn)
+                async def call(*a, **kw):
+                    try:
+                        return await fn(*a, **kw)
+                    except tool_error:
+                        raise
+                    except Exception as e:
+                        raise tool_error(str(e)) from e
+            else:
+                @functools.wraps(fn)
+                def call(*a, **kw):
+                    try:
+                        return fn(*a, **kw)
+                    except tool_error:
+                        raise
+                    except Exception as e:
+                        raise tool_error(str(e)) from e
+            return register(call)
+        return wrap
+    return decorator
+
+
+def build_server(runs: RunTools | None = None):
+    """Construct the MCP server (SDK 1.x or 2.x). Requires the `mcp` extra (`pip install fusion-safety[mcp]`)."""
+    from fusion_first import __version__
+
+    server_class, v2 = _server_class()
+    mcp = server_class("fusion-safety", instructions=_INSTRUCTIONS, **({"version": __version__} if v2 else {}))
+    if v2:
+        from mcp.server.mcpserver.exceptions import ToolError
+
+        mcp.tool = _messages_kept(mcp.tool, ToolError)
     runs = runs or RunTools()
 
     # ---- keyless run engine (host-as-judge) ----------------------------------------------------
@@ -211,7 +264,7 @@ def build_server(runs: RunTools | None = None):
 
 
 def main() -> None:  # pragma: no cover - transport entry point
-    build_server().run()
+    build_server().run(transport="stdio")
 
 
 if __name__ == "__main__":  # pragma: no cover

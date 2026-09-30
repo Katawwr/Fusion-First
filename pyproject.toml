@@ -55,7 +55,7 @@ backend = [
 ]
 # MCP server so an AI coding agent can call Fusion inline (scan / harden / guard).
 mcp = [
-    "mcp>=1.2,<2",  # 2.x renamed FastMCP (MCPServer) and changed the API
+    "mcp>=1.2,<3",  # the server runs on 1.x and 2.x; a new major may rename things again
 ]
 dev = [
     "pytest>=8.0",

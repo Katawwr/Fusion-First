@@ -54,9 +54,10 @@ def test_mcp_launch_command_matches_the_package():
 
 
 @pytest.mark.unit
-def test_both_install_paths_stay_on_the_mcp_sdk_the_server_is_written_for():
-    """mcp 2 renamed FastMCP and changed its API: on it the server exits at startup. The plugin's
-    uvx launch and the [mcp] extra must both resolve to mcp 1.x."""
+def test_both_install_paths_admit_the_sdk_majors_the_server_runs_on():
+    """The server runs on mcp 1.x and 2.x (tests/test_mcp_sdk_compat.py); an unseen major may rename things
+    again (2.x renamed FastMCP), so the plugin's uvx launch and the [mcp] extra stop before 3.0. Pinning below
+    2 would make `pip install "fusion-safety[mcp]"` downgrade an environment's current SDK."""
     from packaging.requirements import Requirement
 
     args = json.loads((PLUGIN / ".mcp.json").read_text(encoding="utf-8"))["mcpServers"][SERVER]["args"]
@@ -65,7 +66,8 @@ def test_both_install_paths_stay_on_the_mcp_sdk_the_server_is_written_for():
     mcp_specs = [r for r in specs if r.name == "mcp"]
     assert len(mcp_specs) == 2
     for r in mcp_specs:
-        assert r.specifier.contains("1.28.1") and not r.specifier.contains("2.0.0"), str(r)
+        assert r.specifier.contains("1.28.1") and r.specifier.contains("2.2.0"), str(r)
+        assert not r.specifier.contains("3.0.0"), str(r)
 
 
 @pytest.mark.unit

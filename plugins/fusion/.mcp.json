@@ -2,7 +2,7 @@
   "mcpServers": {
     "fusion": {
       "command": "uvx",
-      "args": ["--from", "${FUSION_PKG:-fusion-safety==0.1.0}", "--with", "mcp>=1.2,<2", "fusion-mcp"],
+      "args": ["--from", "${FUSION_PKG:-fusion-safety==0.1.0}", "--with", "mcp>=1.2,<3", "fusion-mcp"],
       "env": { "PYTHONUTF8": "1" }
     }
   }
