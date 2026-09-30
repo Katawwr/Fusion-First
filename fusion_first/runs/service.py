@@ -10,8 +10,10 @@ grader hasn't earned it — that the grade is withheld and why.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import pathlib
+import time
 from collections.abc import Callable
 from dataclasses import asdict
 
@@ -39,6 +41,27 @@ from fusion_first.schemas import ScanResult
 
 WORKSPACE_ENV = "FUSION_WORKSPACE"
 BUSY_PHASES = ("created", "collecting", "grading")
+# drive() rewrites the run's heartbeat this often; a beat older than STALE_AFTER_S means the process that
+# was driving the run is gone (a single slow model call must fit inside it: the event loop keeps beating).
+HEARTBEAT_S = 15.0
+STALE_AFTER_S = 120.0
+
+
+async def _heartbeat(rd: RunDir) -> None:
+    while True:
+        with contextlib.suppress(OSError):  # a missed beat must never stop the run
+            rd.write_json(rd.heartbeat_path, {"pid": os.getpid(), "at": time.time()})
+        await asyncio.sleep(HEARTBEAT_S)
+
+
+def worker_alive(rd: RunDir) -> bool | None:
+    """Whether some process is still driving the run, from its heartbeat; None without one (a run from
+    before heartbeats, or never driven)."""
+    try:
+        at = float(rd.read_json(rd.heartbeat_path)["at"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return time.time() - at <= STALE_AFTER_S
 
 
 def workspace_dir(workspace: str | os.PathLike | None = None) -> pathlib.Path:
@@ -121,7 +144,20 @@ async def drive(
     """Run (or RESUME) every phase that needs no outside help: collect, then — for a built-in
     grader — grade and finalize. Clients are built from the plan when not injected; the grader is
     built (and its subscription auth checked) BEFORE collect, so a bad grader fails in seconds, not
-    after the whole target run. Returns `status(rd)`."""
+    after the whole target run. Returns `status(rd)`. Beats the run's heartbeat while it works."""
+    beat = asyncio.get_running_loop().create_task(_heartbeat(rd))
+    try:
+        return await _drive(rd, target_client=target_client, grader_client=grader_client,
+                            on_progress=on_progress, max_calls=max_calls, grade=grade)
+    finally:
+        beat.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await beat
+        with contextlib.suppress(OSError):
+            rd.heartbeat_path.unlink(missing_ok=True)
+
+
+async def _drive(rd: RunDir, *, target_client, grader_client, on_progress, max_calls: int, grade: bool) -> dict:
     plan = rd.plan()
     grader = parse_grader(plan.grader)
     if grade and not grader.external and grader_client is None and needs_grader(rd):
@@ -149,7 +185,10 @@ async def drive(
 
 
 def status(rd: RunDir, running: bool | None = None) -> dict:
-    """`running`: whether a worker in THIS process is driving the run (None = unknown, e.g. CLI)."""
+    """`running`: whether a worker in THIS process is driving the run. None (the CLI, a separate process)
+    reads the run's heartbeat instead."""
+    if running is None:
+        running = worker_alive(rd)
     plan, st = rd.plan(), rd.state()
     out = {
         "run_id": rd.run_id,

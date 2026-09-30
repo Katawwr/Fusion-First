@@ -150,6 +150,7 @@ class RunDir:
     secret_path = property(lambda self: self.root / ".secret")
     leases_path = property(lambda self: self.root / "leases.json")
     lock_path = property(lambda self: self.root / ".lock")
+    heartbeat_path = property(lambda self: self.root / "heartbeat.json")  # rewritten while drive() works
 
     def _write(self, path: pathlib.Path, text: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
