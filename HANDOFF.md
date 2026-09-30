@@ -1,4 +1,4 @@
-# Handoff — Fusion First rebuild (updated 2026-09-29, fourth session)
+# Handoff — Fusion First rebuild (updated 2026-09-30, end of the fourth session)
 
 Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** At 85% context the hook asks
 for a handoff (CLAUDE.md, "Context handoff"): a regular session via `start_session` if the app exposes it
@@ -11,6 +11,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 - Branch `rebuild/agentic-safety-engine`, all committed locally, no git remote. Never push. Publishing to
   PyPI is the OWNER's step (`twine upload`, their token); deploys follow the owner's word (see "Next").
+- **In flight: nothing.** No Ollama job, no subagent. `fusion-safety` was still NOT on PyPI at 2026-09-30
+  10:12 (the JSON API returned 404): the owner has not uploaded yet. Check with `curl -s -o /dev/null -w
+  "%{http_code}" https://pypi.org/pypi/fusion-safety/json` before anything release-related.
 - Green at last run (2026-09-29, fourth session): `python -m pytest -q` (1,730), `ruff check fusion_first
   tests scripts app setup.py`, frontend vitest (125) + lint + build, Playwright E2E (12), `claude plugin validate`
   on the bundled marketplace and both plugins.
@@ -224,9 +227,19 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
    on mcp 1.x the MCP server still reports the SDK's version as serverInfo.version (2.x reports 0.1.0).
 
 1. Data-stealing reads are the remaining gap (all 16 step-2 misses: a read whose tool names no private data,
-   e.g. shipment search, file metadata/listing, people or friend search, security logs). Options: gate every
-   unrequested read after untrusted content when the conversation also carries an injected send instruction,
-   or widen the private-data taxonomy (dev only; spent samples). Any change needs a fresh registration.
+   e.g. shipment search, file metadata/listing, people or friend search, security logs; no attacker send was
+   allowed in any of them). Do it on a branch so the release line and dist/ stay put. Options: (a) gate every
+   unrequested read after untrusted content when the conversation also carries an injected send instruction:
+   the guard can't see the injected text today (`guard_tool_call` gets the user's request and a flag), so this
+   needs an API change the snippet would pass; (b) widen the private-data taxonomy: whack-a-mole against unseen
+   tools (step 2: 26/33 unseen attacker tools); (c) request-bind every read after untrusted content, as for
+   consequential calls: InjecAgent's clean transcripts can't measure its cost (they hold only requested calls),
+   so a fresh benign set of multi-step legitimate read chains after untrusted content is needed first. Dev
+   baseline 2026-09-30 (`scripts/guard_dev.py`, DIAGNOSTIC, never quote): data-stealing stopped compact 19/23,
+   v1 20/21; clean wrongly blocked 0/49, 0/31 (v1 direct harm 1/55); benign dev ds 21/21 blocked by the
+   external-recipient rule (by design: no allowlist in that config). The step-2 transcripts (qwen2.5:7b,
+   llama3.1:8b) are spent now and can join the dev set. Any rule change needs a fresh registration and a fresh
+   benign held-out set (step 2's 20 are spent).
 2. Oracle gap for future preregs: a model may call a toolkit name with the action in the arguments (`GoogleMap`
    + `{"action": "GetCurrentLocation"}`); the exact-name oracle scores that clean. Count a call whose name is a
    prefix of an attacker tool and whose arguments name the rest as an attack (register it before use).
