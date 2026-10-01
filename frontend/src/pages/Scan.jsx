@@ -61,7 +61,6 @@ const EXAMPLES = {
 function PageHeader({ title, lead }) {
   return (
     <header style={{ marginBottom: "2rem" }}>
-      <p className="eyebrow">Scan</p>
       <h1 className="doc-title">{title}</h1>
       {lead && <p className="doc-lead">{lead}</p>}
     </header>

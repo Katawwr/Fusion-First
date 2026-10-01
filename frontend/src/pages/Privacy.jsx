@@ -32,7 +32,7 @@ export default function Privacy() {
       </Helmet>
 
       <Doc>
-        <DocHeader eyebrow="Policy" title="Privacy & Terms" />
+        <DocHeader title="Privacy & Terms" />
             <div className="prose mt-8">
               <section style={{ marginBottom: "2rem" }}>
                 <h2 className="doc-h2 mb-4">Privacy</h2>

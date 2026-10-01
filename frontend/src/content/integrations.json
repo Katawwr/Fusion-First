@@ -3,7 +3,6 @@
     {
       "id": "local",
       "title": "Run it locally",
-      "badge": "Web app",
       "steps": [
         {
           "label": "Install and start (opens 127.0.0.1:8765)",

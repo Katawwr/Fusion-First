@@ -13,7 +13,7 @@ export default function Use() {
       <Helmet>
         <title>Use Fusion | Fusion First</title>
       </Helmet>
-      <DocHeader eyebrow="Use" title="Use Fusion" />
+      <DocHeader title="Use Fusion" />
 
       <nav aria-label="On this page" className="mt-7 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
         {content.sections.map((s) => (

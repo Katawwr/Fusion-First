@@ -172,7 +172,7 @@ export default function Trust() {
       <Helmet>
         <title>How far to trust Fusion | Fusion First</title>
       </Helmet>
-      <DocHeader eyebrow="Evidence" title="How far to trust Fusion">
+      <DocHeader title="How far to trust Fusion">
         <p>
           Every table is generated from committed evidence files under <code className="inline-code">evals/</code>.
           Intervals are 95%; paired comparisons use McNemar tests.

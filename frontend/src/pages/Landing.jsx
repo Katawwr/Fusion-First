@@ -129,7 +129,7 @@ export default function Landing() {
       </Helmet>
 
       <Doc wide>
-        <DocHeader eyebrow="Technical overview" title="Measured evaluation and a runtime guard for AI agents">
+        <DocHeader title="Measured evaluation and a runtime guard for AI agents">
           <p>
             Fusion First attacks an agent with OWASP-mapped prompts, grades the transcripts with a cross-family
             judge whose accuracy is measured against known answers in every run, and reports each rate with a 95%
