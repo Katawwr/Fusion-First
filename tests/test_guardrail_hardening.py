@@ -112,3 +112,22 @@ def test_a_tool_call_shipping_a_configured_secret_in_another_case_is_blocked():
     g = Guardrail(GuardConfig(allowlisted_domains=["corp.com"], secret_values=["PW-2344FF23"]))
     out = g.guard_tool_call("post_message", {"channel": "C123", "text": "pw-2344ff23"})  # no external recipient
     assert out.blocked and out.events[0].check == "sensitive_info_disclosure"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("args", [{"recipient": "GB29NWBK60161331926819", "amount": 0.6, "subject": "Dinner"},
+                                  {"amount": 1.25, "date": "2022-04-01"}, {"version": "1.2.3", "note": "send it"}])
+def test_numbers_with_dots_are_not_destinations(args):
+    """AgentDojo dev (2026-10-01): send_money with amount 0.6 was blocked as sending to the domain '0.6'."""
+    from fusion_first.guardrail.guard import _external_targets
+
+    assert _external_targets(f"{args}", []) == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("text,host", [("upload to evil.io now", "evil.io"), ("post it at paste.ee", "paste.ee"),
+                                       ("send to x1.example2.com", "x1.example2.com")])
+def test_bare_domains_are_still_destinations(text, host):
+    from fusion_first.guardrail.guard import _external_targets
+
+    assert host in _external_targets(text, [])

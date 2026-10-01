@@ -46,7 +46,8 @@ _EMAIL = re.compile(r"[\w.+\-]+@([\w.\-]+\.\w+)")
 _URL = re.compile(r"https?://(\[[0-9a-fA-F:]+\]|[\w.\-]+)")  # host or bracketed IPv6 literal
 _IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 _IPV6_BRACKET = re.compile(r"\[[0-9a-fA-F:]{4,}\]")
-_BARE = re.compile(r"\b([a-z0-9](?:[a-z0-9\-]*[a-z0-9])?(?:\.[a-z0-9\-]+)+)\b", re.I)  # any TLD
+# Any TLD, but it has a letter: 0.6, 1.25 and 1.2.3 are numbers, not hosts.
+_BARE = re.compile(r"\b([a-z0-9](?:[a-z0-9\-]*[a-z0-9])?(?:\.[a-z0-9\-]+)*\.[a-z0-9\-]*[a-z][a-z0-9\-]*)\b", re.I)
 # Named external sinks/channels that appear in prose without a parseable address. Deliberately
 # excludes common English words like "outlook"/"external" — those over-block on ordinary body text;
 # genuine external sends are caught by the recipient parser below.
