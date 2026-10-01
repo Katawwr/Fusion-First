@@ -38,7 +38,7 @@ export default function CheckIcon({ check, size = 40, bare = false, color }) {
         height: size,
         flexShrink: 0,
         borderRadius: size * 0.3,
-        background: "var(--brand-gradient-soft)",
+        background: "var(--accent-soft)",
         border: "1px solid var(--border)",
       }}
     >

@@ -173,6 +173,49 @@ export default function TargetPicker({
           </div>
         );
       })}
+      {capabilities && !capabilities.local_backends_enabled && <RunLocallyNote />}
     </div>
+  );
+}
+
+// On the hosted demo, live targets are one install away: say how, once, and link the full setup.
+function RunLocallyNote() {
+  return (
+    <aside
+      aria-label="Run it locally"
+      style={{
+        marginTop: "0.75rem",
+        padding: "0.9rem 1rem",
+        borderRadius: "0.6rem",
+        border: "1px solid var(--border)",
+        background: "var(--surface-2)",
+        fontSize: "0.875rem",
+        color: "var(--muted)",
+        lineHeight: 1.55,
+      }}
+    >
+      <p style={{ color: "var(--text)", fontWeight: 600 }}>Test a live model on your machine</p>
+      <pre
+        style={{
+          margin: "0.5rem 0",
+          padding: "0.6rem 0.75rem",
+          borderRadius: "0.4rem",
+          background: "var(--bg)",
+          border: "1px solid var(--border)",
+          fontSize: "0.8125rem",
+          color: "var(--text)",
+          overflowX: "auto",
+        }}
+      >
+        <code>{'pip install "fusion-safety[serve]"\nfusion serve'}</code>
+      </pre>
+      <p>
+        The same page opens locally with these options enabled: Ollama (free), your own OpenAI-compatible server, or a
+        hosted API on your own key.{" "}
+        <a href="/use#local" className="text-link">
+          Run it locally
+        </a>
+      </p>
+    </aside>
   );
 }

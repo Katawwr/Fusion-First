@@ -59,22 +59,16 @@ export function guardResult(step2) {
   );
 }
 
-// The landing page's guardrail sentence. Its numbers come from the generated evidence (the
-// pre-registered measurement on real attacks), never from the page source; unmeasured, it claims none.
-// The current rules' measurement (step 2) is preferred once adopted.
-export function guardrailDescription(runtime, step2) {
-  const base = "Redacts leaked secrets and blocks tool calls the user's request does not cover.";
-  if (step2?.decision?.new_rules === "adopted") {
-    const s = step2.systems;
-    return (
-      `${base} On fresh attacks against ${step2.models.join(" and ")} it stopped ` +
-      `${pct(s.fusion.recall.point)} and wrongly blocked ${pct(s.fusion.over_block.point)} of clean conversations; ` +
-      `Llama Guard 3 stopped ${pct(s.llama_guard_b.recall.point)} of the same attacks.`
-    );
-  }
-  if (!runtime?.all) return base;
-  return (
-    `${base} On ${runtime.fresh ? "fresh " : ""}attacks that got through small open-weight models, it stopped ` +
-    `${pct(runtime.all.recall.point)} and wrongly blocked ${pct(runtime.all.over_block.point)} of clean conversations.`
-  );
+// A signed difference in percentage points with its 95% range, e.g. "−1 pts (−6 to +4)".
+export function points(d) {
+  if (!d) return "—";
+  const f = (x) => {
+    const v = Math.round(x * 100);
+    return v > 0 ? `+${v}` : `${v}`.replace("-", "−");
+  };
+  return `${f(d.point)} pts (${f(d.low)} to ${f(d.high)})`;
+}
+
+export function pValue(p) {
+  return p < 0.0001 ? "p<0.0001" : `p=${p.toFixed(4)}`;
 }

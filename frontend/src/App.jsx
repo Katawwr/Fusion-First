@@ -4,12 +4,14 @@ import { Header, Footer } from "./components/layout";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { loadScanState, saveScanState } from "./lib/session";
 
-// Scroll to top on route change
+// Scroll to top on route change, or to the #anchor when the link names one (/use#local).
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    const target = hash && document.getElementById(decodeURIComponent(hash.slice(1)));
+    if (target) target.scrollIntoView();
+    else window.scrollTo(0, 0);
+  }, [pathname, hash]);
   return null;
 }
 
@@ -30,18 +32,11 @@ export default function App() {
   useEffect(() => saveScanState(scanState), [scanState]);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        background: "transparent", // the calm, theme-aware backdrop is painted on <body> (index.css)
-      }}
-    >
+    <div className="flex min-h-screen flex-col">
       <ScrollToTop />
       <Header />
 
-      <main style={{ flex: 1 }}>
+      <main className="flex-1">
         <ErrorBoundary key={location.pathname}>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -60,40 +55,15 @@ export default function App() {
           <Route
             path="*"
             element={
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "5rem 1rem",
-                }}
-              >
-                <div style={{ textAlign: "center" }}>
-                  <h1
-                    style={{
-                      fontSize: "2.5rem",
-                      fontWeight: "bold",
-                      color: "var(--text)",
-                      marginBottom: "1rem",
-                    }}
-                  >
-                    404
-                  </h1>
-                  <p style={{ color: "var(--muted)", marginBottom: "1.5rem" }}>
-                    Page not found
-                  </p>
-                  <a
-                    href="/"
-                    style={{
-                      color: "var(--accent-ink)",
-                      textDecoration: "underline",
-                    }}
-                  >
-                    Go back home
+              <article className="doc">
+                <p className="eyebrow">404</p>
+                <h1 className="doc-title">Page not found</h1>
+                <p className="mt-6">
+                  <a href="/" className="text-link">
+                    Go to the overview
                   </a>
-                </div>
-              </div>
+                </p>
+              </article>
             }
           />
         </Routes>
