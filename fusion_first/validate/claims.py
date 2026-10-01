@@ -1,6 +1,6 @@
 """The claims registry: every proof-like number in docs/marketing must resolve to committed evidence.
 
-Shared by `tests/test_claims_backed.py` and (later) `fusion validate claims`. Pure: reads files only.
+Used by `tests/test_claims_backed.py`. Pure: reads files only.
 
 Fail-closed rules:
   * Evidence must DECLARE `"demonstration": false` (a missing flag counts as a demonstration), unless

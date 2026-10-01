@@ -2,7 +2,7 @@
 
 Thin FastAPI + Modal wrappers over the pure `fusion_first/` core. This is the ONLY package where
 `modal` may appear — and only in `app/modal_app.py`. Everything else here (the app factory, the
-routers, the settings) must import nothing beyond `fusion.*` and the standard web stack, so the
+routers, the settings) must import nothing beyond `fusion_first.*` and the standard web stack, so the
 whole API can be built and tested offline with `TestClient(create_app())` and no keys.
 """
 

@@ -1,7 +1,7 @@
 """Fail-CLOSED webhook signature verification.
 
-The legacy backend returned True when the signing secret was unset ("allow in dev"), so a missing
-prod secret let anyone forge subscription/credit grants. This version rejects when the secret is
+A verifier that returns True when the signing secret is unset ("allow in dev") lets anyone forge
+a webhook whenever the production secret is missing. This one rejects when the secret is
 missing or the signature does not match — no exceptions. Constant-time compare avoids timing oracles.
 """
 
