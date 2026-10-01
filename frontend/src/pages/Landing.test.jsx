@@ -1,0 +1,55 @@
+import React from "react";
+import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { HelmetProvider } from "react-helmet-async";
+import { MemoryRouter } from "react-router-dom";
+import Landing from "./Landing";
+import evidence from "../content/evidence.json";
+import { interval } from "../lib/evidence";
+
+const renderLanding = () =>
+  render(
+    <HelmetProvider>
+      <MemoryRouter>
+        <Landing />
+      </MemoryRouter>
+    </HelmetProvider>,
+  );
+
+describe("Overview page", () => {
+  it("reads as abstract, method, results, limitations, run it locally", () => {
+    renderLanding();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/runtime guard/i);
+    const h2 = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(h2).toEqual(["Method", "Results", "Limitations", "Run it locally"]);
+  });
+
+  it("renders the step 3 guard result with its interval from the evidence", () => {
+    renderLanding();
+    const v3 = evidence.step3_guard.arms.v3;
+    const table = screen.getAllByRole("table")[0];
+    expect(within(table).getAllByText(interval(v3.recall)).length).toBeGreaterThan(0);
+    expect(within(table).getAllByText(interval(v3.over_block)).length).toBeGreaterThan(0);
+    expect(within(table).getByText("Negative results")).toBeInTheDocument();
+  });
+
+  it("states the negative results plainly", () => {
+    const { container } = renderLanding();
+    expect(container.textContent).toMatch(/not more accurate than a plain one-question judge/);
+    expect(container.textContent).toMatch(/prompt fix did not reliably reduce attacks/);
+  });
+
+  it("links to the demo, the local setup and the full evidence", () => {
+    renderLanding();
+    expect(screen.getByRole("link", { name: "Run the demo scan" })).toHaveAttribute("href", "/scan");
+    expect(screen.getAllByRole("link", { name: "Run it locally" })[0]).toHaveAttribute("href", "/use#local");
+    expect(screen.getByRole("link", { name: /Full evidence/ })).toHaveAttribute("href", "/trust");
+  });
+
+  it("shows how to run it locally with the user's own target", () => {
+    const { container } = renderLanding();
+    expect(container.textContent).toMatch(/pip install "fusion-safety\[serve\]"/);
+    expect(container.textContent).toMatch(/FUSION_ALLOW_API_SPEND=1/);
+    expect(container.textContent).toMatch(/openai-compat:/);
+  });
+});

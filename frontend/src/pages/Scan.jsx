@@ -57,34 +57,13 @@ const EXAMPLES = {
 
 /* ---------------------------------------------------------------- shell bits */
 
-// Centered section header, the same treatment the marketing sections use, so the
-// tool pages read as one product rather than a bolted-on app.
+// The same title treatment as the document pages, so the tool reads as part of one product.
 function PageHeader({ title, lead }) {
   return (
-    <header style={{ textAlign: "center", marginBottom: "2.5rem" }}>
-      <h1
-        style={{
-          fontSize: "clamp(1.75rem, 4vw, 2.5rem)",
-          fontWeight: 700,
-          color: "var(--text)",
-          marginBottom: "0.75rem",
-        }}
-      >
-        {title}
-      </h1>
-      {lead && (
-        <p
-          style={{
-            fontSize: "1.0625rem",
-            color: "var(--muted)",
-            maxWidth: "640px",
-            margin: "0 auto",
-            lineHeight: 1.6,
-          }}
-        >
-          {lead}
-        </p>
-      )}
+    <header style={{ marginBottom: "2rem" }}>
+      <p className="eyebrow">Scan</p>
+      <h1 className="doc-title">{title}</h1>
+      {lead && <p className="doc-lead">{lead}</p>}
     </header>
   );
 }
@@ -93,10 +72,9 @@ function SectionTitle({ children, hint }) {
   return (
     <div style={{ marginBottom: "1rem" }}>
       <h2
+        className="doc-h3"
         style={{
-          fontSize: "1.25rem",
-          fontWeight: 700,
-          color: "var(--text)",
+          fontSize: "1.0625rem",
           marginBottom: hint ? "0.35rem" : 0,
         }}
       >

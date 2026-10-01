@@ -2,7 +2,7 @@ import React from "react";
 
 const variants = {
   primary:
-    "bg-fusion-pink-gradient text-white shadow-soft hover:shadow-card hover:-translate-y-px",
+    "bg-primary text-on-primary hover:brightness-110",
   secondary:
     "bg-surface border border-app-border text-app-text hover:bg-surface-2 hover:border-app-border-strong",
   ghost: "bg-transparent text-accent-ink hover:bg-accent-soft",
@@ -31,7 +31,7 @@ export default function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`${variants[variant]} ${sizes[size]} rounded-xl font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:bg-none disabled:bg-surface-2 disabled:text-app-subtle disabled:shadow-none disabled:border-app-border disabled:translate-y-0 ${className}`.trim()}
+      className={`${variants[variant]} ${sizes[size]} rounded-lg font-medium transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:bg-none disabled:bg-surface-2 disabled:text-app-subtle disabled:shadow-none disabled:border-app-border disabled:translate-y-0 ${className}`.trim()}
       {...props}
     >
       {children}

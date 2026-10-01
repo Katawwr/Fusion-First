@@ -1,6 +1,28 @@
 {
   "sections": [
     {
+      "id": "local",
+      "title": "Run it locally",
+      "badge": "Web app",
+      "steps": [
+        {
+          "label": "Install and start (opens 127.0.0.1:8765)",
+          "lang": "bash",
+          "code": "pip install \"fusion-safety[serve]\"\nfusion serve"
+        },
+        {
+          "label": "Free: a local open-weight model, then Scan → Open-weight model",
+          "lang": "bash",
+          "code": "ollama pull llama3.2:1b"
+        },
+        {
+          "label": "Hosted API on your own key (metered to your account), then Scan → Any model → openai:gpt-4o-mini",
+          "lang": "bash",
+          "code": "export OPENAI_API_KEY=\"<your key>\"\nexport FUSION_ALLOW_API_SPEND=1\nfusion serve"
+        }
+      ]
+    },
+    {
       "id": "plugin",
       "title": "Claude Code plugin",
       "badge": "Recommended",
@@ -101,17 +123,6 @@
       ]
     },
     {
-      "id": "serve",
-      "title": "Local web app",
-      "steps": [
-        {
-          "label": "Install and run",
-          "lang": "bash",
-          "code": "pip install \"fusion-safety[serve]\"\nfusion serve"
-        }
-      ]
-    },
-    {
       "id": "mcp",
       "title": "Any MCP client",
       "steps": [
@@ -138,5 +149,33 @@
         }
       ]
     }
-  ]
+  ],
+  "targets": [
+    {
+      "name": "Local open-weight model",
+      "spec": "ollama:llama3.2:1b",
+      "scan": "Open-weight model",
+      "cost": "Free. Needs Ollama running."
+    },
+    {
+      "name": "Your OpenAI-compatible server (vLLM, LM Studio, llama.cpp)",
+      "spec": "openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct",
+      "scan": "Any model",
+      "cost": "Free on a local or private-network server. A public endpoint needs FUSION_ALLOW_API_SPEND=1."
+    },
+    {
+      "name": "Hosted API, your key",
+      "spec": "openai:gpt-4o-mini",
+      "scan": "Any model",
+      "cost": "Metered to your account. Set the provider's key and FUSION_ALLOW_API_SPEND=1.",
+      "also": "Also hf: (HF_TOKEN), anthropic: (ANTHROPIC_API_KEY), openrouter:, together:, groq:, fireworks:, mistral-api:, deepseek:"
+    },
+    {
+      "name": "Any program or agent",
+      "spec": "cmd:python fusion_adapter.py",
+      "scan": "Command line only",
+      "cost": "Free. The web app refuses cmd: targets; use fusion run start."
+    }
+  ],
+  "grader": "Grader: claude-cli (Claude on your subscription, via the claude CLI) by default. Any chat target can grade instead; a run withholds the grade when its grader misses the policy floor on known answers."
 }

@@ -14,13 +14,23 @@ function watchErrors(page) {
 }
 
 test.describe("desktop", () => {
-  test("the landing page loads and leads to the scan", async ({ page }) => {
+  test("the overview shows the results table and leads to the scan", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/");
     await expect(page).toHaveTitle(/Fusion First/);
-    await page.getByRole("link", { name: "Scan your agent", exact: true }).first().click();
+    await expect(page.getByText("Table 1.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Limitations" })).toBeVisible();
+    await page.getByRole("link", { name: "Run the demo scan", exact: true }).click();
     await expect(page).toHaveURL(/\/scan$/);
     expect(errors).toEqual([]);
+  });
+
+  test("run it locally: the overview links straight to the setup on /use", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "Run it locally", exact: true }).first().click();
+    await expect(page).toHaveURL(/\/use#local$/);
+    await expect(page.getByRole("heading", { name: "Run it locally" })).toBeInViewport();
+    await expect(page.getByText(/FUSION_ALLOW_API_SPEND=1/).first()).toBeVisible();
   });
 
   test("a demo scan runs end to end and says it is an example, not a measurement", async ({ page }) => {

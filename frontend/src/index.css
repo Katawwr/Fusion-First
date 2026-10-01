@@ -15,6 +15,11 @@
 :root {
   color-scheme: dark;
 
+  /* type: Newsreader for titles only, IBM Plex Sans for reading, JetBrains Mono for numbers/code */
+  --font-display: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+
   /* surfaces, deep desaturated indigo, not black */
   --bg: #131419;
   --bg-elev: #17181e;
@@ -32,6 +37,8 @@
   --accent: #66c4e1; /* cyan, fills, focus, active */
   --accent-ink: #8ad4ec; /* cyan, legible text/links on dark */
   --brand: #8b86d6; /* purple, legible on dark */
+  --primary: #8b86d6; /* the one solid action colour: brand purple */
+  --on-primary: #121318;
   --pink: #e98aa6;
   --pink-ink: #f0a7bd;
   --accent-soft: rgba(102, 196, 225, 0.12); /* cyan wash for selected/tinted cards */
@@ -80,6 +87,8 @@
   --accent: #2f93b6; /* deeper cyan holds contrast on light fills */
   --accent-ink: #1f7ea6;
   --brand: #504d9a;
+  --primary: #504d9a;
+  --on-primary: #ffffff;
   --pink: #cf2f7d;
   --pink-ink: #b81f6a;
   --accent-soft: rgba(47, 147, 182, 0.08);
@@ -110,6 +119,8 @@
     --accent: #2f93b6;
     --accent-ink: #1f7ea6;
     --brand: #504d9a;
+    --primary: #504d9a;
+    --on-primary: #ffffff;
     --pink: #cf2f7d;
     --pink-ink: #b81f6a;
     --accent-soft: rgba(47, 147, 182, 0.08);
@@ -140,6 +151,8 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-brand: var(--brand);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
   --color-pink: var(--pink);
   --color-pink-ink: var(--pink-ink);
   --color-ok: var(--ok);
@@ -205,26 +218,14 @@ html {
 }
 
 body {
-  /* Plus Jakarta Sans: geometric, slightly rounded, modern and friendly without
-     being cute. System stack is the fallback if the webfont does not load. */
-  font-family:
-    "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter",
-    "Roboto", sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   width: 100%;
   min-height: 100vh;
   overflow-x: hidden;
   color: var(--text);
-  background-color: var(--bg);
-  /* calm, near-solid backdrop with the faintest brand wash, not the old loud gradient */
-  background-image: radial-gradient(
-    1200px 600px at 50% -10%,
-    var(--brand-gradient-soft),
-    transparent 70%
-  );
-  background-repeat: no-repeat;
-  letter-spacing: -0.006em;
+  background-color: var(--bg); /* flat: no decorative wash */
 }
 
 #root {
@@ -236,16 +237,16 @@ body {
 
 body {
   font-size: 1rem;
-  line-height: 1.62; /* comfortable reading rhythm */
+  line-height: 1.6;
   text-rendering: optimizeLegibility;
 }
 
 h1,
 h2,
 h3 {
-  letter-spacing: -0.024em; /* a touch tighter: modern display feel */
-  line-height: 1.14;
-  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
+  font-weight: 600;
   text-wrap: balance; /* avoid lonely words in headings */
 }
 
@@ -256,8 +257,7 @@ p {
 pre,
 code,
 .font-mono {
-  font-family:
-    "JetBrains Mono", ui-monospace, "SF Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
 }
 
 ::selection {
@@ -290,29 +290,6 @@ button {
     box-shadow 0.18s ease,
     transform 0.18s ease,
     opacity 0.18s ease;
-}
-
-/* Responsive container behavior */
-@media screen and (max-width: 1200px) {
-  main {
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
-}
-@media screen and (max-width: 768px) {
-  main {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-  }
-  .header-row {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    grid-template-columns: none !important;
-  }
-  .use-cases-arrow {
-    display: none !important;
-  }
 }
 
 /* Calm, theme-aware scrollbar */
@@ -360,4 +337,259 @@ button {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Document system: the overview, Use, Trust and Privacy pages read like a
+ * technical report. Unlayered on purpose: the global h1/h2 rules above are
+ * unlayered too, and a layered rule would lose to them.
+ * ------------------------------------------------------------------ */
+
+.doc {
+  width: 100%;
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: clamp(2.25rem, 6vw, 4rem) 1rem clamp(3rem, 8vw, 5rem);
+}
+.doc--wide {
+  max-width: 64rem;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--subtle);
+}
+
+.doc-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2rem, 5.2vw, 2.875rem);
+  line-height: 1.08;
+  letter-spacing: -0.018em;
+  color: var(--text);
+  margin-top: 0.75rem;
+}
+
+.doc-lead {
+  margin-top: 1.25rem;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--muted);
+  max-width: 42rem;
+}
+.doc-lead strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.doc-section {
+  margin-top: clamp(2.75rem, 7vw, 4rem);
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 5rem;
+}
+
+.doc-h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.625rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.doc-h3 {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+.prose {
+  color: var(--text);
+  font-size: 0.975rem;
+  line-height: 1.7;
+}
+.prose > * + * {
+  margin-top: 0.85rem;
+}
+.prose a,
+a.text-link {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.prose code,
+.inline-code {
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.muted {
+  color: var(--muted);
+}
+
+/* definition list: term on the left, description on the right (stacks on phones) */
+.deflist {
+  display: grid;
+  grid-template-columns: minmax(9rem, 12rem) 1fr;
+  gap: 1.1rem 2rem;
+}
+.deflist dt {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.deflist dd {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+@media (max-width: 560px) {
+  .deflist {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+  .deflist dd {
+    margin-bottom: 0.9rem;
+  }
+}
+
+/* tables: hairline rows, tabular numbers, scroll inside their own frame */
+.table-frame {
+  width: 100%;
+  overflow-x: auto;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.data-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--subtle);
+  padding: 0.6rem 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 0.55rem 0.75rem;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text);
+}
+.data-table th:first-child,
+.data-table td:first-child {
+  padding-left: 0;
+}
+.data-table th:last-child,
+.data-table td:last-child {
+  padding-right: 0;
+}
+.data-table tbody tr:first-child td {
+  border-top: 0;
+}
+.data-table tr.group td {
+  padding-top: 1rem;
+}
+.data-table tbody + tbody tr.group td {
+  border-top: 1px solid var(--border-strong);
+}
+.num,
+.data-table td.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.fig-caption {
+  margin-bottom: 0.6rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.fig-caption b {
+  color: var(--text);
+  font-weight: 600;
+}
+.table-note {
+  margin-top: 0.6rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--subtle);
+}
+@media (max-width: 600px) {
+  .hide-narrow {
+    display: none;
+  }
+}
+
+/* code blocks */
+.code-block {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.code-block pre {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+/* links styled as actions: one solid primary, the rest quiet */
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  background: transparent;
+}
+.action:hover {
+  border-color: var(--muted);
+}
+.action--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+.action--primary:hover {
+  border-color: var(--primary);
+  filter: brightness(1.08);
+}
+
+/* target list (Run it locally): one row per target, stacks cleanly at any width */
+.target-list {
+  list-style: none;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+.target-list li {
+  padding: 0.85rem 0;
+}
+.target-list li + li {
+  border-top: 1px solid var(--border);
 }

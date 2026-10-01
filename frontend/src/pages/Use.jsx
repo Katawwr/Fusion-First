@@ -1,59 +1,65 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import CodeSnippet from "../components/fix/CodeSnippet";
 import content from "../content/integrations.json";
+import { Code, Doc, DocHeader } from "../components/doc";
+import { TargetsTable } from "../components/doc/RunLocally";
 
 // How to run Fusion for real: every command here is parse-tested against the CLI
 // (tests/test_docs_commands.py reads this same JSON), so the page can't drift from the tool.
 export default function Use() {
   return (
-    <main style={{ maxWidth: "960px", margin: "0 auto", padding: "clamp(2rem, 6vw, 3.5rem) 1rem" }}>
+    <Doc>
       <Helmet>
         <title>Use Fusion | Fusion First</title>
       </Helmet>
-      <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
-        Use Fusion
-      </h1>
-      <div style={{ height: "1.25rem" }} />
-      <nav aria-label="On this page" className="mb-8 flex flex-wrap gap-2">
+      <DocHeader eyebrow="Use" title="Use Fusion">
+        <p>
+          Fusion runs on your machine. Targets are free with Ollama or your own server; a hosted API is billed to your
+          own key, and only runs with <code className="inline-code">FUSION_ALLOW_API_SPEND=1</code>.
+        </p>
+      </DocHeader>
+
+      <nav aria-label="On this page" className="mt-7 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
         {content.sections.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="rounded-full border border-app-border px-3 py-1 text-sm text-app-muted hover:text-app-text"
-          >
+          <a key={s.id} href={`#${s.id}`} className="text-app-muted underline-offset-4 hover:text-app-text hover:underline">
             {s.title}
           </a>
         ))}
       </nav>
-      <div className="flex flex-col gap-10">
-        {content.sections.map((s) => (
-          <section key={s.id} id={s.id} aria-labelledby={`${s.id}-title`} style={{ scrollMarginTop: "5rem" }}>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h2 id={`${s.id}-title`} className="text-xl font-semibold text-app-text" style={{ margin: 0 }}>
-                {s.title}
-              </h2>
-              {s.badge && (
-                <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-app-muted">
-                  {s.badge}
-                </span>
-              )}
-            </div>
-            <div className="flex flex-col gap-3">
-              {s.steps.map((step) => (
-                <div key={step.label}>
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-app-subtle">{step.label}</p>
-                  <CodeSnippet code={step.code} language={step.lang} />
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-      <p className="mt-12 text-sm text-app-muted">
-        <Link to="/scan" className="underline">Run the demo scan</Link>
+
+      {content.sections.map((s) => (
+        <section key={s.id} id={s.id} aria-labelledby={`${s.id}-title`} className="doc-section">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h2 id={`${s.id}-title`} className="doc-h2">
+              {s.title}
+            </h2>
+            {s.badge && <span className="eyebrow">{s.badge}</span>}
+          </div>
+          <div className="mt-5 flex flex-col gap-5">
+            {s.steps.map((step) => (
+              <div key={step.label}>
+                <p className="mb-1.5 text-sm text-app-muted">{step.label}</p>
+                <Code code={step.code} label={step.lang} />
+              </div>
+            ))}
+            {s.id === "local" && (
+              <div>
+                <h3 className="doc-h3 mb-3">Targets</h3>
+                <TargetsTable />
+              </div>
+            )}
+          </div>
+        </section>
+      ))}
+
+      <p className="doc-section text-sm text-app-muted">
+        No install:{" "}
+        <Link to="/scan" className="text-link">
+          run the demo scan
+        </Link>{" "}
+        on recorded responses.
       </p>
-    </main>
+    </Doc>
   );
 }

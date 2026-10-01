@@ -3,55 +3,24 @@ import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
-    <footer
-      style={{
-        borderTop: "1px solid var(--border)",
-        background: "var(--bg-elev)",
-        backdropFilter: "blur(10px)",
-        marginTop: "auto",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-          padding: "clamp(1rem, 2vw, 1.5rem)",
-          textAlign: "center",
-        }}
-      >
-        <p
-          style={{
-            color: "var(--text)",
-            fontSize: "clamp(0.875rem, 2vw, 1rem)",
-          }}
-        >
-          <span style={{ color: "var(--accent-ink)", fontWeight: "600" }}>
-            Fusion First
-          </span>
+    <footer className="mt-auto border-t border-app-border">
+      <div className="mx-auto flex max-w-[64rem] flex-col gap-3 px-4 py-6 text-xs text-app-subtle sm:flex-row sm:items-center sm:justify-between">
+        <p>
+          <span className="font-medium text-app-muted">Fusion First</span>
+          <span> · numbers are generated from committed evidence</span>
         </p>
-        <div
-          style={{
-            marginTop: "0.75rem",
-            display: "flex",
-            gap: "1rem",
-            justifyContent: "center",
-            alignItems: "center",
-            flexWrap: "wrap",
-            fontSize: "clamp(0.65rem, 1.25vw, 0.75rem)",
-          }}
-        >
-          <Link
-            to="/privacy"
-            style={{
-              color: "var(--accent-ink)",
-              textDecoration: "underline",
-              cursor: "pointer",
-            }}
-          >
-            Privacy & Terms
+        <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
+          <Link to="/trust" className="hover:text-app-text">
+            Trust
           </Link>
-          <span style={{ color: "var(--subtle)" }}>© 2026 Fusion First</span>
-        </div>
+          <Link to="/use#local" className="hover:text-app-text">
+            Run it locally
+          </Link>
+          <Link to="/privacy" className="hover:text-app-text">
+            Privacy &amp; Terms
+          </Link>
+          <span>© 2026 Fusion First</span>
+        </nav>
       </div>
     </footer>
   );

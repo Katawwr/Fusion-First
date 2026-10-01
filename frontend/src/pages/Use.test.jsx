@@ -30,6 +30,15 @@ describe("Use page", () => {
     expect(screen.getByText(/claude plugin install fusion@fusion-first/)).toBeInTheDocument();
   });
 
+  it("opens with running it locally, and names every target with its spec and cost", () => {
+    const { container } = renderUse();
+    expect(content.sections[0].id).toBe("local");
+    expect(content.sections[0].steps[0].code).toBe('pip install "fusion-safety[serve]"\nfusion serve');
+    for (const t of content.targets) expect(screen.getByText(t.spec)).toBeInTheDocument();
+    expect(container.textContent).toMatch(/FUSION_ALLOW_API_SPEND=1/);
+    expect(container.textContent).toMatch(/refuses cmd: targets/);
+  });
+
   it("offers the runtime guard early and the prompt fix as optional", () => {
     const ids = content.sections.map((s) => s.id);
     expect(ids.indexOf("guard")).toBeLessThan(ids.indexOf("models"));

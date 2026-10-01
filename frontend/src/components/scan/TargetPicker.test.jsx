@@ -68,6 +68,17 @@ describe("TargetPicker", () => {
     expect(screen.getAllByText(/fusion serve/).length).toBeGreaterThan(0);
   });
 
+  it("on the hosted demo, shows the install once and links the local setup", () => {
+    pick({ capabilities: HOSTED_DEMO });
+    expect(screen.getByText(/pip install "fusion-safety\[serve\]"/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Run it locally" })).toHaveAttribute("href", "/use#local");
+  });
+
+  it("shows no install note on a local server", () => {
+    pick({ capabilities: LOCAL });
+    expect(screen.queryByRole("link", { name: "Run it locally" })).toBeNull();
+  });
+
   it("never offers a hosted scan on a local server", () => {
     pick({ capabilities: READY });
     expect(screen.queryByRole("radio", { name: /Hosted/ })).toBeNull();

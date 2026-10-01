@@ -1,7 +1,8 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import evidence from "../content/evidence.json";
-import { fixVerdict, interval, significanceByGrader } from "../lib/evidence";
+import { fixVerdict, interval, points as signedPoints, pValue, significanceByGrader } from "../lib/evidence";
+import { DataTable, Doc, DocHeader } from "../components/doc";
 
 // Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
 // committed evidence files (python -m fusion_first.validate.trust_report) and checked by a test — the
@@ -17,40 +18,19 @@ const CHECK_NAMES = {
 
 function Section({ title, children }) {
   return (
-    <section className="mb-12">
-      <h2 className="mb-3 text-xl font-semibold text-app-text">{title}</h2>
+    <section className="doc-section">
+      <h2 className="doc-h2 mb-4">{title}</h2>
       {children}
     </section>
   );
 }
 
+// Count and interval cells are set in tabular mono; text cells stay in the reading face.
 function Table({ head, rows }) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-app-border">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-surface-2 text-app-muted">
-          <tr>
-            {head.map((h) => (
-              <th key={h} className="px-3 py-2 font-medium">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i} className="border-t border-app-border text-app-text">
-              {r.map((c, j) => (
-                <td key={j} className="px-3 py-2 align-top">
-                  {c}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  const numeric = head
+    .map((_, j) => j)
+    .filter((j) => rows.length && rows.every((r) => /^[\d—−+(]/.test(String(r[j] ?? ""))));
+  return <DataTable head={head} rows={rows} numeric={numeric} />;
 }
 
 // The small-model measurements: the fresh re-measurement of the rules of that time once it exists (the
@@ -113,10 +93,6 @@ const PRIOR_VERDICT = {
   other_better: "the previous rules stop significantly more real attacks.",
   no_significant_difference: "no significant difference.",
 };
-
-function pValue(p) {
-  return p < 0.0001 ? "p<0.0001" : `p=${p.toFixed(4)}`;
-}
 
 // The current rules' pre-registered measurement: fresh 7-8B transcripts, scored once against the
 // previous rules and Llama Guard 3 on the same transcripts.
@@ -182,34 +158,26 @@ export function Step3Section({ s }) {
 
 function NotYet({ what }) {
   return (
-    <p className="rounded-lg border border-dashed border-app-border p-4 text-sm text-app-muted">
+    <p className="border-l-2 border-app-border-strong pl-3 text-sm text-app-muted">
       Not yet measured: {what}.
     </p>
   );
-}
-
-// A signed difference in percentage points with its 95% range, e.g. "−1 pt (−6 to +4)".
-function signedPoints(d) {
-  if (!d) return "—";
-  const f = (x) => {
-    const v = Math.round(x * 100);
-    return v > 0 ? `+${v}` : `${v}`.replace("-", "−");
-  };
-  return `${f(d.point)} pts (${f(d.low)} to ${f(d.high)})`;
 }
 
 export default function Trust() {
   const judge = evidence.judge_accuracy || [];
   const guard = evidence.guard_heldout || [];
   return (
-    <main style={{ maxWidth: "1000px", margin: "0 auto", padding: "clamp(2rem, 6vw, 3.5rem) 1rem" }}>
+    <Doc wide>
       <Helmet>
         <title>How far to trust Fusion | Fusion First</title>
       </Helmet>
-      <h1 style={{ fontSize: "clamp(1.8rem, 5vw, 2.6rem)", margin: "0 0 0.75rem", color: "var(--text)" }}>
-        How far to trust Fusion
-      </h1>
-      <div className="mb-10" />
+      <DocHeader eyebrow="Evidence" title="How far to trust Fusion">
+        <p>
+          Every table is generated from committed evidence files under <code className="inline-code">evals/</code>.
+          Intervals are 95%; paired comparisons use McNemar tests.
+        </p>
+      </DocHeader>
 
       <Section title="Judge accuracy vs oracle labels">
         {judge.length === 0 ? (
@@ -353,6 +321,6 @@ export default function Trust() {
           </>
         )}
       </Section>
-    </main>
+    </Doc>
   );
 }
