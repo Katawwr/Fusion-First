@@ -9,9 +9,15 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 ## State
 
-- Branch `rebuild/agentic-safety-engine`, all committed locally, no git remote. Never push. Publishing to
-  PyPI is the OWNER's step (`twine upload`, their token); deploys follow the owner's word (see "Next").
-- **In flight: nothing.** No Ollama job, no subagent.
+- Branch `rebuild/agentic-safety-engine` = the 0.1.0 release line (dist/ built from 70db9bb). Work since
+  2026-10-01 is on branch **`post-0.1.0`** (fifth session, below). All local, no git remote. Never push.
+  Publishing to PyPI is the OWNER's step (`twine upload`, their token); deploys follow the owner's word.
+- **In flight (fifth session): step-3 transcript generation**, started 2026-10-01 ~10:15 local, ~5 h, the only
+  Ollama job: `python scripts/run_evidence.py run --experiments injecagent --models qwen2.5:7b,llama3.1:8b --n
+  150 --arms baseline --salt fusion-evidence-step3-v1 --exclude-spent-through-step2` (log in that session's
+  scratchpad `step3_run.log`). Resumable: re-running the same command skips stored transcripts. When done:
+  `python scripts/step3_guard.py score --out evals/validation/v1/step3_guard.json`, then follow the
+  registered decision (evals/validation/v1/PREREG_step3_guard.md).
 - **PUBLISHED: `fusion-safety` 0.1.0 is on PyPI** (owner upload, 2026-10-01 08:45 UTC); both files match
   dist/ (sha256 `31de5921...`, `354e5e5f...`). Verified from PyPI in a clean venv outside the repo: `pip
   install "fusion-safety[serve,mcp]"` (resolves mcp 2.2.0), `fusion doctor`, `claude plugin validate
@@ -216,7 +222,18 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 ## Next
 
 0. DONE 2026-10-01: site redeployed (see State).
-0b. Follow-ups found this session: the guard misses paraphrased rule leaks. From the release review, not
+0a. **Fifth session (2026-10-01, branch `post-0.1.0`):** ee9bad6, 2bb9b1f: MCP serverInfo on SDK 1.x reports
+   fusion-safety's version; `fusion plugin-dir` prints the 8.3 short path for a non-ASCII install (PowerShell
+   5.1 decodes `$()` with the OEM code page). ce897d1: `guard_tool_call(..., untrusted_text=...)` blocks a read
+   the untrusted text asks for (and the user did not) when that text also asks to send data to an external
+   address/URL/IP (`bind_reads_on_exfil_request`); harness v3 (`guard_on_transcripts`, `guard_dev.py --harness
+   v3`, which now includes the spent step-2 transcripts). Dev (spent, DIAGNOSTIC): data stealing step2 52/52
+   (v2 36/52), clean wrongly blocked unchanged. 557db1d: step 3 pre-registered (see State, In flight). NOT in
+   the snippet, Use page, MCP tool or Trust Report until adopted. A stronger test needs unseen attack text and
+   a benign set of multi-step reads after untrusted content: AgentDojo (MIT) fits, but it is not on the
+   approved dataset list: owner decision.
+0b. Follow-ups found in the fourth session: the guard misses paraphrased rule leaks (left: the example is a
+   refusal naming a secret's topic; a lexical rule would mostly block refusals). From the release review, not
    done: the license table + License classifier are deprecated (setuptools warns "by 2027-Feb-18"; the SPDX
    form `license = "LicenseRef-Proprietary"` needs setuptools>=77, which would break the offline
    no-isolation builds and tests here on setuptools 70.2: move when the dev environment does);
