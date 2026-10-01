@@ -13,4 +13,13 @@ describe("Header", () => {
     );
     expect(screen.getByRole("link", { name: "Use" })).toHaveAttribute("href", "/use");
   });
+
+  it("sets the wordmark in the title face", () => {
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Fusion First")).toHaveClass("brand-wordmark");
+  });
 });

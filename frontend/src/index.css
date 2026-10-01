@@ -364,6 +364,15 @@ button {
   color: var(--subtle);
 }
 
+/* The wordmark uses the title face (owner, 2026-10-01). */
+.brand-wordmark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.2rem;
+  line-height: 1;
+  letter-spacing: -0.012em;
+}
+
 .doc-title {
   font-family: var(--font-display);
   font-weight: 500;

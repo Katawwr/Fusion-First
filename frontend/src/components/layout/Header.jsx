@@ -38,7 +38,7 @@ export default function Header() {
               F
             </span>
           )}
-          <span className="text-[0.95rem] font-semibold tracking-tight text-app-text">Fusion First</span>
+          <span className="brand-wordmark text-app-text">Fusion First</span>
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-7 md:flex">

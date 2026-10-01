@@ -6,7 +6,7 @@ export default function Footer() {
     <footer className="mt-auto border-t border-app-border">
       <div className="mx-auto flex max-w-[64rem] flex-col gap-3 px-4 py-6 text-xs text-app-subtle sm:flex-row sm:items-center sm:justify-between">
         <p>
-          <span className="font-medium text-app-muted">Fusion First</span>
+          <span className="brand-wordmark text-[1rem] text-app-muted">Fusion First</span>
           <span> · numbers are generated from committed evidence</span>
         </p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
