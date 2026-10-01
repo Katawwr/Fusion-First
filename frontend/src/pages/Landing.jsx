@@ -11,6 +11,10 @@ import { findings, limitations, resultGroups } from "../lib/overview";
 // The overview reads like a paper's abstract and results table. Every number is rendered from the
 // generated evidence (content/evidence.json); the page source carries none.
 
+const TITLE = "Fusion First: Measure and guard AI agents";
+const SUMMARY =
+  "Attack your AI agent, grade safety and quality with a grader measured in every run, and guard it at runtime. Built for open-weight models.";
+
 function estimate(row) {
   return row.scale === "diff" ? points(row.est) : interval(row.est);
 }
@@ -20,7 +24,7 @@ export function ResultsTable({ groups }) {
   return (
     <figure>
       <figcaption className="fig-caption">
-        <b>Table 1.</b> Pre-registered results with 95% intervals. Bars plot the interval; the tick is the estimate.
+        <b>Table 1.</b> Committed results with 95% intervals, pre-registered where marked. The bar is the interval; the tick is the estimate.
       </figcaption>
       <div className="table-frame">
         <table className="data-table">
@@ -62,7 +66,8 @@ export function ResultsTable({ groups }) {
         </table>
       </div>
       <p className="table-note">
-        Purple: Fusion's results. Pink: costs. Grey: comparators. Change rows span ±50 pts.
+        Purple: Fusion&apos;s results. Pink: costs. Grey: comparators, null results and graders below the floor.
+        Change rows span ±50 points.
       </p>
     </figure>
   );
@@ -75,23 +80,17 @@ export default function Landing() {
   return (
     <>
       <Helmet>
-        <title>Fusion First: Measure and guard AI agents</title>
+        <title>{TITLE}</title>
         <meta
           name="description"
-          content="Fusion First attacks your AI agent, grades safety and quality with a grader measured against known answers, and adds a runtime guardrail that blocks leaked secrets and tool calls the user didn't request. Every rate carries a confidence interval. Built for open-weight models."
+          content="Fusion First attacks your AI agent, grades safety and quality with a grader whose accuracy is measured in every run, and adds a runtime guard that redacts secrets and blocks tool calls the user did not ask for. Every rate carries a 95% interval. Built for open-weight models."
         />
         <meta
           name="keywords"
-          content="AI agent evaluation, LLM safety testing, LLM quality evals, prompt injection testing, OWASP LLM Top 10, agentic AI security, open-weight model testing, Ollama, Llama safety, LLM red teaming, AI guardrails, instruction following, safety report card"
+          content="AI agent evaluation, LLM safety testing, LLM quality evals, prompt injection testing, OWASP LLM Top 10, agentic AI security, open-weight model testing, Ollama, LLM red teaming, AI guardrails, instruction following"
         />
-        <meta
-          property="og:title"
-          content="Fusion First: Measure and guard AI agents"
-        />
-        <meta
-          property="og:description"
-          content="Attack your AI agent, grade safety and quality with a measured grader, and guard it at runtime. Built for open-weight models."
-        />
+        <meta property="og:title" content={TITLE} />
+        <meta property="og:description" content={SUMMARY} />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://fusion-first-testing.com" />
         <meta
@@ -99,14 +98,8 @@ export default function Landing() {
           content="https://fusion-first-testing.com/og-image.png"
         />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content="Fusion First: Measure and guard AI agents"
-        />
-        <meta
-          name="twitter:description"
-          content="Attack your AI agent, grade safety and quality with a measured grader, and guard it at runtime. Built for open-weight models."
-        />
+        <meta name="twitter:title" content={TITLE} />
+        <meta name="twitter:description" content={SUMMARY} />
         <link rel="canonical" href="https://fusion-first-testing.com" />
         <script type="application/ld+json">
           {JSON.stringify({
@@ -114,15 +107,14 @@ export default function Landing() {
             "@type": "SoftwareApplication",
             name: "Fusion First",
             description:
-              "Safety and quality evaluation engine and runtime guardrail for AI agents. Attacks the agent, grades transcripts with a grader whose accuracy is measured, and blocks leaked secrets and unrequested tool calls at runtime. Built for open-weight models.",
+              "Safety and quality evaluation and a runtime guard for AI agents. Attacks the agent, grades the transcripts with a grader whose accuracy is measured, and at runtime redacts leaked secrets and blocks unrequested tool calls. Built for open-weight models.",
             applicationCategory: "DeveloperApplication",
-            operatingSystem: "Web",
+            operatingSystem: "Windows, macOS, Linux",
             offers: {
               "@type": "Offer",
               price: "0",
               priceCurrency: "USD",
-              description:
-                "Free demo scan and local testing with your own open-weight models",
+              description: "Free demo scan; free local testing of your own open-weight models",
             },
           })}
         </script>
@@ -131,10 +123,9 @@ export default function Landing() {
       <Doc wide>
         <DocHeader title="Measured evaluation and a runtime guard for AI agents">
           <p>
-            Fusion First attacks an agent with OWASP-mapped prompts, grades the transcripts with a cross-family
-            judge whose accuracy is measured against known answers in every run, and reports each rate with a 95%
-            interval. A runtime guard redacts leaked secrets and blocks tool calls the user&apos;s own request does
-            not cover. Results are from pre-registered tests on open-weight models.
+            Fusion First tests an agent with OWASP-mapped attacks and ordinary tasks, grades safety and quality, and
+            reports each rate with a 95% interval and the grader&apos;s measured accuracy. A runtime guard redacts
+            secrets and blocks tool calls the user did not ask for.
           </p>
           <div className="mt-6 flex flex-wrap gap-2.5">
             <Link to="/scan" className="action action--primary">
@@ -152,26 +143,28 @@ export default function Landing() {
 
         <DocSection id="method" title="Method">
           <dl className="deflist">
-            <dt>Cross-family judge</dt>
+            <dt>Measured grader</dt>
             <dd>
-              Claude grades open-weight targets, so no model grades its own family. Each run seeds blind
-              known-answer items and checks the grader against deterministic oracles on its own clear-cut
-              transcripts; below the policy floor the grade is withheld (<code className="inline-code">?</code>),
-              not guessed.
+              By default Claude grades open-weight targets, a different model family. Each run includes blind
+              known-answer questions and checks the grader against deterministic oracles on its own clear-cut
+              transcripts. If the grader misses the policy floor, denies a violation the oracles confirm, or leaves
+              questions unanswered, the grade is withheld (<code className="inline-code">?</code>); rates stay visible.
             </dd>
             <dt>Pre-registered tests</dt>
             <dd>
-              Hypothesis, metric and decision rule committed before scoring; fresh transcripts, scored once, paired
-              McNemar on the same items. A result that misses its rule is reported as missed.
+              For the guard and the rubric comparison, hypothesis, metric and decision rule were committed before
+              scoring; results were scored once and compared with paired McNemar tests. A missed rule is reported as
+              missed.
             </dd>
             <dt>Runtime guard</dt>
             <dd>
-              Redacts secrets in replies, blocks system-prompt dumps, and, after untrusted content, allows a tool call
-              only when the user&apos;s request covers it. Given the tool results as untrusted text, it also blocks a
-              read paired with a send to an outside address.
+              Redacts secrets and PII in replies and blocks system-prompt dumps. A tool call that is not a read runs
+              only if the user&apos;s own request covers it; sends to non-allowlisted destinations are blocked. Given
+              the tool results, it also blocks a read they ask for, and the user did not, when they also ask to send
+              data out.
             </dd>
             <dt>Prompt fix (optional)</dt>
-            <dd>An appended policy block, re-tested on the user&apos;s own model; see the negative results.</dd>
+            <dd>A policy block appended to the system prompt and re-tested on your model. See the negative results.</dd>
           </dl>
         </DocSection>
 
@@ -197,16 +190,12 @@ export default function Landing() {
         <DocSection
           id="run-locally"
           title="Run it locally"
-          lead="This site is a demo on recorded responses. Locally, the same app tests a live model."
+          lead="This site's demo replays recorded responses. Locally, the same app tests a live model."
         >
           <RunLocally compact />
           <p className="mt-5 text-sm">
-            <Link to="/use#local" className="text-link">
-              All setup options
-            </Link>
-            <span className="text-app-subtle"> · </span>
             <Link to="/use" className="text-link">
-              Plugin, CLI, MCP and CI
+              Plugin, command line, guard, MCP and CI
             </Link>
           </p>
         </DocSection>

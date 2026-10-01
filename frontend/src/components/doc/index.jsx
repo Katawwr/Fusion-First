@@ -4,6 +4,22 @@ import CopyButton from "../ui/CopyButton";
 // Shared building blocks for the document-style pages (overview, Use, Trust, Privacy). Styling lives
 // in index.css (.doc, .doc-title, .data-table ...) so every page reads with the same scale.
 
+// Copy from JSON with `backticks` around code: the code is set inline, and the text around it keeps
+// its own spaces (JSX would otherwise eat the space between a word and a <code>).
+export function Inline({ text }) {
+  return String(text || "")
+    .split(/(`[^`]+`)/)
+    .map((part, i) =>
+      part.startsWith("`") && part.endsWith("`") && part.length > 1 ? (
+        <code key={i} className="inline-code">
+          {part.slice(1, -1)}
+        </code>
+      ) : (
+        part
+      ),
+    );
+}
+
 export function Doc({ wide = false, children }) {
   return <article className={`doc${wide ? " doc--wide" : ""}`}>{children}</article>;
 }

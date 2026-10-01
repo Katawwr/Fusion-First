@@ -32,12 +32,12 @@ export function resultGroups(ev) {
     groups.push({
       id: "step3",
       title: "Runtime guard, given the tool results",
-      note: `Fresh transcripts of ${s3.models.join(" and ")}; rules ${s3.rules}; adopted.`,
+      note: `Pre-registered; fresh transcripts of ${s3.models.join(" and ")}; rules ${s3.rules}; adopted.`,
       rows: [
-        { label: "Attacks stopped", n: v3.attacks, est: v3.recall, scale: "rate", tone: "good", detail: count(v3.stopped, v3.attacks) },
-        { label: "Clean conversations wrongly blocked", n: v3.clean, est: v3.over_block, scale: "rate", tone: "cost", detail: count(v3.blocked, v3.clean) },
+        { label: "Tool hijacks stopped (InjecAgent)", n: v3.attacks, est: v3.recall, scale: "rate", tone: "good", detail: count(v3.stopped, v3.attacks) },
+        { label: "Clean transcripts wrongly blocked", n: v3.clean, est: v3.over_block, scale: "rate", tone: "cost", detail: count(v3.blocked, v3.clean) },
         {
-          label: "Attacks stopped without the tool results",
+          label: "Tool hijacks stopped without the tool results",
           n: v2.attacks,
           est: v2.recall,
           scale: "rate",
@@ -55,10 +55,10 @@ export function resultGroups(ev) {
     groups.push({
       id: "step2",
       title: "Request-bound guard vs Llama Guard 3",
-      note: `Fresh transcripts of ${s2.models.join(" and ")}; rules ${s2.rules}; same transcripts for both.`,
+      note: `Pre-registered; fresh transcripts of ${s2.models.join(" and ")}, the same for both; rules ${s2.rules}.`,
       rows: [
         { label: "Fusion guard: attacks stopped", n: f.attacks, est: f.recall, scale: "rate", tone: "good", detail: count(f.stopped, f.attacks) },
-        { label: "Fusion guard: clean wrongly blocked", n: f.clean, est: f.over_block, scale: "rate", tone: "cost", detail: count(f.blocked, f.clean) },
+        { label: "Fusion guard: clean transcripts wrongly blocked", n: f.clean, est: f.over_block, scale: "rate", tone: "cost", detail: count(f.blocked, f.clean) },
         {
           label: "Llama Guard 3, configured: attacks stopped",
           n: lg.attacks,
@@ -67,7 +67,7 @@ export function resultGroups(ev) {
           tone: "neutral",
           detail: `${count(lg.stopped, lg.attacks)}; McNemar ${pValue(s2.comparisons.configured.attacks.mcnemar_p)}`,
         },
-        { label: "Llama Guard 3, configured: clean wrongly blocked", n: lg.clean, est: lg.over_block, scale: "rate", tone: "neutral", detail: count(lg.blocked, lg.clean) },
+        { label: "Llama Guard 3, configured: clean transcripts wrongly blocked", n: lg.clean, est: lg.over_block, scale: "rate", tone: "neutral", detail: count(lg.blocked, lg.clean) },
       ],
     });
   }
@@ -78,7 +78,7 @@ export function resultGroups(ev) {
     groups.push({
       id: "judge",
       title: "Grader accuracy against deterministic oracles",
-      note: "Real transcripts of small open-weight models; oracle labels fixed before grading.",
+      note: "Real llama3.2:1b transcripts (InjecAgent, Gandalf); oracle labels fixed before grading; not pre-registered.",
       rows: judges.map((j) => {
         const below = floor && j.grader === floor.grader && !floor.meets_floor;
         return {
@@ -97,7 +97,7 @@ export function resultGroups(ev) {
   const rvp = ev.rubric_vs_plain;
   if (rvp) {
     neg.push({
-      label: "Rubric judge minus plain question, accuracy",
+      label: "Rubric grading minus one plain question, accuracy",
       n: rvp.pooled.n,
       est: rvp.pooled.difference,
       scale: "diff",
@@ -121,7 +121,7 @@ export function resultGroups(ev) {
     groups.push({
       id: "negative",
       title: "Negative results",
-      note: `Prompt fix pooled over ${fixModels(ev).join(", ")}; a change is (with fix) − (as written).`,
+      note: `Rubric: pre-registered, on the grader-accuracy items. Prompt fix: not pre-registered, pooled over ${fixModels(ev).join(", ")}. Change = with fix − as written.`,
       rows: neg,
     });
   }
@@ -137,21 +137,26 @@ export function findings(ev) {
   const out = [];
   const s3 = ev.step3_guard;
   if (s3?.decision === "adopted" && s3.comparisons.clean.v3_only === 0) {
-    out.push("Given the tool results, the guard stops significantly more attacks at no added clean-block cost.");
+    out.push("Given the tool results, the guard stops significantly more tool hijacks and wrongly blocks no more clean transcripts.");
   }
   const s2 = ev.step2_guard;
-  if (s2?.decision?.new_rules === "adopted" && s2.comparisons.configured.decision === "fusion_better") {
-    out.push("The guard stops significantly more attacks than Llama Guard 3 (configured) without more wrong blocks.");
+  const lg = s2?.comparisons?.configured;
+  if (s2?.decision?.new_rules === "adopted" && lg?.decision === "fusion_better") {
+    const fewer = lg.clean && lg.clean.mcnemar_p < 0.05 && lg.clean.other_only > lg.clean.fusion_only;
+    out.push(
+      "The guard stops significantly more attacks than Llama Guard 3 (configured) and wrongly blocks " +
+        (fewer ? "significantly fewer clean transcripts." : "no more clean transcripts."),
+    );
   }
   const fix = Object.fromEntries((ev.fix_pooled || []).map((p) => [p.experiment, p]));
-  if (fix.injecagent && fix.xstest) {
+  if (fix.injecagent && !/better/.test(fix.injecagent.verdict) && /worse/.test(fix.xstest?.verdict || "")) {
     out.push(
       "The prompt fix did not reliably reduce attacks and raised refusals of safe requests. It is optional.",
     );
   }
   if (ev.rubric_vs_plain && !ev.rubric_vs_plain.claim_allowed) {
     out.push(
-      "The rubric judge is not more accurate than a plain one-question judge; it is kept for checkable, quoted evidence.",
+      "Rubric grading is not more accurate than one plain question to the grader; the rubric is kept because its answers quote checkable evidence.",
     );
   }
   return out;
@@ -169,7 +174,7 @@ export function limitations(ev) {
   }
   const families = Object.values(ev.step2_guard?.by_attack_type || {}).map((t) => t.name);
   if (families.length) {
-    out.push(`Guard attacks cover ${[...new Set(families)].join("; ")}. Other attack families are not yet measured.`);
+    out.push(`The guard was tested on ${[...new Set(families)].join("; ")} only; other attack families are unmeasured.`);
   }
   if (ev.step3_guard) {
     out.push("The tool-results test reused attack wording seen during development; its cost was measured on clean transcripts only.");

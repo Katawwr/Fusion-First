@@ -36,8 +36,8 @@ export default class ErrorBoundary extends React.Component {
         >
           Try again
         </button>
-        <a href="/scan" style={{ color: "var(--accent-ink)" }}>
-          New scan
+        <a href="/" style={{ color: "var(--accent-ink)" }}>
+          Overview
         </a>
       </div>
     );

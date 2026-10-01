@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Link, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Header, Footer } from "./components/layout";
 import ErrorBoundary from "./components/layout/ErrorBoundary";
 import { loadScanState, saveScanState } from "./lib/session";
@@ -56,12 +56,11 @@ export default function App() {
             path="*"
             element={
               <article className="doc">
-                <p className="eyebrow">404</p>
-                <h1 className="doc-title">Page not found</h1>
+                <h1 className="doc-title">Page not found (404)</h1>
                 <p className="mt-6">
-                  <a href="/" className="text-link">
-                    Go to the overview
-                  </a>
+                  <Link to="/" className="text-link">
+                    Overview
+                  </Link>
                 </p>
               </article>
             }

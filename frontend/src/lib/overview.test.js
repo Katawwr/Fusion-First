@@ -25,7 +25,7 @@ describe("resultGroups", () => {
 
   it("states the prompt fix's measured cost and the rubric's non-result", () => {
     const neg = groups.find((g) => g.id === "negative").rows.map((r) => r.label);
-    expect(neg.some((l) => /Rubric judge minus plain question/.test(l))).toBe(true);
+    expect(neg.some((l) => /Rubric grading minus one plain question/.test(l))).toBe(true);
     expect(neg.some((l) => /safe requests refused/.test(l))).toBe(true);
   });
 
@@ -51,8 +51,8 @@ describe("resultGroups", () => {
 describe("findings and limitations", () => {
   it("never claims the rubric is more accurate", () => {
     const text = findings(evidence).join(" ");
-    expect(text).not.toMatch(/rubric (judge )?is more accurate/i);
-    if (!evidence.rubric_vs_plain.claim_allowed) expect(text).toMatch(/not more accurate than a plain one-question judge/);
+    expect(text).not.toMatch(/rubric (judge |grading )?is more accurate/i);
+    if (!evidence.rubric_vs_plain.claim_allowed) expect(text).toMatch(/not more accurate than one plain question/);
   });
 
   it("names the fix as optional", () => {
