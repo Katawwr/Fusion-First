@@ -679,8 +679,21 @@ def _cmd_plugin_dir(args) -> int:
     if root is None:
         print("No plugin marketplace in this install. Reinstall: pip install fusion-safety", file=sys.stderr)
         return 1
-    print(root)
+    # Windows PowerShell 5.1 decodes `$(fusion plugin-dir)` with the console's OEM code page, not UTF-8:
+    # a non-ASCII path arrives mangled, its 8.3 short form does not.
+    print((not str(root).isascii() and _short_path(root)) or root)
     return 0
+
+
+def _short_path(path) -> str | None:
+    """The ASCII 8.3 form of an existing Windows path, or None (not Windows, 8.3 names off, still non-ASCII)."""
+    if sys.platform != "win32":
+        return None
+    import ctypes
+
+    buf = ctypes.create_unicode_buffer(32768)
+    n = ctypes.windll.kernel32.GetShortPathNameW(str(path), buf, len(buf))
+    return buf.value if 0 < n < len(buf) and buf.value.isascii() else None
 
 
 def main(argv: list[str] | None = None) -> int:

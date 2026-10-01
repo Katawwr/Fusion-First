@@ -364,6 +364,47 @@ def test_cli_plugin_dir_without_a_marketplace_fails_with_the_install_line(monkey
 
 
 @pytest.mark.unit
+def test_cli_plugin_dir_prints_an_ascii_short_path_for_a_non_ascii_install(monkeypatch, capsys):
+    """Windows PowerShell 5.1 decodes `$(fusion plugin-dir)` with the console's OEM code page, not UTF-8,
+    so a non-ASCII path arrived mangled; its 8.3 short form survives any decoding."""
+    import fusion_first._data
+    import fusion_first.cli as cli
+
+    short = r"C:\Users\JOS~1\AppData\Roaming\uv\tools\FUSION~1\MARKET~1"
+    monkeypatch.setattr(fusion_first._data, "plugin_root",
+                        lambda pkg_dir=None: pathlib.Path("C:/Users/José/AppData/Roaming/uv/tools/fusion-safety/m"))
+    monkeypatch.setattr(cli, "_short_path", lambda p: short)
+
+    assert cli.main(["plugin-dir"]) == 0
+    assert capsys.readouterr().out.strip() == short
+
+
+@pytest.mark.unit
+def test_cli_plugin_dir_keeps_the_long_path_when_no_ascii_short_form_exists(monkeypatch, capsys):
+    import fusion_first._data
+    import fusion_first.cli as cli
+
+    long = pathlib.Path("/home/josé/marketplace")
+    monkeypatch.setattr(fusion_first._data, "plugin_root", lambda pkg_dir=None: long)
+    monkeypatch.setattr(cli, "_short_path", lambda p: None)
+
+    assert cli.main(["plugin-dir"]) == 0
+    assert capsys.readouterr().out.strip() == str(long)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="8.3 short names are a Windows feature")
+def test_short_path_of_a_real_non_ascii_folder_is_ascii_and_the_same_folder(tmp_path):
+    from fusion_first.cli import _short_path
+
+    folder = tmp_path / "Fusión"
+    folder.mkdir()
+    short = _short_path(folder)
+    if short is None:
+        pytest.skip("8.3 names are disabled on this volume")
+    assert short.isascii() and pathlib.Path(short).samefile(folder)
+
+
+@pytest.mark.unit
 def test_one_version_for_the_package_the_app_and_the_plugin_pin():
     import tomllib
 
@@ -406,3 +447,4 @@ def test_commands_that_rewrite_the_corpora_refuse_in_a_pip_install(monkeypatch, 
     assert main(argv) == 2
     assert writes == []
     assert "FUSION_DATA_DIR" in capsys.readouterr().err
+
