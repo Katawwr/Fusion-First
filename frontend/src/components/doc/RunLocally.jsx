@@ -10,10 +10,7 @@ export function TargetsTable() {
       <ul className="target-list">
         {content.targets.map((t) => (
           <li key={t.spec}>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <span className="font-medium text-app-text">{t.name}</span>
-              <span className="eyebrow">Scan: {t.scan}</span>
-            </div>
+            <span className="font-medium text-app-text">{t.name}</span>
             <code className="inline-code mt-1.5 inline-block">{t.spec}</code>
             {(t.cost || t.also) && (
               <p className="mt-1.5 text-sm text-app-muted">

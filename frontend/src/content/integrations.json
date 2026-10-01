@@ -177,5 +177,5 @@
       "cost": "The web app refuses cmd: targets; use fusion run start."
     }
   ],
-  "grader": "Default grader: claude-cli (your Claude subscription). Any chat target can grade; the grade is withheld when the grader misses the policy floor on known answers."
+  "grader": "Default grader: claude-cli. Any chat target can grade."
 }

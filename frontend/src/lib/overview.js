@@ -1,7 +1,7 @@
 // The overview page's results table and findings, built from the generated evidence
 // (frontend/src/content/evidence.json). Nothing here carries a number of its own: a block the evidence
 // lacks is left out, and a result that was not adopted is not presented as one.
-import { pValue, pct } from "./evidence";
+import { pValue } from "./evidence";
 
 const FIX_EXPERIMENTS = {
   injecagent: { label: "Tool hijacks (InjecAgent)", tone: "good" },
@@ -32,7 +32,7 @@ export function resultGroups(ev) {
     groups.push({
       id: "step3",
       title: "Runtime guard, given the tool results",
-      note: `Pre-registered; fresh transcripts of ${s3.models.join(" and ")}; rules ${s3.rules}; adopted.`,
+      note: `Fresh transcripts of ${s3.models.join(" and ")}; rules ${s3.rules}; adopted.`,
       rows: [
         { label: "Attacks stopped", n: v3.attacks, est: v3.recall, scale: "rate", tone: "good", detail: count(v3.stopped, v3.attacks) },
         { label: "Clean conversations wrongly blocked", n: v3.clean, est: v3.over_block, scale: "rate", tone: "cost", detail: count(v3.blocked, v3.clean) },
@@ -55,7 +55,7 @@ export function resultGroups(ev) {
     groups.push({
       id: "step2",
       title: "Request-bound guard vs Llama Guard 3",
-      note: `Pre-registered; fresh transcripts of ${s2.models.join(" and ")}; rules ${s2.rules}; same transcripts for both.`,
+      note: `Fresh transcripts of ${s2.models.join(" and ")}; rules ${s2.rules}; same transcripts for both.`,
       rows: [
         { label: "Fusion guard: attacks stopped", n: f.attacks, est: f.recall, scale: "rate", tone: "good", detail: count(f.stopped, f.attacks) },
         { label: "Fusion guard: clean wrongly blocked", n: f.clean, est: f.over_block, scale: "rate", tone: "cost", detail: count(f.blocked, f.clean) },
@@ -132,41 +132,26 @@ export function fixModels(ev) {
   return [...new Set((ev.fix_efficacy || []).map((c) => c.model))].sort();
 }
 
-// Plain findings under the table, one sentence each.
+// What the table cannot show: the verdicts behind its rows. Numbers stay in the table.
 export function findings(ev) {
   const out = [];
   const s3 = ev.step3_guard;
-  if (s3?.decision === "adopted") {
-    const { v3, v2 } = s3.arms;
-    out.push(
-      `Given the tool results the agent saw, the guard stopped ${count(v3.stopped, v3.attacks)} attacks ` +
-        `(${count(v2.stopped, v2.attacks)} without them; McNemar ${pValue(s3.comparisons.attacks.p)}) and wrongly blocked ` +
-        `${count(v3.blocked, v3.clean)} clean conversations.`,
-    );
+  if (s3?.decision === "adopted" && s3.comparisons.clean.v3_only === 0) {
+    out.push("Given the tool results, the guard stops significantly more attacks at no added clean-block cost.");
   }
   const s2 = ev.step2_guard;
-  if (s2?.decision?.new_rules === "adopted") {
-    const f = s2.systems.fusion;
-    const lg = s2.systems.llama_guard_b;
-    const better = s2.comparisons.configured.decision === "fusion_better";
-    out.push(
-      `On the same transcripts the request-bound guard stopped ${pct(f.recall.point)} of attacks against ` +
-        `${pct(lg.recall.point)} for Llama Guard 3 (configured), wrongly blocking ` +
-        `${pct(f.over_block.point)} of clean conversations against ${pct(lg.over_block.point)}` +
-        (better ? "; it stops significantly more attacks without significantly more wrong blocks (paired McNemar)." : "."),
-    );
+  if (s2?.decision?.new_rules === "adopted" && s2.comparisons.configured.decision === "fusion_better") {
+    out.push("The guard stops significantly more attacks than Llama Guard 3 (configured) without more wrong blocks.");
   }
   const fix = Object.fromEntries((ev.fix_pooled || []).map((p) => [p.experiment, p]));
   if (fix.injecagent && fix.xstest) {
     out.push(
-      `The prompt fix did not reliably reduce attacks on ${fixModels(ev).join(", ")} ` +
-        `(tool hijacks: ${fix.injecagent.verdict}) and raised refusals of safe requests (${fix.xstest.verdict}). It is optional.`,
+      "The prompt fix did not reliably reduce attacks and raised refusals of safe requests. It is optional.",
     );
   }
   if (ev.rubric_vs_plain && !ev.rubric_vs_plain.claim_allowed) {
     out.push(
-      "The rubric judge is not more accurate than a plain one-question judge. It is kept because each grade " +
-        "carries per-criterion answers with quoted evidence that can be checked.",
+      "The rubric judge is not more accurate than a plain one-question judge; it is kept for checkable, quoted evidence.",
     );
   }
   return out;
@@ -204,9 +189,6 @@ export function limitations(ev) {
       `Grader accuracy is measured for ${checks.length} checks (${checks.map((c) => c.replace(/_/g, " ")).join(", ")}); ` +
         "grades for the other checks are not yet validated against oracles.",
     );
-  }
-  if (ev.local_grader && !ev.local_grader.meets_floor) {
-    out.push(`The free local grader (${ev.local_grader.grader}) misses the policy floor, so Claude grades by default.`);
   }
   out.push("The guard is defense in depth, not a sandbox. OWASP Agentic 2026 codes are provisional.");
   return out;

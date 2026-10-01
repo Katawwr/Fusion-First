@@ -13,11 +13,7 @@ export default function Use() {
       <Helmet>
         <title>Use Fusion | Fusion First</title>
       </Helmet>
-      <DocHeader eyebrow="Use" title="Use Fusion">
-        <p>
-          Hosted APIs run only with your own key and <code className="inline-code">FUSION_ALLOW_API_SPEND=1</code>.
-        </p>
-      </DocHeader>
+      <DocHeader eyebrow="Use" title="Use Fusion" />
 
       <nav aria-label="On this page" className="mt-7 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
         {content.sections.map((s) => (
