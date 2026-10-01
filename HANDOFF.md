@@ -12,12 +12,14 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 - Branch `rebuild/agentic-safety-engine` = the 0.1.0 release line (dist/ built from 70db9bb). Work since
   2026-10-01 is on branch **`post-0.1.0`** (fifth session, below). All local, no git remote. Never push.
   Publishing to PyPI is the OWNER's step (`twine upload`, their token); deploys follow the owner's word.
-- **In flight (fifth session): step-3 transcript generation**, started 2026-10-01 ~10:15 local, ~5 h, the only
-  Ollama job: `python scripts/run_evidence.py run --experiments injecagent --models qwen2.5:7b,llama3.1:8b --n
-  150 --arms baseline --salt fusion-evidence-step3-v1 --exclude-spent-through-step2` (log in that session's
-  scratchpad `step3_run.log`). Resumable: re-running the same command skips stored transcripts. When done:
-  `python scripts/step3_guard.py score --out evals/validation/v1/step3_guard.json`, then follow the
-  registered decision (evals/validation/v1/PREREG_step3_guard.md).
+- **In flight (fifth session): AgentDojo dev run** (qwen2.5:7b, arms none/v2/v3, 402 episode-arms, ~3 h from
+  11:20 local 2026-10-01, the only Ollama job): `$LOCALAPPDATA/fusion-agentdojo-venv/Scripts/python
+  scripts/agentdojo_guard.py run --split dev --model qwen2.5:7b --arms none,v2,v3` (resumable; records in
+  `evals/validation/v1/agentdojo/dev/`, uncommitted). DEV ONLY, never quote. Unguarded episodes take 35-150 s.
+- **Step 3 ADOPTED** (b632584 evidence, 6543ccc adoption): given the tool results (`untrusted_text`) the guard
+  stopped 75/75 attacks vs 67/75 without (8 vs 0, p=0.008), data stealing 55/55 vs 47/55, clean wrongly blocked
+  1/225 both. Snippet, /use, MCP `check_tool_call(untrusted_text=)`, scan replay, Trust Report, /trust, README
+  (claims registered) updated. NOT yet deployed or released (site redeploy + 0.1.1 are owner steps).
 - **PUBLISHED: `fusion-safety` 0.1.0 is on PyPI** (owner upload, 2026-10-01 08:45 UTC); both files match
   dist/ (sha256 `31de5921...`, `354e5e5f...`). Verified from PyPI in a clean venv outside the repo: `pip
   install "fusion-safety[serve,mcp]"` (resolves mcp 2.2.0), `fusion doctor`, `claude plugin validate
