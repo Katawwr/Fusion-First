@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { Menu, X, Sun, Moon } from "lucide-react";
 import { useTheme } from "../../hooks";
+import BrandMark from "./BrandMark";
 
 // No accounts, no billing: Fusion runs locally (CLI / MCP / plugin / fusion serve) or as a keyless demo.
 const NAV_LINKS = [
@@ -20,7 +21,6 @@ const linkClass = ({ isActive }) =>
 
 export default function Header() {
   const [open, setOpen] = useState(false);
-  const [logoOk, setLogoOk] = useState(true);
   const { effective, toggle } = useTheme();
   const themeLabel = effective === "dark" ? "Switch to light mode" : "Switch to dark mode";
 
@@ -31,13 +31,7 @@ export default function Header() {
     >
       <div className="mx-auto flex h-14 max-w-[64rem] items-center justify-between gap-4 px-4">
         <Link to="/" className="flex items-center gap-2.5 no-underline" aria-label="Fusion First, overview">
-          {logoOk ? (
-            <img src="/logo.png" alt="" width="28" height="28" className="h-7 w-7 object-contain" onError={() => setLogoOk(false)} />
-          ) : (
-            <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-md bg-brand text-sm font-bold text-white">
-              F
-            </span>
-          )}
+          <BrandMark />
           <span className="brand-wordmark text-app-text">Fusion First</span>
         </Link>
 

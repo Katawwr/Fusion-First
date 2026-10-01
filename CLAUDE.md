@@ -17,7 +17,8 @@ following; `kind="quality"`). Product focus is **open-weight / less-robust model
 judged by Claude cross-family): frontier models resist most safety attacks, open-weight models often
 don't. **Numbers come only from committed evidence** (`evals/claims.yaml`, enforced by
 `tests/test_claims_backed.py`) — never from memory or unrecorded runs. Brand ("Fusion First"),
-`frontend/public/logo.png`, and the purple/cyan/pink `fusion` palette are fixed and must be preserved.
+the FF monogram ("friendly fire"; `frontend/src/components/layout/BrandMark.jsx`, `frontend/public/ff.svg`;
+it replaced `logo.png`, owner 2026-10-01), and the purple/cyan/pink `fusion` palette are fixed and must be preserved.
 
 ## The one rule that matters most
 

@@ -22,4 +22,14 @@ describe("Header", () => {
     );
     expect(screen.getByText("Fusion First")).toHaveClass("brand-wordmark");
   });
+
+  it("shows the FF monogram, not the retired logo image", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+    expect(container.querySelector("header .brand-mark")?.textContent).toBe("FF");
+    expect(container.querySelector('header img[src="/logo.png"]')).toBeNull();
+  });
 });

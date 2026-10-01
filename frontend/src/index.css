@@ -364,6 +364,27 @@ button {
   color: var(--subtle);
 }
 
+/* The FF monogram (friendly fire): brand purple in both themes, title face, second F in brand pink. */
+.brand-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22%;
+  background: #504d9a;
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  padding-top: 0.08em; /* Newsreader's capitals ride high: centre them optically */
+  padding-right: 0.035em; /* balance the negative tracking */
+}
+
+.brand-mark-fire {
+  color: #f38f95;
+}
+
 /* The wordmark uses the title face (owner, 2026-10-01). */
 .brand-wordmark {
   font-family: var(--font-display);
