@@ -110,6 +110,13 @@ test.describe("desktop", () => {
 
 // Tagged @phone: only the phone project runs these (see playwright.config.js).
 test.describe("phone", () => {
+  test("the Trust page charts fit a phone without sideways scrolling @phone", async ({ page }) => {
+    await page.goto("/trust");
+    await expect(page.getByRole("img", { name: /^Guard trade-off/ })).toBeVisible();
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
   test("no sideways scrolling on the Guard step @phone", async ({ page }) => {
     await page.goto("/scan");
     await page.getByRole("button", { name: "Support bot" }).click();
