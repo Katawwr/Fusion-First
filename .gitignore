@@ -31,6 +31,8 @@ secrets/
 cassettes/scratch/
 
 # OS / editor
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -44,8 +46,8 @@ evals/scratch/
 *.tmp
 
 # Python build artifacts
-/dist/
-/build/
+dist/
+build/
 *.whl
 # Data copied into the wheel at build time (source of truth stays at repo top level)
 fusion_first/_bundled/
@@ -55,11 +57,9 @@ fusion_first/_bundled/
 # External benchmark downloads (raw, licensed per source). Only processed subsets + SOURCES.yaml are committed.
 datasets/external/raw/
 
-# Local run store (fusion run / MCP start_run). Proofs meant for CI go in .fusion/proofs/.
-.fusion/runs/
+# Local run store (fusion run / MCP start_run), caches and proofs: all local state.
+.fusion/
 
 # Claude Code agent worktrees (harness-managed)
 .claude/worktrees/
 
-# AgentDojo model-response cache (scripts/agentdojo_guard.py); episode records under evals/ are the evidence.
-.fusion/agentdojo-cache/

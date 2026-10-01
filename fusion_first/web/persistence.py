@@ -1,7 +1,7 @@
 """Scan storage behind a small protocol.
 
-M2 ships the in-memory store (enough for the demo loop and offline tests); M4 swaps in a
-Supabase-backed implementation without touching the routers.
+The in-memory store is enough for the demo loop and offline tests; a durable implementation can
+replace it without touching the routers.
 """
 
 from __future__ import annotations

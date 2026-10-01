@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev,mcp,serve]"
-      - run: python -m ruff check fusion tests scripts app
+      - run: python -m ruff check fusion_first tests scripts app setup.py
       - run: python -m pytest -q
       - name: Accuracy gate (committed baselines)
         run: python -m fusion_first.cli eval --check all

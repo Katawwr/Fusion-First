@@ -38,7 +38,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   (Playwright MCP): home, Scan (Paste → Attack → Grade → Guard → before/after), HTML report download, /use,
   /trust, dark mode, 375 px: all render, no console errors except the designed 402 on "Grade quality" (the
   demo server has no live model). The old Modal apps (`fusion-quality-tester`, `fusion-secur…`) still run:
-  rollback path; retiring them is the owner's call.
+  rollback path; retiring them is the owner's call. Their source (`backend/main.py`) and
+  `supabase_migrations.sql` were removed from the tree for the public repo; recover them with
+  `git show b9e9338:backend/main.py`.
 - **PyPI release 0.1.0** (published 2026-10-01; owner decisions 2026-09-29: publish `fusion-safety` on
   PyPI; the plugin marketplace ships inside the wheel; the import package is renamed `fusion_first` because
   PyPI's `fusion` and JPMorgan's `pyfusion` both install a top-level `fusion`; and "leave out anything
