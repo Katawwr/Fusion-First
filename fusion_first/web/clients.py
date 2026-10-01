@@ -95,6 +95,28 @@ def _spec_scan_kwargs(settings: Settings, target_spec: str | None, grader_spec: 
             "judge_model": g.label, **judge_trust_kwargs(judge, choice), "judge_backend": g.label}
 
 
+def hosted_keys() -> list[str]:
+    """Hosted providers whose key is set here (names only, never values)."""
+    from fusion_first.backends.presets import ANTHROPIC_KEY_ENV, PROVIDERS
+
+    envs = {name: env for name, (_, env) in PROVIDERS.items()} | {"anthropic": ANTHROPIC_KEY_ENV}
+    return [name for name, env in envs.items() if os.environ.get(env)]
+
+
+def web_graders(cli_ready: bool, ollama_models: list[str]) -> list[str]:
+    """The built-in graders a web scan can run right now, best first. The claude CLI on subscription
+    auth, then a pulled local grader whose pre-registered measurement met the policy floor (the same
+    rule `fusion doctor` recommends by). Hosted graders need a model name, so they are reported as
+    providers (`hosted_keys` with the spend opt-in) instead. `host` grading is MCP/CLI-only."""
+    from fusion_first.validate.prereg import LOCAL_GRADER_EVIDENCE, local_grader_status
+
+    out = ["claude-cli"] if cli_ready else []
+    for m in ollama_models:
+        if m in LOCAL_GRADER_EVIDENCE and local_grader_status(m)["meets_floor"]:
+            out.append(f"ollama-prob:{m}")
+    return out
+
+
 def build_scan_kwargs(
     mode: str, settings: Settings, backend: str | None = None, target_model: str | None = None, *,
     target_spec: str | None = None, grader_spec: str | None = None,

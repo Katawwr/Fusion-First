@@ -25,10 +25,17 @@ function renderGuard(extra = {}) {
 }
 
 describe("GuardStep", () => {
-  it("leads with the runtime guardrail; the prompt fix comes after, marked optional", () => {
+  it("leads with the runtime guard; the prompt fix comes after, marked optional", () => {
     renderGuard();
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(["Runtime guardrail", "Optional: prompt fix"]);
+    expect(headings).toEqual(["Runtime guard", "Optional: prompt fix"]);
+  });
+
+  it("states what the published guard configuration does", () => {
+    renderGuard();
+    expect(screen.getByText(
+      "Redacts secrets and personal data, blocks system-prompt dumps, and blocks non-read tool calls the user's request does not cover.",
+    )).toBeInTheDocument();
   });
 
   it("shows the guardrail's measured result from the committed evidence", () => {

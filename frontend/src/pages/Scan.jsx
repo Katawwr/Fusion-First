@@ -9,7 +9,14 @@ import CheckToggleCard from "../components/scan/CheckToggleCard";
 import TierPicker from "../components/scan/TierPicker";
 import { downloadJson } from "../lib/download";
 import TargetPicker from "../components/scan/TargetPicker";
-import { targetOptions } from "../lib/targets";
+import {
+  canGradeQuality,
+  effectiveGrader,
+  hasLiveTarget,
+  scanBackend,
+  targetOptions,
+  targetReady,
+} from "../lib/targets";
 import RunProgress from "../components/scan/RunProgress";
 import CheckLane from "../components/scan/CheckLane";
 import AttackFeedRow from "../components/scan/AttackFeedRow";
@@ -34,7 +41,7 @@ import evidence from "../content/evidence.json";
 
 const ALL_CHECKS = Object.keys(CHECKS);
 const QUALITY = Object.keys(QUALITY_CHECKS);
-const QUALITY_NEEDS_LIVE = "Needs a live model.";
+const QUALITY_NEEDS_LIVE = "Run on a live target.";
 // The prompt fix's before/after ("prove") opens from the Guard step and is not a step of its own.
 const STEPS = [
   ["setup", "Paste"],
@@ -231,12 +238,13 @@ export default function Scan({ scanState, setScanState }) {
   const [chosenTarget, setTarget] = useState("demo");
   const [chosenModel, setTargetModel] = useState("llama3.2:1b");
   const [targetSpec, setTargetSpec] = useState("");
-  const [graderSpec, setGraderSpec] = useState("claude-cli");
+  const [graderSpec, setGraderSpec] = useState("");
   // What this server can actually run decides what stays selected: a backend it can't run falls
   // back to the demo, and the open-weight model is one that is installed.
-  const target = targetOptions(backends).some((o) => o.id === chosenTarget && !o.disabled)
+  const target = targetOptions(backends).some((o) => o.id === chosenTarget)
     ? chosenTarget
     : "demo";
+  const grader = effectiveGrader(backends, graderSpec);
   const installed = backends?.ollama_models || [];
   const targetModel =
     installed.length && !installed.includes(chosenModel) ? installed[0] : chosenModel;
@@ -272,18 +280,13 @@ export default function Scan({ scanState, setScanState }) {
 
   function runScan(extra = {}, nextStep = "report") {
     setStep("run");
-    // One `target` drives everything: demo replays recorded runs, anything else is live.
-    const backend = ["ollama", "cli", "spec"].includes(target) ? target : null;
     scan.start(
       {
         system_prompt: systemPrompt,
         checks,
         tier,
         mode: target === "demo" ? "demo" : "live",
-        backend,
-        target_model: target === "ollama" ? targetModel : null,
-        target_spec: target === "spec" ? targetSpec.trim() : null,
-        grader_spec: target === "spec" ? graderSpec.trim() || "claude-cli" : null,
+        ...scanBackend(target, { targetModel, targetSpec, grader }),
         ...extra,
       },
       {
@@ -377,6 +380,7 @@ export default function Scan({ scanState, setScanState }) {
           setTargetSpec={setTargetSpec}
           graderSpec={graderSpec}
           setGraderSpec={setGraderSpec}
+          grader={grader}
           tier={tier}
           setTier={setTier}
           onRun={() => {
@@ -469,6 +473,7 @@ export default function Scan({ scanState, setScanState }) {
           scanId={scanId}
           systemPrompt={systemPrompt}
           hardenedPrompt={hardened?.hardened_prompt || ""}
+          qualityRunnable={canGradeQuality(backends)}
           onRerun={(prompt) => runScan({ hardened_prompt: prompt }, "prove")}
           onBack={() => setStep("guard")}
           onRestart={restart}
@@ -495,13 +500,16 @@ function SetupStep({
   setTargetSpec,
   graderSpec,
   setGraderSpec,
+  grader = "",
   tier,
   setTier,
   onRun,
 }) {
   const runnable = [...enabled].filter((c) => target !== "demo" || !QUALITY.includes(c));
   const canRun =
-    systemPrompt.trim().length > 0 && runnable.length > 0 && (target !== "spec" || targetSpec.trim().length > 0);
+    systemPrompt.trim().length > 0 && runnable.length > 0 && targetReady(target, { targetSpec, grader });
+  // Quality checks need a live target; where none can run here, the section is left out.
+  const showQuality = hasLiveTarget(capabilities);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       <section>
@@ -596,29 +604,28 @@ function SetupStep({
         </div>
       </section>
 
-      <section>
-        <SectionTitle>
-          Quality checks
-        </SectionTitle>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-            gap: "1rem",
-          }}
-        >
-          {QUALITY.map((check) => (
-            <CheckToggleCard
-              key={check}
-              check={check}
-              enabled={enabled.has(check)}
-              onToggle={toggle}
-              disabled={target === "demo"}
-              disabledReason={QUALITY_NEEDS_LIVE}
-            />
-          ))}
-        </div>
-      </section>
+      {showQuality && (
+        <section>
+          <SectionTitle hint={target === "demo" ? QUALITY_NEEDS_LIVE : null}>Quality checks</SectionTitle>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+              gap: "1rem",
+            }}
+          >
+            {QUALITY.map((check) => (
+              <CheckToggleCard
+                key={check}
+                check={check}
+                enabled={enabled.has(check)}
+                onToggle={toggle}
+                disabled={target === "demo"}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <SectionTitle>
@@ -789,7 +796,11 @@ function StepError({ message, onRetry }) {
   );
 }
 
-// The runtime guardrail leads (the measured protection); the prompt fix is optional and re-tested per
+// What the published guard configuration (the snippet) does.
+const GUARD_SCOPE =
+  "Redacts secrets and personal data, blocks system-prompt dumps, and blocks non-read tool calls the user's request does not cover.";
+
+// The runtime guard leads (the measured protection); the prompt fix is optional and re-tested per
 // model. `measured` is the adopted rules' pre-registered result from the committed evidence. Each
 // section loads and fails on its own.
 export function GuardStep({
@@ -809,9 +820,7 @@ export function GuardStep({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       <section>
-        <SectionTitle hint="Redacts leaked secrets and blocks tool calls the user's request does not cover.">
-          Runtime guardrail
-        </SectionTitle>
+        <SectionTitle hint={GUARD_SCOPE}>Runtime guard</SectionTitle>
         <Card>
           {/* The pre-registered measurement first; this scan's own (in-sample) replay after it. */}
           {measured && (
@@ -908,7 +917,17 @@ export function GuardStep({
 
 /* ---------------------------------------------------------------- 5. Prove */
 
-export function ProveStep({ result, scanId, systemPrompt, onRestart, onBack, hardenedPrompt = "", onRerun }) {
+// `qualityRunnable`: this server can grade quality outside a scan (the claude CLI); otherwise no Quality section.
+export function ProveStep({
+  result,
+  scanId,
+  systemPrompt,
+  onRestart,
+  onBack,
+  hardenedPrompt = "",
+  onRerun,
+  qualityRunnable = false,
+}) {
   const [edited, setEdited] = useState(hardenedPrompt);
   const live = result.cards.some((c) => c.trust?.execution === "live");
   // Both grades are derived from their own arm. `overall_grade` is the BASELINE headline
@@ -951,7 +970,7 @@ export function ProveStep({ result, scanId, systemPrompt, onRestart, onBack, har
         </div>
       </section>
 
-      {!result.cards.some((c) => c.kind === "quality") && (
+      {qualityRunnable && !result.cards.some((c) => c.kind === "quality") && (
         <section>
           <SectionTitle>Quality</SectionTitle>
           <QualityPanel systemPrompt={systemPrompt} />

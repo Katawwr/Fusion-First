@@ -39,7 +39,7 @@ describe("ProveStep", () => {
   });
 
   it("offers the Quality section only when the scan had no quality cards", () => {
-    const props = { scanId: null, systemPrompt: "x", onRestart: () => {} };
+    const props = { scanId: null, systemPrompt: "x", onRestart: () => {}, qualityRunnable: true };
     const withQuality = {
       checks: ["direct_prompt_injection", "instruction_following"],
       cards: [card("direct_prompt_injection", "safety"), card("instruction_following", "quality")],
@@ -50,5 +50,12 @@ describe("ProveStep", () => {
     const safetyOnly = { checks: ["direct_prompt_injection"], cards: [card("direct_prompt_injection", "safety")] };
     render(<ProveStep result={safetyOnly} {...props} />);
     expect(screen.getByRole("heading", { name: "Quality" })).toBeInTheDocument();
+  });
+
+  it("offers no Quality section where this server cannot grade it", () => {
+    const safetyOnly = { checks: ["direct_prompt_injection"], cards: [card("direct_prompt_injection", "safety")] };
+    render(<ProveStep result={safetyOnly} scanId={null} systemPrompt="x" onRestart={() => {}} />);
+    expect(screen.queryByRole("heading", { name: "Quality" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Grade quality" })).toBeNull();
   });
 });

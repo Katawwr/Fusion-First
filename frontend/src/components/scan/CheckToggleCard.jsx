@@ -62,7 +62,7 @@ export default function CheckToggleCard({ check, enabled, onToggle, disabled = f
             color: "var(--subtle)",
           }}
           title={isQualityCheck(check) ? "Graded on normal requests, not attacks."
-            : "Mapped to the OWASP Top 10 for LLM apps (2025) and Agentic AI (2026)."}
+            : "Mapped to the OWASP Top 10 for LLM apps (2025) and Agentic AI (2026); the ASI (Agentic) codes are provisional."}
         >
           {meta.owasp}
         </span>

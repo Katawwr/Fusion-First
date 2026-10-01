@@ -41,9 +41,9 @@ test.describe("desktop", () => {
     await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/Example report — your prompt was not run/)).toBeVisible();
     await expect(page.getByText(/Illustration only/).first()).toBeVisible();
-    // Guard: the guardrail snippet and the hardened prompt come back through the token-locked API.
+    // Guard: the guard snippet and the hardened prompt come back through the token-locked API.
     await page.getByRole("button", { name: "Guard it" }).click();
-    await expect(page.getByRole("heading", { name: "Runtime guardrail" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Runtime guard" })).toBeVisible();
     await expect(page.getByText(/guard_tool_call/).first()).toBeVisible();
     // The in-sample replay runs on live scans only: demo replies are canned.
     await expect(page.getByText(/in-sample replay needs a live scan/)).toBeVisible();
@@ -66,16 +66,20 @@ test.describe("desktop", () => {
     expect((await download).suggestedFilename()).toMatch(/^fusion-report-.+\.json$/);
   });
 
-  test("live backends this server can't run are disabled with the reason", async ({ page }) => {
+  test("with nothing to grade with, a local server offers the demo and one setup line", async ({ page }) => {
+    const errors = watchErrors(page);
     await page.goto("/scan");
-    const claude = page.getByRole("radio", { name: /^Claude/ });
-    await expect(claude).toBeDisabled();
-    await expect(claude).toContainText(/FUSION_OFFLINE|isn't installed/);
-    await expect(page.getByRole("radio", { name: /^Open-weight model/ })).toBeDisabled();
+    // FUSION_OFFLINE=1: no claude CLI and no hosted grader, so no live target is listed, none disabled.
+    await expect(page.getByText(/^Live scans need a grader:/)).toBeVisible();
+    await expect(page.getByRole("link", { name: "Setup", exact: true })).toHaveAttribute("href", "/use#local");
+    await expect(page.getByRole("radiogroup", { name: "Target model" }).getByRole("radio")).toHaveCount(1);
     await expect(page.getByRole("radio", { name: /^Demo scan/ })).toBeEnabled();
-    await expect(page.getByRole("radio", { name: /^Any model/ })).toBeVisible();
+    await expect(page.getByRole("radio", { disabled: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Quality checks" })).toHaveCount(0);
+    await expect(page.getByRole("radiogroup", { name: "Attack set" })).toBeVisible();
     // A server that runs local models shows no install line.
     await expect(page.getByRole("link", { name: "Run it locally", exact: true })).toHaveCount(0);
+    expect(errors).toEqual([]);
   });
 
   test("a demo-only server offers the demo alone and one line to run live models locally", async ({ page }) => {
@@ -86,6 +90,8 @@ test.describe("desktop", () => {
     await expect(page.getByText('pip install "fusion-safety[serve]"')).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Demo scan/ })).toBeEnabled();
     await expect(page.getByRole("radiogroup", { name: "Target model" }).getByRole("radio")).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: "Quality checks" })).toHaveCount(0);
+    await expect(page.getByText(/Live scans need a grader/)).toHaveCount(0);
     // The demo still runs end to end there.
     await page.getByRole("button", { name: "Support bot" }).click();
     await page.getByRole("button", { name: "Run the scan" }).click();
