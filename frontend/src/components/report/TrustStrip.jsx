@@ -44,11 +44,11 @@ export default function TrustStrip({ card }) {
     >
       <Row label="What ran">
         {canned
-          ? "Recorded example responses — your prompt was not run"
+          ? "Recorded responses; your prompt was not run"
           : "Your prompt, live on the target model"}
       </Row>
       <Row label="Grader">
-        {canned ? "Offline stand-in grader (demo)" : t.judge_id || "unknown"}
+        {canned ? "Offline stand-in grader" : t.judge_id || "unknown"}
         {!canned && t.judge_backend ? ` via ${t.judge_backend}` : ""}
       </Row>
       {!canned && t.independence && (

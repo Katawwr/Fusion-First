@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Download } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import CheckIcon from "../components/ui/CheckIcon";
 import DemoBanner from "../components/ui/DemoBanner";
 import CheckToggleCard from "../components/scan/CheckToggleCard";
 import TierPicker from "../components/scan/TierPicker";
@@ -17,7 +16,6 @@ import AttackFeedRow from "../components/scan/AttackFeedRow";
 import QualityPanel from "../components/scan/QualityPanel";
 import ReportOverview from "../components/report/ReportOverview";
 import ReportCard from "../components/report/ReportCard";
-import GradeBadge from "../components/report/GradeBadge";
 import BeforeAfterBars from "../components/report/BeforeAfterBars";
 import ProveHeadline from "../components/report/ProveHeadline";
 import DiffView from "../components/fix/DiffView";
@@ -140,7 +138,7 @@ export function StepBar({ step }) {
                         ? "var(--accent-soft)"
                         : "var(--surface-2)",
                     color: active
-                      ? "#fff"
+                      ? "var(--on-primary)"
                       : done
                         ? "var(--accent-ink)"
                         : "var(--subtle)",
@@ -221,7 +219,7 @@ function QuietButton({ onClick, children, icon: Icon, iconRight = false }) {
 
 export default function Scan({ scanState, setScanState }) {
   const scan = useScanStream();
-  const { backends } = useScanQuota();
+  const { backends, loading: checkingBackends } = useScanQuota();
   // A report restored from the session opens where the user left it.
   const [step, setStep] = useState(scanState?.result ? "report" : "setup");
   const [tier, setTier] = useState("quick");
@@ -370,6 +368,7 @@ export default function Scan({ scanState, setScanState }) {
           enabled={enabled}
           toggle={toggle}
           capabilities={backends}
+          checkingBackends={checkingBackends}
           target={target}
           setTarget={setTarget}
           targetModel={targetModel}
@@ -425,8 +424,8 @@ export default function Scan({ scanState, setScanState }) {
               display: "flex",
               flexWrap: "wrap",
               alignItems: "center",
-              justifyContent: "space-between",
-              gap: "1rem",
+              justifyContent: "flex-end",
+              gap: "0.75rem",
               padding: "1rem 1.25rem",
               borderRadius: "1.1rem",
               border: "1px solid var(--border-strong)",
@@ -435,22 +434,15 @@ export default function Scan({ scanState, setScanState }) {
               boxShadow: "var(--shadow)",
             }}
           >
-            <span />
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <Button variant="outline" onClick={() => downloadJson(result, `fusion-report-${scanId || "scan"}.json`)}>
-                Download JSON
-              </Button>
-              {scanId && (
-                <a
-                  href={reportHtmlUrl(scanId)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Button variant="outline">Download report</Button>
-                </a>
-              )}
-              <Button onClick={goToGuard}>Guard it</Button>
-            </div>
+            <Button variant="outline" onClick={() => downloadJson(result, `fusion-report-${scanId || "scan"}.json`)}>
+              Download JSON
+            </Button>
+            {scanId && (
+              <a href={reportHtmlUrl(scanId)} target="_blank" rel="noreferrer">
+                <Button variant="outline">Download report</Button>
+              </a>
+            )}
+            <Button onClick={goToGuard}>Guard it</Button>
           </div>
         </div>
       )}
@@ -494,6 +486,7 @@ function SetupStep({
   enabled,
   toggle,
   capabilities,
+  checkingBackends,
   target,
   setTarget,
   targetModel,
@@ -636,6 +629,7 @@ function SetupStep({
             target={target}
             onChange={setTarget}
             capabilities={capabilities}
+            checking={checkingBackends}
             targetModel={targetModel}
             setTargetModel={setTargetModel}
             targetSpec={targetSpec}
@@ -700,7 +694,7 @@ function RunStep({ scan, checks, onCancel }) {
       </div>
 
       <section>
-        <SectionTitle>Live attack feed</SectionTitle>
+        <SectionTitle>Attack feed</SectionTitle>
         <Card>
           <div style={{ maxHeight: "22rem", overflow: "auto" }}>
             {scan.feed.length === 0 && (
@@ -726,7 +720,7 @@ function RunStep({ scan, checks, onCancel }) {
 /* ---------------------------------------------------------------- 4. Guard */
 
 const FIX_CAVEAT =
-  "On the small open-weight models measured, it rarely cut attacks and raised refusals of safe requests. Re-test on your model.";
+  "On the small open-weight models measured, it rarely cut attacks and raised refusals of safe requests.";
 
 // What the guard did on this scan's own replies (in-sample), overall and per check, and how it was set up.
 function InSample({ replay }) {
@@ -944,19 +938,9 @@ export function ProveStep({ result, scanId, systemPrompt, onRestart, onBack, har
             const card = result.cards.find((c) => c.check === check);
             return (
               <Card key={check}>
-                <div
-                  style={{
-                    marginBottom: "0.85rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                  }}
-                >
-                  <CheckIcon check={check} size={32} />
-                  <span style={{ fontWeight: 600, color: "var(--text)" }}>
-                    {checkMeta(check).label}
-                  </span>
-                </div>
+                <p style={{ margin: "0 0 0.85rem", fontWeight: 600, color: "var(--text)" }}>
+                  {checkMeta(check).label}
+                </p>
                 <BeforeAfterBars
                   ba={card.before_after}
                   canned={card.trust?.execution === "canned"}
@@ -1021,18 +1005,7 @@ export function ProveStep({ result, scanId, systemPrompt, onRestart, onBack, har
           )}
           {scanId && (
             <a href={reportHtmlUrl(scanId)} target="_blank" rel="noreferrer">
-              <Button variant="outline">
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.45rem",
-                  }}
-                >
-                  <Download size={16} />
-                  Download report
-                </span>
-              </Button>
+              <Button variant="outline">Download report</Button>
             </a>
           )}
         </div>

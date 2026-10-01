@@ -1,6 +1,6 @@
 import React from "react";
 
-// Overall progress bar + phase line, converts the wait into the product's best theater.
+// Overall progress bar + phase line.
 export default function RunProgress({ completed, total, message }) {
   const pctDone = total ? Math.round((completed / total) * 100) : 0;
   return (
@@ -13,7 +13,7 @@ export default function RunProgress({ completed, total, message }) {
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-surface-2">
         <div
-          className="h-full rounded-full bg-fusion-cyan-pink transition-all duration-300"
+          className="h-full rounded-full bg-accent transition-all duration-300"
           style={{ width: `${pctDone}%` }}
         />
       </div>

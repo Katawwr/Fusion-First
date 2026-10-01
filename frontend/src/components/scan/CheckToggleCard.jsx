@@ -1,6 +1,5 @@
 import React from "react";
 import { Check } from "lucide-react";
-import CheckIcon from "../ui/CheckIcon";
 import { isQualityCheck, metaFor } from "../../lib/jargon";
 
 // A test framed as a plain question. Selection is quiet: a hairline accent border and a small
@@ -18,7 +17,7 @@ export default function CheckToggleCard({ check, enabled, onToggle, disabled = f
       title={disabled ? disabledReason : undefined}
       style={{
         display: "grid",
-        gridTemplateColumns: "auto 1fr auto",
+        gridTemplateColumns: "1fr auto",
         gap: "0.875rem",
         alignItems: "start",
         width: "100%",
@@ -40,8 +39,6 @@ export default function CheckToggleCard({ check, enabled, onToggle, disabled = f
         if (!on && !disabled) e.currentTarget.style.opacity = "0.62";
       }}
     >
-      <CheckIcon check={check} size={36} />
-
       <span style={{ minWidth: 0 }}>
         <span
           style={{
@@ -81,7 +78,7 @@ export default function CheckToggleCard({ check, enabled, onToggle, disabled = f
           {meta.scenario}
         </span>
         {disabled && disabledReason && (
-          <span style={{ display: "block", marginTop: "0.4rem", fontSize: "0.8125rem", color: "var(--warn)" }}>
+          <span style={{ display: "block", marginTop: "0.4rem", fontSize: "0.8125rem", color: "var(--subtle)" }}>
             {disabledReason}
           </span>
         )}
@@ -102,7 +99,7 @@ export default function CheckToggleCard({ check, enabled, onToggle, disabled = f
           transition: "background .18s ease, border-color .18s ease",
         }}
       >
-        {enabled && <Check size={13} strokeWidth={3} color="#fff" />}
+        {enabled && <Check size={13} strokeWidth={3} color="var(--on-primary)" />}
       </span>
     </button>
   );

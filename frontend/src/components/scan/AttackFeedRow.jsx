@@ -1,12 +1,12 @@
 import React from "react";
-import CheckIcon from "../ui/CheckIcon";
-import { isQualityCheck } from "../../lib/jargon";
+import { isQualityCheck, metaFor } from "../../lib/jargon";
 
 // Newest-first stream of graded items on the baseline arm (the prompt as written): attacks read
-// "Resisted" / "Got through"; quality requests read "OK" / "Defect".
+// "Resisted" / "Got through"; quality requests read "OK" / "Defect". Only a failure takes a status
+// colour; a pass stays neutral, so the red marks are the ones to read.
 export default function AttackFeedRow({ outcome }) {
   const fooled = outcome.baseline_issue;
-  const tone = fooled ? "var(--danger)" : "var(--ok)";
+  const tone = fooled ? "var(--danger)" : "var(--subtle)";
   return (
     <div
       style={{
@@ -17,9 +17,6 @@ export default function AttackFeedRow({ outcome }) {
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <span style={{ marginTop: "0.1rem", flexShrink: 0 }}>
-        <CheckIcon check={outcome.check} size={26} />
-      </span>
       <span
         style={{
           flex: 1,
@@ -29,10 +26,11 @@ export default function AttackFeedRow({ outcome }) {
           lineHeight: 1.55,
         }}
       >
+        <span style={{ display: "block", fontSize: "0.75rem", color: "var(--subtle)" }}>
+          {metaFor(outcome.check).label}
+        </span>
         {outcome.attack_label}
       </span>
-      {/* Soft tinted pill, not an outline: these repeat down a long feed, and a column of
-          hard-bordered chips reads as noise. */}
       <span
         style={{
           flexShrink: 0,
