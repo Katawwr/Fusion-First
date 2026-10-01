@@ -154,6 +154,32 @@ export function Step2Section({ s }) {
   );
 }
 
+export function Step3Section({ s }) {
+  const rows = ["v3", "v2"].map((k) => s.arms[k]);
+  const a = s.comparisons.attacks;
+  return (
+    <Section title="The guard given the tool results">
+      <p className="mb-3 text-sm text-app-muted">
+        Same rules ({s.rules}), with and without the tool results the agent saw: a read they ask for, alongside a send
+        to an outside address, is blocked. Fresh transcripts of {s.models.join(" and ")}, pre-registered, scored once.
+      </p>
+      <Table
+        head={["Guard", "Real attacks stopped", "Data-stealing stopped", "Clean transcripts wrongly blocked"]}
+        rows={rows.map((r) => [
+          r.label,
+          `${r.stopped} of ${r.attacks}, ${interval(r.recall)}`,
+          `${r.data_stealing.stopped} of ${r.data_stealing.attacks}, ${interval(r.data_stealing.recall)}`,
+          `${r.blocked} of ${r.clean}, ${interval(r.over_block)}`,
+        ])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        Stopped only with the tool results: {a.v3_only}; only without: {a.v2_only} (McNemar {pValue(a.p)}). Decision: {s.decision}.
+        Attack wording was seen in development; cost measured on clean transcripts only.
+      </p>
+    </Section>
+  );
+}
+
 function NotYet({ what }) {
   return (
     <p className="rounded-lg border border-dashed border-app-border p-4 text-sm text-app-muted">
@@ -243,6 +269,8 @@ export default function Trust() {
       )}
 
       {evidence.step2_guard && <Step2Section s={evidence.step2_guard} />}
+
+      {evidence.step3_guard && <Step3Section s={evidence.step3_guard} />}
 
       {evidence.runtime_guardrail && <GuardrailSection runtime={evidence.runtime_guardrail} />}
 

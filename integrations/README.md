@@ -58,7 +58,7 @@ Tools the agent gets:
 - `scan_prompt(system_prompt, checks?, tier?, live?, backend?, target_model?)` — **find** safety issues
 - `guardrail_snippet(checks?)` — **protect**: the runtime-guardrail code to drop in
 - `check_output(text, secret_values?, system_prompt?)` — **protect (runtime)**: gate a response
-- `check_tool_call(name, arguments, user_request?, …, untrusted_context?)` — **protect (runtime)**: gate a
+- `check_tool_call(name, arguments, user_request?, …, untrusted_context?, untrusted_text?)` — **protect (runtime)**: gate a
   tool call. After untrusted content, calls that are not reads must match the user's request.
 - `harden_prompt(system_prompt, checks?)` — **optional fix**: the hardened prompt + its block; re-test it
   on your model (on small open-weight models it rarely cut attacks and raised refusals of safe requests)
@@ -160,9 +160,10 @@ guard = Guardrail(GuardConfig(
 client = GuardedModelClient(your_model_client, guard)   # replies: secrets/PII redacted, prompt dumps blocked
 
 # Before each tool call runs. user_request: the user's own message, never tool output.
-# untrusted_context=True once tool results or documents are in the conversation
-# (then unrequested reads of private data are blocked too).
-outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)
+# tool_results: the text of the tool results and documents in the conversation so far. A read
+# they ask for alongside a send to an outside address is blocked, as are unrequested private reads.
+outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message,
+                                untrusted_context=True, untrusted_text=tool_results)
 if outcome.blocked:
     ...  # don't run it
 ```

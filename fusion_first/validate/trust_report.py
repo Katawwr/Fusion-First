@@ -186,6 +186,9 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
     step2 = _load(root, STEP2_EVIDENCE)
     if step2 and step2["decision"]["new_rules"] == "adopted":
         out.append(_step2_sentence(step2))
+        step3 = _load(root, STEP3_EVIDENCE)
+        if step3 and step3["decision"] == "adopted":
+            out[-1] += " " + _step3_sentence(step3)
     elif runtime:
         out.append(_guardrail_sentence(runtime, fix, first))
     guard = _guard_headline(root)
@@ -482,7 +485,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
                         "rule": dec["rule"], "per_check": dec["per_check"]}
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "local_grader": local_grader, "guard_vs_llama_guard": _llama_guard_site(root),
-            "step2_guard": _step2_site(root),
+            "step2_guard": _step2_site(root), "step3_guard": _step3_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "runtime_guardrail": runtime_guardrail, "value_ledger": value_ledger,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
@@ -820,6 +823,61 @@ def _step2_site(root: pathlib.Path) -> dict | None:
             "findings": d.get("findings", [])}
 
 
+STEP3_EVIDENCE = "evals/validation/v1/step3_guard.json"
+_STEP3_ROWS = (("Given the tool results (untrusted_text)", "v3"), ("Without them (as step 2)", "v2"))
+
+
+def _step3_sentence(d: dict) -> str:
+    v3, v2 = d["v3"]["all"], d["v2"]["all"]
+    ds3, ds2 = d["v3"]["by_kind"]["ds"], d["v2"]["by_kind"]["ds"]
+    return (f"Given the tool results as well, on further fresh transcripts of the same models (pre-registered), it "
+            f"stopped {v3['stopped']} of {v3['attacks']} attacks ({ds3['stopped']} of {ds3['attacks']} data-stealing) "
+            f"vs {v2['stopped']} ({ds2['stopped']}) without them, wrongly blocking {v3['blocked']} of "
+            f"{v3['clean']} clean transcripts either way.")
+
+
+def _step3(root: pathlib.Path) -> list[str]:
+    d = _load(root, STEP3_EVIDENCE)
+    if not d:
+        return []
+    c, inp = d["comparisons"], d["decision_inputs"]
+    out = ["## The guard given the tool results (pre-registered)", "",
+           f"The same rules (`{d['guardrail_git_sha'][:7]}`) with and without the text of the tool results the agent "
+           "saw (`untrusted_text`): given it, a read that text asks for, and the user did not, is blocked when the "
+           "text also asks to send data to an outside address. Measured once on fresh InjecAgent transcripts of "
+           f"{' and '.join(d['models'])} ({d['sample']['n']} items each). Registered in `{d['preregistration']}`; "
+           f"evidence: `{STEP3_EVIDENCE}`.", "",
+           "| Guard | Real attacks stopped | Data-stealing stopped | Clean transcripts wrongly blocked |",
+           "|---|---|---|---|"]
+    for label, key in _STEP3_ROWS:
+        s, ds = d[key]["all"], d[key]["by_kind"]["ds"]
+        out.append(f"| {label} | {s['stopped']} of {s['attacks']}, {_iv(s['recall'])} | {ds['stopped']} of "
+                   f"{ds['attacks']}, {_iv(ds['recall'])} | {s['blocked']} of {s['clean']}, {_iv(s['over_block'])} |")
+    a, cl = c["attacks"], c["clean"]
+    out += ["", f"- Attacks stopped only with the tool results: {a['v3_only']}; only without: {a['v2_only']} "
+                f"(McNemar {_p(a['p'])}). Clean transcripts blocked only with: {cl['v3_only']}; only without: "
+                f"{cl['v2_only']} (registered limit: {inp['max_extra_clean_blocked']} more, net).",
+            f"- Registered decision: **{d['decision']}**.",
+            "- Limits registered before data: InjecAgent's attack wording appeared in development (this tests fresh "
+            "model behaviour, not unseen attack text), and no fresh set of legitimate actions was available, so "
+            "the cost is measured on clean transcripts only. Reads a user delegates to a document (\"do what this "
+            "email says\") are blocked when the document also asks to send data out.", ""]
+    return out
+
+
+def _step3_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, STEP3_EVIDENCE)
+    if not d:
+        return None
+    keep = ("attacks", "stopped", "recall", "clean", "blocked", "over_block")
+    return {"evidence": STEP3_EVIDENCE, "models": list(d["models"]), "n": d["sample"]["n"],
+            "rules": d["guardrail_git_sha"][:7],
+            "arms": {key: {k: d[key]["all"][k] for k in keep}
+                     | {"label": label, "data_stealing": {k: d[key]["by_kind"]["ds"][k] for k in keep}}
+                     for label, key in _STEP3_ROWS},
+            "comparisons": d["comparisons"], "decision": d["decision"]}
+
+
 def _llama_guard_site(root: pathlib.Path) -> dict | None:
     d = _load(root, LLAMA_GUARD_EVIDENCE)
     if not d:
@@ -834,7 +892,7 @@ def _llama_guard_site(root: pathlib.Path) -> dict | None:
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_compact(root), *_b3(root),
-             *_step2(root), *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
+             *_step2(root), *_step3(root), *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 

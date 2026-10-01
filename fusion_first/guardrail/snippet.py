@@ -3,8 +3,8 @@
 The snippet is the configuration the published guardrail result measured (`require_authorization=True`):
 replies pass through `GuardedModelClient` (secrets and PII redacted, a system-prompt dump blocked), and
 every tool call is checked with `guard_tool_call` against the user's own request, with
-`untrusted_context=True` once tool results or documents are in the conversation. The wrapper checks
-replies only; tool calls need the explicit call.
+`untrusted_context=True` and the tool results so far as `untrusted_text` (step 3, adopted). The wrapper
+checks replies only; tool calls need the explicit call.
 """
 
 from __future__ import annotations
@@ -39,12 +39,13 @@ guard = Guardrail(GuardConfig(
 client = GuardedModelClient(your_model_client, guard)
 
 # Tool calls: check each one before it runs. user_request is the user's own
-# message, never tool output. untrusted_context=True once tool results or
-# documents are in the conversation (then unrequested reads of private data
-# are blocked too).
+# message, never tool output. tool_results is the text of the tool results
+# and documents in the conversation so far: a read they ask for alongside a
+# send to an outside address is blocked, as are unrequested private reads.
 outcome = guard.guard_tool_call(tool_name, tool_args,
                                 user_request=user_message,
-                                untrusted_context=True)
+                                untrusted_context=True,
+                                untrusted_text=tool_results)
 if outcome.blocked:
     ...  # don't run it; show outcome.events or ask the user to confirm
 '''

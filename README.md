@@ -81,7 +81,9 @@ optional `harden_prompt`.
 On fresh successful attacks against qwen2.5:7b and llama3.1:8b (rules 0c560b5, scored once,
 pre-registered), the guardrail stopped 89% of real attacks while wrongly blocking 1% of clean transcripts:
 every password leak and direct-harm hijack, 69% of data-stealing hijacks. Llama Guard 3 8B, configured,
-stopped 52% of the same attacks. The wrapper checks replies; each tool call is checked against the
+stopped 52% of the same attacks. Given the tool results as well (`untrusted_text`, rules ce897d1, pre-registered
+step 3), it stopped 100% of data-stealing hijacks on further fresh transcripts, vs 85% without them, with no
+extra wrong blocks. The wrapper checks replies; each tool call is checked against the
 user's own request before it runs. Every live scan also replays the guard over its own replies
 (in-sample): the Guard step, the HTML report and `fusion run finalize` show what it would have stopped,
 and count separately the attacks answered in prose, where there is no tool call to check.
@@ -94,7 +96,8 @@ from fusion_first.guardrail.client import GuardedModelClient
 guard = Guardrail(GuardConfig(allowlisted_domains=["your-co.com"], secret_values=["sk-..."],
                               system_prompt=SYSTEM_PROMPT, require_authorization=True))  # the measured config
 client = GuardedModelClient(your_model_client, guard)   # replies: secrets redacted, prompt dumps blocked
-outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message, untrusted_context=True)
+outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message,
+                                untrusted_context=True, untrusted_text=tool_results)  # tool results so far
 if outcome.blocked: ...                                  # don't run it
 ```
 

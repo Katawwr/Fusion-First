@@ -11,7 +11,7 @@ there (Trust Report).
 
 - **Add it to code:** call `guardrail_snippet(checks)` and adapt it to the user's agent loop. The
   `GuardedModelClient` wrapper checks replies only. Tool calls need `guard.guard_tool_call(name, args,
-  user_request=..., untrusted_context=True)` before each one runs, as in the snippet. Put the config
+  user_request=..., untrusted_context=True, untrusted_text=<tool results so far>)` before each one runs, as in the snippet. Put the config
   (allowlisted domains, secret values) where the project keeps settings. Never hard-code real secrets.
 - **Check one output:** `check_output(text, secret_values=[...], system_prompt=...)` returns
   whether it is safe to send and the redacted text.
@@ -19,6 +19,8 @@ there (Trust Report).
   returns allow / block with the reason. `user_request` is the user's own words, never tool output.
   Pass `untrusted_context=True` once tool results or documents are in the conversation: every call
   that is not a read must then match the request, and unrequested reads of private data are blocked.
+  Pass the text of those tool results as `untrusted_text`: a read it asks for alongside a send to an
+  outside address is blocked too.
 
 Pick the autonomy level with the user. Supervised holds consequential actions for a human.
 Autonomous runs unattended but still redacts leaks.

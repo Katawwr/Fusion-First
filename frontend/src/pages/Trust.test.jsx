@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { GuardrailSection, LlamaGuardSection, Step2Section } from "./Trust";
+import Trust, { GuardrailSection, LlamaGuardSection, Step2Section, Step3Section } from "./Trust";
 import { fixVerdict, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
 
@@ -152,6 +152,13 @@ describe("Trust page", () => {
     expect(screen.getByText(/Previous rules: the current rules stop significantly more .*p<0.0001/)).toBeInTheDocument();
     expect(screen.getByText(/Llama Guard 3 configured: .*p=0.0200/)).toBeInTheDocument();
     expect(screen.getByText(/1 of 20 blocked \(registered limit 2\)/)).toBeInTheDocument();
+  });
+
+  it("shows the guard with and without the tool results from the committed evidence", () => {
+    render(<Step3Section s={evidence.step3_guard} />);
+    expect(screen.getByRole("heading", { name: /The guard given the tool results/ })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: /^75 of 75/ })).toBeInTheDocument();
+    expect(screen.getByText(/only without: 0 \(McNemar p=0.0078\)\. Decision: adopted/)).toBeInTheDocument();
   });
 
   it("names a significant regression instead of calling it inconclusive", () => {

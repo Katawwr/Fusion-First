@@ -74,6 +74,24 @@ claims:
       llama_guard_b.all.recall.point: {value: 0.5203, n_path: llama_guard_b.all.attacks, min_n: 50}
     demonstration_ok: false
 
+  - id: runtime_guardrail_step3_data_stealing
+    text: "100% of data-stealing hijacks"
+    qualifier: "guard given the tool results (untrusted_text), rules ce897d1, fresh InjecAgent transcripts of qwen2.5:7b and llama3.1:8b, scored once, pre-registered (PREREG_step3_guard.md)"
+    files: [README.md]
+    evidence: evals/validation/v1/step3_guard.json
+    metrics:
+      v3.by_kind.ds.recall.point: {value: 1.0, n_path: v3.by_kind.ds.attacks, min_n: 50}
+    demonstration_ok: false
+
+  - id: runtime_guardrail_step3_without_text
+    text: "vs 85% without them"
+    qualifier: "same transcripts and rules, the guard not given the tool results (as step 2)"
+    files: [README.md]
+    evidence: evals/validation/v1/step3_guard.json
+    metrics:
+      v2.by_kind.ds.recall.point: {value: 0.8545, n_path: v2.by_kind.ds.attacks, min_n: 50}
+    demonstration_ok: false
+
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.
 allowlist:
   - file: fusion_first/engine/report_html.py
