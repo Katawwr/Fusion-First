@@ -125,6 +125,7 @@ def test_the_newest_guard_set_is_the_headline_and_older_held_out_sets_are_supers
     out = render(tmp_path)
     rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| v")}
     assert "SUPERSEDED" in rows["v2"] and "HELD OUT" in rows["v3"]
+    assert "rules_git_sha" not in out  # a field name never reaches the report; the sha does
     bottom = out.split("## Q1")[0]
     assert "70%" in bottom and "2%" in bottom  # v3's recall and over-block, not v2's
 
@@ -373,3 +374,13 @@ def test_website_evidence_matches_its_sources():
     committed = json.loads((ROOT / "frontend/src/content/evidence.json").read_text(encoding="utf-8"))
     assert committed == json.loads(json.dumps(evidence_json(ROOT))), \
         "regenerate with: python -m fusion_first.validate.trust_report"
+
+
+@pytest.mark.unit
+def test_every_question_in_the_header_has_its_section():
+    """The header promises four questions; each one is answered by a Q section (Q2: does it error?)."""
+    out = render()
+    for q in ("## Q1 ", "## Q2 ", "## Q3 ", "## Q4 "):
+        assert q in out
+    assert "rules_git_sha" not in out and "`fusion/guardrail`" not in out
+    assert "Previous rules, superseded by the request-bound rules adopted in step 2" in out

@@ -30,6 +30,17 @@ def test_doctor_json(capsys):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("opt_in, expected", [(None, "metered API: disabled"), ("1", "metered API: ENABLED")])
+def test_doctor_prints_the_real_metered_state(monkeypatch, capsys, opt_in, expected):
+    if opt_in is None:
+        monkeypatch.delenv("FUSION_ALLOW_API_SPEND", raising=False)
+    else:
+        monkeypatch.setenv("FUSION_ALLOW_API_SPEND", opt_in)
+    assert main(["doctor", "--no-auth-check"]) == 0
+    assert expected in capsys.readouterr().out
+
+
+@pytest.mark.unit
 def test_run_start_offline_fails_cleanly(tmp_path, capsys):
     prompt = tmp_path / "p.txt"
     prompt.write_text(PROMPT, encoding="utf-8")

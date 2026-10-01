@@ -1,7 +1,7 @@
 # Keyless agent-safety gate with a proof-carrying run.
 #
 # 1. On a developer machine (local Ollama and/or the Claude Code subscription — no API key):
-#      fusion run start --prompt prompts/support_bot.txt --target ollama:llama3.2:1b --grader ollama-prob:qwen2.5:7b
+#      fusion run start --prompt prompts/support_bot.txt --target ollama:llama3.2:1b --grader claude-cli
 #      (or /fusion:audit in Claude Code), then commit .fusion/runs/<run_id>/ and the run id:
 #      echo <run_id> > prompts/support_bot.fusion-run
 # 2. CI re-derives that run OFFLINE — no model, no key, nothing metered — and fails the PR if the

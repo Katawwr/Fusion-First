@@ -1,69 +1,59 @@
 # Fusion First in your agentic / CI workflow
 
-Fusion is a **proof-grade evaluation engine for AI agents — safety AND quality** with a runtime
-guardrail. It measures an agent and guards it *inside* how you already build and ship agents; the
-prompt fix is optional and re-tested per model. Every number carries a confidence interval or an
-honesty badge, measured against ground truth (no vibes-based metrics).
+Fusion measures an agent's safety and quality and guards it at runtime, inside the tools you already
+use. Every number carries a confidence interval or an honesty badge. Grader accuracy is checked
+against deterministic oracles, which answer narrow questions (a tool was called, a string appeared).
 
-**Best fit: open-weight / less-robust models.** Frontier models (Claude, GPT-4-class) resist most
-safety attacks, while open-weight models (Llama, Mistral, Qwen, …) are far more often exposed —
-`fusion measure` reports it per model, with n and confidence intervals. Run your open-weight
-agent **locally and free** via Ollama, judged by Claude (genuine cross-family independence). Quality
-(instruction-following/correctness) matters on every model, including Claude.
+**Best fit: open-weight models.** Run the agent locally and free via Ollama, graded by Claude (a
+different model family). How exposed a frontier model is has not been measured here; `fusion run`
+measures whatever target you give it. Quality (instruction following, correctness) matters on every
+model.
 
 | You want to… | Use |
 |---|---|
-| **Audit an agent** end-to-end (safety + quality, one call) | **MCP `audit_agent`** |
-| **Test an open-weight agent** locally & free | `--backend ollama` (Ollama target, Claude judge) |
-| Let an **AI coding agent** grade and guard a prompt mid-build | **MCP server** |
-| **Fail a build** when an agent prompt is unsafe | **CI gate** (`fusion ci`) |
-| Run the **self-improving loop** (sufficiency / accuracy / quality) | `fusion measure` |
-| **Protect a running agent** (block leaks & unsafe tool calls) | **runtime guardrail** SDK |
+| **Test an agent** (safety + quality, graded, offline re-derivable) | `fusion run start --target …` (main path), or MCP `start_run` |
+| **One-shot audit** from an AI coding agent | MCP `audit_agent` |
+| **Fail a build** when an agent prompt is unsafe | `fusion run verify` + `finalize --min-grade` on a committed run, or `fusion ci --live` |
+| **Protect a running agent** | the runtime guardrail ([README](../README.md#run-it-locally), section 3) |
 
 No API key needed: real calls go through the local Ollama server and/or the `claude` CLI
-subscription (plan usage only — keep "extra usage" disabled on your account to guarantee zero spend).
-Metered API keys are never used unless you pass `--backend api` AND set `FUSION_ALLOW_API_SPEND=1`. Offline, `scan_prompt` reports a labelled `DEMONSTRATION` grade.
+subscription (plan usage only; keep "extra usage" disabled on your account to guarantee zero spend).
+Hosted presets (`openai:`, `hf:`, `anthropic:`, `openrouter:`, ...) and `openai-compat:` URLs on the
+public internet are metered: each needs `FUSION_ALLOW_API_SPEND=1` plus your key, and Fusion never
+selects one on its own. Offline, results are labelled `DEMONSTRATION`.
 
 ---
 
 ## 1. MCP server — Fusion inside Claude Code / Cursor / Windsurf
 
-An MCP server exposes Fusion's tools to any MCP-capable coding agent. Mid-build, the agent can grade
-the system prompt it just wrote and gate its own outputs and tool calls; the prompt fix is optional.
-
 ```bash
 pip install "fusion-safety[mcp]"
-python -m fusion_first.integrations.mcp_server   # stdio transport
+fusion-mcp                          # stdio transport
 ```
 
 Register it with your editor (`examples/mcp-config.json`):
 
 ```json
-{
-  "mcpServers": {
-    "fusion-safety": { "command": "python", "args": ["-m", "fusion_first.integrations.mcp_server"] }
-  }
-}
+{ "mcpServers": { "fusion": { "command": "fusion-mcp" } } }
 ```
 
-Tools the agent gets:
+Tools (18):
 
-- `audit_agent(system_prompt, autonomy?, backend?, target_model?)` — **start here**: FIND + PROTECT
-  across **safety AND quality** in one call → plain-language verdict, overall grade, runtime-guardrail
-  snippet, the runtime config for your `autonomy` (supervised = HITL gates; autonomous = unattended +
-  redact), and the optional hardened prompt.
-- `grade_quality(system_prompt, backend?, target_model?)` — grade an agent's correctness /
-  instruction-following on normal test inputs (A–F + the failing inputs).
-- `list_checks()` — the safety + quality checks (grouped by `kind`)
-- `scan_prompt(system_prompt, checks?, tier?, live?, backend?, target_model?)` — **find** safety issues
-- `guardrail_snippet(checks?)` — **protect**: the runtime-guardrail code to drop in
-- `check_output(text, secret_values?, system_prompt?)` — **protect (runtime)**: gate a response
-- `check_tool_call(name, arguments, user_request?, …, untrusted_context?, untrusted_text?)` — **protect (runtime)**: gate a
-  tool call. After untrusted content, calls that are not reads must match the user's request.
-- `harden_prompt(system_prompt, checks?)` — **optional fix**: the hardened prompt + its block; re-test it
-  on your model (on small open-weight models it rarely cut attacks and raised refusals of safe requests)
+- **Run engine** (main path): `fusion_doctor`, `start_run`, `resume_run`, `run_status`,
+  `get_grading_tasks`, `submit_grades`, `finalize_run`, `verify_run`, `list_runs`,
+  `grade_transcripts` (existing logs).
+- **One-shot**: `audit_agent` (safety + quality, guard snippet, optional hardened prompt),
+  `scan_prompt`, `grade_quality`, `list_checks`.
+- **Runtime guard**: `guardrail_snippet(checks?)`, `check_output(text, secret_values?, system_prompt?)`,
+  `check_tool_call(name, arguments, user_request?, …, untrusted_context?, untrusted_text?)`.
+- **Optional fix**: `harden_prompt(system_prompt, checks?)` (re-test it on your model; see the [Trust Report](../TRUST_REPORT.md)).
 
-Audit an **open-weight** agent locally (free, no key), judged by Claude:
+`check_tool_call` defaults to `require_authorization=True`, so a call that is not a read must match
+`user_request` even without `untrusted_context`. `untrusted_context=True` adds the private-read gate;
+`untrusted_text` (the tool results so far) adds the step-3 rule. The rules are described once, with
+their measured results, in the [README](../README.md#run-it-locally) (section 3).
+
+The same functions are a plain Python library:
 
 ```python
 from fusion_first.integrations import agent_tools
@@ -71,102 +61,53 @@ report = await agent_tools.audit_agent(MY_PROMPT, backend="ollama", target_model
 # report["safety"] (attacks that landed) + report["quality"] (grade + failing inputs) + guardrail_snippet
 ```
 
-Example agent loop: *"I wrote a support-bot prompt → `audit_agent` says F on prompt injection and D on
-instruction-following → wire the runtime guard → optionally try the hardened prompt and re-test it."*
-
-The same functions are a plain Python library too:
-
-```python
-from fusion_first.integrations import agent_tools
-report = await agent_tools.scan_prompt(MY_SYSTEM_PROMPT)
-guard = agent_tools.guardrail_snippet()["snippet"]
-fixed = agent_tools.harden_prompt(MY_SYSTEM_PROMPT)["hardened_prompt"]   # optional; re-test it
-```
-
 ---
 
-## 1b. Test an open-weight agent + the self-improving loop
+## 2. Test an open-weight agent
 
-Frontier models are hardened; open-weight models are where safety attacks actually land. Test one
-locally, free, judged by Claude (cross-family):
+Main path: the run engine, which records everything and can be re-derived offline.
 
 ```bash
-# 1) run a local open-weight model
-ollama serve && ollama pull llama3.2:1b
+ollama pull llama3.2:1b
+fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli
+```
 
-# 2) safety: do the attacks land? (sufficiency)
+One-shot path (`--backend ollama`, no recorded run): `fusion measure` is the self-improving loop:
+sufficiency (do the attacks land?), quality (grade the agent), accuracy (the judge vs oracle labels).
+It needs a live backend and is opt-in, never in CI.
+
+```bash
 fusion measure --backend ollama --target-model llama3.2:1b --stages sufficiency
-#   prints, per check, how many attacks landed (n, landing rate) on the target model
-
-# 3) quality: does the agent follow instructions? (grade its outputs)
 fusion measure --backend ollama --target-model llama3.2:1b --stages quality --prompt agent.txt
-#   prints the quality grade and how many responses had a defect (unscored responses are counted separately)
-
-# 4) accuracy: how good is the judge itself, vs oracle labels? (Bar A)
 fusion measure --stages accuracy --check instruction_following
-#   prints the judge's precision/recall/kappa vs oracle labels, with n
 ```
-
-`fusion measure` is the self-improving loop: sufficiency (are attacks strong enough?), quality (grade
-the agent), accuracy (is the judge calibrated?). Needs a live backend (Ollama and/or the `claude` CLI
-subscription — no API key); it is opt-in, never in CI.
 
 ---
 
-## 2. CI gate — stop an unsafe prompt from shipping
+## 3. CI gate — stop an unsafe prompt from shipping
 
-`fusion ci` scans a system-prompt file and exits non-zero if the prompt **as written** scores below
-`--min-grade` on any check. Drop it into any pipeline (`examples/github-action.yml`,
-`examples/pre-commit-config.yaml`).
-
-```bash
-fusion ci --prompt prompts/support_bot.txt --min-grade B --live
-# exit 0 = pass, exit 1 = a check is below the bar (add the runtime guardrail; optionally `fusion harden … --write` and re-scan)
-```
-
-`--json` emits machine-readable results. `--live` grades your actual prompt through a local Ollama
-model or the `claude` CLI subscription (no API key). Without `--live` the attack responses are
-canned demonstration data that do not depend on your prompt.
-
-**CI without any model (proof-carrying runs).** CI machines usually have no Ollama and no Claude
-login. So run the evaluation on a developer machine, commit `.fusion/runs/<run_id>/`, and let CI
-re-derive it offline (`examples/github-action.yml`):
+**Proof-carrying runs (no model in CI).** CI machines usually have no Ollama and no Claude login. Run
+the evaluation on a developer machine, commit `.fusion/runs/<run_id>/`, and let CI re-derive it
+offline (`examples/github-action.yml`):
 
 ```bash
 fusion run verify $RUN_ID --prompt prompts/support_bot.txt   # the run tested THIS prompt, unmodified
 fusion run finalize $RUN_ID --min-grade B                    # exit 1 below the bar; a withheld '?' fails
 ```
 
----
+**One-shot gate** (`examples/pre-commit-config.yaml`), on a machine with a model:
 
-## 3. Runtime guardrail — protect the running agent
-
-Deterministic and model-free. On fresh successful attacks against qwen2.5:7b and llama3.1:8b (rules
-0c560b5, scored once, pre-registered), it stopped 89% of real attacks while wrongly blocking 1% of clean transcripts.
-Llama Guard 3 8B, configured, stopped 52% of the same attacks (`TRUST_REPORT.md`). On the in-house corpus,
-which is in-distribution: 100% recall / 0% over-block (`fusion guard-bench`).
-
-```python
-from fusion_first.guardrail.guard import Guardrail
-from fusion_first.guardrail.policy import GuardConfig
-from fusion_first.guardrail.client import GuardedModelClient
-
-guard = Guardrail(GuardConfig(
-    allowlisted_domains=["your-company.com"],
-    secret_values=["sk-...your-key..."],
-    system_prompt=SYSTEM_PROMPT,
-    require_authorization=True,   # tool calls must match the user's request (the measured config)
-))
-client = GuardedModelClient(your_model_client, guard)   # replies: secrets/PII redacted, prompt dumps blocked
-
-# Before each tool call runs. user_request: the user's own message, never tool output.
-# tool_results: the text of the tool results and documents in the conversation so far. A read
-# they ask for alongside a send to an outside address is blocked, as are unrequested private reads.
-outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message,
-                                untrusted_context=True, untrusted_text=tool_results)
-if outcome.blocked:
-    ...  # don't run it
+```bash
+fusion ci --prompt prompts/support_bot.txt --min-grade B --live
+# exit 0 = pass, exit 1 = a check is below the bar (add the runtime guardrail; optionally `fusion harden … --write` and re-test)
 ```
+
+`--live` grades your actual prompt through a local Ollama model or the `claude` CLI subscription.
+Without `--live` or `--demo`, `fusion ci` refuses (exit 2): demonstration responses are canned and do
+not depend on your prompt. `--demo` is an advisory demonstration run that always exits 0. `--json`
+emits machine-readable results.
+
+---
 
 ## Where else this fits
 
@@ -175,3 +116,4 @@ if outcome.blocked:
   with `guard_tool_call` before it runs.
 - **Data pipelines that call LLMs**: `check_output` before persisting or forwarding a response.
 - **Support/ops copilots**: `check_tool_call` before executing a refund/delete/transfer.
+- **Any other workflow** as a target: `cmd:<command>` with `examples/fusion_adapter.py`.

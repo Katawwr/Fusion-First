@@ -150,12 +150,14 @@ plain question to the same model; that was tested and not shown (Trust Report, Q
 `Guardrail` (`guardrail/guard.py`) has three stages:
 
 - `guard_input`: fences untrusted content and flags injection phrasing.
-- `guard_output`: redacts secrets and configured secret values; blocks replies that reproduce the
-  system prompt.
-- `guard_tool_call`: with `require_authorization=True` and `untrusted_context=True`, a tool call that
-  is not a read must be covered by the user's own request, and an unrequested read of private data is
-  blocked. With `untrusted_text` (the tool results the agent has seen), a read that the untrusted text
-  asks for, and the user did not, is blocked when that text also asks to send data out.
+- `guard_output`: redacts secrets, PII and configured secret values; blocks obfuscated secrets and
+  replies that reproduce the system prompt.
+- `guard_tool_call`: with `require_authorization=True` (the published config), a tool call that is
+  not a read must be covered by the user's own request; `untrusted_context=True` adds a block on
+  unrequested reads of private data. With `untrusted_text` (the tool results the agent has seen), a
+  read that text asks for, and the user did not, is blocked when the text also asks to send data to a
+  non-allowlisted outside address; no send call is needed. Consequential calls to non-allowlisted
+  hosts are blocked (allowlist: exact host or subdomain).
 
 `GuardedModelClient` applies `guard_output` to replies; tool calls must be checked separately with
 `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
@@ -204,8 +206,8 @@ Offline cards come from a deterministic stand-in judge over committed cassettes.
 
 - `python -m pytest -q`: the offline suite (live-model tests are deselected by default).
 - `python -m fusion_first.cli eval --check all`: the accuracy gate against committed baselines.
-- `tests/test_docs_commands.py`: every `fusion` command in the README, the project guide, `docs/`
-  and plugin READMEs parses with the real CLI parser.
+- `tests/test_docs_commands.py`: every `fusion` command in the README, the project guide, `docs/`,
+  `integrations/README.md` and plugin READMEs parses with the real CLI parser.
 - `tests/test_packaging.py`: the wheel ships the corpora, the plugin marketplace and the built web
   app, and nothing dev-only.
 - `.github/workflows/ci.yml`: ruff, pytest, the accuracy gate, Trust Report freshness, frontend

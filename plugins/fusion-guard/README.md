@@ -24,7 +24,8 @@ level.
 **It never auto-allows.** The hook can only add a confirmation or a block. Your own permission
 rules always still apply. The decision is made before anything is logged, so a failed log or state
 write cannot drop an ask or deny. If the analysis itself fails, Claude Code's normal flow continues.
-Commands longer than 20,000 characters are checked at both ends and always ask.
+Commands longer than 20,000 characters are checked at both ends and ask (in `observe` mode they are
+only logged).
 
 ## Install
 
