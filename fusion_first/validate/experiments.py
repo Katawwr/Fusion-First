@@ -169,6 +169,8 @@ _BUILDERS = {
 
 # Every sample measured so far, as (salt, n[, that sample's own exclusion]): the v1 run and the compact run.
 SPENT = [("fusion-evidence-v1", 30), ("fusion-evidence-compact-v1", 30, ("fusion-evidence-v1", 30))]
+# ... and step 2's sample (scored 2026-09-28). SPENT itself stays as step 2 registered it.
+SPENT_THROUGH_STEP2 = [*SPENT, ("fusion-evidence-step2-v1", 100, SPENT)]
 
 
 def build_items(

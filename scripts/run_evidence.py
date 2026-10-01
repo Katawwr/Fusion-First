@@ -25,6 +25,7 @@ from fusion_first.validate.analysis import analyze, attack_success_by_model  # n
 from fusion_first.validate.experiments import (  # noqa: E402
     EXPERIMENTS,
     SPENT,
+    SPENT_THROUGH_STEP2,
     build_items,
     iter_plan,
 )
@@ -58,7 +59,9 @@ def _args(argv):
                    help="run: arms to generate; analyze: exactly two, reference first (e.g. baseline,compact)")
     p.add_argument("--salt", default="fusion-evidence-v1", help="item sample salt")
     p.add_argument("--exclude-spent", action="store_true",
-                   help="drop every item of every sample measured so far (experiments.SPENT)")
+                   help="drop every item of the samples step 2 excluded (experiments.SPENT)")
+    p.add_argument("--exclude-spent-through-step2", action="store_true",
+                   help="... and step 2's own sample (experiments.SPENT_THROUGH_STEP2)")
     p.add_argument("--exclude-salt", default=None,
                    help="drop every item of this other sample (same --n) so the items are fresh and disjoint")
     return p.parse_args(argv)
@@ -76,7 +79,8 @@ def main(argv=None) -> int:
     a = _args(argv)
     exps = [e.strip() for e in a.experiments.split(",") if e.strip()]
     arms = tuple(x.strip() for x in a.arms.split(",") if x.strip())
-    exclude = SPENT if a.exclude_spent else (a.exclude_salt, a.n) if a.exclude_salt else None
+    exclude = (SPENT_THROUGH_STEP2 if a.exclude_spent_through_step2 else SPENT if a.exclude_spent
+               else (a.exclude_salt, a.n) if a.exclude_salt else None)
     models = [m.strip() for m in a.models.split(",") if m.strip()]
     store = TranscriptStore(a.store)
 
@@ -132,7 +136,8 @@ def main(argv=None) -> int:
                        "short_cap_experiments": sorted(SHORT_CAP),
                        "note": "each transcript record stores the cap it was generated with"},
         "seed": a.seed,
-        "sample": {"salt": a.salt, "exclude_salt": a.exclude_salt, "exclude_spent": a.exclude_spent},
+        "sample": {"salt": a.salt, "exclude_salt": a.exclude_salt, "exclude_spent": a.exclude_spent,
+                   "exclude_spent_through_step2": a.exclude_spent_through_step2},
         "sources_manifest": str(sources.relative_to(ROOT)),
         **result,
     }
