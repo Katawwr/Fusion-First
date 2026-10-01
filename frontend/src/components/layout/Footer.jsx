@@ -10,12 +10,6 @@ export default function Footer() {
           <span> · numbers are generated from committed evidence</span>
         </p>
         <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
-          <Link to="/trust" className="hover:text-app-text">
-            Trust
-          </Link>
-          <Link to="/use#local" className="hover:text-app-text">
-            Run it locally
-          </Link>
           <Link to="/privacy" className="hover:text-app-text">
             Privacy &amp; Terms
           </Link>
