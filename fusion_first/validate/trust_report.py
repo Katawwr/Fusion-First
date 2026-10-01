@@ -196,6 +196,19 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         out.append(f"- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on "
                    f"{_iv(guard['benign']['over_block'])} of benign calls and caught {_iv(guard['malicious']['recall'])} "
                    "of attack-shaped ones as written — useful defense in depth, not a sandbox.")
+    counts = _error_counts(fix, judge)
+    out.append("- **Erroring often?** " + ("; ".join(counts).capitalize() + ". " if counts else "")
+               + _WITHHELD)
+    return out + [""]
+
+
+_WITHHELD = ("Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much "
+             "is unscored, when the grader misses the known-answer floor, or when it denies an "
+             "oracle-confirmed violation.")
+
+
+def _error_counts(fix: dict | None, judge: list[tuple[str, dict]]) -> list[str]:
+    """How often generation or grading failed, from the fix-efficacy run and the judge evaluations."""
     counts = []
     if fix:
         cells = fix.get("cells", [])
@@ -209,11 +222,19 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         unanswered = sum(b["grader"].get("unanswered", 0) for _, d in judge for b in d["checks"].values())
         total = sum(b["grader"]["n"] + b["grader"].get("unanswered", 0) for _, d in judge for b in d["checks"].values())
         counts.append(f"in the judge evaluation, {unanswered} of {total} questions went unanswered")
-    out.append("- **Erroring often?** " + ("; ".join(counts).capitalize() + ". " if counts else "")
-               + "Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much "
-               "is unscored, when the grader misses the known-answer floor, or when it denies an "
-               "oracle-confirmed violation.")
-    return out + [""]
+    return counts
+
+
+def _q2(root: pathlib.Path) -> list[str]:
+    fix = _load(root, "evals/validation/v1/evidence_oracle.json")
+    judge = _judge_files(root)
+    counts = _error_counts(fix, judge)
+    out = ["## Q2 — Does it error?", ""]
+    if not counts:
+        return out + ["NOT YET MEASURED.", ""]
+    sources = (["`evals/validation/v1/evidence_oracle.json`"] if fix else []) + [f"`{rel}`" for rel, _ in judge]
+    return out + [f"- {c[0].upper()}{c[1:]}." for c in counts] + [
+        f"- {_WITHHELD}", "", "Evidence: " + ", ".join(sources) + ".", ""]
 
 
 def _significance_of(d: dict) -> str:
@@ -353,7 +374,7 @@ def _guard_sets(root: pathlib.Path) -> list[tuple[str, dict]]:
 
 def _guard_status(v: str, d: dict, sets: list[tuple[str, dict]]) -> str:
     """A held-out set stays the honest number only until a newer one is scored against changed rules."""
-    status = d["status"].split(".")[0]
+    status = d["status"].split(".")[0].replace("rules_git_sha", "rules " + (d.get("rules_git_sha") or "unknown")[:7])
     newest_held_out = next((sv for sv, sd in reversed(sets) if sd["status"].startswith("HELD OUT")), None)
     if status.startswith("HELD OUT") and v != newest_held_out:
         return "SUPERSEDED (rules changed after scoring)"
@@ -585,6 +606,10 @@ def _guardrail(root: pathlib.Path) -> list[str]:
     if not d and not fresh:
         return []
     out = ["## Runtime guardrail on real attacks (pre-registered)", ""]
+    step2 = _load(root, STEP2_EVIDENCE)
+    if step2 and step2["decision"]["new_rules"] == "adopted":
+        out += [f"Previous rules, superseded by the request-bound rules adopted in step 2 (`"
+                f"{step2['guardrail_git_sha'][:7]}`, above); kept as the record of how the guard got there.", ""]
     if d:
         out += ["The runtime guardrail (`fusion_first/guardrail`) applied to the attacks that really succeeded against "
                 "the small models in the Q3 run (prompt as written), re-scored by the same oracles. Registered in "
@@ -595,7 +620,7 @@ def _guardrail(root: pathlib.Path) -> list[str]:
         salt = (fresh.get("sample") or {}).get("salt", "unknown")
         out += (["", f"### Re-measured on fresh transcripts (rules {sha})", ""] if d else []) + [
             "A measurement that leads to a rule fix becomes a development number for the fixed rules, so the rules "
-            f"of the time (`fusion/guardrail` at `{sha}`) were applied once to fresh transcripts that no rule was written "
+            f"of the time (`fusion_first/guardrail` at `{sha}`) were applied once to fresh transcripts that no rule was written "
             f"against: the prompt as written on new items (sample `{salt}`), with the same configuration, reading of "
             f"tool calls and oracles. Registered in `{fresh.get('preregistration')}`; evidence: "
             f"`{GUARDRAIL_FRESH_EVIDENCE}`.", "", *_guardrail_table(fresh)]
@@ -776,7 +801,7 @@ def _step2(root: pathlib.Path) -> list[str]:
         return []
     n = d["sample"]["n"]
     out = ["## Request-bound guardrail on 7–8B models (pre-registered)", "",
-           f"The current rules (`fusion/guardrail` at `{d['guardrail_git_sha'][:7]}`: once untrusted content is in "
+           f"The current rules (`fusion_first/guardrail` at `{d['guardrail_git_sha'][:7]}`: once untrusted content is in "
            "context, a tool call that is not a read must be covered by the user's own request, and an unrequested "
            "read of private data is blocked) measured once on fresh transcripts of "
            f"{' and '.join(d['models'])} ({n['injecagent']} InjecAgent and {n['gandalf']} Gandalf items each, prompt "
@@ -891,7 +916,7 @@ def _llama_guard_site(root: pathlib.Path) -> dict | None:
 
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
-    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q3(root), *_compact(root), *_b3(root),
+    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_compact(root), *_b3(root),
              *_step2(root), *_step3(root), *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 

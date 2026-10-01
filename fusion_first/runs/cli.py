@@ -105,7 +105,10 @@ def cmd_doctor(args) -> int:
     models = ", ".join(b["ollama"]["models"]) or "none"
     print(f"  Ollama     : {'running' if b['ollama']['available'] else 'not running'}; models: {models}")
     print("  host agent : grade via MCP (get_grading_tasks / submit_grades)")
-    print(f"  metered API: disabled (zero spend: {d['zero_spend']})")
+    if d["zero_spend"]:
+        print("  metered API: disabled (zero spend: True)")
+    else:
+        print("  metered API: ENABLED (FUSION_ALLOW_API_SPEND=1; hosted presets bill your key)")
     rec = d["recommended"]
     print(f"Recommended: --target {rec['target'] or '<pull a model>'} --grader {rec['grader']}")
     for h in d["hints"]:

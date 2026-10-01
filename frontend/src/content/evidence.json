@@ -1171,7 +1171,7 @@
       },
       "recall_sensitivity": null,
       "set": "v3",
-      "status": "HELD OUT at rules_git_sha"
+      "status": "HELD OUT at rules f7d3809"
     }
   ],
   "guard_vs_llama_guard": {
