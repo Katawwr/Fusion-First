@@ -371,6 +371,9 @@ button {
   font-size: 1.2rem;
   line-height: 1;
   letter-spacing: -0.012em;
+  /* Newsreader's capitals ride high in their line box: centre them on the logo, not the box. */
+  position: relative;
+  top: 0.12em;
 }
 
 .doc-title {
