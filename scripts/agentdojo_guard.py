@@ -298,6 +298,8 @@ def cmd_run(a) -> int:
     eps = episodes(a.split)
     if a.attacked_only:
         eps = [e for e in eps if e[2] is not None]
+    if a.benign_only:
+        eps = [e for e in eps if e[2] is None]
     eps = eps[:: a.stride][: a.limit or None]
     todo = [(s, u, i, arm) for s, u, i in eps for arm in arms if (s, u, i, arm) not in done]
     for n, (s, u, i, arm) in enumerate(todo, 1):
@@ -358,6 +360,7 @@ def main(argv=None) -> int:
             sp.add_argument("--arms", default="none,v2,v3")
             sp.add_argument("--limit", type=int, default=0, help="first N episodes only (smoke)")
             sp.add_argument("--attacked-only", action="store_true")
+            sp.add_argument("--benign-only", action="store_true")
             sp.add_argument("--stride", type=int, default=1, help="every Nth episode (a spread-out sample)")
     a = p.parse_args(argv)
     return {"plan": cmd_plan, "run": cmd_run, "report": cmd_report}[a.cmd](a)
