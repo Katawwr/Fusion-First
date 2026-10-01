@@ -1,5 +1,5 @@
 import React from "react";
-import { targetOptions } from "../../lib/targets";
+import { runsLocalModels, targetOptions } from "../../lib/targets";
 
 const MODEL_FIELD = {
   width: "100%",
@@ -14,17 +14,14 @@ const MODEL_FIELD = {
   outline: "none",
 };
 
-/**
- * One question, one answer: which model do we run the attacks against?
- *
- * This replaces the old pair of overlapping controls (a Demo/Real switch AND a
- * separate backend chooser that also offered "Demo / hosted"), which asked the
- * same thing twice and could disagree with itself.
- */
+const CODE = { fontSize: "0.8125rem", color: "var(--text)" };
+
+// Which model the attacks run against. `checking`: the server hasn't said yet what it can run.
 export default function TargetPicker({
   target,
   onChange,
   capabilities = null,
+  checking = false,
   targetModel,
   setTargetModel,
   targetSpec = "",
@@ -36,7 +33,7 @@ export default function TargetPicker({
   const models = (capabilities && capabilities.ollama_models) || [];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+    <div role="radiogroup" aria-label="Target model" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
       {OPTIONS.map((opt) => {
         const on = target === opt.id;
         return (
@@ -77,25 +74,11 @@ export default function TargetPicker({
                 }}
               >
                 {on && (
-                  <span
-                    style={{
-                      width: 9,
-                      height: 9,
-                      borderRadius: "50%",
-                      background: "var(--accent)",
-                    }}
-                  />
+                  <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--accent)" }} />
                 )}
               </span>
               <span style={{ minWidth: 0 }}>
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: "0.9375rem",
-                    fontWeight: 600,
-                    color: "var(--text)",
-                  }}
-                >
+                <span style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "var(--text)" }}>
                   {opt.title}
                 </span>
                 <span
@@ -105,6 +88,7 @@ export default function TargetPicker({
                     fontSize: "0.8125rem",
                     color: "var(--muted)",
                     lineHeight: 1.5,
+                    overflowWrap: "anywhere",
                   }}
                 >
                   {opt.note}
@@ -131,90 +115,36 @@ export default function TargetPicker({
               </div>
             )}
 
-            {opt.id === "ollama" && on && (
+            {/* The option is enabled only once Ollama reports at least one pulled model. */}
+            {opt.id === "ollama" && on && models.length > 0 && (
               <div style={{ padding: "0.75rem 0 0.25rem 2.6rem" }}>
-                {models.length > 0 ? (
-                  <select
-                    value={models.includes(targetModel) ? targetModel : models[0]}
-                    onChange={(e) => setTargetModel(e.target.value)}
-                    aria-label="Ollama model"
-                    style={MODEL_FIELD}
-                  >
-                    {models.map((m) => (
-                      <option key={m} value={m}>
-                        {m}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    value={targetModel}
-                    onChange={(e) => setTargetModel(e.target.value)}
-                    placeholder="llama3.2:1b"
-                    aria-label="Ollama model name"
-                    style={MODEL_FIELD}
-                  />
-                )}
-                {models.length === 0 && (
-                  <p
-                    style={{
-                      marginTop: "0.5rem",
-                      fontSize: "0.8125rem",
-                      color: "var(--subtle)",
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    Run <code>ollama serve</code> and{" "}
-                    <code>ollama pull {targetModel || "llama3.2:1b"}</code> first.
-                  </p>
-                )}
+                <select
+                  value={models.includes(targetModel) ? targetModel : models[0]}
+                  onChange={(e) => setTargetModel(e.target.value)}
+                  aria-label="Ollama model"
+                  style={MODEL_FIELD}
+                >
+                  {models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
         );
       })}
-      {capabilities && !capabilities.local_backends_enabled && <RunLocallyNote />}
+      {!checking && !runsLocalModels(capabilities) && (
+        <p style={{ margin: "0.25rem 0 0", fontSize: "0.875rem", color: "var(--muted)", lineHeight: 1.7 }}>
+          Live models:{" "}
+          <code style={CODE}>pip install "fusion-safety[serve]"</code>, then{" "}
+          <code style={CODE}>fusion serve</code>.{" "}
+          <a href="/use#local" className="text-link">
+            Run it locally
+          </a>
+        </p>
+      )}
     </div>
-  );
-}
-
-// On the hosted demo, live targets are one install away: say how, once, and link the full setup.
-function RunLocallyNote() {
-  return (
-    <aside
-      aria-label="Run it locally"
-      style={{
-        marginTop: "0.75rem",
-        padding: "0.9rem 1rem",
-        borderRadius: "0.6rem",
-        border: "1px solid var(--border)",
-        background: "var(--surface-2)",
-        fontSize: "0.875rem",
-        color: "var(--muted)",
-        lineHeight: 1.55,
-      }}
-    >
-      <p style={{ color: "var(--text)", fontWeight: 600 }}>Test a live model on your machine</p>
-      <pre
-        style={{
-          margin: "0.5rem 0",
-          padding: "0.6rem 0.75rem",
-          borderRadius: "0.4rem",
-          background: "var(--bg)",
-          border: "1px solid var(--border)",
-          fontSize: "0.8125rem",
-          color: "var(--text)",
-          overflowX: "auto",
-        }}
-      >
-        <code>{'pip install "fusion-safety[serve]"\nfusion serve'}</code>
-      </pre>
-      <p>
-        Enables Ollama, OpenAI-compatible servers and hosted APIs (your key).{" "}
-        <a href="/use#local" className="text-link">
-          Run it locally
-        </a>
-      </p>
-    </aside>
   );
 }
