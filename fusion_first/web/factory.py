@@ -128,23 +128,33 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
         """Which live backends THIS server can actually run (not merely whether a key exists)."""
         import asyncio
 
-        from fusion_first.integrations.live import METERED_OPT_IN_ENV
+        from fusion_first.integrations.live import METERED_OPT_IN_ENV, metered_allowed
         from fusion_first.model.providers.ollama import ollama_available, ollama_models
+        from fusion_first.web.clients import hosted_keys, web_graders
 
         local = settings.allow_local_backends
         ollama_ok = local and await asyncio.to_thread(ollama_available)
         cli_ok, cli_reason = await _cli_ready()
+        models = [m["name"] for m in await asyncio.to_thread(ollama_models)] if ollama_ok else []
+        # What a local page could grade with: never reported by a demo-only server.
+        graders = web_graders(bool(cli_ok), models) if local else []
+        keys = hosted_keys() if local else []
+        spend = bool(local and metered_allowed("api"))
+        hosted = keys if spend else []  # hosted providers usable as a target or a grader
         return {
             "demo": True,
             "cli": bool(cli_ok),
             "cli_reason": cli_reason,
             "ollama": bool(ollama_ok),
             "api": bool(os.environ.get(METERED_OPT_IN_ENV) == "1" and settings.anthropic_api_key),
-            "ollama_models": (
-                [m["name"] for m in await asyncio.to_thread(ollama_models)] if ollama_ok else []
-            ),
+            "ollama_models": models,
             "local_backends_enabled": bool(local),
-            "spec": bool(local),  # any model by spec (openai:, hf:, anthropic:, openai-compat: ...)
+            "graders": graders,
+            "hosted_providers": hosted,
+            "hosted_keys": keys,
+            "spend_opt_in": spend,
+            # Any model by spec runs only where something can grade it.
+            "spec": bool(local and (graders or hosted)),
         }
 
     @app.get("/api/health")

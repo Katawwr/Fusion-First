@@ -15,7 +15,7 @@ export default function OwaspChip({ tag }) {
         color: "var(--subtle)",
         whiteSpace: "nowrap",
       }}
-      title="Mapped to the OWASP Top 10 for LLM apps (2025) and Agentic AI (2026)."
+      title="Mapped to the OWASP Top 10 for LLM apps (2025) and Agentic AI (2026); the ASI (Agentic) codes are provisional."
     >
       {codes}
     </span>

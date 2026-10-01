@@ -15,14 +15,14 @@ describe("guardResult", () => {
   it("states the adopted rules' result with counts, and Llama Guard on the same attacks", () => {
     expect(guardResult(step2)).toBe(
       "Pre-registered test on fresh attacks against qwen2.5:7b and llama3.1:8b: stopped 89% (132 of 148), " +
-        "wrongly blocked 1% of clean conversations (2 of 252). Llama Guard 3, configured, stopped 52%.",
+        "wrongly blocked 1% of clean transcripts (2 of 252). Llama Guard 3, configured, stopped 52%.",
     );
   });
 
   it("adds the adopted step 3 result (the snippet passes the tool results)", () => {
     const step3 = { decision: "adopted", arms: { v3: { stopped: 75, attacks: 75 }, v2: { stopped: 67, attacks: 75 } },
                     comparisons: { clean: { v3_only: 0, v2_only: 0 } } };
-    expect(guardResult(step2, step3)).toMatch(/ Given the tool results as well: stopped 75 of 75 \(67 without them\), no extra wrong blocks\.$/);
+    expect(guardResult(step2, step3)).toMatch(/ On a second fresh InjecAgent sample, given the tool results: stopped 75 of 75 \(67 without them\), no extra wrong blocks\.$/);
     expect(guardResult(step2, { ...step3, decision: "not adopted" })).toBe(guardResult(step2));
   });
 

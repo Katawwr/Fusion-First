@@ -54,12 +54,12 @@ export function guardResult(step2, step3) {
   let out =
     `Pre-registered test on fresh attacks against ${step2.models.join(" and ")}: ` +
     `stopped ${pct(f.recall.point)} (${f.stopped} of ${f.attacks}), wrongly blocked ` +
-    `${pct(f.over_block.point)} of clean conversations (${f.blocked} of ${f.clean}). ` +
+    `${pct(f.over_block.point)} of clean transcripts (${f.blocked} of ${f.clean}). ` +
     `Llama Guard 3, configured, stopped ${pct(lg.recall.point)}.`;
   if (step3?.decision === "adopted") {
     const { v3, v2 } = step3.arms;
     const extra = step3.comparisons.clean.v3_only - step3.comparisons.clean.v2_only;
-    out += ` Given the tool results as well: stopped ${v3.stopped} of ${v3.attacks} (${v2.stopped} without them), ` +
+    out += ` On a second fresh InjecAgent sample, given the tool results: stopped ${v3.stopped} of ${v3.attacks} (${v2.stopped} without them), ` +
       (extra <= 0 ? "no extra wrong blocks." : `${extra} extra wrong blocks.`);
   }
   return out;
