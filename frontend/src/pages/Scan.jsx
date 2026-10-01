@@ -804,7 +804,7 @@ export function GuardStep({
   onRestart,
   canned = false,
   inSample = null,
-  measured = guardResult(evidence.step2_guard),
+  measured = guardResult(evidence.step2_guard, evidence.step3_guard),
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>

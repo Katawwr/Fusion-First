@@ -19,6 +19,13 @@ describe("guardResult", () => {
     );
   });
 
+  it("adds the adopted step 3 result (the snippet passes the tool results)", () => {
+    const step3 = { decision: "adopted", arms: { v3: { stopped: 75, attacks: 75 }, v2: { stopped: 67, attacks: 75 } },
+                    comparisons: { clean: { v3_only: 0, v2_only: 0 } } };
+    expect(guardResult(step2, step3)).toMatch(/ Given the tool results as well: stopped 75 of 75 \(67 without them\), no extra wrong blocks\.$/);
+    expect(guardResult(step2, { ...step3, decision: "not adopted" })).toBe(guardResult(step2));
+  });
+
   it("claims nothing for rules that were not adopted or not measured", () => {
     expect(guardResult({ ...step2, decision: { new_rules: "not adopted" } })).toBeNull();
     expect(guardResult(undefined)).toBeNull();
