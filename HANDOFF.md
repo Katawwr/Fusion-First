@@ -1,4 +1,4 @@
-# Handoff — Fusion First rebuild (updated 2026-09-30, end of the fourth session)
+# Handoff — Fusion First rebuild (updated 2026-10-01: 0.1.0 published on PyPI)
 
 Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** At 85% context the hook asks
 for a handoff (CLAUDE.md, "Context handoff"): a regular session via `start_session` if the app exposes it
@@ -11,9 +11,16 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 - Branch `rebuild/agentic-safety-engine`, all committed locally, no git remote. Never push. Publishing to
   PyPI is the OWNER's step (`twine upload`, their token); deploys follow the owner's word (see "Next").
-- **In flight: nothing.** No Ollama job, no subagent. `fusion-safety` was still NOT on PyPI at 2026-09-30
-  10:12 (the JSON API returned 404): the owner has not uploaded yet. Check with `curl -s -o /dev/null -w
-  "%{http_code}" https://pypi.org/pypi/fusion-safety/json` before anything release-related.
+- **In flight: nothing.** No Ollama job, no subagent.
+- **PUBLISHED: `fusion-safety` 0.1.0 is on PyPI** (owner upload, 2026-10-01 08:45 UTC); both files match
+  dist/ (sha256 `31de5921...`, `354e5e5f...`). Verified from PyPI in a clean venv outside the repo: `pip
+  install "fusion-safety[serve,mcp]"` (resolves mcp 2.2.0), `fusion doctor`, `claude plugin validate
+  "$(fusion plugin-dir)"`, `fusion scan`, and the plugin's MCP launch exactly as Claude Code runs it (`uvx
+  --from fusion-safety==0.1.0 --with "mcp>=1.2,<3" fusion-mcp`: "fusion-safety 0.1.0", 18 tools). Any further
+  release is 0.1.1+ (bump pyproject, fusion_first/__init__.py and both plugin.json; the version tests pin
+  them together). Upload from a standalone Windows PowerShell window: the app's terminal pane corrupts a
+  token pasted into twine's hidden prompt ("control characters" -> 403). The owner may swap the account-wide
+  token for one scoped to fusion-safety.
 - Green at last run (2026-09-29, fourth session): `python -m pytest -q` (1,730), `ruff check fusion_first
   tests scripts app setup.py`, frontend vitest (125) + lint + build, Playwright E2E (12), `claude plugin validate`
   on the bundled marketplace and both plugins.
@@ -24,7 +31,7 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   /trust, dark mode, 375 px: all render, no console errors except the designed 402 on "Grade quality" (the
   demo server has no live model). The old Modal apps (`fusion-quality-tester`, `fusion-secur…`) still run:
   rollback path; retiring them is the owner's call.
-- **PyPI release 0.1.0 prepared, NOT uploaded** (owner decisions 2026-09-29: publish `fusion-safety` on
+- **PyPI release 0.1.0** (published 2026-10-01; owner decisions 2026-09-29: publish `fusion-safety` on
   PyPI; the plugin marketplace ships inside the wheel; the import package is renamed `fusion_first` because
   PyPI's `fusion` and JPMorgan's `pyfusion` both install a top-level `fusion`; and "leave out anything
   unnecessary"). `dist/` holds the artifacts built with `python -m build` from a FRESH CLONE of 70db9bb
@@ -208,11 +215,8 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 ## Next
 
-0. **PyPI release (waiting on the owner).** From the repo root, with the owner's PyPI token:
-   `python -m twine upload dist/*`. Then, in order: (a) verify from PyPI in a fresh venv outside the repo:
-   `pip install "fusion-safety[serve,mcp]"`, `fusion doctor`, `fusion plugin-dir`, `claude plugin validate
-   "$(fusion plugin-dir)"`, and the plugin's MCP launch without FUSION_PKG (`uvx --from fusion-safety==0.1.0
-   --with "mcp>=1.2,<2" fusion-mcp`); (b) with the owner's go-ahead, redeploy BOTH halves of the site: the
+0. **Redeploy the site (next; ask the owner's go-ahead first).** 0.1.0 is published and verified from PyPI
+   (see State). Redeploy BOTH halves of the site: the
    live API still serves the guard snippet with `from fusion.guardrail ...` (the Guard step shows it) and the
    live /use has the old install lines and snippet. API: `PYTHONIOENCODING=utf-8 FUSION_VERSION=rebuild-$(git
    rev-parse --short HEAD) modal deploy app/modal_app.py` (mounts `fusion_first`); frontend: in `frontend/`,
