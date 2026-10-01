@@ -2,8 +2,9 @@
 
 **Measure and guard AI agents.** Fusion attacks an agent's system prompt with OWASP-mapped attacks, grades the
 transcripts with a cross-family judge whose accuracy is checked on known answers in every run (the grade is
-withheld when it falls short), and ships a deterministic runtime guardrail that blocks leaked secrets and tool
-calls the user's request does not cover. Results and their pre-registrations:
+withheld when it falls short), and ships a deterministic runtime guard that redacts secrets, blocks
+system-prompt dumps, and blocks tool calls (other than reads) the user's request does not cover. Results and
+their pre-registrations:
 [Trust Report](https://fusion-first-testing.com/trust).
 
 ## Install
