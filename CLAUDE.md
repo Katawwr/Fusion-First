@@ -66,7 +66,6 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
   - `web/` — the pure FastAPI layer (`factory.py`, SSE, settings) and `serve.py` (`fusion serve`).
 - `app/` — the Modal wrapper (`modal_app.py`, the only place `modal` may appear) plus alias shims
   re-exporting `fusion_first/web`.
-- `backend/main.py` — the legacy 6,664-line monolith being decomposed. Do not add features here.
 - `datasets/gold/`, `datasets/probes/` — jsonl gold set + paired probes (diffable, in git).
 - `cassettes/` — committed deterministic model responses keyed by request hash.
 - `crosswalk/` — pinned OWASP LLM 2025 + Agentic 2026 crosswalk.
@@ -78,7 +77,7 @@ plain `pytest`/`uvicorn`. Modal/FastAPI wrappers live in `app/`. Enforced by
 ```bash
 python -m pytest -q                      # full offline suite (must stay green)
 python -m pytest -m unit -q              # fast unit subset
-python -m ruff check fusion tests scripts
+python -m ruff check fusion_first tests scripts app setup.py
 python scripts/fusion_cli.py record --check all      # rebuild demo cassettes (all 4 checks)
 python scripts/fusion_cli.py eval   --check all      # run the accuracy gate for every check
 python scripts/fusion_cli.py eval   --check direct_prompt_injection --update-baseline

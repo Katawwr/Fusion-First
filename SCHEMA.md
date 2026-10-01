@@ -49,9 +49,8 @@ Bar A compares `Verdict.is_issue` (judge) against `Label.is_issue` (oracle). We 
   reply clean. Both come from the current guard rules, not the recordings, so `fusion run verify`
   leaves them out; None = not evaluated (unscored, quality, demo).
 
-## Persistence mapping (target Supabase tables — Phase 1/3, not yet migrated)
+## Persistence
 
-`accounts` (credits_remaining + budget columns, atomic decrement), `usage_ledger` (audit-only),
-`scans`, `report_cards` (carry the provenance hashes; public opt-in + prompt redaction),
-`api_keys`, `provider_keys` (ciphertext+nonce+key_version+last4), `rate_windows`, `webhook_events`
-(idempotency). Gold set and cassettes are **jsonl/JSON in git**, not database tables.
+There is no database: no accounts, credits or billing. Web scans live in a process-local store
+(`fusion_first/web/persistence.py`), runs in the local run store (`.fusion/runs/`), and the gold set,
+probes and cassettes are **jsonl/JSON in git**.
