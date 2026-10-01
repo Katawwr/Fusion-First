@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import pathlib
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 import yaml
 
@@ -288,7 +288,3 @@ async def run_eval_gate(
         margin=margin,
     )
     return gate, outcome.result
-
-
-def asdict_gate(gate: GateResult) -> dict:
-    return asdict(gate)

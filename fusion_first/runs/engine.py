@@ -105,11 +105,9 @@ class Task:
     key: str  # the judge request cache key (internal; never sent to external graders)
 
 
-PHASES = ("created", "collecting", "awaiting_grades", "grading", "grading_incomplete", "ready", "done", "failed")
-
-
 @dataclass
 class RunState:
+    # created -> collecting -> awaiting_grades -> grading -> (grading_incomplete | ready) -> done; or failed
     phase: str = "created"
     completed: int = 0
     total: int = 0

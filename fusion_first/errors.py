@@ -73,15 +73,6 @@ class NotGraded(JudgeUndecided):
     with any such question is never graded: skipping the damning questions must not raise a grade."""
 
 
-class ScanAborted(FatalRunError):
-    """A scan stopped early; `code` is a stable machine-readable reason for the UI/API."""
-
-    def __init__(self, code: str, message: str):
-        super().__init__(message)
-        self.code = code
-        self.message = message
-
-
 class ErrorKind(str, Enum):
     TARGET_ERROR = "target_error"
     TARGET_TIMEOUT = "target_timeout"

@@ -30,7 +30,7 @@ from fusion_first.web.clients import (
     resolve_mode,
 )
 from fusion_first.web.models import GuardrailRequest, HardenRequest, QualityRequest, ScanRequest
-from fusion_first.web.persistence import InMemoryScanStore
+from fusion_first.web.persistence import InMemoryScanStore, ScanStore
 from fusion_first.web.settings import Settings, load_settings
 from fusion_first.web.snippet import guardrail_snippet
 from fusion_first.web.sse import sse_error, sse_frame, stream_with_heartbeat
@@ -53,7 +53,7 @@ def _new_scan_id() -> str:
     return uuid.uuid4().hex[:16]
 
 
-def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder=None) -> FastAPI:
+def create_app(settings: Settings | None = None, store: ScanStore | None = None, scan_kwargs_builder=None) -> FastAPI:
     settings = settings or load_settings()
     store = store or InMemoryScanStore()
     build_kwargs = scan_kwargs_builder or build_scan_kwargs
@@ -166,7 +166,7 @@ def create_app(settings: Settings | None = None, store=None, scan_kwargs_builder
 
     @app.get("/api/me")
     def me():
-        # Auth is wired in M4; anonymous demo scans work today.
+        # No accounts: every caller is anonymous.
         return {"authenticated": False}
 
     @app.get("/api/credits")

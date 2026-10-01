@@ -42,8 +42,6 @@ from dataclasses import dataclass
 from fusion_first.integrations.live import METERED_OPT_IN_ENV, metered_allowed
 from fusion_first.model.registry import ModelRegistry
 
-TARGET_BACKENDS = ("ollama", "claude_cli", "openai_compat", "anthropic", "command", "python", "api")
-GRADER_KINDS = ("host", "claude_cli", "ollama_prob", "ollama_json", "target")
 CHAT_GRADER_BACKENDS = ("openai_compat", "anthropic", "command")  # target specs that can also grade
 OPAQUE_BACKENDS = ("command", "python")  # Fusion can't tell which model these run
 

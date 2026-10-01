@@ -90,6 +90,14 @@ def test_check_registered_with_valid_crosswalk(check):
 
 
 @pytest.mark.unit
+def test_every_crosswalk_check_has_a_rubric_with_the_crosswalk_tag():
+    """The rubric's OWASP tag must be the crosswalk's, not a copy that drifts from it."""
+    cw = Crosswalk()
+    for check in cw.checks:
+        assert get_rubric(check).owasp == cw.tag_for_check(check), check
+
+
+@pytest.mark.unit
 def test_probes_carry_consequential_actions_where_expected():
     # excessive_agency and data_exfiltration failures are tool calls; the probe loader must
     # surface them so the judge/detector can see the action, not just the text.
