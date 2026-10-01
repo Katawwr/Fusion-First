@@ -129,3 +129,15 @@ def test_scanner_skips_test_fixtures_but_not_components(tmp_path):
     (lib / "Card.spec.jsx").write_text("x", encoding="utf-8")
     names = {p.name for p in scanned_files(tmp_path)}
     assert "trust.js" in names and "trust.test.js" not in names and "Card.spec.jsx" not in names
+
+
+@pytest.mark.unit
+def test_docs_folder_is_scanned_for_proof_numbers(tmp_path):
+    """docs/*.md is reviewer-facing copy: an unregistered rate there must fail like one in the README."""
+    from fusion_first.validate.claims import scanned_files
+
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "ARCHITECTURE.md").write_text("the guard stopped 97% of attacks", encoding="utf-8")
+    assert tmp_path / "docs" / "ARCHITECTURE.md" in scanned_files(tmp_path)
+    stray = unregistered_proof_strings(load_registry(), tmp_path)
+    assert [f for f, _, _ in stray] == ["docs/ARCHITECTURE.md"]

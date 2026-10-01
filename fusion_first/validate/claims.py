@@ -38,6 +38,7 @@ SCANNED_GLOBS = (
     "frontend/src/**/*.js",
     "frontend/src/content/*.json",
     "plugins/*/README.md",
+    "docs/*.md",
 )
 
 _PCT = r"\d{1,3}(?:\.\d+)?\s*(?:%|percent\b)"
