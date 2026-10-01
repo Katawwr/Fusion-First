@@ -7,7 +7,7 @@ const variants = {
     "bg-surface border border-app-border text-app-text hover:bg-surface-2 hover:border-app-border-strong",
   ghost: "bg-transparent text-accent-ink hover:bg-accent-soft",
   outline:
-    "bg-transparent border border-fusion-cyan text-accent-ink hover:bg-accent-soft",
+    "bg-transparent border border-fusion-accent text-accent-ink hover:bg-accent-soft",
 };
 
 const sizes = {

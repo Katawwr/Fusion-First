@@ -168,11 +168,11 @@
   --color-fusion-purple: var(--brand);
   --color-fusion-purple-light: var(--surface);
   --color-fusion-purple-medium: var(--surface-2);
-  --color-fusion-cyan: var(--accent);
-  /* a true cyan WASH (was --border, a near-black translucent that made selected
-     cards read as dark navy slabs on the light theme) */
-  --color-fusion-cyan-light: var(--accent-soft);
-  --color-fusion-cyan-medium: var(--border-strong);
+  --color-fusion-accent: var(--accent);
+  /* an accent wash (not --border, a near-black translucent that made selected cards read as dark
+     slabs on the light theme) */
+  --color-fusion-accent-light: var(--accent-soft);
+  --color-fusion-accent-medium: var(--border-strong);
   --color-accent-soft: var(--accent-soft);
   --color-pink-soft: var(--pink-soft);
   --color-fusion-pink: var(--pink);
@@ -189,7 +189,6 @@
     var(--pink),
     var(--pink-ink)
   );
-  --background-image-fusion-cyan-pink: var(--brand-gradient);
 
   /* soft, layered depth (theme-aware via the vars) */
   --shadow-soft: var(--shadow-sm);

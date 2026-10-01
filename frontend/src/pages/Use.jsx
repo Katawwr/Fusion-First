@@ -2,8 +2,8 @@ import React from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import content from "../content/integrations.json";
-import { Code, Doc, DocHeader } from "../components/doc";
-import { TargetsTable } from "../components/doc/RunLocally";
+import { Doc, DocHeader } from "../components/doc";
+import { Steps, TargetsTable } from "../components/doc/RunLocally";
 
 // How to run Fusion for real: every command here is parse-tested against the CLI
 // (tests/test_docs_commands.py reads this same JSON), so the page can't drift from the tool.
@@ -12,6 +12,10 @@ export default function Use() {
     <Doc>
       <Helmet>
         <title>Use Fusion | Fusion First</title>
+        <meta
+          name="description"
+          content="Run Fusion First locally: web app, Claude Code plugin, command line, runtime guard, MCP server and CI."
+        />
       </Helmet>
       <DocHeader title="Use Fusion" />
 
@@ -32,12 +36,7 @@ export default function Use() {
             {s.badge && <span className="eyebrow">{s.badge}</span>}
           </div>
           <div className="mt-5 flex flex-col gap-5">
-            {s.steps.map((step) => (
-              <div key={step.label}>
-                <p className="mb-1.5 text-sm text-app-muted">{step.label}</p>
-                <Code code={step.code} label={step.lang} />
-              </div>
-            ))}
+            <Steps steps={s.steps} />
             {s.id === "local" && (
               <div>
                 <h3 className="doc-h3 mb-3">Targets</h3>
@@ -49,7 +48,7 @@ export default function Use() {
       ))}
 
       <p className="doc-section text-sm text-app-muted">
-        No install:{" "}
+        Without installing anything: the{" "}
         <Link to="/scan" className="text-link">
           demo scan
         </Link>{" "}

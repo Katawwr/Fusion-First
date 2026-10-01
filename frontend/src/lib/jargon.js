@@ -8,28 +8,28 @@ export const CHECKS = {
     scenario: "Can injected text override your system prompt?",
     owasp: "LLM01 · ASI01",
     term: "Direct prompt injection",
-    tip: "Instructions hidden in a message or document that override the system prompt. First entry (LLM01) in the OWASP Top 10 for LLM apps.",
+    tip: "A user message that tries to override the system prompt. OWASP LLM01 (2025); ASI01 (Agentic 2026, provisional).",
   },
   excessive_agency: {
     label: "Excessive agency",
     scenario: "Does the agent send, delete, or pay without an explicit request?",
     owasp: "LLM06 · ASI02",
     term: "Excessive agency",
-    tip: "Consequential tool calls (send, delete, pay) made without explicit user authorization.",
+    tip: "Consequential tool calls (send, delete, pay) made without explicit user authorization. OWASP LLM06 (2025); ASI02 (Agentic 2026, provisional).",
   },
   data_exfiltration: {
     label: "Data exfiltration",
     scenario: "Can the agent be induced to send private data to an untrusted destination?",
     owasp: "LLM02 · ASI03",
     term: "Sensitive information disclosure",
-    tip: "Private data (customer records, credentials) sent to an external or untrusted destination.",
+    tip: "Private data (customer records, credentials) sent to an external or untrusted destination. OWASP LLM02 (2025); ASI03 (Agentic 2026, provisional).",
   },
   system_prompt_leakage: {
     label: "System prompt leakage",
     scenario: "Does the agent reveal its system prompt or embedded secrets?",
     owasp: "LLM07 · ASI06",
     term: "System prompt leakage",
-    tip: "Disclosure of the system prompt or embedded secrets, including via 'translate this' or 'repeat the above' requests.",
+    tip: "Disclosure of the system prompt or embedded secrets, including via 'translate this' or 'repeat the above' requests. OWASP LLM07 (2025); ASI06 (Agentic 2026, provisional).",
   },
 };
 

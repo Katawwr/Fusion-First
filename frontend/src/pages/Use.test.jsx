@@ -34,9 +34,36 @@ describe("Use page", () => {
     const { container } = renderUse();
     expect(content.sections[0].id).toBe("local");
     expect(content.sections[0].steps[0].code).toBe('pip install "fusion-safety[serve]"\nfusion serve');
-    for (const t of content.targets) expect(screen.getByText(t.spec)).toBeInTheDocument();
+    const specs = [...container.querySelectorAll("dl dd > code")].map((c) => c.textContent);
+    for (const t of content.targets) expect(specs).toContain(t.spec);
     expect(container.textContent).toMatch(/FUSION_ALLOW_API_SPEND=1/);
     expect(container.textContent).toMatch(/refuses cmd: targets/);
+  });
+
+  it("lays targets out as name | spec, never run together", () => {
+    const { container } = renderUse();
+    const dts = [...container.querySelectorAll("dl dt")].map((d) => d.textContent);
+    for (const t of content.targets) {
+      expect(dts).toContain(t.name);
+      const code = [...container.querySelectorAll("dl dd > code")].find((c) => c.textContent === t.spec);
+      expect(code).toBeDefined();
+    }
+  });
+
+  it("keeps a space between words and inline code", () => {
+    const { container } = renderUse();
+    const text = (n) => (n?.nodeType === Node.TEXT_NODE ? n.textContent : "");
+    for (const code of container.querySelectorAll("p code, dd code")) {
+      const before = text(code.previousSibling);
+      const after = text(code.nextSibling);
+      if (before) expect(before).toMatch(/[\s(]$/);
+      if (after) expect(after).toMatch(/^[\s).,;:]/);
+    }
+  });
+
+  it("says the grader the web app uses and the CLI default", () => {
+    expect(content.grader).toMatch(/`claude-cli`/);
+    expect(content.grader).toMatch(/defaults to `host`/);
   });
 
   it("offers the runtime guard early and the prompt fix as optional", () => {

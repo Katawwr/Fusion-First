@@ -35,7 +35,7 @@ describe("Overview page", () => {
 
   it("states the negative results plainly", () => {
     const { container } = renderLanding();
-    expect(container.textContent).toMatch(/not more accurate than a plain one-question judge/);
+    expect(container.textContent).toMatch(/Rubric grading is not more accurate than one plain question/);
     expect(container.textContent).toMatch(/prompt fix did not reliably reduce attacks/);
   });
 
@@ -44,6 +44,21 @@ describe("Overview page", () => {
     expect(screen.getByRole("link", { name: "Run the demo scan" })).toHaveAttribute("href", "/scan");
     expect(screen.getAllByRole("link", { name: "Run it locally" })[0]).toHaveAttribute("href", "/use#local");
     expect(screen.getByRole("link", { name: /Full evidence/ })).toHaveAttribute("href", "/trust");
+  });
+
+  it("keeps a space between words and inline code", () => {
+    const { container } = renderLanding();
+    for (const code of container.querySelectorAll("dd code, p code")) {
+      const prev = code.previousSibling;
+      const before = prev?.nodeType === Node.TEXT_NODE ? prev.textContent : "";
+      if (before) expect(before).toMatch(/[\s(]$/);
+    }
+  });
+
+  it("says which results were pre-registered without claiming all were", () => {
+    const { container } = renderLanding();
+    expect(container.textContent).toMatch(/Committed results with 95% intervals/);
+    expect(container.textContent).not.toMatch(/Pre-registered results with/);
   });
 
   it("shows how to run it locally with the user's own target", () => {

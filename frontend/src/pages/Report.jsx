@@ -25,7 +25,7 @@ export default function Report() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center text-app-muted">
         <p className="mb-4">{error}</p>
-        <a href="/scan" className="text-fusion-cyan underline">
+        <a href="/scan" className="text-fusion-accent underline">
           Run a new scan
         </a>
       </div>
