@@ -12,11 +12,10 @@ const NAV_LINKS = [
   { name: "Trust", href: "/trust" },
 ];
 
+// The current page is highlighted (brand purple tint), not underlined.
 const linkClass = ({ isActive }) =>
-  `relative py-1 text-sm transition-colors ${
-    isActive
-      ? "text-app-text after:absolute after:inset-x-0 after:-bottom-[1.05rem] after:h-px after:bg-app-text"
-      : "text-app-muted hover:text-app-text"
+  `rounded-md px-2.5 py-1 text-sm transition-colors ${
+    isActive ? "nav-active font-medium" : "text-app-muted hover:text-app-text"
   }`;
 
 export default function Header() {
@@ -35,7 +34,7 @@ export default function Header() {
           <span className="brand-wordmark text-app-text">Fusion First</span>
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-7 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-1.5 md:flex">
           {NAV_LINKS.map((l) => (
             <NavLink key={l.href} to={l.href} end={l.href === "/"} className={linkClass}>
               {l.name}
@@ -75,7 +74,7 @@ export default function Header() {
                   end={l.href === "/"}
                   onClick={() => setOpen(false)}
                   className={({ isActive }) =>
-                    `block py-2 text-[0.95rem] ${isActive ? "font-medium text-app-text" : "text-app-muted"}`
+                    `block rounded-md px-2.5 py-2 text-[0.95rem] ${isActive ? "nav-active font-medium" : "text-app-muted"}`
                   }
                 >
                   {l.name}

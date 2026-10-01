@@ -79,8 +79,8 @@ export function Code({ code, label, copy = true }) {
 }
 
 // A forest-plot strip: the 95% interval as a bar, the estimate as a tick. "rate" spans 0–100%;
-// "diff" spans −50 to +50 points around a zero line. Tone colours the mark: good outcomes in the brand
-// cyan, costs (wrong blocks, refusals) in the brand pink, comparators in grey.
+// "diff" spans −50 to +50 points around a zero line. Tone colours the mark: good outcomes in
+// brand purple, costs (wrong blocks, refusals) in the brand pink, comparators in grey.
 export function IntervalStrip({ est, scale = "rate", tone = "good", label }) {
   if (!est || est.point === undefined) return null;
   const [lo, hi] = scale === "diff" ? [-0.5, 0.5] : [0, 1];

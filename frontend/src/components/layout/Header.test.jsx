@@ -29,7 +29,7 @@ describe("Header", () => {
         <Header />
       </MemoryRouter>,
     );
-    expect(container.querySelector("header .brand-mark")?.textContent).toBe("FF");
+    expect(container.querySelector("header svg.brand-mark")).not.toBeNull();
     expect(container.querySelector('header img[src="/logo.png"]')).toBeNull();
   });
 });

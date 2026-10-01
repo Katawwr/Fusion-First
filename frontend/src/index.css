@@ -3,7 +3,7 @@
 /* ------------------------------------------------------------------ *
  * Fusion First, semantic design tokens.
  *
- * The brand hues (purple #504d9a, cyan #66c4e1, pink #f38f95/#db418b) are
+ * The brand is purple (#504d9a); pink (#f38f95/#db418b) marks costs only. Cyan was dropped (owner, 2026-10-01). They are
  * fixed, but here they are demoted from big saturated fills to precise
  * accents. Everything is driven by semantic CSS variables so the whole UI
  * re-themes from one place and supports a calm dark AND a soft light mode.
@@ -34,14 +34,14 @@
   --subtle: #7c8190;
 
   /* brand, as accents */
-  --accent: #66c4e1; /* cyan, fills, focus, active */
-  --accent-ink: #8ad4ec; /* cyan, legible text/links on dark */
+  --accent: #8b86d6; /* brand purple: fills, focus, active (owner: purple only, no cyan) */
+  --accent-ink: #aba7ea; /* brand purple, legible text/links on dark */
   --brand: #8b86d6; /* purple, legible on dark */
   --primary: #8b86d6; /* the one solid action colour: brand purple */
   --on-primary: #121318;
   --pink: #e98aa6;
   --pink-ink: #f0a7bd;
-  --accent-soft: rgba(102, 196, 225, 0.12); /* cyan wash for selected/tinted cards */
+  --accent-soft: rgba(139, 134, 214, 0.14); /* purple wash for selected/tinted cards */
   --pink-soft: rgba(233, 138, 166, 0.14);
 
   /* status, gentle, desaturated */
@@ -50,16 +50,16 @@
   --orange: #e79a63;
   --danger: #e88a8a;
 
-  --ring: rgba(102, 196, 225, 0.55);
+  --ring: rgba(139, 134, 214, 0.55);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3);
 
   /* the one reserved brand-gradient moment (wordmark, hero hairline) */
-  --brand-gradient: linear-gradient(90deg, #66c4e1, #f38f95);
+  --brand-gradient: linear-gradient(90deg, #8b86d6, #504d9a);
   --brand-gradient-soft: linear-gradient(
     135deg,
-    rgba(102, 196, 225, 0.14),
-    rgba(243, 143, 149, 0.12)
+    rgba(139, 134, 214, 0.14),
+    rgba(80, 77, 154, 0.12)
   );
 }
 
@@ -84,14 +84,14 @@
   --muted: #575d6b;
   --subtle: #868c9a;
 
-  --accent: #2f93b6; /* deeper cyan holds contrast on light fills */
-  --accent-ink: #1f7ea6;
+  --accent: #504d9a; /* brand purple holds contrast on light fills */
+  --accent-ink: #4a4791;
   --brand: #504d9a;
   --primary: #504d9a;
   --on-primary: #ffffff;
   --pink: #cf2f7d;
   --pink-ink: #b81f6a;
-  --accent-soft: rgba(47, 147, 182, 0.08);
+  --accent-soft: rgba(80, 77, 154, 0.08);
   --pink-soft: rgba(207, 47, 125, 0.08);
 
   --ok: #1f9d63;
@@ -99,7 +99,7 @@
   --orange: #c26a2a;
   --danger: #cf4b4b;
 
-  --ring: rgba(47, 147, 182, 0.5);
+  --ring: rgba(80, 77, 154, 0.45);
   --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
   --shadow: 0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.1);
 }
@@ -116,20 +116,20 @@
     --text: #15161c;
     --muted: #575d6b;
     --subtle: #868c9a;
-    --accent: #2f93b6;
-    --accent-ink: #1f7ea6;
+    --accent: #504d9a;
+    --accent-ink: #4a4791;
     --brand: #504d9a;
     --primary: #504d9a;
     --on-primary: #ffffff;
     --pink: #cf2f7d;
     --pink-ink: #b81f6a;
-    --accent-soft: rgba(47, 147, 182, 0.08);
+    --accent-soft: rgba(80, 77, 154, 0.08);
     --pink-soft: rgba(207, 47, 125, 0.08);
     --ok: #1f9d63;
     --warn: #a9761b;
     --orange: #c26a2a;
     --danger: #cf4b4b;
-    --ring: rgba(47, 147, 182, 0.5);
+    --ring: rgba(80, 77, 154, 0.45);
     --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
     --shadow:
       0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.1);
@@ -364,25 +364,10 @@ button {
   color: var(--subtle);
 }
 
-/* The FF monogram (friendly fire): brand purple in both themes, title face, second F in brand pink. */
+/* The FF monogram (friendly fire): an inline SVG, white on brand purple (BrandMark.jsx, public/ff.svg). */
 .brand-mark {
-  display: inline-flex;
+  display: block;
   flex: none;
-  align-items: center;
-  justify-content: center;
-  border-radius: 22%;
-  background: #504d9a;
-  color: #fff;
-  font-family: var(--font-display);
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.035em;
-  padding-top: 0.08em; /* Newsreader's capitals ride high: centre them optically */
-  padding-right: 0.035em; /* balance the negative tracking */
-}
-
-.brand-mark-fire {
-  color: #f38f95;
 }
 
 /* The wordmark uses the title face (owner, 2026-10-01). */
@@ -625,4 +610,10 @@ a.text-link {
 }
 .target-list li + li {
   border-top: 1px solid var(--border);
+}
+
+/* Header: the current page is a purple-tinted pill (no underline). */
+.nav-active {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
 }
