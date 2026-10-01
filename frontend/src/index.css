@@ -612,8 +612,7 @@ a.text-link {
   border-top: 1px solid var(--border);
 }
 
-/* Header: the current page is a purple-tinted pill (no underline). */
+/* Header: the current page is set in brand purple (no box, no underline). */
 .nav-active {
   color: var(--accent-ink);
-  background: var(--accent-soft);
 }

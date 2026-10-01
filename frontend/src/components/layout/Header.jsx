@@ -12,9 +12,9 @@ const NAV_LINKS = [
   { name: "Trust", href: "/trust" },
 ];
 
-// The current page is highlighted (brand purple tint), not underlined.
+// The current page is set in brand purple; no box, no underline.
 const linkClass = ({ isActive }) =>
-  `rounded-md px-2.5 py-1 text-sm transition-colors ${
+  `px-2 py-1 text-sm transition-colors ${
     isActive ? "nav-active font-medium" : "text-app-muted hover:text-app-text"
   }`;
 
@@ -74,7 +74,7 @@ export default function Header() {
                   end={l.href === "/"}
                   onClick={() => setOpen(false)}
                   className={({ isActive }) =>
-                    `block rounded-md px-2.5 py-2 text-[0.95rem] ${isActive ? "nav-active font-medium" : "text-app-muted"}`
+                    `block py-2 text-[0.95rem] ${isActive ? "nav-active font-medium" : "text-app-muted"}`
                   }
                 >
                   {l.name}
