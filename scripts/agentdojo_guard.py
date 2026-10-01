@@ -256,7 +256,7 @@ def guard_config(suite: str) -> GuardConfig:
 
 
 def run_episode(suite_name: str, user_id: str, inj_id: str | None, arm: str, model: str, cache: Cache,
-                chat=ollama_chat) -> dict:
+                chat=ollama_chat, attack: str = ATTACK) -> dict:
     suite = get_suite(BENCHMARK, suite_name)
     llm = OllamaLLM(model, cache, chat)
     executor = GuardedToolsExecutor(arm, guard_config(suite_name))
@@ -266,19 +266,20 @@ def run_episode(suite_name: str, user_id: str, inj_id: str | None, arm: str, mod
     pipeline.name = "local"  # the attack addresses the model by this name ("Local model")
     user = suite.get_user_task_by_id(user_id)
     inj = suite.get_injection_task_by_id(inj_id) if inj_id else None
-    injections = load_attack(ATTACK, suite, pipeline).attack(user, inj) if inj else {}
+    injections = load_attack(attack, suite, pipeline).attack(user, inj) if inj else {}
     t0 = time.time()
     utility, security = suite.run_task_with_pipeline(pipeline, user, inj, injections)
     return {"suite": suite_name, "user_task": user_id, "injection_task": inj_id, "arm": arm, "model": model,
-            "utility": bool(utility), "security": bool(security) if inj else None,
+            "attack": attack if inj else None, "utility": bool(utility), "security": bool(security) if inj else None,
             "guard": executor.decisions, "llm_turns": llm.calls, "seconds": round(time.time() - t0, 1),
             "messages": _jsonable([to_ollama([m])[0] if m["role"] != "system" else {"role": "system"}
                                    for m in recorder.messages])}
 
 
 # ------------------------------------------------------------------------------------------------- CLI
-def _out(split: str, model: str) -> pathlib.Path:
-    return DIR / split / f"{model.replace(':', '-')}.jsonl"
+def _out(split: str, model: str, attack: str = ATTACK) -> pathlib.Path:
+    suffix = "" if attack == ATTACK else f"__{attack}"
+    return DIR / split / f"{model.replace(':', '-')}{suffix}.jsonl"
 
 
 def _done(path: pathlib.Path) -> set[tuple]:
@@ -289,15 +290,22 @@ def _done(path: pathlib.Path) -> set[tuple]:
 
 
 def cmd_run(a) -> int:
-    path = _out(a.split, a.model)
+    path = _out(a.split, a.model, a.attack)
     path.parent.mkdir(parents=True, exist_ok=True)
     cache = Cache(CACHE_DIR / f"{a.model.replace(':', '-')}.jsonl")
     done = _done(path)
     arms = [x for x in a.arms.split(",") if x]
-    todo = [(s, u, i, arm) for s, u, i in episodes(a.split)[: a.limit or None] for arm in arms
-            if (s, u, i, arm) not in done]
+    eps = episodes(a.split)
+    if a.attacked_only:
+        eps = [e for e in eps if e[2] is not None]
+    eps = eps[:: a.stride][: a.limit or None]
+    todo = [(s, u, i, arm) for s, u, i in eps for arm in arms if (s, u, i, arm) not in done]
     for n, (s, u, i, arm) in enumerate(todo, 1):
-        r = run_episode(s, u, i, arm, a.model, cache)
+        try:
+            r = run_episode(s, u, i, arm, a.model, cache, attack=a.attack)
+        except ValueError as e:  # e.g. tool_knowledge needs placeholder args the injection task lacks
+            print(f"{n}/{len(todo)} {s} {u} {i} {arm}: skipped ({e})", flush=True)
+            continue
         with path.open("a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(r) + "\n")
         blocked = sum(d["blocked"] for d in r["guard"])
@@ -320,7 +328,7 @@ def summarize(rows: list[dict]) -> dict:
 
 
 def cmd_report(a) -> int:
-    path = _out(a.split, a.model)
+    path = _out(a.split, a.model, a.attack)
     rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
     print(json.dumps(summarize(rows), indent=1))
     return 0
@@ -345,9 +353,12 @@ def main(argv=None) -> int:
         sp.add_argument("--split", choices=("dev", "heldout"), required=True)
         if name != "plan":
             sp.add_argument("--model", required=True)
+            sp.add_argument("--attack", default=ATTACK, help="an AgentDojo attack name")
         if name == "run":
             sp.add_argument("--arms", default="none,v2,v3")
             sp.add_argument("--limit", type=int, default=0, help="first N episodes only (smoke)")
+            sp.add_argument("--attacked-only", action="store_true")
+            sp.add_argument("--stride", type=int, default=1, help="every Nth episode (a spread-out sample)")
     a = p.parse_args(argv)
     return {"plan": cmd_plan, "run": cmd_run, "report": cmd_report}[a.cmd](a)
 
