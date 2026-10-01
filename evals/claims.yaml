@@ -10,16 +10,6 @@
 # (`fusion validate record` / `report`), commit the evidence, then register the claim here.
 
 claims:
-  - id: guard_bench_in_house
-    text: "100% recall / 0% over-block"
-    qualifier: "in-house hand-labelled corpus (in-distribution); external held-out results live in the Trust Report"
-    files: [README.md]
-    evidence: evals/guard_bench.baseline.json
-    metrics:
-      recall: {value: 1.0, n_path: malicious, min_n: 30}          # rate over malicious cases
-      over_block_rate: {value: 0.0, n_path: benign, min_n: 25}    # rate over benign cases
-    demonstration_ok: true   # deterministic guard, no LLM judge involved
-
   - id: claude_hook_heldout_v3_overblock
     text: "5% of benign calls prompted"
     qualifier: "fusion-guard hook, held-out v3 (blind, scored once at rules f7d3809), ask mode"
