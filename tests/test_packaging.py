@@ -144,7 +144,7 @@ def test_the_sdist_carries_only_what_builds_the_wheel(tmp_path):
     """Owner (2026-09-29): leave out anything unnecessary: project docs, tests, examples, evidence."""
     proj = tmp_path / "proj"
     proj.mkdir()
-    for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "README.md"):
+    for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "PYPI.md"):
         shutil.copy2(ROOT / rel, proj / rel)
     skip = shutil.ignore_patterns("_bundled", "__pycache__", "*.pyc")
     shutil.copytree(ROOT / "fusion_first", proj / "fusion_first", ignore=skip)
@@ -168,9 +168,9 @@ def test_the_sdist_carries_only_what_builds_the_wheel(tmp_path):
     assert [n for n in names if n.split("/")[0] in ("cassettes", "crosswalk", "datasets", "evals")] == RUNTIME_DATA
     kept = ("cassettes", "crosswalk", "datasets", "evals", "fusion_first", "plugins", ".claude-plugin", "frontend",
             "fusion_safety.egg-info")
-    top = ("PKG-INFO", "README.md", "pyproject.toml", "setup.py", "setup.cfg", "MANIFEST.in")
+    top = ("PKG-INFO", "PYPI.md", "pyproject.toml", "setup.py", "setup.cfg", "MANIFEST.in")
     assert [n for n in names if n.split("/")[0] not in kept and n not in top] == []
-    assert [n for n in names if n.endswith("README.md") and n != "README.md"] == []
+    assert [n for n in names if n.endswith("README.md")] == []  # PYPI.md is the package page
     assert "frontend/dist/og-image.png" not in names
     dev = {m.replace(".", "/") for m in _load_setup().DEV_ONLY_MODULES}
     assert [n for n in names if n.endswith(".py") and n[:-3].removesuffix("/__init__") in dev] == []
@@ -182,7 +182,7 @@ def wheel_names(tmp_path_factory) -> list[str]:
     tmp = tmp_path_factory.mktemp("wheel")
     proj = tmp / "proj"
     proj.mkdir()
-    for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "README.md"):
+    for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "PYPI.md"):
         shutil.copy2(ROOT / rel, proj / rel)
     skip = shutil.ignore_patterns("_bundled", "__pycache__", "*.pyc")
     shutil.copytree(ROOT / "fusion_first", proj / "fusion_first", ignore=skip)
@@ -448,3 +448,14 @@ def test_commands_that_rewrite_the_corpora_refuse_in_a_pip_install(monkeypatch, 
     assert writes == []
     assert "FUSION_DATA_DIR" in capsys.readouterr().err
 
+
+
+@pytest.mark.unit
+def test_the_pypi_page_renders_on_pypi():
+    """PyPI renders neither Mermaid nor repository-relative links: the package page uses absolute links only."""
+    import re
+
+    text = (ROOT / "PYPI.md").read_text(encoding="utf-8")
+    assert "```mermaid" not in text
+    links = re.findall(r"\]\(([^)]+)\)", text)
+    assert links and all(link.startswith("https://") for link in links)

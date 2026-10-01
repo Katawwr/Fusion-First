@@ -1,8 +1,8 @@
 # The sdist carries only what builds the wheel (owner, 2026-09-29: leave out anything unnecessary): the
-# package (minus setup.py's DEV_ONLY_MODULES), pyproject/setup, README (the PyPI page), the runtime data
+# package (minus setup.py's DEV_ONLY_MODULES), pyproject/setup, PYPI.md (the PyPI page), the runtime data
 # (setup.py _RUNTIME_DATA), the Claude Code marketplace and the built web app. No docs, tests, examples or
 # evidence.
-include README.md pyproject.toml setup.py
+include PYPI.md pyproject.toml setup.py
 include cassettes/*.json
 include crosswalk/*.yaml
 include datasets/gold/*.jsonl datasets/probes/*.jsonl datasets/guard_bench/cases.jsonl

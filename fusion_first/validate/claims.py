@@ -27,6 +27,7 @@ TOLERANCE = 1e-3
 # Files whose proof-like numbers must be registered claims.
 SCANNED_FILES = (
     "README.md",
+    "PYPI.md",
     "CLAUDE.md",
     "SCHEMA.md",
     "integrations/README.md",
