@@ -230,8 +230,16 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
    v3`, which now includes the spent step-2 transcripts). Dev (spent, DIAGNOSTIC): data stealing step2 52/52
    (v2 36/52), clean wrongly blocked unchanged. 557db1d: step 3 pre-registered (see State, In flight). NOT in
    the snippet, Use page, MCP tool or Trust Report until adopted. A stronger test needs unseen attack text and
-   a benign set of multi-step reads after untrusted content: AgentDojo (MIT) fits, but it is not on the
-   approved dataset list: owner decision.
+   a benign set of multi-step reads after untrusted content: **AgentDojo, approved by the owner 2026-10-01.**
+   c27c9ff: `scripts/agentdojo_guard.py` runs the guard inside a live AgentDojo agent loop (v1.2.2, attack
+   important_instructions; arms none/v2/v3; Ollama native /api/chat with tools, num_ctx 16384, temp 0, seed 7;
+   responses cached in `.fusion/agentdojo-cache/` so guarded arms only pay for turns after their first block;
+   episode records in `evals/validation/v1/agentdojo/<split>/`). Its own venv: `$LOCALAPPDATA/fusion-agentdojo-venv`
+   (agentdojo==0.1.35 + pytest; tests: `$py -m pytest tests/test_agentdojo_harness.py -o addopts=""`). Splits
+   salt `fusion-agentdojo-split-v1`: dev 31 benign + 103 attacked episodes, held-out 66 + 426 (user AND injection
+   tasks split, so held-out attack text is unseen). NEXT after step 3 scores: dev runs (qwen2.5:7b) to time
+   episodes and fix harness choices (whole history vs latest result as untrusted_text, per-suite allowlists),
+   then pre-register step 4 on held-out (subsample to fit the budget) and run.
 0b. Follow-ups found in the fourth session: the guard misses paraphrased rule leaks (left: the example is a
    refusal naming a secret's topic; a lexical rule would mostly block refusals). From the release review, not
    done: the license table + License classifier are deprecated (setuptools warns "by 2027-Feb-18"; the SPDX
