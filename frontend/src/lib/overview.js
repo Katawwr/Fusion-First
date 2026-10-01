@@ -160,8 +160,7 @@ export function findings(ev) {
   if (fix.injecagent && fix.xstest) {
     out.push(
       `The prompt fix did not reliably reduce attacks on ${fixModels(ev).join(", ")} ` +
-        `(tool hijacks: ${fix.injecagent.verdict}) and raised refusals of safe requests (${fix.xstest.verdict}). ` +
-        "It is optional and measured on each user's own model.",
+        `(tool hijacks: ${fix.injecagent.verdict}) and raised refusals of safe requests (${fix.xstest.verdict}). It is optional.`,
     );
   }
   if (ev.rubric_vs_plain && !ev.rubric_vs_plain.claim_allowed) {

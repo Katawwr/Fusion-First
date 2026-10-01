@@ -11,12 +11,12 @@
           "code": "pip install \"fusion-safety[serve]\"\nfusion serve"
         },
         {
-          "label": "Free: a local open-weight model, then Scan → Open-weight model",
+          "label": "Local model, then Scan → Open-weight model",
           "lang": "bash",
           "code": "ollama pull llama3.2:1b"
         },
         {
-          "label": "Hosted API on your own key (metered to your account), then Scan → Any model → openai:gpt-4o-mini",
+          "label": "Hosted API, then Scan → Any model → openai:gpt-4o-mini",
           "lang": "bash",
           "code": "export OPENAI_API_KEY=\"<your key>\"\nexport FUSION_ALLOW_API_SPEND=1\nfusion serve"
         }
@@ -49,7 +49,7 @@
       "title": "Command line",
       "steps": [
         {
-          "label": "Install, then check available backends",
+          "label": "Install; list backends",
           "lang": "bash",
           "code": "pip install fusion-safety\nfusion doctor"
         },
@@ -106,7 +106,7 @@
           "code": "ollama pull hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:Q4_K_M\nfusion run start --prompt agent.txt --target ollama:hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:Q4_K_M --grader claude-cli"
         },
         {
-          "label": "Hosted API with your key (metered: set FUSION_ALLOW_API_SPEND=1)",
+          "label": "Hosted API (your key + FUSION_ALLOW_API_SPEND=1)",
           "lang": "bash",
           "code": "fusion run start --prompt agent.txt --target openai:gpt-4o-mini --grader claude-cli\nfusion run start --prompt agent.txt --target hf:meta-llama/Llama-3.1-8B-Instruct --grader claude-cli"
         },
@@ -155,27 +155,27 @@
       "name": "Local open-weight model",
       "spec": "ollama:llama3.2:1b",
       "scan": "Open-weight model",
-      "cost": "Free. Needs Ollama running."
+      "cost": ""
     },
     {
       "name": "Your OpenAI-compatible server (vLLM, LM Studio, llama.cpp)",
       "spec": "openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct",
       "scan": "Any model",
-      "cost": "Free on a local or private-network server. A public endpoint needs FUSION_ALLOW_API_SPEND=1."
+      "cost": "A public endpoint needs FUSION_ALLOW_API_SPEND=1."
     },
     {
       "name": "Hosted API, your key",
       "spec": "openai:gpt-4o-mini",
       "scan": "Any model",
-      "cost": "Metered to your account. Set the provider's key and FUSION_ALLOW_API_SPEND=1.",
+      "cost": "Needs the provider's key and FUSION_ALLOW_API_SPEND=1.",
       "also": "Also hf: (HF_TOKEN), anthropic: (ANTHROPIC_API_KEY), openrouter:, together:, groq:, fireworks:, mistral-api:, deepseek:"
     },
     {
       "name": "Any program or agent",
       "spec": "cmd:python fusion_adapter.py",
       "scan": "Command line only",
-      "cost": "Free. The web app refuses cmd: targets; use fusion run start."
+      "cost": "The web app refuses cmd: targets; use fusion run start."
     }
   ],
-  "grader": "Grader: claude-cli (Claude on your subscription, via the claude CLI) by default. Any chat target can grade instead; a run withholds the grade when its grader misses the policy floor on known answers."
+  "grader": "Default grader: claude-cli (your Claude subscription). Any chat target can grade; the grade is withheld when the grader misses the policy floor on known answers."
 }

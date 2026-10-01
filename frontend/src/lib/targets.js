@@ -2,7 +2,7 @@
 // (/api/version → backends; null while unknown). A backend it can't run — or hasn't yet said it can
 // run — is shown disabled with the reason: never offered and left to fail at scan time.
 
-const RUN_LOCALLY = "Runs on your machine with fusion serve (see below).";
+const RUN_LOCALLY = "Local only: fusion serve.";
 const WAITING = "Checking what this server can run…";
 
 // Server reasons are written for a terminal (`code` in backticks, advice after a dash); show the
@@ -62,7 +62,7 @@ export function targetOptions(capabilities) {
       id: "spec",
       title: "Any model",
       note: caps.spec
-        ? "By spec: openai:, hf:, anthropic:, openai-compat:<url>#<model>. Hosted APIs use your key."
+        ? "By spec: openai:, hf:, anthropic:, openai-compat:<url>#<model>. Hosted APIs need your key and FUSION_ALLOW_API_SPEND=1."
         : RUN_LOCALLY,
       disabled: !caps.spec,
     },

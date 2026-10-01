@@ -15,8 +15,7 @@ export default function Use() {
       </Helmet>
       <DocHeader eyebrow="Use" title="Use Fusion">
         <p>
-          Fusion runs on your machine. Targets are free with Ollama or your own server; a hosted API is billed to your
-          own key, and only runs with <code className="inline-code">FUSION_ALLOW_API_SPEND=1</code>.
+          Hosted APIs run only with your own key and <code className="inline-code">FUSION_ALLOW_API_SPEND=1</code>.
         </p>
       </DocHeader>
 
@@ -56,9 +55,9 @@ export default function Use() {
       <p className="doc-section text-sm text-app-muted">
         No install:{" "}
         <Link to="/scan" className="text-link">
-          run the demo scan
+          demo scan
         </Link>{" "}
-        on recorded responses.
+        (recorded responses).
       </p>
     </Doc>
   );

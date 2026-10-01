@@ -210,8 +210,7 @@ function RunLocallyNote() {
         <code>{'pip install "fusion-safety[serve]"\nfusion serve'}</code>
       </pre>
       <p>
-        The same page opens locally with these options enabled: Ollama (free), your own OpenAI-compatible server, or a
-        hosted API on your own key.{" "}
+        Enables Ollama, OpenAI-compatible servers and hosted APIs (your key).{" "}
         <a href="/use#local" className="text-link">
           Run it locally
         </a>

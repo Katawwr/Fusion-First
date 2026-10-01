@@ -135,7 +135,7 @@ export default function Landing() {
             Fusion First attacks an agent with OWASP-mapped prompts, grades the transcripts with a cross-family
             judge whose accuracy is measured against known answers in every run, and reports each rate with a 95%
             interval. A runtime guard redacts leaked secrets and blocks tool calls the user&apos;s own request does
-            not cover; the results below come from pre-registered tests on open-weight models.
+            not cover. Results are from pre-registered tests on open-weight models.
           </p>
           <div className="mt-6 flex flex-wrap gap-2.5">
             <Link to="/scan" className="action action--primary">
@@ -162,9 +162,8 @@ export default function Landing() {
             </dd>
             <dt>Pre-registered tests</dt>
             <dd>
-              Hypothesis, metric and decision rule are committed before scoring. Transcripts are fresh, scored once,
-              and compared on the same items with paired McNemar tests. Rates carry 95% intervals; a result
-              that misses its rule is reported as missed.
+              Hypothesis, metric and decision rule committed before scoring; fresh transcripts, scored once, paired
+              McNemar on the same items. A result that misses its rule is reported as missed.
             </dd>
             <dt>Runtime guard</dt>
             <dd>
@@ -199,7 +198,7 @@ export default function Landing() {
         <DocSection
           id="run-locally"
           title="Run it locally"
-          lead="This site runs a demo on recorded responses. On your machine the same app tests a live model: free with Ollama or your own server, or a hosted API billed to your own key."
+          lead="This site is a demo on recorded responses. Locally, the same app tests a live model."
         >
           <RunLocally compact />
           <p className="mt-5 text-sm">

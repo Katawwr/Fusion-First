@@ -36,7 +36,7 @@ import evidence from "../content/evidence.json";
 
 const ALL_CHECKS = Object.keys(CHECKS);
 const QUALITY = Object.keys(QUALITY_CHECKS);
-const QUALITY_NEEDS_LIVE = "Requires a live model (select one below).";
+const QUALITY_NEEDS_LIVE = "Needs a live model.";
 // The prompt fix's before/after ("prove") opens from the Guard step and is not a step of its own.
 const STEPS = [
   ["setup", "Paste"],
@@ -727,7 +727,7 @@ function RunStep({ scan, checks, onCancel }) {
 /* ---------------------------------------------------------------- 4. Guard */
 
 const FIX_CAVEAT =
-  "On the small open-weight models we measured, it rarely cut attacks and raised refusals of safe requests. Re-test it on your model before you ship it.";
+  "On the small open-weight models measured, it rarely cut attacks and raised refusals of safe requests. Re-test on your model.";
 
 // What the guard did on this scan's own replies (in-sample), overall and per check, and how it was set up.
 function InSample({ replay }) {
@@ -840,7 +840,7 @@ export function GuardStep({
             </div>
           ) : canned ? (
             <p style={{ margin: "0 0 1rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
-              The in-sample replay needs a live scan: the demo's replies are canned.
+              The in-sample replay needs a live scan.
             </p>
           ) : null}
           {snippet ? (

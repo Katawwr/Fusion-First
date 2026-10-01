@@ -15,10 +15,12 @@ export function TargetsTable() {
               <span className="eyebrow">Scan: {t.scan}</span>
             </div>
             <code className="inline-code mt-1.5 inline-block">{t.spec}</code>
-            <p className="mt-1.5 text-sm text-app-muted">
-              {t.cost}
-              {t.also && <span className="mt-1 block text-app-subtle">{t.also}</span>}
-            </p>
+            {(t.cost || t.also) && (
+              <p className="mt-1.5 text-sm text-app-muted">
+                {t.cost}
+                {t.also && <span className="mt-1 block text-app-subtle">{t.also}</span>}
+              </p>
+            )}
           </li>
         ))}
       </ul>
