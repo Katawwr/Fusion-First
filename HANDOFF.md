@@ -1,4 +1,4 @@
-# Handoff — Fusion First rebuild (updated 2026-10-01: 0.1.0 published on PyPI)
+# Handoff — Fusion First rebuild (updated 2026-10-01: 0.1.0 on PyPI, site redeployed)
 
 Start the next chat with: **"Read HANDOFF.md and CLAUDE.md, then continue."** At 85% context the hook asks
 for a handoff (CLAUDE.md, "Context handoff"): a regular session via `start_session` if the app exposes it
@@ -26,7 +26,7 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
   on the bundled marketplace and both plugins.
 - **Deployment:** `fusion-first-testing.com` (Vercel project `secure-studio`, CLI logged in as `katawwr`)
   serves the rebuild; API `https://katawwr--fusion-safety-api-fastapi-app.modal.run` (Modal app
-  `fusion-safety-api`, demo-only, no secret, version `rebuild-bd6b698`). Walked end to end this session
+  `fusion-safety-api`, demo-only, no secret, version `rebuild-25ad103`). **Redeployed 2026-10-01** (owner's go-ahead): API serves the `fusion_first` snippet; frontend bundle `index-DZY60lJr.js` live on the domain; /use shows `uv tool install fusion-safety` + `fusion plugin-dir`; a demo scan (Banking) through Guard shows `from fusion_first.guardrail`, no console errors. Walked end to end this session
   (Playwright MCP): home, Scan (Paste → Attack → Grade → Guard → before/after), HTML report download, /use,
   /trust, dark mode, 375 px: all render, no console errors except the designed 402 on "Grade quality" (the
   demo server has no live model). The old Modal apps (`fusion-quality-tester`, `fusion-secur…`) still run:
@@ -215,14 +215,7 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 
 ## Next
 
-0. **Redeploy the site (next; ask the owner's go-ahead first).** 0.1.0 is published and verified from PyPI
-   (see State). Redeploy BOTH halves of the site: the
-   live API still serves the guard snippet with `from fusion.guardrail ...` (the Guard step shows it) and the
-   live /use has the old install lines and snippet. API: `PYTHONIOENCODING=utf-8 FUSION_VERSION=rebuild-$(git
-   rev-parse --short HEAD) modal deploy app/modal_app.py` (mounts `fusion_first`); frontend: in `frontend/`,
-   `VITE_API_URL=https://katawwr--fusion-safety-api-fastapi-app.modal.run npx vite build --outDir
-   .vercel/output/static`, then `vercel deploy --prebuilt --prod --cwd frontend`; re-walk /use and a demo
-   scan's Guard step on the live domain. The auto-mode classifier denied creating a Modal secret (don't retry).
+0. DONE 2026-10-01: site redeployed (see State).
 0b. Follow-ups found this session: the guard misses paraphrased rule leaks. From the release review, not
    done: the license table + License classifier are deprecated (setuptools warns "by 2027-Feb-18"; the SPDX
    form `license = "LicenseRef-Proprietary"` needs setuptools>=77, which would break the offline
