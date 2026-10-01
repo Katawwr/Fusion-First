@@ -27,7 +27,8 @@ Call `fusion_doctor`. Then:
   `ollama-prob:<model>` only if the user asks.
 - **Checks**: `all` (safety) by default; `quality` or `everything` if asked.
 
-Fusion never uses API keys, and nothing here costs money unless the user explicitly set that up.
+Fusion uses an API key only when the user supplies it and sets `FUSION_ALLOW_API_SPEND=1`; otherwise
+nothing here costs money.
 
 ## 3. Run
 
@@ -60,6 +61,6 @@ Present Fusion's result as it is:
   guardrail would have stopped on this run's own replies, and how it was set up. Say it is in-sample
   (the run's own attacks), not a measurement of the guard. Attacks answered in prose had no tool call
   for the guard to check: never report them as not stopped.
-- Offer the runtime guardrail first (`guard` skill): it blocks leaked secrets and tool calls the user's
-  request does not cover. The prompt fix is optional: give its measured result from the "with fix"
+- Offer the runtime guardrail first (`guard` skill): it redacts secrets and PII in replies, blocks
+  system-prompt dumps, and blocks tool calls the user's own request does not cover. The prompt fix is optional: give its measured result from the "with fix"
   column (honesty label verbatim) and apply it only if the user wants it (`harden` skill).

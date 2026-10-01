@@ -236,7 +236,7 @@ MCP clients start the server with:
 
 ```bash
 python -m pytest -q                              # offline suite
-python -m ruff check fusion tests scripts
+python -m ruff check fusion_first tests scripts app setup.py
 npm --prefix frontend test                       # vitest
 npm --prefix frontend run build && npm --prefix frontend run test:e2e   # Playwright on fusion serve
 ```

@@ -1,9 +1,6 @@
 {
-  "//": "Fusion First MCP server for Claude Code, Cursor, Windsurf, etc. Needs: pip install \"fusion-safety[mcp]\"",
+  "//": "Fusion First MCP server for Claude Code, Cursor, Windsurf, etc. Needs: pip install \"fusion-safety[mcp]\" (puts fusion-mcp on PATH)",
   "mcpServers": {
-    "fusion-safety": {
-      "command": "python",
-      "args": ["-m", "fusion_first.integrations.mcp_server"]
-    }
+    "fusion": { "command": "fusion-mcp" }
   }
 }

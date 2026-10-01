@@ -11,8 +11,8 @@ import pytest
 from fusion_first.cli import build_parser
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DOCS = ["README.md", "PYPI.md", "CLAUDE.md", "plugins/fusion/README.md", "plugins/fusion-guard/README.md",
-        "docs/ARCHITECTURE.md", "docs/RUN_LOCALLY.md"]
+DOCS = ["README.md", "PYPI.md", "CLAUDE.md", "integrations/README.md", "plugins/fusion/README.md",
+        "plugins/fusion-guard/README.md", "docs/ARCHITECTURE.md", "docs/RUN_LOCALLY.md"]
 
 
 def _commands():
@@ -98,3 +98,23 @@ def test_the_use_page_carries_the_cmd_adapter_template_verbatim():
     python = [s["code"].strip() for sec in data["sections"] for s in sec["steps"] if s["lang"] == "python"]
     template = (ROOT / "integrations/examples/fusion_adapter.py").read_text(encoding="utf-8")
     assert template.replace("\r\n", "\n").strip() in python
+
+
+@pytest.mark.unit
+def test_the_integration_guide_lists_every_mcp_tool():
+    src = (ROOT / "fusion_first/integrations/mcp_server.py").read_text(encoding="utf-8")
+    tools = set(re.findall(r"@mcp\.tool\(\)\s+(?:async\s+)?def\s+(\w+)\(", src))
+    guide = (ROOT / "integrations/README.md").read_text(encoding="utf-8")
+    assert len(tools) >= 18
+    assert not [t for t in sorted(tools) if f"`{t}" not in guide]
+    assert f"Tools ({len(tools)})" in guide
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("doc", DOCS + ["integrations/examples/mcp-config.json"])
+def test_one_mcp_config_form_across_docs(doc):
+    """Every MCP registration shown starts the server the same way: the `fusion-mcp` console script."""
+    text = (ROOT / doc).read_text(encoding="utf-8")
+    assert '"command": "python"' not in text
+    if '"mcpServers"' in text:
+        assert '"fusion": { "command": "fusion-mcp" }' in text

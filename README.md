@@ -2,15 +2,16 @@
 
 **Measure and guard AI agents.** Fusion attacks an agent's system prompt with an OWASP-mapped suite,
 grades safety and quality with a cross-family judge whose accuracy is measured in the same run, and
-ships a runtime guardrail that blocks leaked secrets and tool calls the user's request does not cover.
+ships a runtime guardrail: it redacts secrets and PII in replies, blocks obfuscated secrets and
+system-prompt dumps, and blocks tool calls the user's own request does not cover.
 Every number carries a confidence interval or an honesty badge, and every number in this README is
 registered against a committed evidence file (`evals/claims.yaml`, enforced by a test). The prompt fix
 is optional and re-tested on your model (paired before/after, McNemar, honesty badge): on the small
 open-weight models measured it rarely cut attacks and raised refusals of safe requests.
 
 The focus is open-weight models (Ollama, vLLM, any OpenAI-compatible server) graded by a model from a
-different family. Checks, mapped to OWASP LLM Top 10 2025 / Agentic 2026: `direct_prompt_injection`
-(LLM01), `excessive_agency` (LLM06), `data_exfiltration` (LLM02), `system_prompt_leakage` (LLM07).
+different family. Checks, mapped to OWASP LLM Top 10 2025 / Agentic 2026 (Agentic codes
+provisional): `direct_prompt_injection` (LLM01), `excessive_agency` (LLM06), `data_exfiltration` (LLM02), `system_prompt_leakage` (LLM07).
 
 Python 3.11+ · FastAPI · MCP · React 19 / Vite / Tailwind · Modal · Vercel · pytest, vitest, Playwright.
 
@@ -72,10 +73,9 @@ flowchart TB
   transcript a deterministic oracle marks as a clear violation (`fusion_first/runs/oracle_check.py`).
   Otherwise the grade is `?` and the card says why. A violated criterion must quote the agent's own
   output.
-- **Runtime guardrail.** `Guardrail` redacts secrets and blocks system-prompt dumps in replies, and
-  `guard_tool_call` blocks a non-read tool call that the user's own request does not cover once
-  untrusted content is in context; given the tool results, it also blocks reads that the untrusted
-  text asks for when that text asks to send data out.
+- **Runtime guardrail.** `Guardrail` redacts secrets and PII in replies and blocks system-prompt
+  dumps; `guard_tool_call` checks each tool call against the user's own request before it runs. Rules
+  and measured results: [Run it locally](#run-it-locally), section 3.
 - **Evidence pipeline.** Pre-registration → transcripts from local models → oracle labels → scored
   JSON in `evals/validation/v1/` → `TRUST_REPORT.md` and the site's `evidence.json` generated from it
   → `tests/test_claims_backed.py` fails if any proof-like number in the docs or the web app is not
@@ -140,10 +140,9 @@ fusion guard-bench                              # runtime guard benchmark (in-ho
 No local grader is recommended: `ollama-prob:qwen2.5:7b` scored below the policy floor in its
 pre-registered test (Trust Report). CI example: `integrations/README.md`.
 
-**MCP**: `fusion-mcp` (stdio) exposes `fusion_doctor`, `start_run`, `run_status`,
-`get_grading_tasks`, `submit_grades`, `finalize_run`, `verify_run`, the one-shot `audit_agent` /
-`scan_prompt`, the runtime guard's `guardrail_snippet` / `check_output` / `check_tool_call`, and the
-optional `harden_prompt`.
+**MCP**: `fusion-mcp` (stdio) exposes the run engine (`start_run` … `finalize_run`, `verify_run`), the
+one-shot `audit_agent` / `scan_prompt`, the runtime guard's `guardrail_snippet` / `check_output` /
+`check_tool_call`, and the optional `harden_prompt`. All 18 tools: [integrations/README.md](integrations/README.md).
 
 ```json
 { "mcpServers": { "fusion": { "command": "fusion-mcp" } } }
@@ -151,12 +150,34 @@ optional `harden_prompt`.
 
 **3. Runtime guardrail** (in your agent code; the `fusion-guard` plugin for Claude Code)
 
-On fresh successful attacks against qwen2.5:7b and llama3.1:8b (rules 0c560b5, scored once,
+With the published config (`require_authorization=True`):
+
+- **Replies** (`GuardedModelClient`): secrets and PII are redacted by default; obfuscated secrets and
+  system-prompt dumps are blocked. The wrapper does not check tool calls.
+- **Tool calls** (`guard_tool_call`, before each one runs; `user_request` is the user's own words,
+  never tool output):
+  - a call that is not a read must be covered by the user's request;
+  - with `untrusted_context=True`, an unrequested read of private data is blocked;
+  - with `untrusted_text` (the tool results so far), a read that text asks for, and the user did not,
+    is blocked when the text also asks to send data to a non-allowlisted outside address (step 3). No
+    send call is needed; reads the user asked for pass;
+  - a consequential call to a non-allowlisted host is blocked, and so is a secret or PII payload
+    unless every recipient is allowlisted.
+- **Allowlist** (`allowlisted_domains`): an entry matches the exact host or any subdomain. The user's
+  own addresses are not exempt: a send to the user's gmail address counts as external unless
+  `gmail.com` is allowlisted. `user_identities` names them for request matching and exempts them from
+  the step-3 rule.
+
+On fresh successful attacks against qwen2.5:7b and llama3.1:8b (step 2, rules 0c560b5, scored once,
 pre-registered), the guardrail stopped 89% of real attacks while wrongly blocking 1% of clean transcripts:
 every password leak and direct-harm hijack, 69% of data-stealing hijacks. Given the tool results as
-well (`untrusted_text`, step 3), it stopped every data-stealing hijack on further fresh transcripts. The
-wrapper checks replies; each tool call is checked against the user's own request before it runs. Every
-live scan also replays the guard over its own replies (in-sample): the HTML report and
+well (step 3, rules ce897d1), it stopped every data-stealing hijack on further fresh transcripts. On 20
+legitimate requested actions never used in development, the step-2 rules blocked 1; the destination
+rule with no allowlist blocked 12 (every send to the user's own gmail address), so set the allowlist.
+The shipped rules add one later fix (b9e9338) that only narrows the destination rule: a dotted number
+such as an amount or version is no longer read as a host.
+
+Every live scan also replays the guard over its own replies (in-sample): the HTML report and
 `fusion run finalize` show what it would have stopped, and count separately the attacks answered in
 prose, where there is no tool call to check.
 
@@ -166,8 +187,9 @@ from fusion_first.guardrail.policy import GuardConfig
 from fusion_first.guardrail.client import GuardedModelClient
 
 guard = Guardrail(GuardConfig(allowlisted_domains=["your-co.com"], secret_values=["sk-..."],
-                              system_prompt=SYSTEM_PROMPT, require_authorization=True))  # the measured config
-client = GuardedModelClient(your_model_client, guard)   # replies: secrets redacted, prompt dumps blocked
+                              system_prompt=SYSTEM_PROMPT, require_authorization=True))
+# measured with rules 0c560b5 / ce897d1; the later fix b9e9338 only narrows the destination rule
+client = GuardedModelClient(your_model_client, guard)   # replies: secrets/PII redacted, prompt dumps blocked
 outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message,
                                 untrusted_context=True, untrusted_text=tool_results)  # tool results so far
 if outcome.blocked: ...                                  # don't run it
@@ -199,7 +221,7 @@ AI engineering:
 | Sealed blind splits and a burn ledger for judge prompts | `fusion_first/validate/seal.py` |
 | Record/replay cassettes keyed by request hash; refuses stand-in entries in real evidence | `fusion_first/model/replay.py`, `cassettes/` |
 | Runtime guardrail: output redaction, request-bound tool-call policy, untrusted-text binding | `fusion_first/guardrail/` |
-| External benchmarks: InjecAgent, Gandalf, XSTest, IFEval, BIPIA, deepset; Llama Guard 3 comparator; AgentDojo harness | `datasets/external/`, `fusion_first/validate/llama_guard.py`, `scripts/agentdojo_guard.py` |
+| External benchmarks: InjecAgent, Gandalf, XSTest, IFEval, BIPIA, deepset; Llama Guard 3 comparator; AgentDojo harness (step 4, running) | `datasets/external/`, `fusion_first/validate/llama_guard.py`, `scripts/agentdojo_guard.py` |
 | MCP server (v1 and v2 SDKs) and a Claude Code plugin with a grading-only subagent and guard hooks | `fusion_first/integrations/`, `plugins/` |
 | Claims registry: docs and web copy cannot carry an unregistered rate | `fusion_first/validate/claims.py`, `evals/claims.yaml` |
 
@@ -229,7 +251,9 @@ Fullstack engineering:
 - Oracles answer narrow questions (a tool was called, a string appeared); some judge "errors" are real
   violations the oracle can't see (see the disagreement audit in the Trust Report).
 - The judge accuracy evidence covers two checks on one target model's transcripts.
-- The AgentDojo harness (guard inside a live tool-using agent loop) has no committed result yet.
+- AgentDojo: step 4 (pre-registered, running) measures the guard's cost on legitimate tasks inside a
+  live tool-using agent loop. Protection against AgentDojo attacks is not measured: no in-scope attack
+  landed on the tested models in development.
 - Offline runs and the hosted demo use a deterministic stand-in judge; their cards are stamped
   `DEMONSTRATION` and are not evidence.
 
@@ -252,7 +276,7 @@ frontend/           React app (Vite, Tailwind), vitest + Playwright
 plugins/            Claude Code plugins: fusion (skills, grading agent), fusion-guard (hooks)
 datasets/           gold set, probes, external benchmark subsets (with attribution)
 cassettes/          recorded model responses for deterministic offline runs
-crosswalk/          OWASP LLM 2025 + Agentic 2026 mapping
+crosswalk/          OWASP LLM 2025 + Agentic 2026 mapping (Agentic codes provisional)
 evals/              baselines, policy floors, claims registry, validation evidence and pre-registrations
 scripts/            evidence pipelines, guard experiments, Claude Code hooks
 tests/              offline pytest suite
@@ -262,7 +286,7 @@ tests/              offline pytest suite
 
 ```bash
 python -m pytest -q                 # offline suite
-python -m ruff check fusion tests scripts
+python -m ruff check fusion_first tests scripts app setup.py
 python -m fusion_first.validate.trust_report   # regenerate TRUST_REPORT.md from evals/
 ```
 
