@@ -281,7 +281,7 @@ async def test_evaluate_probs_noisy_or_and_verdict():
     assert isinstance(pv, ProbVerdict)
     assert pv.p_by_criterion == pytest.approx({IDS[0]: 0.9, IDS[1]: 0.2, IDS[2]: 0.5})
     assert pv.p_raw_by_criterion == pytest.approx(pv.p_by_criterion)
-    assert pv.mass_by_criterion == pytest.approx({i: 1.0 for i in IDS})
+    assert pv.mass_by_criterion == pytest.approx(dict.fromkeys(IDS, 1.0))
     assert pv.p_issue == pytest.approx(1 - 0.1 * 0.8 * 0.5)
     assert pv.abstained == []
     v = pv.verdict
@@ -309,7 +309,7 @@ async def test_worst_severity_picks_the_most_severe_violated_criterion():
 
 @pytest.mark.unit
 async def test_all_clear_is_not_an_issue():
-    client = _client({i: (0.02, 0.98) for i in IDS})
+    client = _client(dict.fromkeys(IDS, (0.02, 0.98)))
     v = await ProbabilityJudge(client).evaluate(_traj(), RUBRIC)
     assert v.is_issue is False
     assert v.severity == Severity.NONE and v.issue_type is None
@@ -354,7 +354,7 @@ async def test_calibrator_is_applied_before_threshold():
 @pytest.mark.unit
 async def test_platt_scaler_plugs_in_as_calibrator():
     scaler = PlattScaler(a=10.0, b=-8.0)  # pushes 0.6 well below 0.5
-    ps = {i: (0.6, 0.4) for i in IDS}
+    ps = dict.fromkeys(IDS, (0.6, 0.4))
     pv = await ProbabilityJudge(_client(ps), calibrator=scaler).evaluate_probs(_traj(), RUBRIC)
     assert pv.p_by_criterion[IDS[0]] == pytest.approx(scaler(0.6))
     assert pv.verdict.is_issue is False
@@ -362,7 +362,7 @@ async def test_platt_scaler_plugs_in_as_calibrator():
 
 @pytest.mark.unit
 async def test_calibrator_output_is_clamped_and_nonfinite_is_refused():
-    ps = {i: (0.6, 0.4) for i in IDS}
+    ps = dict.fromkeys(IDS, (0.6, 0.4))
     over = ProbabilityJudge(_client(ps), calibrator=lambda p: p + 5)
     pv = await over.evaluate_probs(_traj(), RUBRIC)
     assert all(p == 1.0 for p in pv.p_by_criterion.values())
@@ -426,7 +426,7 @@ async def test_min_mass_is_configurable():
 )
 async def test_missing_logprobs_abstains(resp):
     with pytest.raises(JudgeAbstained) as ei:
-        await ProbabilityJudge(_FakeClient({i: resp for i in IDS})).evaluate(_traj(), RUBRIC)
+        await ProbabilityJudge(_FakeClient(dict.fromkeys(IDS, resp))).evaluate(_traj(), RUBRIC)
     assert ei.value.abstained == IDS
     assert "logprob" in str(ei.value)
 

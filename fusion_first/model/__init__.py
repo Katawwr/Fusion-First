@@ -1,8 +1,9 @@
 """Provider-agnostic model access.
 
 `ModelClient` is the one interface the engine and judge depend on. Concrete providers
-(anthropic, openai) implement it; `ReplayModelClient` implements it from recorded cassettes
-so the whole offline test/eval loop is deterministic and free.
+(`providers/`: Ollama, the claude CLI, OpenAI-compatible servers, any command, metered APIs)
+implement it; `ReplayModelClient` implements it from recorded cassettes so the whole offline
+test/eval loop is deterministic and free.
 """
 
 from fusion_first.model.client import ModelClient, ModelRequest, ModelResponse, ModelRole

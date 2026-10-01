@@ -40,9 +40,6 @@ class BudgetState:
     output_tokens: int = 0
     limits: BudgetLimits = field(default_factory=BudgetLimits)
 
-    def remaining_calls(self) -> int:
-        return max(0, self.limits.max_calls - self.calls)
-
 
 class BudgetedModelClient:
     def __init__(

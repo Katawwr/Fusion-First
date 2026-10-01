@@ -1,4 +1,4 @@
-"""Runtime settings, read from the environment (Modal secret in prod, plain env locally).
+"""Runtime settings, read from the environment.
 
 Keys live server-side only and are never returned to the client. When no provider key is present,
 the app runs in demo mode — every scan is a clearly-badged demonstration.
@@ -25,10 +25,10 @@ class Settings(BaseSettings):
     prompt_max_chars: int = 32_000
     sse_heartbeat_s: float = 15.0  # keepalive comment interval for long live scans
 
-    # Freemium stub (real enforcement lands with persistence in M4).
+    # Reported by /api/credits; not enforced (no accounts).
     free_scans_per_day: int = 3
 
-    # Fail-closed webhook (billing effect stubbed; the signature gate is real).
+    # Fail-closed webhook signature (the webhook has no effect; the signature gate is real).
     webhook_secret: str | None = None
 
     # Surfaced by /api/version for provenance: VERSION (the Modal deploy sets the git sha), else the release.
@@ -43,10 +43,6 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FUSION_ALLOW_LOCAL_BACKENDS", "allow_local_backends"),
     )
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
-
-    @property
-    def has_live_keys(self) -> bool:
-        return bool(self.anthropic_api_key)
 
 
 def load_settings() -> Settings:

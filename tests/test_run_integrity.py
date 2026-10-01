@@ -1,4 +1,4 @@
-"""Regression tests for the M7 adversarial review: a lazy, skipping, forging or late grader must never
+"""Regression tests from an adversarial review of the run engine: a lazy, skipping, forging or late grader must never
 turn into a passing grade, and the run's files must stay consistent under concurrent writers."""
 
 from __future__ import annotations

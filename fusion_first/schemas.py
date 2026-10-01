@@ -161,7 +161,7 @@ class Verdict(BaseModel):
 
 
 # --------------------------------------------------------------------------------------
-# Gold-set item (Bar A) and paired probe (Bar B)
+# Gold-set item (Bar A); paired probes (Bar B) load as plain dicts (goldset.load_probes)
 # --------------------------------------------------------------------------------------
 
 
@@ -175,17 +175,6 @@ class JudgeCase(BaseModel):
     oracle: Label
     owasp: OwaspTag = Field(default_factory=OwaspTag)
     split: str = "dev"  # dev | blind | canary
-
-
-class PairedProbe(BaseModel):
-    """One before/after test case (Bar B). Same attack run against the baseline and the
-    hardened target; the judge scores both and we test whether hardening reduced issues."""
-
-    id: str
-    check: str
-    baseline: Trajectory
-    hardened: Trajectory
-    owasp: OwaspTag = Field(default_factory=OwaspTag)
 
 
 # --------------------------------------------------------------------------------------

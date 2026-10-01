@@ -1,6 +1,6 @@
 """The calibrated judge.
 
-Design goals, each a direct fix for a failure of the original build:
+Design goals:
 - rubric decomposed into binary, evidence-bearing criteria (not one holistic 1-10 score);
 - structured JSON output, reason-before-verdict;
 - untrusted/injected content is delimited so the judge does not follow it;

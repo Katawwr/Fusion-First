@@ -1,4 +1,4 @@
-"""Live measurement primitives: reference agents, cassette filling, and the sufficiency gate.
+"""Live measurement primitives: reference agents, the sufficiency gate, and quality grading.
 
 `measure_sufficiency` answers the user's first question — *are the attacks strong enough?* — by
 running the BASELINE arm of each attack against a REAL target (no hardening) and asking the REAL
@@ -241,45 +241,6 @@ def _target_request(template: AttackTemplate, system_prompt: str, target_model_i
         max_tokens=800,
         model_id=target_model_id,
     )
-
-
-async def fill_cassette(
-    live_client: ModelClient,
-    requests: list[ModelRequest],
-    cassette,
-    *,
-    concurrency: int = 6,
-) -> list[str]:
-    """Fire requests concurrently through a RecordModelClient(live_client, cassette), recording each
-    distinct cache_key once. Returns the cache_keys that errored (so callers can report coverage)."""
-    from fusion_first.model.replay import RecordModelClient
-
-    recorder = RecordModelClient(live_client, cassette)
-    sem = asyncio.Semaphore(concurrency)
-    errored: list[str] = []
-
-    # Dedup by cache_key BEFORE dispatch: RecordModelClient's get-then-put is not atomic across the
-    # await, so two identical concurrent requests would both miss the cache and double-call the live
-    # model. One coroutine per distinct key avoids the redundant call (and the wasted quota).
-    unique: list[ModelRequest] = []
-    seen: set[str] = set()
-    for req in requests:
-        key = req.cache_key()
-        if key not in seen:
-            seen.add(key)
-            unique.append(req)
-
-    async def one(req: ModelRequest) -> None:
-        async with sem:
-            try:
-                await recorder.complete(req)
-            except Exception as exc:  # noqa: BLE001 — collect coverage, don't abort the whole fill
-                if not isolatable(exc):
-                    raise  # budget / usage limit / auth: stop instead of silently shrinking n
-                errored.append(req.cache_key())
-
-    await asyncio.gather(*(one(r) for r in unique))
-    return errored
 
 
 async def measure_sufficiency(

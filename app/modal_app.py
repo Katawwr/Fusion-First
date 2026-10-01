@@ -1,8 +1,7 @@
 """Modal deployment wrapper — THE ONLY module in the repo that imports `modal`.
 
-Deploys the pure FastAPI app (app.factory.create_app) as a NEW Modal app, entirely separate from
-the legacy `fusion-quality-tester`. The legacy deployment is never touched; rollback is a one-line
-frontend env change (point VITE_API_URL back).
+Deploys the pure FastAPI app (app.factory.create_app, i.e. fusion_first.web.factory) as the Modal
+app `fusion-safety-api`.
 
     FUSION_VERSION=$(git rev-parse --short HEAD) modal deploy app/modal_app.py
 
@@ -29,7 +28,6 @@ image = (
         "numpy>=1.26",
         "scipy>=1.13",
         "pyyaml>=6.0",
-        "pyjwt[crypto]>=2.9",
     )
     .env({"VERSION": os.environ.get("FUSION_VERSION", "dev")})
     # The pure core + HTTP layer + committed datasets/cassettes/crosswalk the engine reads at runtime.
