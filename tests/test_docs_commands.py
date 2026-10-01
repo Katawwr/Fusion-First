@@ -11,13 +11,17 @@ import pytest
 from fusion_first.cli import build_parser
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DOCS = ["README.md", "CLAUDE.md", "plugins/fusion/README.md", "plugins/fusion-guard/README.md"]
+DOCS = ["README.md", "CLAUDE.md", "plugins/fusion/README.md", "plugins/fusion-guard/README.md",
+        "docs/ARCHITECTURE.md", "docs/RUN_LOCALLY.md"]
 
 
 def _commands():
     for doc in DOCS:
         text = (ROOT / doc).read_text(encoding="utf-8")
-        for block in re.findall(r"```(?:bash|sh)?\n(.*?)```", text, re.S):
+        # Pair each fence with its own closer, so a ```python or ```mermaid block can't shift the pairing.
+        for lang, block in re.findall(r"```([\w-]*)\n(.*?)```", text, re.S):
+            if lang not in ("", "bash", "sh"):
+                continue
             for line in block.splitlines():
                 line = line.split(" #")[0].strip()
                 for part in re.split(r"&&|;|\|", line):
