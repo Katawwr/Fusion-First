@@ -1,7 +1,8 @@
 """Development readout for the runtime guard's tool-call rules. DIAGNOSTIC, never evidence: it runs on the
-spent InjecAgent samples (v1 and compact, all four models) and the benign-actions `dev` cases only.
+spent InjecAgent samples (v1 and compact on the four 1-3B models; step 2 on qwen2.5:7b and llama3.1:8b) and the
+benign-actions `dev` cases only.
 
-    python scripts/guard_dev.py [--out <scratch>/guard_dev.json] [--verbose]
+    python scripts/guard_dev.py [--harness v2|v3] [--out <scratch>/guard_dev.json] [--verbose]
 
 The benign-actions `heldout` cases cannot be selected here: they are sealed for a pre-registered run.
 """
@@ -25,7 +26,7 @@ from fusion_first.validate.benign_actions import (  # noqa: E402
 )
 from fusion_first.validate.experiments import SPENT, build_items  # noqa: E402
 from fusion_first.validate.guard_on_transcripts import (  # noqa: E402
-    HARNESS,
+    HARNESSES,
     _calls,
     injecagent_outcome,
 )
@@ -33,21 +34,29 @@ from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore
 
 MODELS = ("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "qwen2.5:3b")
 SAMPLE_NAMES = ("v1", "compact")
+# Step 2 (scored 2026-09-28, spent since): its own sample and models.
+STEP2 = ("step2", ("fusion-evidence-step2-v1", 100, SPENT), ("qwen2.5:7b", "llama3.1:8b"))
 
 
-def transcripts(n: int) -> dict:
+def _samples(n: int):
+    for name, spec in zip(SAMPLE_NAMES, SPENT, strict=True):
+        yield name, build_items("injecagent", n, salt=spec[0], exclude=spec[2] if len(spec) > 2 else None), MODELS
+    name, (salt, size, exclude), models = STEP2
+    yield name, build_items("injecagent", size, salt=salt, exclude=exclude), models
+
+
+def transcripts(n: int, harness: str = "v2") -> dict:
     store = TranscriptStore(ROOT / STORE_DIR_DEFAULT)
     table = defaultdict(lambda: {"attacks": 0, "stopped": 0, "clean": 0, "over_blocked": 0})
     misses, over = [], []
-    for name, spec in zip(SAMPLE_NAMES, SPENT, strict=True):
-        items = build_items("injecagent", n, salt=spec[0], exclude=spec[2] if len(spec) > 2 else None)
-        for model in MODELS:
+    for name, items, models in _samples(n):
+        for model in models:
             recs = store.load("injecagent", model)
             for it in items:
                 rec = recs.get((it.item_id, "baseline"))
                 if rec is None or rec.error or rec.response is None:
                     continue
-                o = injecagent_outcome(it, rec.response)
+                o = injecagent_outcome(it, rec.response, harness=harness)
                 row = table[f"{name}:{it.item_id.split(':')[1]}"]
                 if o["attack"]:
                     row["attacks"] += 1
@@ -81,10 +90,11 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="guard_dev")
     p.add_argument("--n", type=int, default=30)
     p.add_argument("--out", help="write the full readout (JSON) here, e.g. under the scratchpad")
+    p.add_argument("--harness", choices=sorted(HARNESSES), default="v2")
     p.add_argument("--verbose", action="store_true")
     a = p.parse_args(argv)
-    t, b = transcripts(a.n), benign()
-    print(f"DIAGNOSTIC (spent samples, harness {HARNESS})")
+    t, b = transcripts(a.n, a.harness), benign()
+    print(f"DIAGNOSTIC (spent samples, harness {HARNESSES[a.harness]})")
     for g, s in sorted(t["by_sample_kind"].items()):
         print(f"  {g:12} attacks stopped {s['stopped']:3}/{s['attacks']:<3}  clean wrongly blocked "
               f"{s['over_blocked']:3}/{s['clean']}")
@@ -98,7 +108,7 @@ def main(argv=None) -> int:
         for r in b["blocked"]:
             print("  benign", r["case_id"], [(c["tool"], c["rules"]) for c in r["blocked_calls"]])
     if a.out:
-        pathlib.Path(a.out).write_text(json.dumps({"harness": HARNESS, "transcripts": t, "benign_dev": b}, indent=1),
+        pathlib.Path(a.out).write_text(json.dumps({"harness": HARNESSES[a.harness], "transcripts": t, "benign_dev": b}, indent=1),
                                        encoding="utf-8")
     return 0
 

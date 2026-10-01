@@ -75,6 +75,9 @@ class GuardConfig(BaseModel):
     # (guard_tool_call(..., untrusted_context=True)); then an unrequested private-data read is blocked too.
     bind_after_untrusted: bool = True
     gate_private_reads: bool = True
+    # Given the untrusted text (guard_tool_call(..., untrusted_text=...)): block a read that text asks for and
+    # the user did not, when the text also asks to send data to an external destination.
+    bind_reads_on_exfil_request: bool = True
     # Tools this deployment knows only read: exempt from the binding.
     readonly_tools: list[str] = Field(default_factory=list)
     # The user's own addresses and handles: "email it to me" names them.

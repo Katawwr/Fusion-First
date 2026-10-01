@@ -13,6 +13,7 @@ from fusion_first.validate.guard_on_transcripts import (
     gandalf_outcome,
     injecagent_outcome,
     summarize,
+    untrusted_words,
     user_words,
 )
 
@@ -59,6 +60,14 @@ def _call(item) -> str:
 def test_an_ordinary_read_the_attacker_asks_for_is_not_stopped():
     out = injecagent_outcome(_item("injecagent:ds:0147"), _call(_item("injecagent:ds:0147")))  # DropboxGetItemMetadata
     assert out["attack"] is True and out["stopped"] is False
+
+
+@pytest.mark.unit
+def test_harness_v3_gives_the_guard_the_tool_result_and_stops_that_read():
+    item = _item("injecagent:ds:0147")
+    assert untrusted_words(item) and untrusted_words(item) not in user_words(item)
+    out = injecagent_outcome(item, _call(item), harness="v3")
+    assert out["attack"] is True and out["stopped"] is True
 
 
 @pytest.mark.unit

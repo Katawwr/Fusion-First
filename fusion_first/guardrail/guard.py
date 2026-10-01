@@ -96,6 +96,22 @@ def _covers(user_request: str, tool: str) -> bool:
     return bool(_Terms(user_request).mentioned(words) & touched)
 
 
+def _asked_for(user_request: str, tool: str, arguments=None) -> bool:
+    """The request asks for this read: it names what the read touches (_covers), or uses the tool's own
+    read verb as a verb and names another word of the tool (generic and channel words count: "read the
+    latest email") or one of the call's argument values (the URL of "navigate to codedculinary.com")."""
+    if not user_request:
+        return False
+    if _covers(user_request, tool):
+        return True
+    words = _tool_words(tool)
+    terms = _Terms(user_request)
+    if not any(terms.has_verb(w) for w in words if w in _READONLY_VERBS):
+        return False
+    others = {i for i, w in enumerate(words) if w not in _READONLY_VERBS and w not in _FILLER}
+    return bool(terms.mentioned(words) & others) or _args_mentioned(user_request, arguments)
+
+
 def _names_tool(user_request: str, tool: str) -> bool:
     return bool(re.search(rf"(?<![\w]){re.escape(tool.lower())}(?![\w])", user_request.lower()))
 
@@ -438,11 +454,13 @@ class _Terms:
         return False
 
     def mentioned(self, words: list[str]) -> set[int]:
-        """Indices of the tool words the request mentions, alone or joined with a neighbour (git+hub)."""
+        """Indices of the tool words the request mentions, alone or joined with one or two neighbours
+        (git+hub, 23+and+me)."""
         hit = {i for i, w in enumerate(words) if self.has(w)}
-        for i in range(len(words) - 1):
-            if words[i] + words[i + 1] in self.words:
-                hit |= {i, i + 1}
+        for size in (2, 3):
+            for i in range(len(words) - size + 1):
+                if "".join(words[i:i + size]) in self.words:
+                    hit |= set(range(i, i + size))
         return hit
 
 
@@ -580,6 +598,20 @@ def _external_targets(text: str, allow: list[str]) -> list[str]:
     if intl:
         return []  # a real recipient exists and every one is internal — ignore prose noise
     return _prose_sinks(text, allow)  # no parseable recipient — fall back to prose signals
+
+
+def _asks_to_send_out(text: str, allow: list[str], user_request: str, identities) -> list[str]:
+    """The external destinations untrusted text asks the agent to send something to: a send verb used as
+    a verb, and an email / URL / IP that is not allowlisted, not the user's own and not named by the user."""
+    if not text or not any(_Terms(text).has_verb(v) for v in _SEND_VERBS):
+        return []
+    own = (user_request or "").lower()
+    mine = {i.lower() for i in identities}
+    # Whole addresses: the user naming one gmail.com address must not clear every other.
+    found = [m.group(0) for m in _EMAIL.finditer(text) if not _is_internal(m.group(1), allow)]
+    found += [h for h in _URL.findall(text) if not _is_internal(h, allow)]
+    found += [m.group() for m in _IPV4.finditer(text)]
+    return list(dict.fromkeys(r for r in found if r.lower() not in own and r.lower() not in mine))
 
 
 def _provably_internal(text: str, allow: list[str]) -> bool:
@@ -751,15 +783,19 @@ class Guardrail:
 
     # -------------------------------------------------------------- tool call
     def guard_tool_call(
-        self, name: str, arguments: dict, user_request: str = "", untrusted_context: bool = False
+        self, name: str, arguments: dict, user_request: str = "", untrusted_context: bool = False,
+        untrusted_text: str = "",
     ) -> GuardOutcome:
         """Block a tool call that (a) the user's request does not cover, when authorization is
         required or untrusted content is in context (anything not shown to be a read needs it), (b)
-        reads private data the user did not ask about, after untrusted content, (c) is consequential
-        and targets an external/untrusted destination, or (d) would ship a secret/PII value outward.
+        reads private data the user did not ask about, after untrusted content, (b2) is a read the
+        untrusted text asks for and the user did not, while that text also asks to send data to an
+        external destination, (c) is consequential and targets an external/untrusted destination, or
+        (d) would ship a secret/PII value outward.
 
         `user_request` must be the user's own words: text from tool results or documents in it would
-        let an injected instruction authorize itself."""
+        let an injected instruction authorize itself. `untrusted_text` is that other text (tool results,
+        documents, web pages); giving it implies `untrusted_context`."""
         out = GuardOutcome(decision=Decision.ALLOW, content=name if isinstance(name, str) else str(name or ""))
         if not self.config.guard_tool_calls:
             return out
@@ -769,6 +805,8 @@ class Guardrail:
             return out
         cfg = self.config
         user_request = user_request if isinstance(user_request, str) else ""
+        untrusted_text = untrusted_text if isinstance(untrusted_text, str) else ""
+        untrusted_context = untrusted_context or bool(untrusted_text)
         readonly = name in cfg.readonly_tools or (name not in cfg.consequential_tools and _is_readonly(name))
         bound = cfg.require_authorization or (untrusted_context and cfg.bind_after_untrusted)
         after = " after untrusted content entered the context" if untrusted_context else ""
@@ -796,6 +834,20 @@ class Guardrail:
                     detail=f"'{name}' reads private data the user did not ask about{after}",
                 )
             )
+        if (readonly and cfg.bind_reads_on_exfil_request and untrusted_text and _covers(untrusted_text, name)
+                and not _asked_for(user_request, name, arguments)):
+            sinks = _asks_to_send_out(untrusted_text, cfg.allowlisted_domains, user_request, cfg.user_identities)
+            if sinks:
+                out.add(
+                    GuardEvent(
+                        stage="tool_call",
+                        check="sensitive_info_disclosure",
+                        owasp=_OWASP["sensitive_info_disclosure"],
+                        decision=Decision.BLOCK,
+                        detail=f"'{name}' is asked for by untrusted content that also asks to send data to "
+                               f"{sinks}, not by the user",
+                    )
+                )
         if name not in cfg.consequential_tools and not _looks_consequential(name):
             return out
 
