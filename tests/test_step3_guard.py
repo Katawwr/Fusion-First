@@ -46,6 +46,30 @@ def test_not_adopted_without_a_significant_gain():
     assert s["decision"] == "not adopted"
 
 
+EVIDENCE = ROOT / "evals/validation/v1/step3_guard.json"
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not EVIDENCE.exists(), reason="step 3 has not been scored yet")
+def test_the_committed_step3_result_re_derives_from_its_rows():
+    import json
+
+    ev = json.loads(EVIDENCE.read_text(encoding="utf-8"))
+    again = STEP3["score_rows"](ev["rows"])
+    for key in ("v2", "v3", "comparisons", "decision", "decision_inputs"):
+        assert again[key] == ev[key], key
+    assert ev["guardrail_git_sha"] == STEP3["RULES_SHA"] and ev["sample"]["n"] == STEP3["N"]
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(not EVIDENCE.exists(), reason="step 3 has not been scored yet")
+def test_the_committed_rows_re_derive_from_the_committed_transcripts():
+    import json
+
+    ev = json.loads(EVIDENCE.read_text(encoding="utf-8"))
+    assert STEP3["rows"]() == ev["rows"]
+
+
 @pytest.mark.unit
 def test_not_adopted_when_it_blocks_more_clean_transcripts_than_registered():
     extra = STEP3["MAX_EXTRA_CLEAN_BLOCKED"] + 1
