@@ -38,16 +38,14 @@ export default function Privacy() {
                 <h2 className="doc-h2 mb-4">Privacy</h2>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                   <Item title="Demo scans on this website">
-                    The system prompt you paste is sent to the Fusion server to run the demo.
-                    Demo responses are canned; your prompt is not sent to any AI model. The
-                    report is kept in server memory so its link works, is never written to a
-                    database, and is discarded when the server restarts.
+                    Your prompt goes to the Fusion server, never to an AI model; responses are
+                    canned. Reports are held in server memory only (no database) and discarded
+                    on restart.
                   </Item>
                   <Item title="Local use (CLI, MCP server, local web app)">
-                    Your prompts and results stay on your machine. Live tests call only the
-                    backends you choose: local models (Ollama, your own servers), the Claude CLI on
-                    your subscription, a command you supply, or a hosted API with your own key
-                    after you opt in (FUSION_ALLOW_API_SPEND=1). Each provider&apos;s terms apply.
+                    Prompts and results stay on your machine. Live tests call only the backends
+                    you choose; a hosted API needs your own key and FUSION_ALLOW_API_SPEND=1.
+                    Each provider&apos;s terms apply.
                   </Item>
                   <Item title="Stored in your browser">
                     Only your light/dark theme preference (localStorage). No tracking cookies.
@@ -61,13 +59,6 @@ export default function Privacy() {
               <section style={{ marginBottom: "2rem" }}>
                 <h2 className="doc-h2 mb-4">Terms</h2>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <Item title="What Fusion is">
-                    An evaluation engine that tests AI agents for safety (for example prompt
-                    injection, data exfiltration, excessive agency and system prompt leakage)
-                    and quality, and suggests fixes. Every reported number carries its sample
-                    size and a confidence interval or an honesty badge.
-                  </Item>
-
                   <div
                     style={{
                       borderLeft: "2px solid var(--danger)",
@@ -78,8 +69,7 @@ export default function Privacy() {
                       Limits & no guarantees
                     </p>
                     <p style={{ marginBottom: "0.5rem" }}>
-                      AI models are probabilistic. Fusion measures how often attacks land and how
-                      accurate its grader is, but it DOES NOT guarantee:
+                      Fusion measures attack rates and grader accuracy. It does not guarantee:
                     </p>
                     <ul style={{ listStyle: "disc", paddingLeft: "1.5rem", marginBottom: "0.75rem" }}>
                       <li>100% accuracy in quality issue detection</li>
