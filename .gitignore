@@ -60,3 +60,6 @@ datasets/external/raw/
 
 # Claude Code agent worktrees (harness-managed)
 .claude/worktrees/
+
+# AgentDojo model-response cache (scripts/agentdojo_guard.py); episode records under evals/ are the evidence.
+.fusion/agentdojo-cache/
