@@ -62,7 +62,7 @@ export function ResultsTable({ groups }) {
         </table>
       </div>
       <p className="table-note">
-        Pink: costs. Grey: comparators. Change rows span ±50 pts.
+        Purple: Fusion's results. Pink: costs. Grey: comparators. Change rows span ±50 pts.
       </p>
     </figure>
   );
