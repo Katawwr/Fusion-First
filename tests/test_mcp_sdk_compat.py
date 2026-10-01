@@ -92,3 +92,13 @@ def test_without_the_sdk_the_server_says_how_to_install_it(monkeypatch):
 
     with pytest.raises(SystemExit, match=r'pip install "fusion-safety\[mcp\]"'):
         mcp_server.build_server()
+
+
+def test_on_the_installed_sdk_the_server_reports_fusions_version():
+    # On 1.x the low-level server has no version unless set, and then reports the mcp package's own.
+    pytest.importorskip("mcp")
+
+    server = mcp_server.build_server()
+
+    low = getattr(server, "_mcp_server", None) or getattr(server, "_lowlevel_server", None)
+    assert low.create_initialization_options().server_version == fusion_first.__version__

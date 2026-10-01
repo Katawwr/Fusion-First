@@ -103,6 +103,9 @@ def build_server(runs: RunTools | None = None):
         from mcp.server.mcpserver.exceptions import ToolError
 
         mcp.tool = _messages_kept(mcp.tool, ToolError)
+    elif getattr(mcp, "_mcp_server", None) is not None:
+        # 1.x takes no version; its low-level server would otherwise report the mcp package's own.
+        mcp._mcp_server.version = __version__
     runs = runs or RunTools()
 
     # ---- keyless run engine (host-as-judge) ----------------------------------------------------
