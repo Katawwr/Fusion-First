@@ -73,6 +73,24 @@ test.describe("desktop", () => {
     await expect(claude).toContainText(/FUSION_OFFLINE|isn't installed/);
     await expect(page.getByRole("radio", { name: /^Open-weight model/ })).toBeDisabled();
     await expect(page.getByRole("radio", { name: /^Demo scan/ })).toBeEnabled();
+    await expect(page.getByRole("radio", { name: /^Any model/ })).toBeVisible();
+    // A server that runs local models shows no install line.
+    await expect(page.getByRole("link", { name: "Run it locally", exact: true })).toHaveCount(0);
+  });
+
+  test("a demo-only server offers the demo alone and one line to run live models locally", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`${process.env.DEMO_ONLY_URL}/scan`);
+    const link = page.getByRole("link", { name: "Run it locally", exact: true });
+    await expect(link).toHaveAttribute("href", "/use#local");
+    await expect(page.getByText('pip install "fusion-safety[serve]"')).toBeVisible();
+    await expect(page.getByRole("radio", { name: /^Demo scan/ })).toBeEnabled();
+    await expect(page.getByRole("radiogroup", { name: "Target model" }).getByRole("radio")).toHaveCount(1);
+    // The demo still runs end to end there.
+    await page.getByRole("button", { name: "Support bot" }).click();
+    await page.getByRole("button", { name: "Run the scan" }).click();
+    await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
+    expect(errors).toEqual([]);
   });
 
   test("the trust page shows the measured results", async ({ page }) => {

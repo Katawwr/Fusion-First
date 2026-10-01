@@ -31,14 +31,12 @@ export default function CopyButton({ text, label = "Copy", className = "" }) {
         alignItems: "center",
         gap: "0.45rem",
         borderRadius: "0.75rem",
-        border: `1px solid ${copied ? "var(--ok)" : "var(--border)"}`,
-        background: copied
-          ? "color-mix(in srgb, var(--ok) 12%, transparent)"
-          : "var(--surface-2)",
+        border: `1px solid ${copied ? "var(--accent)" : "var(--border)"}`,
+        background: copied ? "var(--accent-soft)" : "var(--surface-2)",
         padding: "0.5rem 0.9rem",
         fontSize: "0.875rem",
         fontWeight: 600,
-        color: copied ? "var(--ok)" : "var(--text)",
+        color: copied ? "var(--accent-ink)" : "var(--text)",
         cursor: "pointer",
         transition: "all .18s ease",
       }}

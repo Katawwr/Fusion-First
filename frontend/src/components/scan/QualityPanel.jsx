@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import Card from "../ui/Card";
 import Button from "../ui/Button";
-import CheckIcon from "../ui/CheckIcon";
 import GradeBadge from "../report/GradeBadge";
 import { gradeQuality } from "../../lib/scanApi";
 import { qualityMeta } from "../../lib/jargon";
@@ -35,10 +34,7 @@ export default function QualityPanel({ systemPrompt }) {
 
   return (
     <Card>
-      <div className="mb-2 flex items-center gap-3">
-        <CheckIcon check="instruction_following" size={32} />
-        <span className="font-semibold text-app-text">{meta.label}</span>
-      </div>
+      <p className="mb-2 font-semibold text-app-text">{meta.label}</p>
       <p className="mb-3 text-sm text-app-muted">{meta.scenario}</p>
 
       {state === "idle" && (
@@ -53,8 +49,7 @@ export default function QualityPanel({ systemPrompt }) {
 
       {state === "unavailable" && (
         <p className="text-sm text-app-muted">
-          Needs a <strong className="text-app-text">live</strong> model:{" "}
-          <code>fusion serve</code>, or{" "}
+          Needs a live model: <code>fusion serve</code>, or{" "}
           <code>
             fusion run start --prompt prompt.txt --check quality --target
             ollama:llama3.2:1b --grader claude-cli

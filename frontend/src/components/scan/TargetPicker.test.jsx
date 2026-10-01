@@ -61,17 +61,24 @@ describe("TargetPicker", () => {
     expect([...select.options].map((o) => o.value)).toEqual(["qwen2.5:3b", "llama3.2:1b"]);
   });
 
-  it("on a server without local backends, points to running Fusion on your machine", () => {
+  it("on the hosted demo, offers only the demo: no disabled live options", () => {
     pick({ capabilities: HOSTED_DEMO });
-    expect(option("Open-weight model")).toBeDisabled();
-    expect(option("^Claude")).toBeDisabled();
-    expect(screen.getAllByText(/fusion serve/).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual([
+      expect.stringMatching(/^Demo scan/),
+    ]);
+    expect(screen.queryByRole("radio", { name: /Open-weight model|^Claude|Any model/ })).toBeNull();
   });
 
-  it("on the hosted demo, shows the install once and links the local setup", () => {
+  it("on the hosted demo, gives the install in one line and links the local setup", () => {
     pick({ capabilities: HOSTED_DEMO });
-    expect(screen.getByText(/pip install "fusion-safety\[serve\]"/)).toBeInTheDocument();
+    expect(screen.getByText('pip install "fusion-safety[serve]"')).toBeInTheDocument();
+    expect(screen.getByText("fusion serve")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Run it locally" })).toHaveAttribute("href", "/use#local");
+  });
+
+  it("offers a hosted scan only where the server enabled one", () => {
+    pick({ capabilities: { ...HOSTED_DEMO, api: true } });
+    expect(option("Hosted scan")).toBeEnabled();
   });
 
   it("shows no install note on a local server", () => {
@@ -80,16 +87,21 @@ describe("TargetPicker", () => {
   });
 
   it("never offers a hosted scan on a local server", () => {
-    pick({ capabilities: READY });
-    expect(screen.queryByRole("radio", { name: /Hosted/ })).toBeNull();
+    pick({ capabilities: { ...READY, api: true } });
+    expect(screen.queryByRole("radio", { name: /^Hosted scan/ })).toBeNull();
   });
 
-  it("offers no live backend until the server says it can run it", () => {
-    pick({ capabilities: null });
-    expect(option("Open-weight model")).toBeDisabled();
-    expect(option("^Claude")).toBeDisabled();
+  it("offers only the demo, without the install note, while the server hasn't answered", () => {
+    pick({ capabilities: null, checking: true });
+    expect(screen.getAllByRole("radio")).toHaveLength(1);
     expect(option("Demo scan")).toBeEnabled();
-    expect(screen.queryByRole("radio", { name: /Hosted/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Run it locally" })).toBeNull();
+  });
+
+  it("treats a server that never answered as the demo", () => {
+    pick({ capabilities: null });
+    expect(screen.getAllByRole("radio")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Run it locally" })).toBeInTheDocument();
   });
 
   it("does not offer an Ollama that has no models pulled", () => {

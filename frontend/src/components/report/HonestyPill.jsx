@@ -18,7 +18,6 @@ export default function HonestyPill({ badge, p, nPairs }) {
       : "";
   return (
     <span
-      title={meta.blurb}
       style={{
         display: "inline-flex",
         alignItems: "center",

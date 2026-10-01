@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import Card from "../ui/Card";
-import CheckIcon from "../ui/CheckIcon";
 import GradeBadge from "./GradeBadge";
 import OwaspChip from "./OwaspChip";
 import BeforeAfterBars from "./BeforeAfterBars";
@@ -25,7 +24,6 @@ function AttackList({ outcomes, quality = false }) {
             key={o.probe_id}
             className="flex items-start gap-2 text-sm text-app-muted"
           >
-            {/* A plain bullet: this list is the measurement; the optional fix's effect is its own block. */}
             <span
               aria-hidden
               style={{
@@ -34,7 +32,7 @@ function AttackList({ outcomes, quality = false }) {
                 height: 6,
                 marginTop: "0.5rem",
                 borderRadius: "50%",
-                background: "var(--danger)",
+                background: "var(--subtle)",
               }}
             />
             <span>{o.attack_label}</span>
@@ -45,7 +43,7 @@ function AttackList({ outcomes, quality = false }) {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="text-xs text-fusion-cyan hover:underline"
+          className="self-start text-xs text-accent-ink hover:underline"
         >
           {open ? "Show fewer" : `Show all ${gotThrough.length}`}
         </button>
@@ -54,18 +52,15 @@ function AttackList({ outcomes, quality = false }) {
   );
 }
 
-// One check's card: grade, plain title, OWASP chips, what got through, trust block, grader accuracy,
-// then the optional prompt fix's before/after.
+// One check's card: grade, title, OWASP codes, what got through, trust block, grader accuracy, then the
+// optional prompt fix's before/after. No scenario line: the setup step already showed it.
 export default function ReportCard({ card, outcomes = [] }) {
   const meta = metaFor(card.check);
   const quality = card.kind === "quality" || isQualityCheck(card.check);
   return (
     <Card variant="elevated" className="flex flex-col gap-4">
-      {/* The scenario line is dropped here: the reader chose these tests by that description on
-          the setup step, so repeating it on every card is noise. */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <GradeBadge grade={card.grade} size="md" />
-        <CheckIcon check={card.check} size={28} />
         <h3 className="text-base font-semibold text-app-text">{meta.label}</h3>
         {(card.owasp_tags || []).map((t, i) => (
           <OwaspChip key={i} tag={t} />

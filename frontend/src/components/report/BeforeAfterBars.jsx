@@ -4,7 +4,7 @@ import HonestyExplainer from "./HonestyExplainer";
 import { BOOTSTRAP_TIP, pct, STATS } from "../../lib/jargon";
 import { deltaSentence } from "../../lib/trust";
 
-function Bar({ label, rate, tone }) {
+function Bar({ label, rate, tone, ink = "var(--muted)" }) {
   const width = Math.max(2, Math.round((rate || 0) * 100));
   // The value always sits OUTSIDE the fill, in a fixed-width column, so "As written" and "With fix"
   // read down a straight edge instead of jumping in and out of the bar with the value.
@@ -49,7 +49,7 @@ function Bar({ label, rate, tone }) {
           fontFamily: "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
           fontSize: "0.8125rem",
           fontWeight: 700,
-          color: tone,
+          color: ink,
         }}
       >
         {pct(rate)}
@@ -60,28 +60,25 @@ function Bar({ label, rate, tone }) {
 
 // The screenshot moment: the prompt as written over the fixed prompt, with the honest delta + badge.
 // Safety: issue = an attack got through. Quality: issue = an answer with a defect (fix cost).
+// The prompt as written is the comparator (grey); the fix is purple, or pink when it costs (more issues).
 // `canned`: the card replays recorded example answers (the demo). Its "after" answers were written
 // to show how a report reads, so the delta must never read as evidence that the fix works.
 export default function BeforeAfterBars({ ba, quality = false, canned = false }) {
   if (!ba) return null;
   const red = ba.absolute_reduction || {};
+  const costs = ba.hardened_issue_rate > ba.baseline_issue_rate;
   return (
     <div className="flex flex-col gap-3">
       <Bar
         label="As written"
         rate={ba.baseline_issue_rate}
-        tone={quality ? "var(--accent)" : "var(--danger)"}
+        tone="var(--chart-grey)"
       />
       <Bar
         label="With fix"
         rate={ba.hardened_issue_rate}
-        tone={
-          quality
-            ? ba.hardened_issue_rate > ba.baseline_issue_rate
-              ? "var(--warn)"
-              : "var(--accent)"
-            : "var(--ok)"
-        }
+        tone={costs ? "var(--pink)" : "var(--accent)"}
+        ink={costs ? "var(--pink-ink)" : "var(--accent-ink)"}
       />
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-sm text-app-muted">
@@ -95,7 +92,7 @@ export default function BeforeAfterBars({ ba, quality = false, canned = false })
       </div>
       {canned && (
         <p className="text-sm text-app-muted">
-          Illustration only: these “with fix” answers are hand-written, not measured.
+          Illustration only: the “with fix” answers are hand-written, not measured.
         </p>
       )}
       <HonestyExplainer ba={ba} />

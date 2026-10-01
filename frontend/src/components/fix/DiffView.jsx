@@ -34,7 +34,7 @@ export default function DiffView({ original, guardBlock }) {
             borderRadius: "0.5rem",
             padding: "0.5rem 0.6rem",
             // Readable in both themes: tinted ground, full-strength text.
-            background: "color-mix(in srgb, var(--ok) 12%, transparent)",
+            background: "var(--accent-soft)",
             color: "var(--text)",
           }}
         >
@@ -43,7 +43,7 @@ export default function DiffView({ original, guardBlock }) {
               <span
                 style={{
                   userSelect: "none",
-                  color: "var(--ok)",
+                  color: "var(--accent-ink)",
                   fontWeight: 700,
                 }}
               >

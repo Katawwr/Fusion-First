@@ -7,7 +7,7 @@ const TONE = {
   A: "var(--ok)",
   B: "var(--ok)",
   C: "var(--warn)",
-  D: "var(--orange)",
+  D: "var(--danger)",
   F: "var(--danger)",
 };
 

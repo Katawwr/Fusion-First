@@ -1,6 +1,5 @@
 import React from "react";
 import GradeBadge from "../report/GradeBadge";
-import CheckIcon from "../ui/CheckIcon";
 import { isQualityCheck, metaFor } from "../../lib/jargon";
 
 // One lane per enabled check: spinner, live tally, then the grade when this check's card arrives.
@@ -24,7 +23,6 @@ export default function CheckLane({
         background: "var(--surface)",
       }}
     >
-      <CheckIcon check={check} size={36} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontWeight: 600, color: "var(--text)", margin: 0 }}>
           {meta.label}
