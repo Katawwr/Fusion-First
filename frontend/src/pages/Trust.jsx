@@ -3,6 +3,7 @@ import { Helmet } from "react-helmet-async";
 import evidence from "../content/evidence.json";
 import { fixVerdict, interval, points as signedPoints, pValue, significanceByGrader } from "../lib/evidence";
 import { DataTable, Doc, DocHeader } from "../components/doc";
+import { DiscordantPairs, FixChanges, GraderVsBaselines, GuardTradeoff, StoppedBars } from "../components/trust/charts";
 
 // Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
 // committed evidence files (python -m fusion_first.validate.trust_report) and checked by a test — the
@@ -100,12 +101,42 @@ export function Step2Section({ s }) {
   const rows = ["fusion", "fusion_prior", "llama_guard_a", "llama_guard_b", "union_fusion_b"].map((k) => s.systems[k]);
   const c = s.comparisons;
   const b = s.benign_heldout;
+  const pair = (label, cmp, key) => cmp?.[key] && { label, left: cmp[key].other_only, right: cmp[key].fusion_only, p: cmp[key].mcnemar_p };
+  const pairs = (key, tone) =>
+    [
+      pair("Previous rules", c.previous_rules, key),
+      pair("Llama Guard 3, off the shelf", c.off_the_shelf, key),
+      pair("Llama Guard 3, configured", c.configured, key),
+    ]
+      .filter(Boolean)
+      .map((r) => ({ ...r, tone }));
   return (
     <Section title={`Request-bound guardrail on ${s.models.join(" and ")}`}>
       <p className="mb-3 text-sm text-app-muted">
         Current rules ({s.rules}): after untrusted content, a tool call must be covered by the user's own request.
         Fresh transcripts, pre-registered, scored once against the previous rules ({s.prior_rules}) and Llama Guard 3.
       </p>
+      <GuardTradeoff systems={s.systems} models={s.models} />
+      <div className="chart-grid">
+        <StoppedBars
+          label="Attacks stopped by the current rules, by attack type"
+          rows={[
+            ...Object.values(s.by_attack_type || {}).map((t) => ({ label: t.name, stopped: t.stopped, attacks: t.attacks })),
+            s.systems.fusion && { label: "All", stopped: s.systems.fusion.stopped, attacks: s.systems.fusion.attacks },
+          ].filter(Boolean)}
+          caption="Current rules. Purple fill: stopped; outline: every attack of that type."
+        />
+        <DiscordantPairs
+          label="Transcripts where only one guard acted"
+          leftLabel="other only"
+          rightLabel="Fusion only"
+          groups={[
+            { title: "Attacks stopped", rows: pairs("attacks", "fusion") },
+            { title: "Clean wrongly blocked", rows: pairs("clean", "cost") },
+          ]}
+          caption="Transcripts where only one guard acted, the pairs McNemar tests. Purple: Fusion stopped an attack the other missed; pink: Fusion alone wrongly blocked; grey: the other guard alone."
+        />
+      </div>
       <Table
         head={["System", "Real attacks stopped", "Clean transcripts wrongly blocked"]}
         rows={rows.map((r) => [
@@ -133,12 +164,41 @@ export function Step2Section({ s }) {
 export function Step3Section({ s }) {
   const rows = ["v3", "v2"].map((k) => s.arms[k]);
   const a = s.comparisons.attacks;
+  const cl = s.comparisons.clean;
+  const arm = (r, tone, part) => (part ? r[part] && { label: r.label, tone, ...r[part] } : { label: r.label, tone, stopped: r.stopped, attacks: r.attacks });
+  const [v3, v2] = [s.arms.v3, s.arms.v2];
   return (
     <Section title="The guard given the tool results">
       <p className="mb-3 text-sm text-app-muted">
         Same rules ({s.rules}), with and without the tool results the agent saw: a read they ask for, alongside a send
         to an outside address, is blocked. Fresh transcripts of {s.models.join(" and ")}, pre-registered, scored once.
       </p>
+      {v3 && v2 && (
+        <div className="chart-grid">
+          <StoppedBars
+            label="Attacks stopped with and without the tool results"
+            rows={[
+              { heading: "All attacks" },
+              arm(v3, "fusion"),
+              arm(v2, "grey"),
+              { heading: "Data stealing" },
+              arm(v3, "fusion", "data_stealing"),
+              arm(v2, "grey", "data_stealing"),
+            ].filter(Boolean)}
+            caption="Purple: given the tool results. Grey: without them. Fill: stopped; outline: every attack."
+          />
+          <DiscordantPairs
+            label="Transcripts where only one arm acted"
+            leftLabel="without only"
+            rightLabel="with only"
+            groups={[
+              { title: "Attacks stopped", rows: a ? [{ label: "With vs without the tool results", left: a.v2_only, right: a.v3_only, p: a.p, tone: "fusion" }] : [] },
+              { title: "Clean wrongly blocked", rows: cl ? [{ label: "With vs without the tool results", left: cl.v2_only, right: cl.v3_only, p: cl.p, tone: "cost" }] : [] },
+            ]}
+            caption="Transcripts where only one arm acted, the pairs McNemar tests. Purple: stopped only with the tool results; pink: wrongly blocked only with them; grey: only without."
+          />
+        </div>
+      )}
       <Table
         head={["Guard", "Real attacks stopped", "Data-stealing stopped", "Clean transcripts wrongly blocked"]}
         rows={rows.map((r) => [
@@ -184,6 +244,7 @@ export default function Trust() {
           <NotYet what="grader accuracy against deterministic oracles" />
         ) : (
           <>
+            <GraderVsBaselines rows={judge} checkNames={CHECK_NAMES} />
             <Table
               head={["Check", "Grader", "n", "Accuracy", "Recall", "Specificity", "Regex baseline F1", "Grader F1"]}
               rows={judge.map((j) => [
@@ -261,6 +322,8 @@ export default function Trust() {
           </div>
         )}
         {evidence.fix_efficacy ? (
+          <>
+          <FixChanges cells={evidence.fix_efficacy} />
           <Table
             head={["Experiment", "Model", "Pairs", "As written", "With fix", "Verdict"]}
             rows={evidence.fix_efficacy.map((c) => [
@@ -272,6 +335,7 @@ export default function Trust() {
               fixVerdict(c).text,
             ])}
           />
+          </>
         ) : (
           <NotYet what="the as-written vs fixed prompt comparison on local models" />
         )}

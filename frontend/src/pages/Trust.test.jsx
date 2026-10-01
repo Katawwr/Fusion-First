@@ -37,6 +37,15 @@ describe("Trust page", () => {
     expect(guard).toBeLessThan(titles.indexOf("Prompt fix: effect and cost"));
   });
 
+  it("charts the evidence beside its tables", () => {
+    renderTrust();
+    const labels = screen.getAllByRole("img").map((el) => el.getAttribute("aria-label") || "");
+    if (evidence.step2_guard) expect(labels.some((l) => l.startsWith("Guard trade-off"))).toBe(true);
+    if (evidence.step3_guard) expect(labels.some((l) => l.startsWith("Transcripts where only one arm acted"))).toBe(true);
+    if (evidence.judge_accuracy?.length) expect(labels.some((l) => l.startsWith("F1 of grader"))).toBe(true);
+    for (const l of labels) expect(l.length).toBeGreaterThan(10);
+  });
+
   it("renders only what the evidence contains, and says what isn't measured", () => {
     renderTrust();
     expect(screen.getByRole("heading", { name: "How far to trust Fusion" })).toBeInTheDocument();
