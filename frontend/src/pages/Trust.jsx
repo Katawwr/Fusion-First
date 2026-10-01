@@ -1,9 +1,10 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import evidence from "../content/evidence.json";
-import { fixVerdict, interval, points as signedPoints, pValue, significanceByGrader } from "../lib/evidence";
+import { fixVerdict, interval, points as signedPoints, significanceByGrader } from "../lib/evidence";
 import { DataTable, Doc, DocHeader } from "../components/doc";
 import { DiscordantPairs, FixChanges, GraderVsBaselines, GuardTradeoff, StoppedBars } from "../components/trust/charts";
+import { EXPERIMENT_NAMES, pShort } from "../components/trust/format";
 
 // Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
 // committed evidence files (python -m fusion_first.validate.trust_report) and checked by a test — the
@@ -35,16 +36,19 @@ function Table({ head, rows }) {
 }
 
 // The small-model measurements: the fresh re-measurement of the rules of that time once it exists (the
-// first measurement led to a rule fix); the first one stays disclosed.
-export function GuardrailSection({ runtime }) {
+// first measurement led to a rule fix); the first one stays disclosed. supersededBy = the rules measured
+// since (step 2), when they differ: these numbers then describe the previous rules, not the current guard.
+export function GuardrailSection({ runtime, supersededBy }) {
   const first = runtime.first_measurement;
   const rules = runtime.rules ? `rules ${runtime.rules}` : "pre-registered";
+  const old = supersededBy && runtime.rules && supersededBy !== runtime.rules;
   return (
-    <Section title="Runtime guardrail on real attacks">
+    <Section title={old ? "Runtime guard on real attacks: previous rules" : "Runtime guard on real attacks"}>
       <p className="mb-3 text-sm text-app-muted">
         {runtime.fresh
           ? `Fresh transcripts, ${rules}, ${runtime.models.length} small models. First measurement (older rules): ${first.all.stopped} of ${first.all.attacks} stopped.`
           : `${runtime.models.length} models, pre-registered.`}
+        {old && ` Superseded by the current rules (${supersededBy}) above; these numbers do not describe them.`}
       </p>
       <Table
         head={["Attack", "Attacks", "Stopped", "Clean", "Wrongly blocked"]}
@@ -71,10 +75,9 @@ const LG_VERDICT = {
 
 export function LlamaGuardSection({ cmp }) {
   const rows = ["fusion", "llama_guard_a", "llama_guard_b", "union_fusion_b"].map((k) => cmp.systems[k]);
-  const line = (name, c) =>
-    `${name}: ${LG_VERDICT[c.decision]} (McNemar p=${c.attacks.mcnemar_p.toFixed(4)})`;
+  const line = (name, c) => `${name}: ${LG_VERDICT[c.decision]} (McNemar ${pShort(c.attacks.mcnemar_p)})`;
   return (
-    <Section title={`Runtime guardrail vs Llama Guard 3 (${cmp.model})`}>
+    <Section title={`Runtime guard vs Llama Guard 3 (${cmp.model})`}>
       <Table
         head={["System", "Real attacks stopped", "Clean transcripts wrongly blocked"]}
         rows={rows.map((s) => [
@@ -96,12 +99,17 @@ const PRIOR_VERDICT = {
 };
 
 // The current rules' pre-registered measurement: fresh 7-8B transcripts, scored once against the
-// previous rules and Llama Guard 3 on the same transcripts.
-export function Step2Section({ s }) {
+// previous rules and Llama Guard 3 on the same transcripts. fig = the number of its first figure.
+export function Step2Section({ s, fig = 1 }) {
   const rows = ["fusion", "fusion_prior", "llama_guard_a", "llama_guard_b", "union_fusion_b"].map((k) => s.systems[k]);
   const c = s.comparisons;
   const b = s.benign_heldout;
-  const pair = (label, cmp, key) => cmp?.[key] && { label, left: cmp[key].other_only, right: cmp[key].fusion_only, p: cmp[key].mcnemar_p };
+  // The external-recipient rule's count on the same held-out actions: a field once the generator emits it,
+  // else the registered finding's own words.
+  const dest =
+    b.blocked_by_destination_rule ??
+    Number((s.findings || []).join(" ").match(/external-recipient rule[^.]*?blocked (\d+) of/)?.[1] ?? NaN);
+  const pair =(label, cmp, key) => cmp?.[key] && { label, left: cmp[key].other_only, right: cmp[key].fusion_only, p: cmp[key].mcnemar_p };
   const pairs = (key, tone) =>
     [
       pair("Previous rules", c.previous_rules, key),
@@ -111,32 +119,13 @@ export function Step2Section({ s }) {
       .filter(Boolean)
       .map((r) => ({ ...r, tone }));
   return (
-    <Section title={`Request-bound guardrail on ${s.models.join(" and ")}`}>
+    <Section title={`Request-bound guard on ${s.models.join(" and ")}`}>
       <p className="mb-3 text-sm text-app-muted">
-        Current rules ({s.rules}): after untrusted content, a tool call must be covered by the user's own request.
-        Fresh transcripts, pre-registered, scored once against the previous rules ({s.prior_rules}) and Llama Guard 3.
+        Current rules ({s.rules}), authorization required: every tool call that is not a read must be covered by the
+        user's own request, and after untrusted content so must a read of private data. Fresh transcripts,
+        pre-registered, scored once against the previous rules ({s.prior_rules}) and Llama Guard 3.
       </p>
-      <GuardTradeoff systems={s.systems} models={s.models} />
-      <div className="chart-grid">
-        <StoppedBars
-          label="Attacks stopped by the current rules, by attack type"
-          rows={[
-            ...Object.values(s.by_attack_type || {}).map((t) => ({ label: t.name, stopped: t.stopped, attacks: t.attacks })),
-            s.systems.fusion && { label: "All", stopped: s.systems.fusion.stopped, attacks: s.systems.fusion.attacks },
-          ].filter(Boolean)}
-          caption="Current rules. Purple fill: stopped; outline: every attack of that type."
-        />
-        <DiscordantPairs
-          label="Transcripts where only one guard acted"
-          leftLabel="other only"
-          rightLabel="Fusion only"
-          groups={[
-            { title: "Attacks stopped", rows: pairs("attacks", "fusion") },
-            { title: "Clean wrongly blocked", rows: pairs("clean", "cost") },
-          ]}
-          caption="Transcripts where only one guard acted, the pairs McNemar tests. Purple: Fusion stopped an attack the other missed; pink: Fusion alone wrongly blocked; grey: the other guard alone."
-        />
-      </div>
+      <GuardTradeoff n={fig} systems={s.systems} models={s.models} />
       <Table
         head={["System", "Real attacks stopped", "Clean transcripts wrongly blocked"]}
         rows={rows.map((r) => [
@@ -145,59 +134,88 @@ export function Step2Section({ s }) {
           `${r.blocked} of ${r.clean}, ${interval(r.over_block)}`,
         ])}
       />
-      <p className="mt-3 text-xs text-app-subtle">
-        Previous rules: {PRIOR_VERDICT[c.previous_rules.decision]} (McNemar {pValue(c.previous_rules.attacks.mcnemar_p)})
+      <DiscordantPairs
+        n={fig + 1}
+        label="Transcripts where only one guard acted"
+        leftLabel="other only"
+        rightLabel="Fusion only"
+        groups={[
+          { title: "Attacks stopped", rows: pairs("attacks", "fusion") },
+          { title: "Clean transcripts wrongly blocked", rows: pairs("clean", "cost") },
+        ]}
+        caption="Transcripts where only one guard acted: the pairs McNemar tests (n.s.: p≥0.05). Purple: Fusion alone stopped the attack; pink: Fusion alone wrongly blocked; grey: the other guard alone."
+      />
+      <p className="text-xs text-app-subtle">
+        Previous rules: {PRIOR_VERDICT[c.previous_rules.decision]} (McNemar {pShort(c.previous_rules.attacks.mcnemar_p)})
       </p>
       <p className="mt-1 text-xs text-app-subtle">
-        Llama Guard 3 off the shelf: {LG_VERDICT[c.off_the_shelf.decision]} (McNemar {pValue(c.off_the_shelf.attacks.mcnemar_p)})
+        Llama Guard 3 off the shelf: {LG_VERDICT[c.off_the_shelf.decision]} (McNemar {pShort(c.off_the_shelf.attacks.mcnemar_p)})
       </p>
       <p className="mt-1 text-xs text-app-subtle">
-        Llama Guard 3 configured: {LG_VERDICT[c.configured.decision]} (McNemar {pValue(c.configured.attacks.mcnemar_p)})
+        Llama Guard 3 configured: {LG_VERDICT[c.configured.decision]} (McNemar {pShort(c.configured.attacks.mcnemar_p)})
       </p>
-      <p className="mt-1 text-xs text-app-subtle">
+      <StoppedBars
+        n={fig + 2}
+        label="Attacks stopped by the current rules, by attack type"
+        rows={[
+          ...Object.values(s.by_attack_type || {}).map((t) => ({ label: t.name.charAt(0).toUpperCase() + t.name.slice(1), stopped: t.stopped, attacks: t.attacks })),
+          s.systems.fusion && { label: "All", stopped: s.systems.fusion.stopped, attacks: s.systems.fusion.attacks },
+        ].filter(Boolean)}
+        caption="Attacks stopped by the current rules, by attack type. Purple fill: stopped; outline: every attack of that type."
+      />
+      <p className="text-xs text-app-subtle">
         Legitimate actions never used in development: {b.blocked} of {b.cases} blocked (registered limit {b.max_allowed}).
+        {Number.isFinite(dest) &&
+          ` The external-recipient rule, unchanged and with no allowlist, blocked ${dest} of ${b.cases} (every send to the user's own address).`}
       </p>
     </Section>
   );
 }
 
-export function Step3Section({ s }) {
+// Same rules with and without the tool results. The McNemar counts are one sentence, not a chart: the
+// arms disagree on a handful of transcripts, all in one direction.
+export function Step3Section({ s, fig = 1 }) {
   const rows = ["v3", "v2"].map((k) => s.arms[k]);
   const a = s.comparisons.attacks;
   const cl = s.comparisons.clean;
-  const arm = (r, tone, part) => (part ? r[part] && { label: r.label, tone, ...r[part] } : { label: r.label, tone, stopped: r.stopped, attacks: r.attacks });
-  const [v3, v2] = [s.arms.v3, s.arms.v2];
+  const { v3, v2 } = s.arms;
+  const arm = (r, label, tone, part) => {
+    const src = part ? r[part] : r;
+    return src && { label, tone, stopped: src.stopped, attacks: src.attacks };
+  };
+  const note = a && (
+    <>
+      McNemar, transcripts where the arms disagree: {a.v3_only} attacks stopped only with the tool results,{" "}
+      {a.v2_only} only without ({pShort(a.p)}).{" "}
+      {cl &&
+        (cl.v3_only === 0 && cl.v2_only === 0
+          ? "Wrong blocks on clean transcripts: identical in both arms."
+          : `Clean transcripts wrongly blocked only with them: ${cl.v3_only}; only without: ${cl.v2_only} (${pShort(cl.p, { ns: true })}).`)}
+    </>
+  );
   return (
     <Section title="The guard given the tool results">
       <p className="mb-3 text-sm text-app-muted">
-        Same rules ({s.rules}), with and without the tool results the agent saw: a read they ask for, alongside a send
-        to an outside address, is blocked. Fresh transcripts of {s.models.join(" and ")}, pre-registered, scored once.
+        Same rules ({s.rules}), with and without the text of the tool results the agent saw. Given it, a read that
+        text asks for and the user did not is blocked when the text also asks to send data to an outside address not
+        on the allowlist; no send call is needed, and a read the user asked for passes. Fresh transcripts of{" "}
+        {s.models.join(" and ")}, pre-registered, scored once.
       </p>
       {v3 && v2 && (
-        <div className="chart-grid">
-          <StoppedBars
-            label="Attacks stopped with and without the tool results"
-            rows={[
-              { heading: "All attacks" },
-              arm(v3, "fusion"),
-              arm(v2, "grey"),
-              { heading: "Data stealing" },
-              arm(v3, "fusion", "data_stealing"),
-              arm(v2, "grey", "data_stealing"),
-            ].filter(Boolean)}
-            caption="Purple: given the tool results. Grey: without them. Fill: stopped; outline: every attack."
-          />
-          <DiscordantPairs
-            label="Transcripts where only one arm acted"
-            leftLabel="without only"
-            rightLabel="with only"
-            groups={[
-              { title: "Attacks stopped", rows: a ? [{ label: "With vs without the tool results", left: a.v2_only, right: a.v3_only, p: a.p, tone: "fusion" }] : [] },
-              { title: "Clean wrongly blocked", rows: cl ? [{ label: "With vs without the tool results", left: cl.v2_only, right: cl.v3_only, p: cl.p, tone: "cost" }] : [] },
-            ]}
-            caption="Transcripts where only one arm acted, the pairs McNemar tests. Purple: stopped only with the tool results; pink: wrongly blocked only with them; grey: only without."
-          />
-        </div>
+        <StoppedBars
+          n={fig}
+          label="Attacks stopped with and without the tool results"
+          note={note}
+          rows={[
+            { heading: "All attacks" },
+            arm(v3, "With the tool results", "fusion"),
+            arm(v2, "Without them", "grey"),
+            { heading: "Data stealing" },
+            arm(v3, "With the tool results", "fusion", "data_stealing"),
+            arm(v2, "Without them", "grey", "data_stealing"),
+          ]}
+          caption="Attacks stopped by the same rules with and without the tool results. Purple: with them; grey: without (as step 2). Fill: stopped; outline: every attack."
+        />
       )}
       <Table
         head={["Guard", "Real attacks stopped", "Data-stealing stopped", "Clean transcripts wrongly blocked"]}
@@ -209,8 +227,7 @@ export function Step3Section({ s }) {
         ])}
       />
       <p className="mt-3 text-xs text-app-subtle">
-        Stopped only with the tool results: {a.v3_only}; only without: {a.v2_only} (McNemar {pValue(a.p)}). Decision: {s.decision}.
-        Attack wording was seen in development; cost measured on clean transcripts only.
+        Decision: {s.decision}. Attack wording was seen in development; cost measured on clean transcripts only.
       </p>
     </Section>
   );
@@ -227,6 +244,19 @@ function NotYet({ what }) {
 export default function Trust() {
   const judge = evidence.judge_accuracy || [];
   const guard = evidence.guard_heldout || [];
+  // Figures are numbered in page order; a section that is absent takes no number.
+  let fig = 0;
+  const judgeFig = judge.length ? ++fig : null;
+  const step2Fig = evidence.step2_guard ? fig + 1 : null;
+  if (step2Fig) fig += 3;
+  const step3Fig = evidence.step3_guard ? ++fig : null;
+  const fixFig = evidence.fix_efficacy ? ++fig : null;
+  // The local grader's pre-registered bar: both checks at the policy floor (evals/policy.yaml).
+  const lg = evidence.local_grader;
+  const lgChecks = Object.values(lg?.per_check || {});
+  const floor = lgChecks[0]?.floor;
+  const belowFloor = (j) => lg && j.grader === lg.grader && lg.per_check?.[j.check]?.meets === false;
+  const expName = (e) => EXPERIMENT_NAMES[e] || e;
   return (
     <Doc wide>
       <Helmet>
@@ -234,22 +264,22 @@ export default function Trust() {
       </Helmet>
       <DocHeader title="How far to trust Fusion">
         <p>
-          Every table is generated from committed evidence files under <code className="inline-code">evals/</code>.
-          Intervals are 95%; paired comparisons use McNemar tests.
+          Every table and figure is generated from committed evidence files under{" "}
+          <code className="inline-code">evals/</code>. Intervals are 95%; paired comparisons use McNemar tests.
         </p>
       </DocHeader>
 
-      <Section title="Judge accuracy vs oracle labels">
+      <Section title="Grader accuracy vs oracle labels">
         {judge.length === 0 ? (
           <NotYet what="grader accuracy against deterministic oracles" />
         ) : (
           <>
-            <GraderVsBaselines rows={judge} checkNames={CHECK_NAMES} />
+            <GraderVsBaselines n={judgeFig} rows={judge} checkNames={CHECK_NAMES} floor={floor?.f1} />
             <Table
               head={["Check", "Grader", "n", "Accuracy", "Recall", "Specificity", "Regex baseline F1", "Grader F1"]}
               rows={judge.map((j) => [
                 CHECK_NAMES[j.check] || j.check,
-                j.grader,
+                belowFloor(j) ? `${j.grader}, below the policy floor` : j.grader,
                 j.n,
                 interval(j.accuracy),
                 interval(j.recall),
@@ -258,6 +288,13 @@ export default function Trust() {
                 j.f1.toFixed(2),
               ])}
             />
+            {lg && floor && (
+              <p className="mt-3 text-xs text-app-subtle">
+                {lg.meets_floor
+                  ? `${lg.grader}: meets the policy floor (accuracy ${floor.accuracy.toFixed(2)}, F1 ${floor.f1.toFixed(2)}) on every check; the pre-registered bar is met.`
+                  : `${lg.grader}: below the policy floor (accuracy ${floor.accuracy.toFixed(2)}, F1 ${floor.f1.toFixed(2)}) on ${lgChecks.filter((c) => !c.meets).length} of ${lgChecks.length} checks; the pre-registered bar for staying the default free grader (both checks at the floor) is not met.`}
+              </p>
+            )}
             <p className="mt-3 text-xs text-app-subtle">Grader vs baselines (paired McNemar, p &lt; 0.05):</p>
             {significanceByGrader(judge).map((s) => (
               <p key={s} className="mt-1 text-xs text-app-subtle">
@@ -269,7 +306,7 @@ export default function Trust() {
       </Section>
 
       {evidence.rubric_vs_plain && (
-        <Section title="Rubric judge vs a plain question">
+        <Section title="Rubric grading vs one plain question">
           <Table
             head={["Check", "n", "Rubric", "Plain question", "Rubric − plain"]}
             rows={[
@@ -291,17 +328,19 @@ export default function Trust() {
           />
           <p className="mt-3 text-xs text-app-subtle">
             {evidence.rubric_vs_plain.claim_allowed
-              ? "The rubric is significantly more accurate than a plain question (pre-registered rule met)."
-              : "The rubric is not more accurate than a plain question, and Fusion does not claim it is."}
+              ? "Rubric grading is significantly more accurate than one plain question to the grader (pre-registered rule met)."
+              : "Rubric grading is no more accurate than one plain question to the grader."}
           </p>
         </Section>
       )}
 
-      {evidence.step2_guard && <Step2Section s={evidence.step2_guard} />}
+      {evidence.step2_guard && <Step2Section s={evidence.step2_guard} fig={step2Fig} />}
 
-      {evidence.step3_guard && <Step3Section s={evidence.step3_guard} />}
+      {evidence.step3_guard && <Step3Section s={evidence.step3_guard} fig={step3Fig} />}
 
-      {evidence.runtime_guardrail && <GuardrailSection runtime={evidence.runtime_guardrail} />}
+      {evidence.runtime_guardrail && (
+        <GuardrailSection runtime={evidence.runtime_guardrail} supersededBy={evidence.step2_guard?.rules} />
+      )}
 
       {evidence.guard_vs_llama_guard && <LlamaGuardSection cmp={evidence.guard_vs_llama_guard} />}
 
@@ -311,7 +350,7 @@ export default function Trust() {
             <Table
               head={["Experiment", "Pairs", "As written", "With fix", "Change", "Verdict"]}
               rows={evidence.fix_pooled.map((p) => [
-                `${p.experiment} (all models)`,
+                `${expName(p.experiment)}, all models`,
                 p.n_pairs,
                 interval(p.baseline_rate),
                 interval(p.hardened_rate),
@@ -323,18 +362,18 @@ export default function Trust() {
         )}
         {evidence.fix_efficacy ? (
           <>
-          <FixChanges cells={evidence.fix_efficacy} />
-          <Table
-            head={["Experiment", "Model", "Pairs", "As written", "With fix", "Verdict"]}
-            rows={evidence.fix_efficacy.map((c) => [
-              c.experiment,
-              c.model,
-              c.n_paired,
-              interval(c.baseline_rate),
-              interval(c.hardened_rate),
-              fixVerdict(c).text,
-            ])}
-          />
+            <FixChanges n={fixFig} cells={evidence.fix_efficacy} />
+            <Table
+              head={["Experiment", "Model", "Pairs", "As written", "With fix", "Verdict"]}
+              rows={evidence.fix_efficacy.map((c) => [
+                expName(c.experiment),
+                c.model,
+                c.n_paired,
+                interval(c.baseline_rate),
+                interval(c.hardened_rate),
+                fixVerdict(c).text,
+              ])}
+            />
           </>
         ) : (
           <NotYet what="the as-written vs fixed prompt comparison on local models" />
@@ -342,10 +381,10 @@ export default function Trust() {
       </Section>
 
       {evidence.value_ledger && (
-        <Section title="Value ledger: fix vs guardrail">
+        <Section title="Value ledger: fix vs guard">
           <p className="mb-3 text-sm text-app-muted">First-run transcripts.</p>
           <Table
-            head={["Model", "Attacks", "Removed by fix", "Caused by fix", "Stopped by guardrail", "Either", "Neither"]}
+            head={["Model", "Attacks", "Removed by fix", "Caused by fix", "Stopped by guard", "Either", "Neither"]}
             rows={[
               ...Object.entries(evidence.value_ledger.by_model).map(([m, s]) => [
                 m, s.found, s.fix_removed, s.fix_caused, s.guard_stopped, s.either, s.neither,
