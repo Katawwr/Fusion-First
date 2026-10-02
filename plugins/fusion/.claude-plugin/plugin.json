@@ -1,0 +1,19 @@
+{
+  "name": "fusion",
+  "version": "0.1.0",
+  "description": "Test AI agents for safety (OWASP-mapped attacks) and quality with no API key: local open-weight targets via Ollama or Claude on your subscription, graded by Claude Code itself, with the grader's accuracy measured in every run.",
+  "author": {
+    "name": "Fusion First"
+  },
+  "homepage": "https://fusion-first-testing.com",
+  "license": "MIT",
+  "keywords": [
+    "ai-safety",
+    "evaluation",
+    "prompt-injection",
+    "owasp",
+    "llm-judge",
+    "ollama",
+    "mcp"
+  ]
+}

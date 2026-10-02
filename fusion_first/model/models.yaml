@@ -1,0 +1,26 @@
+# Single source of truth for model roles, allowlist, and families.
+# Referenced by ROLE in code; concrete IDs live only here (swap without touching logic).
+#
+# Judge default is Claude (calibrated). The target-under-test is whatever the customer runs.
+# The self-family guard (registry.py) forbids a model from being the sole judge of its own
+# family's output: a Claude target is judged by a non-Claude primary, and vice versa.
+
+roles:
+  judge_primary: claude-sonnet-5        # default interactive judge
+  judge_calibration: claude-opus-4-8    # calibration / proof / split-vote escalation
+  judge_prefilter: claude-haiku-4-5     # cheap first pass (deferred; wired, not default)
+  judge_cross_family: gpt-4o            # non-Claude judge for Claude targets
+
+allowlist:
+  # id: family
+  claude-sonnet-5: anthropic
+  claude-opus-4-8: anthropic
+  claude-haiku-4-5: anthropic
+  gpt-4o: openai
+  gpt-4o-mini: openai
+
+# Per-call ceilings (defense against runaway cost: OWASP LLM10). Enforced by budget.py.
+limits:
+  max_tokens_judge: 1500
+  max_tokens_target: 800
+  max_output_tokens_hard_cap: 4096

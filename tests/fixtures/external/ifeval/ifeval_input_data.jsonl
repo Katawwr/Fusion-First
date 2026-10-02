@@ -1,0 +1,4 @@
+{"key": 1000, "prompt": "Write a haiku about unit tests. Do not use any commas.", "instruction_id_list": ["punctuation:no_comma"], "kwargs": [{}]}
+{"key": 1001, "prompt": "Describe a synthetic dataset in at least 50 words and end with the phrase 'Is there anything else?'", "instruction_id_list": ["length_constraints:number_words", "startend:end_checker"], "kwargs": [{"relation": "at least", "num_words": 50}, {"end_phrase": "Is there anything else?"}]}
+
+{"key": 1005, "prompt": "Explain regression gates in exactly 3 bullet points.", "instruction_id_list": ["detectable_format:number_bullet_lists"], "kwargs": [{"num_bullets": 3}]}

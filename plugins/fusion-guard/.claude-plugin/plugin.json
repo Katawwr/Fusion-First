@@ -1,0 +1,9 @@
+{
+  "name": "fusion-guard",
+  "version": "0.1.0",
+  "description": "Opt-in runtime guard for Claude Code sessions: asks before exfiltration, destructive commands, persistence and settings tampering, and flags prompt-injected web/MCP content. Never auto-allows anything.",
+  "author": { "name": "Fusion First" },
+  "homepage": "https://fusion-first-testing.com",
+  "license": "MIT",
+  "keywords": ["security", "guardrail", "prompt-injection", "exfiltration", "hooks"]
+}

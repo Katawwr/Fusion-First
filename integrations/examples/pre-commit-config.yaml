@@ -1,0 +1,10 @@
+# Block a commit that lowers an agent prompt below grade B.
+# Add to .pre-commit-config.yaml and run `pre-commit install`.
+repos:
+  - repo: local
+    hooks:
+      - id: fusion-agent-safety
+        name: Fusion agent-safety gate
+        entry: fusion ci --live --min-grade B --prompt   # runs on your machine: local Ollama and/or claude CLI
+        language: system
+        files: '(prompts/.*\.txt|.*system_prompt.*\.txt)$'

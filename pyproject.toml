@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fusion-safety"
+version = "0.1.0"
+description = "Measure and guard AI agents: safety and quality evaluation with a runtime guardrail"
+readme = "PYPI.md"  # the PyPI page; README.md is the repository page
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Fusion First" }]
+keywords = ["llm", "ai-safety", "agentic", "owasp", "prompt-injection", "guardrail", "red-team", "mcp"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+# The core is keyless: local Ollama models and the `claude` CLI subscription need no SDK.
+dependencies = [
+    "pydantic>=2.9",
+    "numpy>=1.26",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+fusion = "fusion_first.cli:main"
+fusion-mcp = "fusion_first.integrations.mcp_server:main"
+
+[project.urls]
+Homepage = "https://fusion-first-testing.com"
+Documentation = "https://fusion-first-testing.com/use"
+"Trust Report" = "https://fusion-first-testing.com/trust"
+
+[project.optional-dependencies]
+# METERED provider SDKs: only reachable with `--backend api` AND FUSION_ALLOW_API_SPEND=1.
+api = [
+    "anthropic>=0.40",
+    "openai>=1.50",
+]
+# Local web app (`fusion serve`) / the hosted API wrappers in app/.
+serve = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "pydantic-settings>=2.4",
+    "httpx>=0.27",
+]
+# MCP server so an AI coding agent can call Fusion inline (scan / harden / guard).
+mcp = [
+    "mcp>=1.2,<3",  # the server runs on 1.x and 2.x; a new major may rename things again
+]
+dev = [
+    "pytest>=8.0",
+    "scipy>=1.13",  # only to cross-check the exact McNemar implementation in tests
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+# The pure core lives in `fusion_first/`; the Modal/FastAPI wrappers live in `app/`.
+# NOTHING under `fusion_first/` may import `modal`: enforced by tests/test_no_modal_import.py
+[tool.setuptools.packages.find]
+include = ["fusion_first*"]
+
+# Corpora copied into fusion_first/_bundled/ by setup.py's build step (see that file) so a bare install
+# has datasets/cassettes/crosswalk/evals without a source checkout.
+[tool.setuptools.package-data]
+fusion_first = ["model/models.yaml",  # the model registry (roles, allowlist)
+          "_bundled/**/*.jsonl", "_bundled/**/*.json", "_bundled/**/*.yaml", "_bundled/**/*.yml",
+          "_bundled/web/**/*",  # the built web app for `fusion serve`
+          # the Claude Code marketplace for `fusion plugin-dir`; globs skip dot-paths, so name them
+          "_bundled/marketplace/**/*", "_bundled/marketplace/.claude-plugin/*",
+          "_bundled/marketplace/plugins/*/.claude-plugin/*", "_bundled/marketplace/plugins/*/.mcp.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Live tests spend real (subscription) model calls: opt in explicitly with `-m live`.
+addopts = "-m 'not live'"
+markers = [
+    "unit: fast, pure, no I/O",
+    "integration: cross-module, still offline (cassette-replayed)",
+    "live: requires real provider API keys (skipped in CI/offline gate)",
+    "benchmark: public-benchmark record/replay (may be slow)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4", "ISC", "PIE", "RET"]
+# UP042: str+Enum is a deliberate pattern for stable pydantic serialization (not StrEnum).
+# C408: dict(key=value) calls read fine.
+ignore = ["E501", "UP042", "C408"]

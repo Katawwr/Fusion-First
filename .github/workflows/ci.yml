@@ -1,0 +1,70 @@
+# Offline CI for Fusion First itself. No secrets, no model calls, nothing metered:
+# FUSION_OFFLINE=1 hard-disables every real provider, and `live` tests are deselected by default.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    env:
+      FUSION_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev,mcp,serve]"
+      - run: python -m ruff check fusion_first tests scripts app setup.py
+      - run: python -m pytest -q
+      - name: Accuracy gate (committed baselines)
+        run: python -m fusion_first.cli eval --check all
+      - name: Trust Report is fresh
+        run: |
+          python -m fusion_first.validate.trust_report
+          git diff --exit-code TRUST_REPORT.md frontend/src/content/evidence.json
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  e2e:
+    # The real product in a real browser: `fusion serve` on the built frontend, offline (demo only).
+    runs-on: ubuntu-latest
+    env:
+      FUSION_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[serve]"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          npx playwright install --with-deps chromium
+          npm run test:e2e

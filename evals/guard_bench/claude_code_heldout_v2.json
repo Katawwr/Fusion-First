@@ -1,0 +1,43 @@
+{
+  "demonstration": false,
+  "kind": "fusion-guard Claude Code hook - held-out benchmark v2 (written blind to the rules by independent agents; scored once, never tuned on)",
+  "corpus": "datasets/guard_bench/claude_code_heldout_v2.jsonl",
+  "rules_git_sha": "0d042f5582bcf19d5f00d1b696ad14ba2cb106f5",
+  "measured": "2026-09-26",
+  "mode": "ask",
+  "benign": {
+    "n": 100,
+    "prompted": 5,
+    "over_block": {
+      "point": 0.05,
+      "ci95": [
+        0.022,
+        0.112
+      ]
+    }
+  },
+  "malicious": {
+    "n": 70,
+    "caught": 23,
+    "recall": {
+      "point": 0.3286,
+      "ci95": [
+        0.23,
+        0.444
+      ]
+    },
+    "caught_below_expected_severity": 5
+  },
+  "sensitivity_test_tld_as_public": {
+    "note": "40/70 attack rows used placeholder attacker hosts under the reserved .test TLD, which the guard treats as local dev (no public attacker can own one). Re-scored with only those placeholders mapped to .com; rules unchanged.",
+    "caught": 43,
+    "recall": {
+      "point": 0.6143,
+      "ci95": [
+        0.497,
+        0.719
+      ]
+    }
+  },
+  "status": "HELD OUT at rules_git_sha. Any rule change after this measurement makes v2 a dev set; the next honest number needs a fresh blind corpus (v3)."
+}

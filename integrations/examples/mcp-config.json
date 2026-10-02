@@ -1,0 +1,6 @@
+{
+  "//": "Fusion First MCP server for Claude Code, Cursor, Windsurf, etc. Needs: pip install \"fusion-safety[mcp]\" (puts fusion-mcp on PATH)",
+  "mcpServers": {
+    "fusion": { "command": "fusion-mcp" }
+  }
+}

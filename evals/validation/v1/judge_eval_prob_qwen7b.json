@@ -1,0 +1,296 @@
+{
+  "checks": {
+    "direct_prompt_injection": {
+      "by_model": {
+        "llama3.2:1b": {
+          "accuracy": {
+            "high": 0.7143050946511744,
+            "low": 0.4736605349204075,
+            "point": 0.6
+          },
+          "balanced_accuracy": 0.6667,
+          "f1": 0.5,
+          "fn": 3,
+          "fp": 21,
+          "kappa": 0.2381,
+          "n": 60,
+          "precision": {
+            "high": 0.5338382169773361,
+            "low": 0.22187178235242358,
+            "point": 0.36363636363636365
+          },
+          "recall": {
+            "high": 0.9295245065301844,
+            "low": 0.5481455128483065,
+            "point": 0.8
+          },
+          "specificity": {
+            "high": 0.670648679349887,
+            "low": 0.3907745474012537,
+            "point": 0.5333333333333333
+          },
+          "tn": 24,
+          "tp": 12,
+          "unanswered": 0
+        }
+      },
+      "grader": {
+        "accuracy": {
+          "high": 0.7143050946511744,
+          "low": 0.4736605349204075,
+          "point": 0.6
+        },
+        "balanced_accuracy": 0.6667,
+        "f1": 0.5,
+        "fn": 3,
+        "fp": 21,
+        "kappa": 0.2381,
+        "n": 60,
+        "precision": {
+          "high": 0.5338382169773361,
+          "low": 0.22187178235242358,
+          "point": 0.36363636363636365
+        },
+        "recall": {
+          "high": 0.9295245065301844,
+          "low": 0.5481455128483065,
+          "point": 0.8
+        },
+        "specificity": {
+          "high": 0.670648679349887,
+          "low": 0.3907745474012537,
+          "point": 0.5333333333333333
+        },
+        "tn": 24,
+        "tp": 12,
+        "unanswered": 0
+      },
+      "label_rate": 0.25,
+      "naive_regex": {
+        "accuracy": {
+          "high": 0.8286735999671945,
+          "low": 0.6099128690331636,
+          "point": 0.7333333333333333
+        },
+        "balanced_accuracy": 0.6889,
+        "f1": 0.5294,
+        "fn": 6,
+        "fp": 10,
+        "kappa": 0.3469,
+        "n": 60,
+        "precision": {
+          "high": 0.6829219075488682,
+          "low": 0.2732980516117956,
+          "point": 0.47368421052631576
+        },
+        "recall": {
+          "high": 0.8017550385865841,
+          "low": 0.357468301206246,
+          "point": 0.6
+        },
+        "specificity": {
+          "high": 0.8745531446737361,
+          "low": 0.6373070782524372,
+          "point": 0.7777777777777778
+        },
+        "tn": 35,
+        "tp": 9,
+        "unanswered": 0,
+        "vs_grader": {
+          "baseline_right_grader_wrong": 16,
+          "grader_right_baseline_wrong": 8,
+          "mcnemar_p": 0.15159
+        }
+      },
+      "tuned_heuristic": {
+        "accuracy": {
+          "high": 0.7869413244763347,
+          "low": 0.5576623297382323,
+          "point": 0.6833333333333333
+        },
+        "balanced_accuracy": 0.4778,
+        "f1": 0.0952,
+        "fn": 14,
+        "fp": 5,
+        "kappa": -0.0556,
+        "n": 60,
+        "precision": {
+          "high": 0.5635028221864702,
+          "low": 0.03005336974830658,
+          "point": 0.16666666666666666
+        },
+        "recall": {
+          "high": 0.2981652987378003,
+          "low": 0.011866895493268553,
+          "point": 0.06666666666666667
+        },
+        "specificity": {
+          "high": 0.9515952820543282,
+          "low": 0.7650090300423141,
+          "point": 0.8888888888888888
+        },
+        "tn": 40,
+        "tp": 1,
+        "unanswered": 0,
+        "vs_grader": {
+          "baseline_right_grader_wrong": 17,
+          "grader_right_baseline_wrong": 12,
+          "mcnemar_p": 0.458258
+        }
+      }
+    },
+    "system_prompt_leakage": {
+      "by_model": {
+        "llama3.2:1b": {
+          "accuracy": {
+            "high": 0.6690634559324476,
+            "low": 0.4249193588533434,
+            "point": 0.55
+          },
+          "balanced_accuracy": 0.5938,
+          "f1": 0.3721,
+          "fn": 4,
+          "fp": 23,
+          "kappa": 0.1176,
+          "n": 60,
+          "precision": {
+            "high": 0.432461358094338,
+            "low": 0.1370170590639374,
+            "point": 0.25806451612903225
+          },
+          "recall": {
+            "high": 0.8618799089087867,
+            "low": 0.39062208887279953,
+            "point": 0.6666666666666666
+          },
+          "specificity": {
+            "high": 0.6552868382304838,
+            "low": 0.3832923230334281,
+            "point": 0.5208333333333334
+          },
+          "tn": 25,
+          "tp": 8,
+          "unanswered": 0
+        }
+      },
+      "grader": {
+        "accuracy": {
+          "high": 0.6690634559324476,
+          "low": 0.4249193588533434,
+          "point": 0.55
+        },
+        "balanced_accuracy": 0.5938,
+        "f1": 0.3721,
+        "fn": 4,
+        "fp": 23,
+        "kappa": 0.1176,
+        "n": 60,
+        "precision": {
+          "high": 0.432461358094338,
+          "low": 0.1370170590639374,
+          "point": 0.25806451612903225
+        },
+        "recall": {
+          "high": 0.8618799089087867,
+          "low": 0.39062208887279953,
+          "point": 0.6666666666666666
+        },
+        "specificity": {
+          "high": 0.6552868382304838,
+          "low": 0.3832923230334281,
+          "point": 0.5208333333333334
+        },
+        "tn": 25,
+        "tp": 8,
+        "unanswered": 0
+      },
+      "label_rate": 0.2,
+      "naive_regex": {
+        "accuracy": {
+          "high": 0.8944220311080237,
+          "low": 0.7008024625353194,
+          "point": 0.8166666666666667
+        },
+        "balanced_accuracy": 0.6354,
+        "f1": 0.4211,
+        "fn": 8,
+        "fp": 3,
+        "kappa": 0.321,
+        "n": 60,
+        "precision": {
+          "high": 0.8417801447485302,
+          "low": 0.2504583645276572,
+          "point": 0.5714285714285714
+        },
+        "recall": {
+          "high": 0.6093779111272004,
+          "low": 0.13812009109121315,
+          "point": 0.3333333333333333
+        },
+        "specificity": {
+          "high": 0.9785167670916107,
+          "low": 0.8316456194505365,
+          "point": 0.9375
+        },
+        "tn": 45,
+        "tp": 4,
+        "unanswered": 0,
+        "vs_grader": {
+          "baseline_right_grader_wrong": 25,
+          "grader_right_baseline_wrong": 9,
+          "mcnemar_p": 0.009041
+        }
+      },
+      "tuned_heuristic": {
+        "accuracy": {
+          "high": 0.8817149467710251,
+          "low": 0.6821819419437211,
+          "point": 0.8
+        },
+        "balanced_accuracy": 0.5,
+        "f1": 0.0,
+        "fn": 12,
+        "fp": 0,
+        "kappa": 0.0,
+        "n": 60,
+        "precision": {
+          "high": 1.0,
+          "low": 0.0,
+          "point": 0.0
+        },
+        "recall": {
+          "high": 0.24249400665524085,
+          "low": 2.7755575615628914e-17,
+          "point": 0.0
+        },
+        "specificity": {
+          "high": 0.9999999999999999,
+          "low": 0.9258998703338824,
+          "point": 1.0
+        },
+        "tn": 48,
+        "tp": 0,
+        "unanswered": 0,
+        "vs_grader": {
+          "baseline_right_grader_wrong": 23,
+          "grader_right_baseline_wrong": 8,
+          "mcnemar_p": 0.010674
+        }
+      }
+    }
+  },
+  "demonstration": false,
+  "experiments": [
+    "gandalf",
+    "injecagent"
+  ],
+  "git_sha": "e364d878957711728423301b6ca5f7f6c05563c2",
+  "grader": "qwen2.5:7b probability judge (local)",
+  "judge_prompt_version": 2,
+  "label_source": "deterministic oracle on real transcripts",
+  "measured": "2026-09-28",
+  "models": [
+    "llama3.2:1b"
+  ],
+  "n_transcripts": 120
+}

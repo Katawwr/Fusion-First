@@ -1,0 +1,20 @@
+# The sdist carries only what builds the wheel (owner, 2026-09-29: leave out anything unnecessary): the
+# package (minus setup.py's DEV_ONLY_MODULES), pyproject/setup, PYPI.md (the PyPI page), the runtime data
+# (setup.py _RUNTIME_DATA), the Claude Code marketplace and the built web app. No docs, tests, examples or
+# evidence.
+include PYPI.md pyproject.toml setup.py
+include cassettes/*.json
+include crosswalk/*.yaml
+include datasets/gold/*.jsonl datasets/probes/*.jsonl datasets/guard_bench/cases.jsonl
+include datasets/quality_tests/*.jsonl datasets/reference_agents/*.jsonl
+include evals/policy.yaml evals/baseline.*.json evals/guard_bench.baseline.json
+include evals/validation/v1/judge_eval_prob_qwen7b.json
+include .claude-plugin/marketplace.json
+graft plugins
+exclude plugins/*/README.md
+graft frontend/dist
+exclude frontend/dist/og-image.png
+# fusion_first/_bundled/ is a build artifact (populated by setup.py), not shipped in the sdist.
+prune fusion_first/_bundled
+prune tests
+global-exclude __pycache__ *.pyc *.pyo

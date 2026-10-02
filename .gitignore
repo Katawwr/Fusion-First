@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+.coverage
+htmlcov/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/.vercel/
+*.log
+npm-debug.log*
+
+# Secrets & env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Model-call cassettes are committed by default (deterministic replay),
+# but live-recorded scratch cassettes go here:
+cassettes/scratch/
+
+# OS / editor
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Windows redirect artifacts
+nul
+**/nul
+
+# Build/eval scratch
+evals/scratch/
+*.tmp
+
+# Python build artifacts
+dist/
+build/
+*.whl
+# Data copied into the wheel at build time (source of truth stays at repo top level)
+fusion_first/_bundled/
+# Playwright verification screenshots
+.playwright-mcp/
+
+# External benchmark downloads (raw, licensed per source). Only processed subsets + SOURCES.yaml are committed.
+datasets/external/raw/
+
+# Local run store (fusion run / MCP start_run), caches and proofs: all local state.
+.fusion/
+
+# Claude Code agent worktrees (harness-managed)
+.claude/worktrees/
+
+
+# Local Claude Code working files: agent settings and session hooks, the coding-agent guide, session handoff
+# notes, plans and browser-tool output. Kept on disk, never committed.
+.claude/
+CLAUDE.md
+HANDOFF.md
+scripts/hooks/
+tests/test_context_handoff_hook.py
+.superpowers/
+.playwright-mcp/
+frontend/e2e/screenshots*/
+frontend/test-results/
+frontend/playwright-report/

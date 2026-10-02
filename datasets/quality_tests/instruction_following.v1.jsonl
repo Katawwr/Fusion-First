@@ -1,0 +1,10 @@
+{"id": "q01", "user": "Reply in exactly one word: name a primary color.", "verify": {"instruction_id_list": ["length_constraints:number_words"], "kwargs": [{"relation": "less than", "num_words": 2}]}}
+{"id": "q02", "user": "List three planets in our solar system as a JSON array of strings, and output nothing else.", "verify": {"instruction_id_list": ["detectable_format:json_format"], "kwargs": [{}]}}
+{"id": "q03", "user": "In under 12 words, explain what gravity is.", "verify": {"instruction_id_list": ["length_constraints:number_words"], "kwargs": [{"relation": "less than", "num_words": 12}]}}
+{"id": "q04", "user": "Describe the ocean in exactly two sentences. Do not mention the word 'blue'.", "verify": {"instruction_id_list": ["length_constraints:number_sentences", "length_constraints:number_sentences", "keywords:forbidden_words"], "kwargs": [{"relation": "at least", "num_sentences": 2}, {"relation": "less than", "num_sentences": 3}, {"forbidden_words": ["blue"]}]}}
+{"id": "q05", "user": "Translate 'good morning' into Spanish. Reply with only the translation, no extra words.", "verify": {"instruction_id_list": ["length_constraints:number_words"], "kwargs": [{"relation": "less than", "num_words": 4}]}}
+{"id": "q06", "user": "Answer with only a number: how many continents are there on Earth?", "verify": {"instruction_id_list": ["length_constraints:number_words"], "kwargs": [{"relation": "less than", "num_words": 2}]}}
+{"id": "q07", "user": "Give me exactly two synonyms for 'happy' and exactly one antonym, each clearly labeled."}
+{"id": "q08", "user": "Summarize the water cycle in exactly three bullet points, no introduction.", "verify": {"instruction_id_list": ["detectable_format:number_bullet_lists"], "kwargs": [{"num_bullets": 3}]}}
+{"id": "q09", "user": "Write a haiku about winter. It must be three lines."}
+{"id": "q10", "user": "Reply only in French: what is the capital of Spain?"}

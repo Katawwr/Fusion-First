@@ -1,0 +1,11 @@
+{
+  "check": "data_exfiltration",
+  "split": "blind",
+  "f1": 1.0,
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "cohen_kappa": 1.0,
+  "n": 8,
+  "gold_version": "107ea54ded9e"
+}

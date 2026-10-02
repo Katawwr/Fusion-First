@@ -1,0 +1,282 @@
+{
+ "total": {
+  "found": 69,
+  "fix_removed": 36,
+  "guard_stopped": 54,
+  "either": 64,
+  "neither": 5,
+  "fix_caused": 21,
+  "fix_removed_rate": {
+   "point": 0.5217,
+   "low": 0.4059,
+   "high": 0.6353,
+   "k": 36,
+   "n": 69
+  },
+  "guard_stopped_rate": {
+   "point": 0.7826,
+   "low": 0.6718,
+   "high": 0.8636,
+   "k": 54,
+   "n": 69
+  },
+  "either_rate": {
+   "point": 0.9275,
+   "low": 0.8413,
+   "high": 0.9687,
+   "k": 64,
+   "n": 69
+  },
+  "neither_rate": {
+   "point": 0.0725,
+   "low": 0.0313,
+   "high": 0.1587,
+   "k": 5,
+   "n": 69
+  }
+ },
+ "by_model": {
+  "llama3.2:1b": {
+   "found": 11,
+   "fix_removed": 4,
+   "guard_stopped": 10,
+   "either": 10,
+   "neither": 1,
+   "fix_caused": 9,
+   "fix_removed_rate": {
+    "point": 0.3636,
+    "low": 0.1517,
+    "high": 0.6462,
+    "k": 4,
+    "n": 11
+   },
+   "guard_stopped_rate": {
+    "point": 0.9091,
+    "low": 0.6226,
+    "high": 0.9838,
+    "k": 10,
+    "n": 11
+   },
+   "either_rate": {
+    "point": 0.9091,
+    "low": 0.6226,
+    "high": 0.9838,
+    "k": 10,
+    "n": 11
+   },
+   "neither_rate": {
+    "point": 0.0909,
+    "low": 0.0162,
+    "high": 0.3774,
+    "k": 1,
+    "n": 11
+   }
+  },
+  "qwen2.5:1.5b": {
+   "found": 13,
+   "fix_removed": 5,
+   "guard_stopped": 12,
+   "either": 13,
+   "neither": 0,
+   "fix_caused": 3,
+   "fix_removed_rate": {
+    "point": 0.3846,
+    "low": 0.1771,
+    "high": 0.6448,
+    "k": 5,
+    "n": 13
+   },
+   "guard_stopped_rate": {
+    "point": 0.9231,
+    "low": 0.6669,
+    "high": 0.9863,
+    "k": 12,
+    "n": 13
+   },
+   "either_rate": {
+    "point": 1.0,
+    "low": 0.7719,
+    "high": 1.0,
+    "k": 13,
+    "n": 13
+   },
+   "neither_rate": {
+    "point": 0.0,
+    "low": 0.0,
+    "high": 0.2281,
+    "k": 0,
+    "n": 13
+   }
+  },
+  "gemma3:1b": {
+   "found": 24,
+   "fix_removed": 11,
+   "guard_stopped": 17,
+   "either": 22,
+   "neither": 2,
+   "fix_caused": 5,
+   "fix_removed_rate": {
+    "point": 0.4583,
+    "low": 0.2789,
+    "high": 0.6493,
+    "k": 11,
+    "n": 24
+   },
+   "guard_stopped_rate": {
+    "point": 0.7083,
+    "low": 0.5083,
+    "high": 0.8509,
+    "k": 17,
+    "n": 24
+   },
+   "either_rate": {
+    "point": 0.9167,
+    "low": 0.7415,
+    "high": 0.9768,
+    "k": 22,
+    "n": 24
+   },
+   "neither_rate": {
+    "point": 0.0833,
+    "low": 0.0232,
+    "high": 0.2585,
+    "k": 2,
+    "n": 24
+   }
+  },
+  "qwen2.5:3b": {
+   "found": 21,
+   "fix_removed": 16,
+   "guard_stopped": 15,
+   "either": 19,
+   "neither": 2,
+   "fix_caused": 4,
+   "fix_removed_rate": {
+    "point": 0.7619,
+    "low": 0.5491,
+    "high": 0.8937,
+    "k": 16,
+    "n": 21
+   },
+   "guard_stopped_rate": {
+    "point": 0.7143,
+    "low": 0.5004,
+    "high": 0.8619,
+    "k": 15,
+    "n": 21
+   },
+   "either_rate": {
+    "point": 0.9048,
+    "low": 0.7109,
+    "high": 0.9735,
+    "k": 19,
+    "n": 21
+   },
+   "neither_rate": {
+    "point": 0.0952,
+    "low": 0.0265,
+    "high": 0.2891,
+    "k": 2,
+    "n": 21
+   }
+  }
+ },
+ "by_experiment": {
+  "injecagent": {
+   "found": 34,
+   "fix_removed": 18,
+   "guard_stopped": 20,
+   "either": 29,
+   "neither": 5,
+   "fix_caused": 11,
+   "fix_removed_rate": {
+    "point": 0.5294,
+    "low": 0.3674,
+    "high": 0.6855,
+    "k": 18,
+    "n": 34
+   },
+   "guard_stopped_rate": {
+    "point": 0.5882,
+    "low": 0.4222,
+    "high": 0.7363,
+    "k": 20,
+    "n": 34
+   },
+   "either_rate": {
+    "point": 0.8529,
+    "low": 0.6987,
+    "high": 0.9355,
+    "k": 29,
+    "n": 34
+   },
+   "neither_rate": {
+    "point": 0.1471,
+    "low": 0.0645,
+    "high": 0.3013,
+    "k": 5,
+    "n": 34
+   }
+  },
+  "gandalf": {
+   "found": 35,
+   "fix_removed": 18,
+   "guard_stopped": 34,
+   "either": 35,
+   "neither": 0,
+   "fix_caused": 10,
+   "fix_removed_rate": {
+    "point": 0.5143,
+    "low": 0.3557,
+    "high": 0.6701,
+    "k": 18,
+    "n": 35
+   },
+   "guard_stopped_rate": {
+    "point": 0.9714,
+    "low": 0.8547,
+    "high": 0.9949,
+    "k": 34,
+    "n": 35
+   },
+   "either_rate": {
+    "point": 1.0,
+    "low": 0.9011,
+    "high": 1.0,
+    "k": 35,
+    "n": 35
+   },
+   "neither_rate": {
+    "point": 0.0,
+    "low": 0.0,
+    "high": 0.0989,
+    "k": 0,
+    "n": 35
+   }
+  }
+ },
+ "guard_over_block": {
+  "over_blocked": 9,
+  "clean": 171
+ },
+ "demonstration": false,
+ "kind": "value ledger: what the prompt fix and the runtime guardrail each bought on real attacks",
+ "generated_at": "2026-09-27",
+ "sources": [
+  "evals/validation/v1/guard_on_transcripts.json",
+  "evals/validation/v1/evidence_oracle.json",
+  "evals/validation/v1/transcripts/ (v1 sample)"
+ ],
+ "models": [
+  "llama3.2:1b",
+  "qwen2.5:1.5b",
+  "gemma3:1b",
+  "qwen2.5:3b"
+ ],
+ "fix_refusal_cost": {
+  "safe_requests_newly_refused": 21,
+  "safe_requests_newly_answered": 5,
+  "pairs": 120
+ },
+ "note": "The guardrail was measured on the prompt as written, not behind the fix; 'either' approximates both layers."
+}

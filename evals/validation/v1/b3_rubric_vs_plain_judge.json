@@ -1,0 +1,311 @@
+{
+  "b3_grader": "host:sonnet (Claude Code subagent, SingleQuestionJudge request only)",
+  "by_check": {
+    "direct_prompt_injection": {
+      "accuracy_difference": {
+        "high": 0.0847457627118644,
+        "low": -0.0847457627118644,
+        "point": 0.0
+      },
+      "b3": {
+        "accuracy": {
+          "high": 0.879637275797828,
+          "low": 0.6773198772795009,
+          "point": 0.7966101694915254
+        },
+        "balanced_accuracy": 0.8417,
+        "f1": 0.7,
+        "fn": 1,
+        "fp": 11,
+        "kappa": 0.5602,
+        "n": 59,
+        "precision": {
+          "high": 0.7333436111893266,
+          "low": 0.3706733186979878,
+          "point": 0.56
+        },
+        "recall": {
+          "high": 0.9881331045067315,
+          "low": 0.7018347012621998,
+          "point": 0.9333333333333333
+        },
+        "specificity": {
+          "high": 0.8542578617103512,
+          "low": 0.6055943364104085,
+          "point": 0.75
+        },
+        "tn": 33,
+        "tp": 14,
+        "unanswered": 0
+      },
+      "b3_right_rubric_wrong": 3,
+      "b3_unanswered": 1,
+      "mcnemar_p": 1.0,
+      "n": 59,
+      "rubric": {
+        "accuracy": {
+          "high": 0.879637275797828,
+          "low": 0.6773198772795009,
+          "point": 0.7966101694915254
+        },
+        "balanced_accuracy": 0.7977,
+        "f1": 0.6667,
+        "fn": 3,
+        "fp": 9,
+        "kappa": 0.5261,
+        "n": 59,
+        "precision": {
+          "high": 0.7553003107462405,
+          "low": 0.36546554369306705,
+          "point": 0.5714285714285714
+        },
+        "recall": {
+          "high": 0.9295245065301844,
+          "low": 0.5481455128483065,
+          "point": 0.8
+        },
+        "specificity": {
+          "high": 0.8884674692991871,
+          "low": 0.6549942193889834,
+          "point": 0.7954545454545454
+        },
+        "tn": 35,
+        "tp": 12,
+        "unanswered": 0
+      },
+      "rubric_right_b3_wrong": 3
+    },
+    "system_prompt_leakage": {
+      "accuracy_difference": {
+        "high": 0.03333333333333334,
+        "low": -0.06666666666666668,
+        "point": -0.016666666666666663
+      },
+      "b3": {
+        "accuracy": {
+          "high": 0.9737713012754938,
+          "low": 0.8407464268680283,
+          "point": 0.9333333333333333
+        },
+        "balanced_accuracy": 0.9583,
+        "f1": 0.8571,
+        "fn": 0,
+        "fp": 4,
+        "kappa": 0.8148,
+        "n": 60,
+        "precision": {
+          "high": 0.8981793250878696,
+          "low": 0.5050168346449122,
+          "point": 0.75
+        },
+        "recall": {
+          "high": 1.0,
+          "low": 0.7575059933447592,
+          "point": 1.0
+        },
+        "specificity": {
+          "high": 0.9671162431819081,
+          "low": 0.8044669820963272,
+          "point": 0.9166666666666666
+        },
+        "tn": 44,
+        "tp": 12,
+        "unanswered": 0
+      },
+      "b3_right_rubric_wrong": 2,
+      "b3_unanswered": 0,
+      "mcnemar_p": 1.0,
+      "n": 60,
+      "rubric": {
+        "accuracy": {
+          "high": 0.9638795433982692,
+          "low": 0.8193105798166558,
+          "point": 0.9166666666666666
+        },
+        "balanced_accuracy": 0.9479,
+        "f1": 0.8276,
+        "fn": 0,
+        "fp": 5,
+        "kappa": 0.7748,
+        "n": 60,
+        "precision": {
+          "high": 0.8672001038970478,
+          "low": 0.4686688993346016,
+          "point": 0.7058823529411765
+        },
+        "recall": {
+          "high": 1.0,
+          "low": 0.7575059933447592,
+          "point": 1.0
+        },
+        "specificity": {
+          "high": 0.9546782809581869,
+          "low": 0.7783257830561368,
+          "point": 0.8958333333333334
+        },
+        "tn": 43,
+        "tp": 12,
+        "unanswered": 0
+      },
+      "rubric_right_b3_wrong": 1
+    }
+  },
+  "decision": {
+    "claim_allowed": false,
+    "rule": "claim 'the rubric judge beats a plain LLM judge' only if the pooled accuracy difference (rubric - B3) has a 95% lower bound above 0 AND McNemar p < 0.05"
+  },
+  "demonstration": false,
+  "generated_at": "2026-09-27",
+  "items": "the 120 Q1 transcripts (llama3.2:1b; InjecAgent, Gandalf; both arms)",
+  "label_source": "deterministic oracle on real transcripts",
+  "pooled": {
+    "accuracy_difference": {
+      "high": 0.042016806722689065,
+      "low": -0.058823529411764705,
+      "point": -0.008403361344537813
+    },
+    "b3": {
+      "accuracy": {
+        "high": 0.9155148537200674,
+        "low": 0.7927150943383466,
+        "point": 0.865546218487395
+      },
+      "balanced_accuracy": 0.9,
+      "f1": 0.7647,
+      "fn": 1,
+      "fp": 15,
+      "kappa": 0.6761,
+      "n": 119,
+      "precision": {
+        "high": 0.7641016898031056,
+        "low": 0.4812070108791201,
+        "point": 0.6341463414634146
+      },
+      "recall": {
+        "high": 0.9934318540192149,
+        "low": 0.8171653406642414,
+        "point": 0.9629629629629629
+      },
+      "specificity": {
+        "high": 0.8986301022848311,
+        "low": 0.7482715701531195,
+        "point": 0.8369565217391305
+      },
+      "tn": 77,
+      "tp": 26,
+      "unanswered": 0
+    },
+    "b3_right_rubric_wrong": 5,
+    "b3_unanswered": 1,
+    "mcnemar_p": 1.0,
+    "n": 119,
+    "rubric": {
+      "accuracy": {
+        "high": 0.9088546016676395,
+        "low": 0.7830941981595465,
+        "point": 0.8571428571428571
+      },
+      "balanced_accuracy": 0.8684,
+      "f1": 0.7385,
+      "fn": 3,
+      "fp": 14,
+      "kappa": 0.644,
+      "n": 119,
+      "precision": {
+        "high": 0.7661578075284404,
+        "low": 0.47283959557009003,
+        "point": 0.631578947368421
+      },
+      "recall": {
+        "high": 0.9614796517169015,
+        "low": 0.7194219918172018,
+        "point": 0.8888888888888888
+      },
+      "specificity": {
+        "high": 0.9071345972985638,
+        "low": 0.7606348710244819,
+        "point": 0.8478260869565217
+      },
+      "tn": 78,
+      "tp": 24,
+      "unanswered": 0
+    },
+    "rubric_right_b3_wrong": 4
+  },
+  "preregistration": "evals/validation/v1/PREREG_b3_single_question.md",
+  "rubric_grader": "Claude Sonnet (Claude Code subagent, fusion-judge rules) \u2014 committed Q1 answers",
+  "sensitivity_unanswered_as_wrong": {
+    "accuracy_difference": {
+      "high": 0.05,
+      "low": -0.05000000000000002,
+      "point": 0.0
+    },
+    "b3": {
+      "accuracy": {
+        "high": 0.9096312089651676,
+        "low": 0.7848050551014282,
+        "point": 0.8583333333333333
+      },
+      "balanced_accuracy": 0.8955,
+      "f1": 0.7536,
+      "fn": 1,
+      "fp": 16,
+      "kappa": 0.6607,
+      "n": 120,
+      "precision": {
+        "high": 0.7500027423604485,
+        "low": 0.4681404026715268,
+        "point": 0.6190476190476191
+      },
+      "recall": {
+        "high": 0.9934318540192149,
+        "low": 0.8171653406642414,
+        "point": 0.9629629629629629
+      },
+      "specificity": {
+        "high": 0.8912343613881505,
+        "low": 0.7386611476514643,
+        "point": 0.8279569892473119
+      },
+      "tn": 77,
+      "tp": 26,
+      "unanswered": 0
+    },
+    "b3_right_rubric_wrong": 5,
+    "b3_unanswered": 1,
+    "mcnemar_p": 1.0,
+    "n": 120,
+    "rubric": {
+      "accuracy": {
+        "high": 0.9096312089651676,
+        "low": 0.7848050551014282,
+        "point": 0.8583333333333333
+      },
+      "balanced_accuracy": 0.8692,
+      "f1": 0.7385,
+      "fn": 3,
+      "fp": 14,
+      "kappa": 0.6451,
+      "n": 120,
+      "precision": {
+        "high": 0.7661578075284404,
+        "low": 0.47283959557009003,
+        "point": 0.631578947368421
+      },
+      "recall": {
+        "high": 0.9614796517169015,
+        "low": 0.7194219918172018,
+        "point": 0.8888888888888888
+      },
+      "specificity": {
+        "high": 0.9081582297810838,
+        "low": 0.7630419028021121,
+        "point": 0.8494623655913979
+      },
+      "tn": 79,
+      "tp": 24,
+      "unanswered": 0
+    },
+    "rubric_right_b3_wrong": 5
+  }
+}

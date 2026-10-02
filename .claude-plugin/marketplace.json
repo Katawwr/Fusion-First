@@ -1,0 +1,21 @@
+{
+  "name": "fusion-first",
+  "owner": {
+    "name": "Fusion First"
+  },
+  "plugins": [
+    {
+      "name": "fusion",
+      "source": "./plugins/fusion",
+      "description": "Audit an agent's prompt for safety and quality with no API key; Claude Code grades, Fusion measures the grader."
+    },
+    {
+      "name": "fusion-guard",
+      "source": "./plugins/fusion-guard",
+      "description": "Opt-in: guard Claude Code's own tool calls against exfiltration, destruction and prompt-injected content (asks, never auto-allows)."
+    }
+  ],
+  "metadata": {
+    "description": "Keyless safety and quality evaluation for AI agents."
+  }
+}

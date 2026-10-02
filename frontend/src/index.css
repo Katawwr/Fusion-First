@@ -1,0 +1,659 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Fusion First, semantic design tokens.
+ *
+ * The brand is purple (#504d9a), used as precise accents; pink marks costs
+ * only. Dark is the default; `[data-theme="light"]` (set by the theme toggle)
+ * or a light OS preference switches it.
+ * ------------------------------------------------------------------ */
+
+:root {
+  color-scheme: dark;
+
+  /* type: Newsreader for titles only, IBM Plex Sans for reading, JetBrains Mono for numbers/code */
+  --font-display: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
+
+  /* surfaces, deep desaturated indigo, not black */
+  --bg: #131419;
+  --bg-elev: #17181e;
+  --surface: #1b1c23;
+  --surface-2: #24262f;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  /* text, soft off-white, not #fff */
+  --text: #eceef2;
+  --muted: #a2a7b5;
+  --subtle: #7c8190;
+
+  /* brand, as accents */
+  --accent: #8b86d6; /* brand purple: fills, focus, active */
+  --accent-ink: #aba7ea; /* brand purple, legible text/links on dark */
+  --brand: #8b86d6; /* purple, legible on dark */
+  --primary: #8b86d6; /* the one solid action colour: brand purple */
+  --on-primary: #121318;
+  --pink: #e98aa6;
+  --pink-ink: #f0a7bd;
+  --accent-soft: rgba(139, 134, 214, 0.14); /* purple wash for selected/tinted cards */
+  --pink-soft: rgba(233, 138, 166, 0.14);
+  /* chart comparator grey: validated against purple and pink (dataviz validator, CVD dE >= 15) */
+  --chart-grey: #656a76;
+
+  /* status, gentle, desaturated */
+  --ok: #6cc79a;
+  --warn: #e2b45f;
+  --danger: #e88a8a;
+
+  --ring: rgba(139, 134, 214, 0.55);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* explicit light choice; the media query below covers a light OS preference */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f7f8fa;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f0f1f5;
+  --border: rgba(16, 20, 36, 0.1);
+  --border-strong: rgba(16, 20, 36, 0.16);
+
+  --text: #15161c;
+  --muted: #575d6b;
+  --subtle: #868c9a;
+
+  --accent: #504d9a; /* brand purple holds contrast on light fills */
+  --accent-ink: #4a4791;
+  --brand: #504d9a;
+  --primary: #504d9a;
+  --on-primary: #ffffff;
+  --pink: #cf2f7d;
+  --pink-ink: #b81f6a;
+  --accent-soft: rgba(80, 77, 154, 0.08);
+  --pink-soft: rgba(207, 47, 125, 0.08);
+  --chart-grey: #a3a8b3;
+
+  --ok: #1f9d63;
+  --warn: #a9761b;
+  --danger: #cf4b4b;
+
+  --ring: rgba(80, 77, 154, 0.45);
+  --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
+  --shadow: 0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #f7f8fa;
+    --bg-elev: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f0f1f5;
+    --border: rgba(16, 20, 36, 0.1);
+    --border-strong: rgba(16, 20, 36, 0.16);
+    --text: #15161c;
+    --muted: #575d6b;
+    --subtle: #868c9a;
+    --accent: #504d9a;
+    --accent-ink: #4a4791;
+    --brand: #504d9a;
+    --primary: #504d9a;
+    --on-primary: #ffffff;
+    --pink: #cf2f7d;
+    --pink-ink: #b81f6a;
+    --accent-soft: rgba(80, 77, 154, 0.08);
+    --pink-soft: rgba(207, 47, 125, 0.08);
+    --chart-grey: #a3a8b3;
+    --ok: #1f9d63;
+    --warn: #a9761b;
+    --danger: #cf4b4b;
+    --ring: rgba(80, 77, 154, 0.45);
+    --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
+    --shadow:
+      0 1px 2px rgba(30, 27, 60, 0.06), 0 10px 30px rgba(30, 27, 60, 0.1);
+  }
+}
+
+/* Semantic tokens as Tailwind utilities. `inline` so the generated classes emit
+ * the raw var() and stay live when the theme flips. */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-app-border: var(--border);
+  --color-app-border-strong: var(--border-strong);
+  --color-app-text: var(--text);
+  --color-app-muted: var(--muted);
+  --color-app-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-fusion-accent: var(--accent);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+
+  --shadow-soft: var(--shadow-sm);
+  --shadow-card: var(--shadow);
+
+  --radius-lg: 0.85rem;
+  --radius-2xl: 1.4rem;
+}
+
+/* The reset lives in @layer base so Tailwind's utilities (p-*, space-y-*, m-*)
+   always win. Unlayered rules beat layered utilities in the cascade, which
+   silently zeroed every padding/margin utility in the app. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+}
+
+html {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: var(--text);
+  background-color: var(--bg);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+body {
+  font-size: 1rem;
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.012em;
+  line-height: 1.2;
+  font-weight: 600;
+  text-wrap: balance; /* avoid lonely words in headings */
+}
+
+p {
+  text-wrap: pretty;
+}
+
+pre,
+code,
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+/* One accessible focus ring everywhere. */
+:where(
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  summary,
+  [role="button"],
+  [tabindex]
+):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+  border-radius: 0.5rem;
+}
+
+a,
+button {
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    opacity 0.18s ease;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: padding-box;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Document system: the overview, Use, Trust and Privacy pages read like a
+ * technical report. Unlayered on purpose: the global h1/h2 rules above are
+ * unlayered too, and a layered rule would lose to them.
+ * ------------------------------------------------------------------ */
+
+.doc {
+  width: 100%;
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: clamp(2.25rem, 6vw, 4rem) 1rem clamp(3rem, 8vw, 5rem);
+}
+.doc--wide {
+  max-width: 64rem;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--subtle);
+}
+
+.brand-mark {
+  display: block;
+  flex: none;
+}
+
+.brand-wordmark {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.2rem;
+  line-height: 1;
+  letter-spacing: -0.012em;
+  /* Newsreader's capitals ride high in their line box: centre them on the logo, not the box. */
+  position: relative;
+  top: 0.12em;
+}
+
+.doc-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2rem, 5.2vw, 2.875rem);
+  line-height: 1.08;
+  letter-spacing: -0.018em;
+  color: var(--text);
+  margin-top: 0.75rem;
+}
+
+.doc-lead {
+  margin-top: 1.25rem;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--muted);
+  max-width: 42rem;
+}
+.doc-lead strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.doc-section {
+  margin-top: clamp(2.75rem, 7vw, 4rem);
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 5rem;
+}
+
+.doc-h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.625rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.doc-h3 {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+a.text-link {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.inline-code {
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+/* definition list: term on the left, description on the right (stacks on phones) */
+.deflist {
+  display: grid;
+  grid-template-columns: minmax(9rem, 12rem) 1fr;
+  gap: 1.1rem 2rem;
+}
+.deflist dt {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.deflist dd {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+@media (max-width: 560px) {
+  .deflist {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+  .deflist dd {
+    margin-bottom: 0.9rem;
+  }
+}
+
+/* tables: hairline rows, tabular numbers, scroll inside their own frame */
+.table-frame {
+  width: 100%;
+  overflow-x: auto;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.data-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--subtle);
+  padding: 0.6rem 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table th.text-right {
+  text-align: right; /* numeric columns: the header sits over the right-aligned numbers */
+}
+.data-table td {
+  padding: 0.55rem 0.75rem;
+  border-top: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text);
+}
+.data-table th:first-child,
+.data-table td:first-child {
+  padding-left: 0;
+}
+.data-table th:last-child,
+.data-table td:last-child {
+  padding-right: 0;
+}
+.data-table tbody tr:first-child td {
+  border-top: 0;
+}
+.data-table tr.group td {
+  padding-top: 1rem;
+}
+.data-table tbody + tbody tr.group td {
+  border-top: 1px solid var(--border-strong);
+}
+.num,
+.data-table td.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.fig-caption {
+  margin-bottom: 0.6rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.fig-caption b {
+  color: var(--text);
+  font-weight: 600;
+}
+.chart-figure {
+  max-width: 46rem;
+  margin: 1.5rem 0 1.75rem;
+}
+.chart-figure svg {
+  display: block;
+  overflow: visible;
+}
+.chart-figure text {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  fill: var(--muted);
+}
+.chart-figure text.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+.chart-figure text.lead {
+  fill: var(--text);
+}
+.chart-figure text.strong {
+  font-weight: 600;
+}
+.chart-figure figcaption {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.chart-figure figcaption b {
+  color: var(--text);
+  font-weight: 600;
+}
+.chart-note {
+  margin-top: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--accent);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+.chart-grid {
+  display: grid;
+  gap: 1.25rem 2rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 640px) {
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.chart-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.chart-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.table-note {
+  margin-top: 0.6rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--subtle);
+}
+@media (max-width: 600px) {
+  .hide-narrow {
+    display: none;
+  }
+}
+
+/* code blocks */
+.code-block {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.code-block pre {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+/* links styled as actions: one solid primary, the rest quiet */
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  background: transparent;
+}
+.action:hover {
+  border-color: var(--muted);
+}
+.action--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+.action--primary:hover {
+  border-color: var(--primary);
+  filter: brightness(1.08);
+}
+
+/* Header: the current page in brand purple. */
+.nav-active {
+  color: var(--accent-ink);
+}
+
+/* Overview: the headline result, large. */
+.headline-stats {
+  margin: 2.25rem 0 0;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+/* Same gap below the stats as above them, up to the next section's rule. */
+header:has(.headline-stats) + .doc-section {
+  margin-top: 2rem;
+}
+.headline-stats dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem 1.5rem;
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .headline-stats dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.headline-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.35rem;
+}
+.headline-stat dd {
+  order: -1; /* the number first, top-aligned across columns; the label (dt) stays first in the markup */
+}
+.headline-stat dt {
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.headline-stat dd {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.headline-value {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--accent-ink);
+}
+.headline-stat--muted .headline-value {
+  color: var(--subtle);
+}
+.headline-note {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--subtle);
+}

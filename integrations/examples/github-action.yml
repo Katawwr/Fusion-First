@@ -1,0 +1,35 @@
+# Keyless agent-safety gate with a proof-carrying run.
+#
+# 1. On a developer machine (local Ollama and/or the Claude Code subscription: no API key):
+#      fusion run start --prompt prompts/support_bot.txt --target ollama:llama3.2:1b --grader claude-cli
+#      (or /fusion:audit in Claude Code), then commit .fusion/runs/<run_id>/ and the run id:
+#      echo <run_id> > prompts/support_bot.fusion-run
+# 2. CI re-derives that run OFFLINE, no model, no key, nothing metered, and fails the PR if the
+#    committed run didn't test the prompt that ships, was tampered with, or grades below the bar.
+#    A withheld grade ('?', e.g. an unproven grader) always fails.
+#
+# Copy to .github/workflows/agent-safety.yml. Make sure .fusion/runs/ is NOT in your .gitignore.
+name: Agent safety gate
+
+on:
+  pull_request:
+    paths:
+      - "prompts/**"
+      - ".fusion/runs/**"
+
+jobs:
+  fusion-gate:
+    runs-on: ubuntu-latest
+    env:
+      FUSION_OFFLINE: "1" # CI never calls a model
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install fusion-safety
+      - name: Verify the committed proof covers the shipped prompt and clears the bar
+        run: |
+          RUN_ID="$(cat prompts/support_bot.fusion-run)"
+          fusion run verify "$RUN_ID" --prompt prompts/support_bot.txt
+          fusion run finalize "$RUN_ID" --min-grade B

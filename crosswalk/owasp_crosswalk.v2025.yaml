@@ -1,0 +1,52 @@
+# Single source of truth for taxonomy codes. fusion/attacks/taxonomy.py imports codes from
+# here; nothing hardcodes them. Codes below are transcribed from the published OWASP lists.
+#
+# NOTE (verification task, Phase 2): the ASI (Agentic 2026) numbering must be re-verified against
+# the current published "OWASP Top 10 for Agentic Applications" document via a build-time WebFetch
+# before any public report card asserts these mappings. Until verified, treat ASI codes as
+# provisional (the LLM 2025 codes below are stable).
+
+version: "2025.1-provisional-asi"
+
+llm_2025:
+  LLM01: Prompt Injection
+  LLM02: Sensitive Information Disclosure
+  LLM03: Supply Chain
+  LLM04: Data and Model Poisoning
+  LLM05: Improper Output Handling
+  LLM06: Excessive Agency
+  LLM07: System Prompt Leakage
+  LLM08: Vector and Embedding Weaknesses
+  LLM09: Misinformation
+  LLM10: Unbounded Consumption
+
+asi_2026:
+  ASI01: Agent Goal Hijack
+  ASI02: Tool Misuse and Exploitation
+  ASI03: Agent Identity and Privilege Abuse
+  ASI04: Agentic Supply Chain Compromise
+  ASI05: Unexpected Code Execution
+  ASI06: Memory and Context Poisoning
+  ASI07: Insecure Inter-Agent Communication
+  ASI08: Cascading Agent Failures
+  ASI09: Human-Agent Trust Exploitation
+  ASI10: Rogue Agents
+
+# check -> the taxonomy codes it maps to
+checks:
+  direct_prompt_injection:
+    llm: LLM01
+    asi: ASI01
+    also: [LLM07, LLM02]
+  excessive_agency:
+    llm: LLM06
+    asi: ASI02
+    also: [LLM01]
+  data_exfiltration:
+    llm: LLM02
+    asi: ASI03
+    also: [LLM06]
+  system_prompt_leakage:
+    llm: LLM07
+    asi: ASI06
+    also: [LLM02]

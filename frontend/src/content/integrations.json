@@ -1,0 +1,175 @@
+{
+  "sections": [
+    {
+      "id": "local",
+      "title": "Run Locally",
+      "steps": [
+        {
+          "label": "Install and start",
+          "lang": "bash",
+          "code": "pip install \"fusion-safety[serve]\"\nfusion serve"
+        },
+        {
+          "label": "Local model; then Scan → Open-weight model",
+          "lang": "bash",
+          "code": "ollama pull llama3.2:1b"
+        },
+        {
+          "label": "Hosted API; then Scan → Any model → `openai:gpt-4o-mini`",
+          "lang": "bash",
+          "code": "export OPENAI_API_KEY=\"<your key>\"\nexport FUSION_ALLOW_API_SPEND=1\nfusion serve"
+        }
+      ]
+    },
+    {
+      "id": "plugin",
+      "title": "Claude Code Plugin",
+      "badge": "Recommended",
+      "steps": [
+        {
+          "label": "Install",
+          "lang": "bash",
+          "code": "uv tool install fusion-safety\nclaude plugin marketplace add \"$(fusion plugin-dir)\"\nclaude plugin install fusion@fusion-first\nollama pull llama3.2:1b"
+        },
+        {
+          "label": "In Claude Code",
+          "lang": "text",
+          "code": "/fusion:audit prompts/support_bot.md ollama:llama3.2:1b\n/fusion:guard"
+        },
+        {
+          "label": "Optional: prompt fix",
+          "lang": "text",
+          "code": "/fusion:harden prompts/support_bot.md"
+        }
+      ]
+    },
+    {
+      "id": "cli",
+      "title": "Command Line",
+      "steps": [
+        {
+          "label": "Install",
+          "lang": "bash",
+          "code": "pip install fusion-safety\nfusion doctor"
+        },
+        {
+          "label": "Test a prompt; fail below grade B",
+          "lang": "bash",
+          "code": "fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli\nfusion run finalize --min-grade B"
+        },
+        {
+          "label": "Test a model on an OpenAI-compatible server",
+          "lang": "bash",
+          "code": "fusion run start --prompt agent.txt --target openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct --grader claude-cli"
+        },
+        {
+          "label": "Optional: append the prompt fix",
+          "lang": "bash",
+          "code": "fusion harden --prompt agent.txt --write"
+        },
+        {
+          "label": "Grade existing logs",
+          "lang": "bash",
+          "code": "fusion run logs --file logs.jsonl --check everything --grader claude-cli"
+        },
+        {
+          "label": "Wilson intervals and paired McNemar tests on promptfoo results",
+          "lang": "bash",
+          "code": "fusion import-promptfoo results.json"
+        }
+      ]
+    },
+    {
+      "id": "guard",
+      "title": "Runtime Guard",
+      "steps": [
+        {
+          "label": "In your agent",
+          "lang": "python",
+          "code": "from fusion_first.guardrail.guard import Guardrail\nfrom fusion_first.guardrail.policy import GuardConfig\nfrom fusion_first.guardrail.client import GuardedModelClient\n\nguard = Guardrail(GuardConfig(allowlisted_domains=[\"your-co.com\"], secret_values=[\"sk-...\"],\n                              system_prompt=SYSTEM_PROMPT, require_authorization=True))\nclient = GuardedModelClient(your_model_client, guard)\n\n# before each tool call\noutcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message,\n                                untrusted_context=True, untrusted_text=tool_results)\nif outcome.blocked:\n    ..."
+        },
+        {
+          "label": "In Claude Code (hooks)",
+          "lang": "bash",
+          "code": "uv tool install fusion-safety\nclaude plugin marketplace add \"$(fusion plugin-dir)\"\nclaude plugin install fusion-guard@fusion-first"
+        }
+      ]
+    },
+    {
+      "id": "models",
+      "title": "Model/Workflow",
+      "steps": [
+        {
+          "label": "Any Hugging Face GGUF, via Ollama",
+          "lang": "bash",
+          "code": "ollama pull hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:Q4_K_M\nfusion run start --prompt agent.txt --target ollama:hf.co/bartowski/Llama-3.2-1B-Instruct-GGUF:Q4_K_M --grader claude-cli"
+        },
+        {
+          "label": "Hosted API (`FUSION_ALLOW_API_SPEND=1`)",
+          "lang": "bash",
+          "code": "fusion run start --prompt agent.txt --target openai:gpt-4o-mini --grader claude-cli\nfusion run start --prompt agent.txt --target hf:meta-llama/Llama-3.1-8B-Instruct --grader claude-cli"
+        },
+        {
+          "label": "Any program (JSON on stdin)",
+          "lang": "bash",
+          "code": "fusion run start --prompt agent.txt --target \"cmd:python fusion_adapter.py\" --grader claude-cli"
+        },
+        {
+          "label": "`fusion_adapter.py`: replace `reply()` with your agent",
+          "lang": "python",
+          "code": "\"\"\"Wrap any agent for Fusion:  fusion run start --prompt agent.txt --target \"cmd:python fusion_adapter.py\"\n\nFusion writes one JSON request to stdin and reads the reply from stdout:\n\n  stdin   {\"system\": \"...\", \"messages\": [{\"role\": \"user\", \"content\": \"...\"}], \"max_tokens\": 512,\n           \"temperature\": 0.0, \"role\": \"target\"}\n  stdout  {\"text\": \"...\"}  (or plain text)\n\nReplace reply() with a call into the agent you actually run. Examples:\n\n  Hugging Face transformers (pip install transformers torch):\n      from transformers import pipeline\n      chat = pipeline(\"text-generation\", model=\"Qwen/Qwen2.5-0.5B-Instruct\")\n      out = chat([{\"role\": \"system\", \"content\": system}, *messages], max_new_tokens=512)\n      return out[0][\"generated_text\"][-1][\"content\"]\n\n  Your own agent over HTTP:\n      import urllib.request\n      body = json.dumps({\"system\": system, \"messages\": messages}).encode()\n      req = urllib.request.Request(\"http://127.0.0.1:8080/chat\", body, {\"Content-Type\": \"application/json\"})\n      return json.load(urllib.request.urlopen(req))[\"reply\"]\n\n  A framework (LangChain, LlamaIndex, CrewAI...): build the chain once, invoke it with the messages.\n\nTool calls: return them in the reply the way the agent writes them (e.g. an `ACTION: {\"tool\": ...}`\nline); Fusion's checks read tool calls from the reply text.\n\"\"\"\n\nimport json\nimport sys\n\n\ndef reply(system: str, messages: list[dict]) -> str:\n    return \"Replace reply() in fusion_adapter.py with a call to your agent.\"\n\n\nif __name__ == \"__main__\":\n    request = json.load(sys.stdin)\n    print(json.dumps({\"text\": reply(request.get(\"system\", \"\"), request.get(\"messages\", []))}))"
+        }
+      ]
+    },
+    {
+      "id": "mcp",
+      "title": "MCP Client",
+      "steps": [
+        {
+          "label": "Install",
+          "lang": "bash",
+          "code": "pip install \"fusion-safety[mcp]\""
+        },
+        {
+          "label": "MCP config",
+          "lang": "json",
+          "code": "{ \"mcpServers\": { \"fusion\": { \"command\": \"fusion-mcp\" } } }"
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "title": "CI (Offline)",
+      "steps": [
+        {
+          "label": "Re-derive a recorded run; fail below grade B",
+          "lang": "bash",
+          "code": "fusion run verify $RUN_ID --prompt agent.txt\nfusion run finalize $RUN_ID --min-grade B"
+        }
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "name": "Local open-weight model",
+      "spec": "ollama:llama3.2:1b",
+      "note": "Web app: Open-weight model."
+    },
+    {
+      "name": "OpenAI-compatible server (vLLM, LM Studio, llama.cpp)",
+      "spec": "openai-compat:http://127.0.0.1:8000/v1#Qwen/Qwen2.5-7B-Instruct",
+      "note": "A public endpoint needs `FUSION_ALLOW_API_SPEND=1`. Web app: Any model."
+    },
+    {
+      "name": "Hosted API",
+      "spec": "openai:gpt-4o-mini",
+      "note": "Needs `FUSION_ALLOW_API_SPEND=1`. Also `hf:` (`HF_TOKEN`), `anthropic:` (`ANTHROPIC_API_KEY`), `openrouter:`, `together:`, `groq:`, `fireworks:`, `mistral-api:`, `deepseek:`. Web app: Any model."
+    },
+    {
+      "name": "Any program or agent",
+      "spec": "cmd:python fusion_adapter.py",
+      "note": "Command line only: the web app refuses `cmd:` targets; the MCP server does unless `FUSION_ALLOW_CMD_TARGETS=1`."
+    }
+  ],
+  "grader": "The web app grades with `claude-cli`. On the command line `--grader` defaults to `host` (over MCP); any chat target can grade."
+}

@@ -1,0 +1,11 @@
+{
+  "check": "system_prompt_leakage",
+  "split": "blind",
+  "f1": 0.8571428571428571,
+  "accuracy": 0.875,
+  "precision": 1.0,
+  "recall": 0.75,
+  "cohen_kappa": 0.75,
+  "n": 8,
+  "gold_version": "15263cf76168"
+}
