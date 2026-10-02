@@ -116,18 +116,24 @@ def _guard_set(prompted, n_benign, caught, n_attack):
 
 
 @pytest.mark.unit
-def test_the_newest_guard_set_is_the_headline_and_older_held_out_sets_are_superseded(tmp_path):
+def test_only_the_newest_held_out_guard_set_is_reported_and_older_ones_are_listed_for_audit(tmp_path):
     import json
+
+    from fusion_first.validate.trust_report import evidence_json
 
     (tmp_path / "evals/guard_bench").mkdir(parents=True)
     for v, ev in (("v2", _guard_set(5, 100, 23, 70)), ("v3", _guard_set(2, 100, 49, 70))):
         (tmp_path / f"evals/guard_bench/claude_code_heldout_{v}.json").write_text(json.dumps(ev), encoding="utf-8")
     out = render(tmp_path)
     rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| v")}
-    assert "SUPERSEDED" in rows["v2"] and "HELD OUT" in rows["v3"]
+    assert set(rows) == {"v3"} and "HELD OUT" in rows["v3"]  # v2 was scored against rules changed since
     assert "rules_git_sha" not in out  # a field name never reaches the report; the sha does
     bottom = out.split("## Q1")[0]
     assert "70%" in bottom and "2%" in bottom  # v3's recall and over-block, not v2's
+    audit = out.rstrip().splitlines()[-1]
+    assert audit.startswith("Superseded evidence kept for audit:") and "claude_code_heldout_v2.json" in audit
+    assert "claude_code_heldout_v3.json" not in audit
+    assert [g["set"] for g in evidence_json(tmp_path)["guard_heldout"]] == ["v3"]
 
 
 def _attack(k_base, k_fix, n, p, fixed, broke):
@@ -137,7 +143,7 @@ def _attack(k_base, k_fix, n, p, fixed, broke):
 
 @pytest.mark.unit
 @pytest.mark.parametrize("adopt", [False, True])
-def test_the_preregistered_compact_fix_is_reported_with_its_decision(tmp_path, adopt):
+def test_the_preregistered_compact_fix_is_one_sentence_with_its_decision(tmp_path, adopt):
     import json
 
     per_model = {"m1": {"attack_lower": adopt, "attack_higher": False, "over_refusal_noninferior": True,
@@ -147,20 +153,18 @@ def test_the_preregistered_compact_fix_is_reported_with_its_decision(tmp_path, a
     ev = {"demonstration": False, "arms": ["baseline", "compact"], "models": {"m1": "d", "m2": "d"},
           "attack_success_by_model": {"m1": _attack(20, 8, 60, 0.004 if adopt else 0.3, 13, 1),
                                       "m2": _attack(12, 11, 60, 1.0, 3, 2)},
-          "cells": [{"experiment": "xstest", "model": "m1", "noninferior": True,
-                     "quality_drop": {"point": 0.03, "low": -0.03, "high": 0.08}},
-                    {"experiment": "xstest", "model": "m2", "noninferior": False,
-                     "quality_drop": {"point": 0.1, "low": 0.03, "high": 0.17}}],
           "prereg_decision": {"adopt": adopt, "rule": "r", "per_model": per_model}}
-    (tmp_path / "evals/validation/v1").mkdir(parents=True)
-    (tmp_path / "evals/validation/v1/compact_fix.json").write_text(json.dumps(ev), encoding="utf-8")
+    fix = {"demonstration": False, "models": {"m1": "d"}, "cells": [_cell("xstest", "m1", 3, 10, 30, 0.02)]}
+    v1 = tmp_path / "evals/validation/v1"
+    v1.mkdir(parents=True)
+    (v1 / "compact_fix.json").write_text(json.dumps(ev), encoding="utf-8")
+    (v1 / "evidence_oracle.json").write_text(json.dumps(fix), encoding="utf-8")
     out = render(tmp_path)
-    assert "Pre-registered: a compact fix for small models" in out
-    rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| m")}
-    assert "33%" in rows["m1"] and "13%" in rows["m1"]  # attacks as written -> with the compact block
-    assert ("ADOPTED" if adopt else "NOT ADOPTED") in out
-    bottom = out.split("## Q1")[0]  # the bottom line carries the registered decision too
-    assert ("compact version of the fix was adopted" if adopt else "compact version of the fix was not adopted") in bottom
+    q3 = out.split("## Q3")[1]
+    assert ("compact version of the fix" in q3) and ("was adopted" if adopt else "was not adopted") in q3
+    assert "evals/validation/v1/compact_fix.json" in q3
+    assert not any(line.startswith("| m1 |") for line in out.splitlines())  # no table of its own
+    assert "compact fix for small models" not in out
 
 
 def _judge_block(acc, f1):
@@ -214,158 +218,6 @@ def test_the_free_local_grader_is_reported_against_its_registered_floor(tmp_path
 
 
 @pytest.mark.unit
-def test_the_compact_fix_secondary_outcomes_are_reported_whatever_they_show(tmp_path):
-    import json
-
-    per_model = {m: {"attack_lower": False, "attack_higher": False, "over_refusal_noninferior": False,
-                     "both_primary": False} for m in ("m1", "m2")}
-    primary = {"demonstration": False, "arms": ["baseline", "compact"],
-               "attack_success_by_model": {"m1": _attack(20, 18, 60, 0.8, 5, 3), "m2": _attack(12, 11, 60, 1.0, 3, 2)},
-               "cells": [{"experiment": "ifeval", "model": "m1", "noninferior": False},
-                         {"experiment": "ifeval", "model": "m2", "noninferior": True}],
-               "prereg_decision": {"adopt": False, "rule": "r", "per_model": per_model}}
-    xs = lambda m, a, b: {"experiment": "xstest", "model": m, "n_paired": 30,  # noqa: E731
-                          "baseline_rate": _rate(a, 30), "hardened_rate": _rate(b, 30)}
-    secondary = {"demonstration": False, "arms": ["hardened", "compact"],  # full fix first, compact second
-                 "attack_success_by_model": {"m1": _attack(12, 21, 60, 0.035, 3, 12),
-                                             "m2": _attack(10, 10, 60, 1.0, 2, 2)},
-                 "cells": [xs("m1", 9, 8), xs("m2", 1, 1)]}
-    (tmp_path / "evals/validation/v1").mkdir(parents=True)
-    (tmp_path / "evals/validation/v1/compact_fix.json").write_text(json.dumps(primary), encoding="utf-8")
-    (tmp_path / "evals/validation/v1/compact_vs_full_fix.json").write_text(json.dumps(secondary), encoding="utf-8")
-    sec = render(tmp_path).split("Secondary outcomes (registered)")[1].split("\n## ")[0]
-    assert "evals/validation/v1/compact_vs_full_fix.json" in sec
-    assert "m1 20% → 35% (McNemar p=0.035, significantly more with the compact block)" in sec
-    assert "m2 17% → 17% (McNemar p=1.000, no significant difference)" in sec
-    assert "m1 30% → 27%" in sec  # refusals of safe requests, full fix -> compact
-    assert "m1 no" in sec and "m2 yes" in sec  # IFEval non-inferiority, compact vs as written
-
-
-@pytest.mark.unit
-def test_the_runtime_guardrail_on_real_attacks_is_reported(tmp_path):
-    import json
-
-    def s(att, stop, clean, over):
-        return {"attacks": att, "stopped": stop, "recall": _rate(stop, att), "clean": clean,
-                "over_blocked": over, "over_block": _rate(over, clean)}
-
-    ev = {"demonstration": False, "models": ["m1", "m2"], "all": s(69, 54, 171, 9),
-          "by_attack_type": {"gandalf:leak": s(35, 34, 85, 0), "injecagent:dh": s(13, 5, 55, 5),
-                             "injecagent:ds": s(21, 15, 31, 4)},
-          "deviation_note": "first run differed", "findings": ["misses are X"]}
-    (tmp_path / "evals/validation/v1").mkdir(parents=True)
-    (tmp_path / "evals/validation/v1/guard_on_transcripts.json").write_text(json.dumps(ev), encoding="utf-8")
-    out = render(tmp_path)
-    bottom = out.split("## Q1")[0]
-    assert "Runtime guardrail in your agent?" in bottom and "54 of 69" in bottom
-    rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
-    assert "97%" in rows["password leaks (Gandalf)"]
-    assert "first run differed" in out  # the deviation is disclosed, not hidden
-    from fusion_first.validate.trust_report import evidence_json
-
-    site = evidence_json(tmp_path)["runtime_guardrail"]
-    assert site["all"]["stopped"] == 54 and site["by_attack_type"]["gandalf:leak"]["stopped"] == 34
-
-
-def _guard_stats(att, stop, clean, over):
-    return {"attacks": att, "stopped": stop, "recall": _rate(stop, att), "clean": clean,
-            "over_blocked": over, "over_block": _rate(over, clean)}
-
-
-@pytest.mark.unit
-def test_the_fresh_guardrail_measurement_becomes_the_headline(tmp_path):
-    import json
-
-    s = _guard_stats
-    first = {"demonstration": False, "models": ["m1", "m2"], "all": s(69, 54, 171, 9),
-             "by_attack_type": {"gandalf:leak": s(35, 34, 85, 0), "injecagent:ds": s(34, 20, 86, 9)},
-             "preregistration": "evals/validation/v1/PREREG_guard_on_real_transcripts.md",
-             "guardrail_git_sha": "921779e8b5b3"}
-    fresh = {"demonstration": False, "models": ["m1", "m2", "m3", "m4"], "all": s(60, 50, 180, 4),
-             "by_attack_type": {"gandalf:leak": s(30, 29, 90, 0), "injecagent:ds": s(30, 21, 90, 4)},
-             "preregistration": "evals/validation/v1/PREREG_guard_on_fresh_transcripts.md",
-             "guardrail_git_sha": "a6fa0f5d12e4", "findings": ["a fresh finding"]}
-    fix = {"demonstration": False, "models": {"m1": "d", "m2": "d"}, "cells": [],
-           "pooled": {"injecagent": _pooled(20, 19, 60, -0.1, 0.12), "gandalf": _pooled(12, 12, 60, -0.08, 0.08)}}
-    v1 = tmp_path / "evals/validation/v1"
-    v1.mkdir(parents=True)
-    (v1 / "guard_on_transcripts.json").write_text(json.dumps(first), encoding="utf-8")
-    (v1 / "guard_on_fresh_transcripts.json").write_text(json.dumps(fresh), encoding="utf-8")
-    (v1 / "evidence_oracle.json").write_text(json.dumps(fix), encoding="utf-8")
-    out = render(tmp_path)
-    bottom = out.split("## Q1")[0]
-    assert "stopped 50 of 60" in bottom and "fresh" in bottom
-    assert "54 of 69" in bottom  # the first measurement stays disclosed
-    assert "On the same attacks the prompt fix" not in bottom  # that comparison used the first run's attacks
-    sec = out.split("## Runtime guardrail on real attacks")[1].split("\n## ")[0]
-    assert "PREREG_guard_on_fresh_transcripts.md" in sec and "a6fa0f5" in sec and "a fresh finding" in sec
-    assert len([line for line in sec.splitlines() if line.startswith("| all |")]) == 2  # a table per measurement
-    from fusion_first.validate.trust_report import evidence_json
-
-    site = evidence_json(tmp_path)["runtime_guardrail"]
-    assert site["evidence"] == "evals/validation/v1/guard_on_fresh_transcripts.json"
-    assert site["all"]["stopped"] == 50 and site["first_measurement"]["all"]["stopped"] == 54
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("decision", ["fusion_better", "no_significant_difference"])
-def test_the_llama_guard_comparison_is_reported_with_its_registered_decision(tmp_path, decision):
-    import json
-
-    def sys_(stop, block):
-        return {"all": {"attacks": 70, "stopped": stop, "recall": _rate(stop, 70), "clean": 170,
-                        "blocked": block, "over_block": _rate(block, 170)}}
-
-    cmp_ = lambda d: {"attacks": {"fusion_only": 30, "other_only": 2, "mcnemar_p": 0.0001},  # noqa: E731
-                      "clean": {"fusion_only": 1, "other_only": 4, "mcnemar_p": 0.375}, "decision": d}
-    ev = {"demonstration": False, "preregistration": "evals/validation/v1/PREREG_guard_vs_llama_guard.md",
-          "llama_guard": {"model": "llama-guard3:8b"}, "fusion": sys_(50, 2), "llama_guard_a": sys_(12, 5),
-          "llama_guard_b": sys_(25, 4), "union_fusion_b": sys_(55, 6),
-          "comparisons": {"fusion_vs_llama_guard_a": cmp_(decision), "fusion_vs_llama_guard_b": cmp_(decision)}}
-    (tmp_path / "evals/validation/v1").mkdir(parents=True)
-    (tmp_path / "evals/validation/v1/guard_vs_llama_guard.json").write_text(json.dumps(ev), encoding="utf-8")
-    out = render(tmp_path)
-    sec = out.split("## Runtime guardrail vs Llama Guard 3")[1].split("\n## ")[0]
-    assert "PREREG_guard_vs_llama_guard.md" in sec and "llama-guard3:8b" in sec
-    rows = {line.split("|")[1].strip(): line for line in sec.splitlines() if line.startswith("| ")}
-    assert "50 of 70" in rows["Fusion guardrail"] and "12 of 70" in rows["Llama Guard 3, off the shelf"]
-    assert "25 of 70" in rows["Llama Guard 3, configured"] and "55 of 70" in rows["Fusion + Llama Guard 3 (configured)"]
-    verdict = ("stops significantly more real attacks" if decision == "fusion_better" else "no significant difference")
-    assert verdict in sec
-    from fusion_first.validate.trust_report import evidence_json
-
-    site = evidence_json(tmp_path)["guard_vs_llama_guard"]
-    assert site["systems"]["fusion"]["stopped"] == 50 and site["comparisons"]["configured"]["decision"] == decision
-
-
-@pytest.mark.unit
-def test_the_value_ledger_is_reported_with_its_caveat(tmp_path):
-    import json
-
-    def t(found, fix, guard, either, neither, caused):
-        return {"found": found, "fix_removed": fix, "guard_stopped": guard, "either": either, "neither": neither,
-                "fix_caused": caused, "either_rate": _rate(either, found)}
-
-    ev = {"demonstration": False, "total": t(69, 36, 54, 64, 5, 21),
-          "by_model": {"m1": t(11, 4, 10, 10, 1, 9), "m2": t(13, 5, 12, 13, 0, 3)},
-          "fix_refusal_cost": {"safe_requests_newly_refused": 21, "safe_requests_newly_answered": 5, "pairs": 120},
-          "note": "guard measured on the prompt as written"}
-    (tmp_path / "evals/validation/v1").mkdir(parents=True)
-    (tmp_path / "evals/validation/v1/value_ledger.json").write_text(json.dumps(ev), encoding="utf-8")
-    out = render(tmp_path)
-    assert "Value ledger" in out
-    # it re-reads the FIRST run's measurements, even once a fresh guardrail number is the headline
-    assert "first run's committed measurements" in out.split("Value ledger")[1]
-    rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| ")}
-    assert "| 69 | 36 | 21 | 54 | 64 | 5 |" in rows["all models"]
-    assert "guard measured on the prompt as written" in out
-    from fusion_first.validate.trust_report import evidence_json
-
-    site = evidence_json(tmp_path)["value_ledger"]
-    assert site["total"]["fix_caused"] == 21 and site["by_model"]["m2"]["either"] == 13
-
-
-@pytest.mark.unit
 def test_website_evidence_matches_its_sources():
     import json
 
@@ -383,4 +235,21 @@ def test_every_question_in_the_header_has_its_section():
     for q in ("## Q1 ", "## Q2 ", "## Q3 ", "## Q4 "):
         assert q in out
     assert "rules_git_sha" not in out and "`fusion/guardrail`" not in out
-    assert "Previous rules, superseded by the request-bound rules adopted in step 2" in out
+
+
+@pytest.mark.unit
+def test_superseded_evidence_is_listed_for_audit_not_reported():
+    """Measurements on rules since replaced, or superseded on the same comparator, stay in the repo for audit,
+    named once at the end of the report; neither the report nor the site presents them as results."""
+    import json
+
+    from fusion_first.validate.trust_report import evidence_json
+
+    out = render()
+    for gone in ("Runtime guardrail on real attacks", "Runtime guardrail vs Llama Guard 3", "Value ledger",
+                 "SUPERSEDED", "Secondary outcomes", "destination-parsing"):
+        assert gone not in out
+    assert out.rstrip().splitlines()[-1].startswith("Superseded evidence kept for audit: ")
+    site = json.dumps(evidence_json(ROOT))
+    for key in ("runtime_guardrail", "value_ledger", "guard_vs_llama_guard"):
+        assert f'"{key}"' not in site
