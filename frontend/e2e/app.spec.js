@@ -104,7 +104,7 @@ test.describe("desktop", () => {
     await page.goto("/trust");
     await expect(page.getByRole("heading", { name: "How far to trust Fusion" })).toBeVisible();
     await expect(page.getByRole("heading", { name: /Rubric grading vs one plain question/ })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "v3", exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Given the tool results", exact: true })).toBeVisible();
     expect(errors).toEqual([]);
   });
 
