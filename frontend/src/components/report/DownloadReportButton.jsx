@@ -4,7 +4,7 @@ import { downloadReportHtml } from "../../lib/scanApi";
 
 // Renders the report from the result the page holds, so it works whichever API container answers
 // (the hosted API keeps scans in memory per container).
-export default function DownloadReportButton({ result, filename = "fusion-report.html", children = "Download report" }) {
+export default function DownloadReportButton({ result, filename = "fusion-report.html", children = "Download Report" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const onClick = async () => {

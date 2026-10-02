@@ -433,7 +433,7 @@ export default function Scan({ scanState, setScanState }) {
               Download JSON
             </Button>
             <DownloadReportButton result={result} filename={`fusion-report-${scanId || "scan"}.html`} />
-            <Button onClick={goToGuard}>Guard it</Button>
+            <Button onClick={goToGuard}>Guard It</Button>
           </div>
         </div>
       )}

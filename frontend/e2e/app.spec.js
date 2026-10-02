@@ -43,11 +43,11 @@ test.describe("desktop", () => {
     // The HTML report downloads from the result on the page (no server-side scan lookup).
     const [download] = await Promise.all([
       page.waitForEvent("download"),
-      page.getByRole("button", { name: "Download report" }).click(),
+      page.getByRole("button", { name: "Download Report" }).click(),
     ]);
     expect(download.suggestedFilename()).toMatch(/^fusion-report-.+\.html$/);
     // Guard: the guard snippet and the hardened prompt come back through the token-locked API.
-    await page.getByRole("button", { name: "Guard it" }).click();
+    await page.getByRole("button", { name: "Guard It" }).click();
     await expect(page.getByRole("heading", { name: "Runtime guard" })).toBeVisible();
     await expect(page.getByText(/guard_tool_call/).first()).toBeVisible();
     // The in-sample replay runs on live scans only: demo replies are canned.
@@ -150,7 +150,7 @@ test.describe("phone", () => {
     await page.goto("/scan");
     await page.getByRole("button", { name: "Support bot" }).click();
     await page.getByRole("button", { name: "Run the scan" }).click();
-    await page.getByRole("button", { name: "Guard it" }).click();
+    await page.getByRole("button", { name: "Guard It" }).click();
     await expect(page.getByRole("button", { name: "Hardened Prompt" })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);

@@ -58,13 +58,13 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     api.harden = vi.fn(async (p) => ({ hardened_prompt: `${p}\nFIX`, guard_block: `FIX for ${p}` }));
     render(<Harness />);
     await scanPrompt("Prompt A");
-    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     await screen.findByText("FIX for Prompt A");
     fireEvent.click(screen.getByRole("button", { name: "Re-Test on Your Model" }));
     fireEvent.click(screen.getByRole("button", { name: "Re-run" }));  // live: re-runs, and we cancel it
     fireEvent.click(screen.getByRole("button", { name: /Cancel and edit/ }));
     await scanPrompt("Prompt B");
-    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     await screen.findByText("FIX for Prompt B");
     expect(screen.queryByText("FIX for Prompt A")).toBeNull();
   });
@@ -77,7 +77,7 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
       .mockImplementation(async (p) => ({ hardened_prompt: p, guard_block: `FIX for ${p}` }));
     render(<Harness />);
     await scanPrompt("Prompt A");
-    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     await waitFor(() => expect(api.harden).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "Scan another prompt" }));
     // B's run starts (which clears the Guard step), THEN A's late answer lands: only the request id
@@ -86,7 +86,7 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
     await act(async () => release());
     await act(async () => api.starts.at(-1).opts.onCompleted(live("Prompt B")));
-    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     await screen.findByText("FIX for Prompt B");
     expect(screen.queryByText("FIX for Prompt A")).toBeNull();
   });
@@ -96,7 +96,7 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     api.harden = vi.fn(() => new Promise(() => {}));  // never answers
     render(<Harness />);
     await scanPrompt("Prompt A");
-    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     expect(await screen.findByText("guard code")).toBeInTheDocument();
     expect(screen.getByText("Building the hardened prompt…")).toBeInTheDocument();
   });
@@ -106,7 +106,7 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     api.harden = vi.fn(async () => { throw new Error("harden failed"); });
     render(<Harness />);
     await scanPrompt("Prompt A");
-    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     expect(await screen.findByText("guard code")).toBeInTheDocument();
     expect(await screen.findByText(/harden failed/)).toBeInTheDocument();
     expect(screen.queryByText("The snippet couldn't be loaded.")).toBeNull();
@@ -123,7 +123,7 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
       { check: "direct_prompt_injection", probe_id: "2", attack_label: "b", baseline_issue: false, hardened_issue: false, guard_replay: "allowed" },
     ];
     await act(async () => api.starts.at(-1).opts.onCompleted({ ...live("Prompt A"), outcomes }));
-    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     expect(await screen.findByText(/the guard blocked or redacted 1 of 1 attack that got through and 0 of 1 reply/))
       .toBeInTheDocument();
   });
@@ -133,7 +133,7 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     api.harden = vi.fn(async (p) => ({ hardened_prompt: p, guard_block: `FIX for ${p}` }));
     render(<Harness />);
     await scanPrompt("Prompt A");
-    fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     expect(await screen.findByText("FIX for Prompt A")).toBeInTheDocument();
     expect(await screen.findByText(/snippet failed/)).toBeInTheDocument();
   });

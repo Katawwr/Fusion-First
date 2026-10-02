@@ -23,14 +23,14 @@ describe("DownloadReportButton", () => {
   it("builds the report from the result the page holds, not a stored scan id", async () => {
     const result = { cards: [], outcomes: [], target_name: "Bot" };
     render(<DownloadReportButton result={result} filename="r.html" />);
-    fireEvent.click(screen.getByRole("button", { name: "Download report" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download Report" }));
     await waitFor(() => expect(calls).toEqual([[result, "r.html"]]));
   });
 
   it("says so when the report cannot be built", async () => {
     fail = true;
     render(<DownloadReportButton result={{ cards: [] }} />);
-    fireEvent.click(screen.getByRole("button", { name: "Download report" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download Report" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Server said no");
   });
 });

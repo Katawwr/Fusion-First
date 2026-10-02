@@ -79,7 +79,7 @@ export default function Report() {
       ))}
       <div className="flex flex-wrap gap-3">
         <DownloadReportButton result={result} filename={`fusion-report-${scanId}.html`}>
-          Download report (HTML)
+          Download Report (HTML)
         </DownloadReportButton>
         <a href="/scan">
           <Button>Scan another prompt</Button>
