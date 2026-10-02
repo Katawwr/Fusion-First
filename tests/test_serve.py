@@ -1,10 +1,5 @@
-"""`fusion serve`: the local web app: one origin, loopback only, locked to the page it served.
-
-Local backends spend this machine's own resources (Ollama, the claude CLI subscription), so the local
-server must not be drivable by any other website. Three independent locks are tested here:
-the loopback bind, the Host allowlist (DNS rebinding) and the per-launch token on every non-GET API
-call (cross-site POSTs cannot carry a custom header, and other origins cannot read the page's token).
-"""
+"""`fusion serve` must not be drivable by any other website: loopback bind, Host allowlist (DNS rebinding)
+and a per-launch token on every non-GET API call."""
 
 from __future__ import annotations
 
@@ -69,7 +64,7 @@ def test_files_outside_the_build_are_never_served(client, path):
 
 @pytest.mark.integration
 def test_absolute_paths_are_never_served(client, dist):
-    # On Windows `dist / "C:/.../secret.txt"` IS that absolute path — joining alone is not a guard.
+    # On Windows `dist / "C:/.../secret.txt"` is that absolute path: joining alone is not a guard.
     secret = (dist.parent / "secret.txt").resolve().as_posix()
     r = client.get("/" + secret.lstrip("/"))
     assert "outside the dist dir" not in r.text

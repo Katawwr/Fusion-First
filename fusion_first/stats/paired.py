@@ -1,10 +1,7 @@
 """Bar B statistics: paired before/after improvement.
 
-We use a *paired* design (same probe run against baseline and hardened targets) because it
-controls for per-probe difficulty. For binary pass/fail outcomes the correct significance
-test is the exact McNemar test on the discordant pairs; the effect size (absolute reduction
-in issue rate) gets a paired bootstrap CI. The honesty badge refuses to claim significance
-when the sample is too small to support it.
+Exact McNemar on the discordant pairs, a paired bootstrap CI on the reduction, and an honesty badge
+that refuses to claim significance on a sample too small to support it.
 """
 
 from __future__ import annotations
@@ -15,8 +12,7 @@ import numpy as np
 
 from fusion_first.schemas import BeforeAfterResult, Honesty, Interval
 
-# Minimum discordant pairs before an exact McNemar result is trustworthy, and minimum
-# total pairs before we will ever stamp PROVEN. These are deliberately conservative.
+# Deliberately conservative minimums before PROVEN can be stamped.
 MIN_DISCORDANT = 10
 MIN_PAIRS = 20
 
@@ -32,8 +28,7 @@ def mcnemar_exact_p(b: int, c: int) -> float:
     n = b + c
     if n == 0:
         return 1.0
-    # Exact two-sided binomial test at p = 0.5 (symmetric): 2 * P(X <= min(b, c)), capped at 1.
-    # Computed exactly with integers — no scipy needed (keeps `uvx fusion-safety` installs light).
+    # 2 * P(X <= min(b, c)), capped at 1, in exact integers (no scipy dependency).
     k = min(b, c)
     tail = sum(math.comb(n, i) for i in range(k + 1))
     return min(1.0, 2 * tail / (2 ** n))
@@ -45,10 +40,7 @@ def paired_bootstrap_diff(
     n_boot: int = 10_000,
     seed: int = 42,
 ) -> Interval:
-    """BCa-free percentile bootstrap of (baseline_issue_rate - hardened_issue_rate).
-
-    Resamples probe *pairs* with replacement (preserving pairing). Deterministic given seed.
-    """
+    """Percentile bootstrap of (baseline - hardened issue rate), resampling pairs; deterministic."""
     if len(baseline_fail) != len(hardened_fail):
         raise ValueError("paired arrays must match in length")
     n = len(baseline_fail)

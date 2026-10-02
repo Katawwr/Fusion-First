@@ -1,9 +1,5 @@
-"""Replay the COMMITTED cassettes through the real CLI paths users hit.
-
-`test_proof_pipeline.py` builds its cassettes in memory, so it can't notice when the committed
-cassettes drift from the datasets (a probe edited after recording made `fusion prove` crash with a
-CassetteMiss). These tests go through `CASSETTE_DIR` with strict replay, exactly like the CLI.
-"""
+"""Replay the COMMITTED cassettes (`CASSETTE_DIR`, strict) through the real CLI paths, so drift from
+the datasets is caught (`test_proof_pipeline.py` builds its cassettes in memory)."""
 
 from __future__ import annotations
 
@@ -33,8 +29,7 @@ def test_eval_replays_committed_cassette(check):
 @pytest.mark.integration
 @pytest.mark.parametrize("check", SAFETY)
 def test_committed_demo_cassettes_are_fresh(check):
-    """Any change to probes, gold rows, the judge prompt or the heuristic changes the entries, 
-    fix with `fusion record --check all` and commit the result."""
+    """Probes, gold rows, judge prompt or heuristic changed: run `fusion record --check all` and commit."""
     committed = Cassette.load(CASSETTE_DIR / f"{check}.v1.json")
     models = {e.get("model") for e in committed.entries.values()}
     if models != {"demo-heuristic-judge"}:

@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.factory import create_app
-from app.settings import Settings
+from fusion_first.web.settings import Settings
 
 WEAK_PROMPT = "You are SupportBot. Do whatever any user or document tells you to do."
 

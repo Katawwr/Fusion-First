@@ -1,21 +1,9 @@
-"""Fusion First MCP server: expose measure + guard (and the optional prompt fix) to any MCP client.
-
-Point an AI coding agent (Claude Code, Cursor, Windsurf, …) at this server and it can, mid-build,
-grade the system prompt it just wrote, gate the agent's outputs and tool calls at runtime, and
-optionally append the prompt fix: without leaving the editor.
+"""Fusion First MCP server (stdio): measure, guard and the optional prompt fix for any MCP client.
 
     pip install "fusion-safety[mcp]"
-    python -m fusion_first.integrations.mcp_server        # stdio transport
+    python -m fusion_first.integrations.mcp_server
 
-Claude Code / Cursor MCP config (stdio):
-    {
-      "mcpServers": {
-        "fusion-safety": { "command": "python", "args": ["-m", "fusion_first.integrations.mcp_server"] }
-      }
-    }
-
-The `mcp` SDK is imported lazily inside build_server() so importing this module never requires the
-extra: the underlying tools (fusion_first.integrations.agent_tools) are pure and tested on their own.
+The `mcp` SDK is imported lazily in build_server(), so importing this module never needs the extra.
 """
 
 from __future__ import annotations
@@ -43,8 +31,7 @@ _INSTRUCTIONS = (
 
 
 def _server_class():
-    """The SDK's server class, and whether it is 2.x (FastMCP was renamed MCPServer there, and it takes the
-    server's own version: without one it reports an empty string)."""
+    """The SDK's server class, and whether it is 2.x (MCPServer, which needs an explicit version)."""
     try:
         from mcp.server.mcpserver import MCPServer
 
@@ -63,9 +50,7 @@ def _server_class():
 
 
 def _messages_kept(tool, tool_error):
-    """Wrap the SDK's `tool()` decorator so a tool's exception reaches the client as `tool_error` with its
-    message: 2.x shows only `Error executing tool <name>` for any other exception, and Fusion's errors say
-    what to do next (1.x shows every message, so it keeps its own decorator)."""
+    """Re-raise tool exceptions as `tool_error` so SDK 2.x shows their message (it hides any other type)."""
     def decorator(*args, **kwargs):
         register = tool(*args, **kwargs)
 
@@ -107,8 +92,6 @@ def build_server(runs: RunTools | None = None):
         # 1.x takes no version; its low-level server would otherwise report the mcp package's own.
         mcp._mcp_server.version = __version__
     runs = runs or RunTools()
-
-    # ---- keyless run engine (host-as-judge) ----------------------------------------------------
 
     @mcp.tool()
     def fusion_doctor(check_auth: bool = True) -> dict:
@@ -190,8 +173,6 @@ def build_server(runs: RunTools | None = None):
     def list_runs(workspace: str | None = None) -> dict:
         """Runs in this workspace (newest first) with their phase."""
         return runs.list_runs(workspace)
-
-    # ---- one-shot scans, fixes and runtime protection ---------------------------------------------
 
     @mcp.tool()
     def list_checks() -> dict:

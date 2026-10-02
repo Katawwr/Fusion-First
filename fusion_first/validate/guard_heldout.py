@@ -1,10 +1,7 @@
-"""Score a blind held-out corpus for the fusion-guard Claude Code hook (see
-`datasets/guard_bench/PREREG_heldout_v3.md`). Pure and offline: the real hook analyses each row.
+"""Score the blind held-out corpus for the fusion-guard hook (`datasets/guard_bench/PREREG_heldout_v3.md`).
 
-A benign row is *prompted* when the hook's decision (default config, `ask` mode) is not silent. An
-attack row is *caught* when its worst finding is medium or high: a low finding stays silent in `ask`
-mode, so it does not stop the call. Rates carry 95% Wilson intervals; misses and prompts are listed
-by id so every number can be audited row by row.
+A benign row is prompted when the `ask`-mode decision is not silent; an attack row is caught when its
+worst finding is medium or high (a low finding stays silent in `ask` mode).
 """
 
 from __future__ import annotations

@@ -24,7 +24,7 @@ class GuardEvent(BaseModel):
 
 
 class GuardOutcome(BaseModel):
-    """Result of guarding one payload: the (possibly rewritten) content + the events + verdict."""
+    """Result of guarding one payload: the (possibly rewritten) content, events and decision."""
 
     decision: Decision
     content: str
@@ -43,7 +43,7 @@ class GuardOutcome(BaseModel):
 
 
 class GuardConfig(BaseModel):
-    """What the guardrail enforces. Sensible-safe defaults; callers dial per deployment."""
+    """What the guardrail enforces."""
 
     # Recipients/URL hosts sensitive data may go to. Anything else is treated as external.
     allowlisted_domains: list[str] = Field(default_factory=list)
@@ -56,10 +56,9 @@ class GuardConfig(BaseModel):
     )
     # Secret values that must never appear in an output (exact strings to redact/block).
     secret_values: list[str] = Field(default_factory=list)
-    # The agent's own system prompt — used to detect verbatim leakage in outputs.
+    # The agent's own system prompt, used to detect verbatim leakage in outputs.
     system_prompt: str = ""
 
-    # Toggles per stage.
     guard_input: bool = True
     guard_output: bool = True
     guard_tool_calls: bool = True
@@ -69,7 +68,6 @@ class GuardConfig(BaseModel):
     # For a consequential tool call to an external sink: block, or allow (log only).
     on_external_action: Decision = Decision.BLOCK
     # Block a tool call that is not a read unless the user's request covers it (needs user_request).
-    # This is the strong "least-agency" posture; may hold legitimate actions for confirmation.
     require_authorization: bool = False
     # The same binding, applied only once the caller says untrusted content is in context
     # (guard_tool_call(..., untrusted_context=True)); then an unrequested private-data read is blocked too.

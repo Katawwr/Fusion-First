@@ -1,10 +1,7 @@
-"""Resumable generation of evidence transcripts (real model responses) for the oracle experiments.
+"""Resumable generation of evidence transcripts for the oracle experiments.
 
-Local CPU inference is slow (tens of seconds per response), so this is built to run overnight and
-survive interruption: every response is appended to a JSONL store the moment it arrives, a re-run
-skips everything already recorded, and a failed call is recorded as an error (never as a response)
-so it is retried next time and never scored. The store IS the evidence: it is committed alongside the
-analysis so every number can be recomputed offline.
+Each response is appended to a committed JSONL store as it arrives; a re-run skips what is recorded,
+and a failed call is recorded as an error (retried next run, never scored).
 """
 
 from __future__ import annotations
@@ -59,9 +56,7 @@ class TranscriptStore:
             return out
         text = p.read_text(encoding="utf-8")
         lines = text.split("\n")
-        # Every append writes a whole line ending in "\n", so an unterminated final line can only be a
-        # write still in progress (a reader running alongside generation): skip it. A malformed COMPLETE
-        # line is real corruption and still raises.
+        # An unterminated final line is a write in progress: skip it. A malformed complete line raises.
         complete = lines[:-1] if not text.endswith("\n") else lines
         for line in complete:
             if line.strip():
@@ -92,10 +87,8 @@ async def generate(
     stop_after: int | None = None,
     max_tokens_for: Callable[[EvidenceItem], int] | None = None,
 ) -> dict:
-    """Run every (model, item, arm) not yet recorded successfully. Returns counts.
-
-    Isolatable failures (timeouts, a model that errored) are recorded as errors and retried next run;
-    run-level failures (usage limit, budget, auth) propagate: everything already recorded is safe."""
+    """Run every (model, item, arm) not yet recorded successfully. Isolatable failures are recorded as
+    errors; run-level failures (usage limit, budget, auth) propagate."""
     done_cache: dict[tuple[str, str], dict] = {}
     counts = {"generated": 0, "skipped": 0, "errored": 0}
     clients: dict[str, ModelClient] = {}
@@ -105,7 +98,7 @@ async def generate(
             done_cache[key] = store.load(item.experiment, model)
         prior = done_cache[key].get((item.item_id, arm))
         system = item.system_for(arm)
-        # Keyed on the FULL prompt (system + user): changing either regenerates, never reuses stale text.
+        # Keyed on the full prompt: changing system or user regenerates.
         prompt_sha = _sha(system + "\n\x00\n" + item.user)
         if prior and prior.response is not None and prior.system_sha256 == prompt_sha:
             counts["skipped"] += 1
@@ -128,7 +121,7 @@ async def generate(
                 served_model=resp.served_model, seed=seed, max_tokens=cap,
             )
             counts["generated"] += 1
-        except Exception as exc:  # noqa: BLE001 — isolatable failures are recorded, fatal ones stop
+        except Exception as exc:  # noqa: BLE001 - isolatable failures are recorded, fatal ones stop
             if not isolatable(exc):
                 raise
             rec = TranscriptRecord(

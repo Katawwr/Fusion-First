@@ -1,19 +1,8 @@
-"""Local open-weight target adapter via Ollama — the product's sweet spot.
+"""Local open-weight models via Ollama (stdlib only).
 
-Frontier models (Claude, GPT-4-class) are heavily safety-tuned and resist most injection / exfil /
-excessive-agency attacks. Open-weight models (Llama, Mistral, Qwen, Phi, Gemma, …) are far less
-robust, so those attacks actually LAND — which is exactly where Fusion finds and fixes real
-vulnerabilities. Ollama runs them locally for free with no API key, matching Fusion's no-cost posture.
-
-Measurement-integrity notes that are load-bearing:
-  * `num_ctx` is set explicitly and an over-long request is REFUSED up front: Ollama otherwise
-    silently truncates the prompt (dropping the system prompt's head), which would make a hardened
-    prompt look effective or ineffective for the wrong reason.
-  * `done_reason == "length"` marks a truncated answer (`ModelResponse.truncated`).
-  * `logprobs`/`top_logprobs` (Ollama >= 0.12.11) power the local probability judge.
-
-Dependency-free (stdlib urllib run off the event loop) and modal-free, so importing `fusion` never
-requires Ollama to be installed or running.
+`num_ctx` is set explicitly and an over-long request is refused up front: Ollama would otherwise
+silently drop the head of the system prompt. `done_reason == "length"` marks a truncated answer;
+`logprobs` (Ollama >= 0.12.11) power the probability judge.
 """
 
 from __future__ import annotations
@@ -28,8 +17,7 @@ from fusion_first.errors import FusionProviderError, PromptTooLong
 from fusion_first.model.client import ModelRequest, ModelResponse
 from fusion_first.offline import offline
 
-# The IPv4 loopback, not `localhost`: on Windows `localhost` resolves to ::1 first and Ollama listens
-# on IPv4, so each request (a new connection every time) paid a ~2 s fallback.
+# IPv4 loopback, not `localhost`: on Windows `localhost` tries ::1 first, a ~2 s fallback per request.
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
 DEFAULT_NUM_CTX = 8192
 # Conservative characters-per-token for the up-front context check (English ≈ 4, code/JSON ≈ 3).
@@ -41,7 +29,7 @@ class OllamaUnavailable(FusionProviderError):
 
 
 class OllamaContextTooLong(OllamaUnavailable, PromptTooLong):
-    """The request would overflow the model's context window — refused instead of silently truncated."""
+    """The request would overflow the context window: refused instead of silently truncated."""
 
 
 class OllamaModelClient:
@@ -66,7 +54,7 @@ class OllamaModelClient:
         model = request.model_id or self._default_model
         if not model:
             raise OllamaUnavailable("no Ollama model specified (set model_id or the client default)")
-        # Accept a friendly "ollama:<name>" or "ollama/<name>" prefix and strip it for the API.
+        # Strip an "ollama:" or "ollama/" prefix.
         for sep in ("ollama:", "ollama/"):
             if model.startswith(sep):
                 model = model[len(sep):]
@@ -105,7 +93,6 @@ class OllamaModelClient:
         if self._keep_alive:
             payload["keep_alive"] = self._keep_alive
         if request.response_schema is not None:
-            # Ollama honours a JSON schema (newer) or the "json" keyword (older) as the format hint.
             payload["format"] = request.response_schema
         if request.logprobs:
             payload["logprobs"] = True
@@ -128,8 +115,6 @@ class OllamaModelClient:
                 pass
             raise OllamaUnavailable(f"Ollama returned HTTP {e.code} for {payload.get('model')}: {body}") from e
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            # OSError covers socket.timeout / ConnectionReset / ConnectionRefused — the dominant
-            # failure modes for slow local generation — so they surface as OllamaUnavailable, not raw.
             raise OllamaUnavailable(
                 f"could not reach Ollama at {self._base_url} ({e}); is `ollama serve` running "
                 "and the model pulled (`ollama pull <model>`)?"
@@ -182,8 +167,7 @@ class OllamaModelClient:
 
 
 def ollama_available(base_url: str | None = None) -> bool:
-    """True if a local Ollama server answers (used to auto-select the backend) and real calls are
-    permitted (FUSION_OFFLINE is not set)."""
+    """A local Ollama server answers and FUSION_OFFLINE is not set."""
     if offline():
         return False
     url = (base_url or DEFAULT_OLLAMA_URL).rstrip("/")
@@ -218,7 +202,7 @@ def ollama_models(base_url: str | None = None) -> list[dict]:
 
 
 def model_digest(name: str, base_url: str | None = None) -> str | None:
-    """The installed digest of a local model — pins evidence to exact weights (provenance)."""
+    """The installed digest of a local model (pins evidence to exact weights)."""
     for m in ollama_models(base_url):
         if m["name"] == name or m["name"] == f"{name}:latest":
             return m["digest"]

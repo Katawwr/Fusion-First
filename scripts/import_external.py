@@ -1,15 +1,13 @@
 """Import the external benchmarks into normalized, license-checked jsonl + a provenance manifest.
 
-Reads the gitignored downloads in ``datasets/external/raw/<source>/`` (this script NEVER touches the
-network) and writes ``datasets/external/<source>.v1.jsonl`` plus ``datasets/external/SOURCES.yaml``
-(url, license, row count, sha256 of every raw file and of the processed jsonl, import date).
+Reads ``datasets/external/raw/<source>/`` (no network) and writes ``datasets/external/<source>.v1.jsonl``
+plus ``datasets/external/SOURCES.yaml``.
 
     python scripts/import_external.py                     # every source; date = newest raw mtime
     python scripts/import_external.py --date 2026-09-26   # pin the import date
     python scripts/import_external.py --only xstest ifeval
 
-Exit codes: 0 ok, 1 missing/malformed raw data, 2 a source's license is not allowlisted (nothing is
-written in either failure case).
+Exit codes: 0 ok, 1 missing/malformed raw data, 2 license not allowlisted (nothing written on failure).
 """
 
 from __future__ import annotations
@@ -19,7 +17,6 @@ import datetime
 import pathlib
 import sys
 
-# Allow running as a plain script from a source checkout (no install needed).
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from fusion_first._data import data_root  # noqa: E402

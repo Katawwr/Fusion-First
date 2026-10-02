@@ -1,14 +1,4 @@
-"""Budget / circuit breaker for model access.
-
-`BudgetedModelClient` wraps any ModelClient and enforces, per run:
-- a model allowlist (via the registry): no calling unapproved/expensive models;
-- a maximum number of model calls (kills runaway agent loops);
-- a cumulative output-token ceiling (caps cost);
-- a per-call output-token cap clamp.
-
-This is both a cost control and an agentic-safety control (OWASP LLM10 Unbounded Consumption).
-When a ceiling is hit it raises BudgetExceeded rather than silently continuing.
-"""
+"""Per-run model allowlist, call ceiling and output-token ceiling (OWASP LLM10 Unbounded Consumption)."""
 
 from __future__ import annotations
 
@@ -55,20 +45,17 @@ class BudgetedModelClient:
         self.enforce_allowlist = enforce_allowlist
 
     async def complete(self, request: ModelRequest) -> ModelResponse:
-        # Allowlist: an explicit model_id must be approved.
         if self.enforce_allowlist and request.model_id:
             try:
                 self.registry.require_allowed(request.model_id)
             except ValueError as e:
                 raise ModelNotAllowed(str(e)) from e
 
-        # Call-count circuit breaker.
         if self.state.calls >= self.state.limits.max_calls:
             raise BudgetExceeded(
                 f"model call budget exhausted ({self.state.limits.max_calls} calls)"
             )
 
-        # Clamp per-call output tokens.
         capped = min(request.max_tokens, self.state.limits.per_call_output_cap)
         if capped != request.max_tokens:
             request = request.model_copy(update={"max_tokens": capped})

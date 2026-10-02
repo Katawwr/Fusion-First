@@ -1,9 +1,4 @@
-"""The FastAPI app factory: pure, importable and testable without `modal` or any provider key.
-
-`create_app()` returns a fully-wired app that runs demo scans with zero keys. Real scans engage
-automatically when a provider key is present in settings. The Modal ASGI wrapper (app/modal_app.py)
-is the only thing that imports `modal`; it simply calls this factory.
-"""
+"""The FastAPI app factory: runs demo scans with zero keys; app/modal_app.py wraps it for Modal."""
 
 from __future__ import annotations
 
@@ -21,6 +16,7 @@ from fusion_first.attacks.taxonomy import Crosswalk
 from fusion_first.engine.fixes import apply_fix, guard_block
 from fusion_first.engine.report_html import render_dashboard_html
 from fusion_first.engine.user_scan import run_user_scan
+from fusion_first.guardrail.snippet import guardrail_snippet
 from fusion_first.judge.rubric import REGISTRY, checks_of_kind
 from fusion_first.schemas import ScanEvent, ScanEventType, ScanResult, ScanTier
 from fusion_first.web.clients import (
@@ -32,18 +28,16 @@ from fusion_first.web.clients import (
 from fusion_first.web.models import GuardrailRequest, HardenRequest, QualityRequest, ScanRequest
 from fusion_first.web.persistence import InMemoryScanStore, ScanStore
 from fusion_first.web.settings import Settings, load_settings
-from fusion_first.web.snippet import guardrail_snippet
 from fusion_first.web.sse import sse_error, sse_frame, stream_with_heartbeat
 
 _FENCE_TOKENS = ("<untrusted>", "</untrusted>")
 CLI_STATUS_TTL_S = 30.0  # how long a `claude auth status` answer is reused by /api/version
 
-
 log = logging.getLogger(__name__)
 
+
 def _sanitize_prompt(text: str) -> str:
-    """Strip the judge's untrusted-content fence markers from user input so a pasted prompt can't
-    forge them into the evaluation transcript."""
+    """Strip the judge's untrusted-content fence markers so a pasted prompt can't forge them."""
     for tok in _FENCE_TOKENS:
         text = text.replace(tok, "")
     return text
@@ -73,8 +67,6 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
     def _prepare(req) -> tuple[str, list[str], ScanTier, dict]:
         if len(req.system_prompt) > settings.prompt_max_chars:
             raise HTTPException(413, f"system prompt exceeds {settings.prompt_max_chars} characters")
-        # Safety checks run the attack suite; quality checks grade normal test inputs on both arms
-        # (a fix-cost measure). Quality needs a real model: demo responses are canned.
         checks = req.checks or checks_of_kind("safety")
         known = set(checks_of_kind("safety")) | set(checks_of_kind("quality"))
         unknown = [c for c in checks if c not in known]
@@ -105,8 +97,6 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
             system_prompt=system_prompt, checks=checks, tier=tier, target_name="Your prompt", **kwargs
         )
 
-    # ----------------------------------------------------------------- meta
-
     cli_cache: dict = {}  # `claude auth status` spawns a process; the answer is reused briefly
 
     async def _cli_ready() -> tuple[bool, str]:
@@ -125,7 +115,7 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
         return value
 
     async def _backends() -> dict:
-        """Which live backends THIS server can actually run (not merely whether a key exists)."""
+        """Which live backends this server can actually run (not merely whether a key exists)."""
         import asyncio
 
         from fusion_first.integrations.live import METERED_OPT_IN_ENV, metered_allowed
@@ -136,7 +126,6 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
         ollama_ok = local and await asyncio.to_thread(ollama_available)
         cli_ok, cli_reason = await _cli_ready()
         models = [m["name"] for m in await asyncio.to_thread(ollama_models)] if ollama_ok else []
-        # What a local page could grade with: never reported by a demo-only server.
         graders = web_graders(bool(cli_ok), models) if local else []
         keys = hosted_keys() if local else []
         spend = bool(local and metered_allowed("api"))
@@ -153,7 +142,6 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
             "hosted_providers": hosted,
             "hosted_keys": keys,
             "spend_opt_in": spend,
-            # Any model by spec runs only where something can grade it.
             "spec": bool(local and (graders or hosted)),
         }
 
@@ -173,8 +161,6 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
             "live_available": b["cli"] or b["ollama"] or b["api"],
             "backends": b,
         }
-
-    # ----------------------------------------------------------------- scan
 
     @app.post("/api/scan")
     async def scan(req: ScanRequest):
@@ -207,7 +193,7 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
                     payload = ev.model_dump(mode="json")
                     payload["scan_id"] = scan_id
                     yield sse_frame(ev.type.value, payload)
-            except Exception:  # noqa: BLE001 — the stream must end with a terminal frame, safely
+            except Exception:  # noqa: BLE001 (the stream must end with a terminal frame)
                 log.exception("scan %s failed", scan_id)
                 yield sse_error(
                     "internal", f"The scan failed unexpectedly (ref {scan_id}).", scan_id
@@ -236,15 +222,12 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
 
     @app.post("/api/report.html", response_class=HTMLResponse)
     def post_report_html(result: ScanResult, theme: Literal["dark", "light"] | None = None):
-        """The report from the result the page already holds: no server state, so it works whichever
-        container answers. Served as a download, never rendered on the API's origin."""
+        """Render the result the page already holds (stateless); served as a download, never inline."""
         title = result.target_name or "Safety Report"
         return HTMLResponse(
             render_dashboard_html(result.cards, title, outcomes=result.outcomes, theme=theme),
             headers={"Content-Disposition": 'attachment; filename="fusion-report.html"'},
         )
-
-    # ----------------------------------------------------------------- fix
 
     @app.post("/api/harden")
     def harden(req: HardenRequest):
@@ -257,12 +240,9 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
         checks = req.checks or checks_of_kind("safety")
         return {"language": "python", "snippet": guardrail_snippet(checks), "checks": checks}
 
-    # ----------------------------------------------------------------- quality (live-only)
-
     @app.post("/api/grade-quality")
     async def grade_quality(req: QualityRequest):
-        """Grade an agent's QUALITY on normal test inputs. Live-only: needs a real backend (the
-        `claude` CLI subscription, an Ollama open-weight target, or a key); returns 402 otherwise."""
+        """Quality grading; live-only (402 without a backend)."""
         from fusion_first.integrations import agent_tools
         from fusion_first.integrations.live import LiveUnavailable as FusionLiveUnavailable
 

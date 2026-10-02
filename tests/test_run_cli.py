@@ -82,8 +82,7 @@ def test_resubmission_is_reported_and_min_grade_gates(tmp_path, capsys):
     capsys.readouterr()
     assert main(["run", "submit", "--file", str(answers), *ws]) == 3  # already graded -> rejected
     capsys.readouterr()
-    # Rubber-stamp answers fail the known-answer floor: the grade is withheld ('?'), and a withheld
-    # grade fails ANY bar — even F.
+    # Rubber-stamp answers fail the known-answer floor: a withheld grade ('?') fails any bar, even F.
     assert main(["run", "finalize", "--min-grade", "F", *ws]) == 1
     assert "not a pass" in capsys.readouterr().out
     assert rd.result_path.exists()

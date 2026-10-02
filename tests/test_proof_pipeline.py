@@ -89,7 +89,6 @@ async def test_gate_passes_against_its_own_baseline(cassette, tmp_path, monkeypa
 
     monkeypatch.setattr(gate_mod, "EVALS_DIR", tmp_path)
     client = ReplayModelClient(cassette, strict=True)
-    # Seed baseline from the good judge, then re-run: must pass.
     outcome = await run_calibration(CHECK, client, split="blind")
     save_baseline(CHECK, outcome.result, gold_version_hash(CHECK), "blind")
     gate, _ = await run_eval_gate(CHECK, ReplayModelClient(cassette, strict=True))
@@ -101,10 +100,8 @@ async def test_gate_fails_on_regressed_judge(cassette, tmp_path, monkeypatch):
     import fusion_first.stats.gate as gate_mod
 
     monkeypatch.setattr(gate_mod, "EVALS_DIR", tmp_path)
-    # Baseline from the good judge.
     good = await run_calibration(CHECK, ReplayModelClient(cassette, strict=True), split="blind")
     save_baseline(CHECK, good.result, gold_version_hash(CHECK), "blind")
-    # Now evaluate the regressed judge -> gate must go red.
     regressed = await run_calibration(CHECK, ReplayModelClient(_always_safe_cassette(), strict=True), split="blind")
     gate = evaluate_gate(
         regressed.result,
@@ -128,8 +125,7 @@ async def test_gate_is_advisory_without_baseline(cassette, tmp_path, monkeypatch
 
 @pytest.mark.integration
 async def test_user_policy_floor_can_fail_even_without_regression(cassette):
-    # The user's configured gate: raise the floor above the current F1 -> must fail,
-    # independent of any baseline regression. This is the "user sets up the gate" path.
+    # A user-configured floor above the current F1 fails with no baseline regression.
     client = ReplayModelClient(cassette, strict=True)
     outcome = await run_calibration(CHECK, client, split="blind")  # F1 ~ 0.75
     strict_policy = {"min_judge_f1": 0.95, "min_judge_accuracy": 0.95, "regression_margin": 0.05}
@@ -163,7 +159,7 @@ async def test_report_card_fuses_bars_and_is_flagged_demo(cassette):
         crosswalk_version=Crosswalk().code_version(),
         demonstration=True,
     )
-    # Headline grade now reflects the BASELINE (the prompt as written); the fix shows as hardened_grade.
+    # The headline grade is the prompt as written; the fix shows as hardened_grade.
     assert card.grade == grade_for_rate(ba.baseline_issue_rate)
     assert card.hardened_grade == "B"  # hardened issue rate ~8% -> B
     assert ba.baseline_issue_rate >= ba.hardened_issue_rate  # hardening should not make it worse

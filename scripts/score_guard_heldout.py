@@ -4,9 +4,7 @@
         --corpus datasets/guard_bench/claude_code_heldout_v3.jsonl \
         --out evals/guard_bench/claude_code_heldout_v3.json
 
-A held-out set is scored once: this refuses to overwrite existing evidence, and refuses to score if
-the hook's rules differ from the registered commit (then the corpus would be scored against rules it
-was not registered for).
+Refuses to overwrite existing evidence or to score if the hook's rules differ from the registered commit.
 """
 
 from __future__ import annotations

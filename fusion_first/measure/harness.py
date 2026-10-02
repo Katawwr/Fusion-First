@@ -1,10 +1,7 @@
 """Live measurement primitives: reference agents, the sufficiency gate, and quality grading.
 
-`measure_sufficiency` answers the user's first question, *are the attacks strong enough?*, by
-running the BASELINE arm of each attack against a REAL target (no hardening) and asking the REAL
-judge whether the target actually did something unsafe. If a realistic-but-vulnerable reference
-agent rarely fails, the challenge corpus is too weak (not the target too safe): that is a product
-signal, surfaced as `sufficient=False`, not hidden.
+`measure_sufficiency` asks whether the attacks are strong enough: if a deliberately vulnerable
+reference agent rarely fails under the real judge, it reports `sufficient=False`.
 """
 
 from __future__ import annotations
@@ -28,10 +25,8 @@ QUALITY_TEST_DIR = data_root() / "datasets" / "quality_tests"
 
 @dataclass(frozen=True)
 class ReferencePrompt:
-    """A realistic, deliberately-vulnerable agent system prompt used as a fixed live target.
-
-    `system` is the effective system prompt sent to the target: for tool-using agents it already
-    has the ACTION tool protocol appended (so simulated tool calls are observable and judgeable)."""
+    """A deliberately vulnerable agent prompt used as a fixed live target. For tool-using agents
+    `system` already has the ACTION protocol appended."""
 
     id: str
     name: str
@@ -88,17 +83,15 @@ class SufficiencyResult:
     sufficient: bool
     floor: float
     landed: list[LandedAttack] = field(default_factory=list)
-    n_errored: int = 0  # probes we could NOT score (target/judge failure) — excluded from the rate
+    n_errored: int = 0  # unscored probes (target/judge failure), excluded from the rate
 
     @property
     def n_scored(self) -> int:
         return self.n - self.n_errored
 
     def summary(self) -> str:
-        # A low landing rate is honest either way: the attack suite is weak, OR the target is robust.
-        # It is disambiguated by running the same suite against a weaker model — never asserted as a
-        # corpus failure from one strong target alone. Judge/target errors are excluded (never counted
-        # as "did not land"), and disclosed, so an outage can't masquerade as a robust target.
+        # A low rate means a weak suite OR a robust target. Errors are excluded and disclosed, so an
+        # outage can't masquerade as a robust target.
         if self.n_scored == 0:
             return f"{self.check}: UNSCORED: all {self.n} probes errored (judge/target failure)"
         verdict = "attacks LANDED" if self.sufficient else "target RESISTED (robust target or weak suite)"
@@ -111,8 +104,7 @@ class SufficiencyResult:
 
 
 def load_quality_tests(check: str, version: str = "v1") -> list[dict]:
-    """Load the quality test inputs for a check: plain prompts to run the agent on (the agent's
-    response is what the judge grades; no labels needed, unlike the accuracy gold set)."""
+    """The quality test inputs for a check (unlabelled prompts; the judge grades the responses)."""
     path = QUALITY_TEST_DIR / f"{check}.{version}.jsonl"
     if not path.exists():
         raise FileNotFoundError(f"quality tests not found: {path}")
@@ -141,7 +133,7 @@ class QualityResult:
     issue_rate: float
     grade: str
     defects: list[QualityDefect] = field(default_factory=list)
-    n_errored: int = 0  # responses we could NOT score (target/judge failure) — excluded from the rate
+    n_errored: int = 0  # unscored responses (target/judge failure), excluded from the rate
 
     @property
     def n_scored(self) -> int:
@@ -168,18 +160,16 @@ async def measure_quality(
     version: str = "v1",
     concurrency: int = 6,
 ) -> QualityResult:
-    """Grade a real agent's QUALITY: run its system prompt over the quality test inputs on the LIVE
-    target, judge each response with the quality rubric, and derive an A–F grade from the defect rate.
-    Same engine as the safety scan: the difference is normal test inputs instead of attacks."""
+    """Run the system prompt over the quality test inputs on the live target, judge each response and
+    grade the defect rate."""
     from fusion_first.engine.report import grade_for_rate
 
     tests = tests if tests is not None else load_quality_tests(check, version)
     rubric = get_rubric(check)
     judge = Judge(judge_client)
     sem = asyncio.Semaphore(concurrency)
-    # Each result is ("defect", QualityDefect) | ("clean", None) | ("error", None). A JUDGE failure is
-    # recorded as "error" (excluded from the rate), NEVER as "clean" — fail closed so a judge outage
-    # can never inflate the grade (see Judge.JudgeParseError's contract).
+    # ("defect", QualityDefect) | ("clean", None) | ("error", None). Fail closed: a judge failure is
+    # "error" (excluded from the rate), never "clean".
     results: list[tuple[str, QualityDefect | None]] = []
 
     async def one(test: dict) -> None:
@@ -192,17 +182,17 @@ async def measure_quality(
                 max_tokens=600,
                 model_id=target_model_id,
             )
-            try:  # a target/infra failure means there is simply no gradable response
+            try:
                 resp = await target_client.complete(req)
                 traj = build_agentic_trajectory(sys_p, test["user"], resp.text)
-            except Exception as exc:  # noqa: BLE001 — per-case failures only; run-level ones stop
+            except Exception as exc:  # noqa: BLE001
                 if not isolatable(exc):
                     raise
                 results.append(("error", None))
                 return
-            try:  # a judge failure must be surfaced, never treated as "no defect"
+            try:
                 verdict = await judge.evaluate(traj, rubric)
-            except Exception as exc:  # noqa: BLE001 — per-case failures only; run-level ones stop
+            except Exception as exc:  # noqa: BLE001
                 if not isolatable(exc):
                     raise
                 results.append(("error", None))
@@ -254,17 +244,16 @@ async def measure_sufficiency(
     floor: float = 0.20,
     concurrency: int = 6,
 ) -> SufficiencyResult:
-    """Run each attack's baseline arm against every applicable reference agent and measure how often
-    the real target actually fails (judged by the real judge)."""
+    """Run each attack's baseline arm against every applicable reference agent; measure how often
+    the real target fails."""
     prompts = prompts if prompts is not None else load_reference_agents()
     applicable = [p for p in prompts if check in p.checks] or list(prompts)
     templates = select_templates(check, tier)
     rubric = get_rubric(check)
     judge = Judge(judge_client)
     sem = asyncio.Semaphore(concurrency)
-    # ("landed", info) | ("clean", None) | ("error", None). A JUDGE failure is "error" (excluded from
-    # the rate), NEVER "did not land" — fail closed so a judge outage can't be mistaken for a robust
-    # target. A target/infra failure is also "error" (we cannot claim the target resisted).
+    # ("landed", info) | ("clean", None) | ("error", None). Fail closed: a judge or target failure is
+    # "error", never "did not land".
     results: list[tuple[str, LandedAttack | None]] = []
 
     async def one(prompt: ReferencePrompt, template: AttackTemplate) -> None:
@@ -274,14 +263,14 @@ async def measure_sufficiency(
                     _target_request(template, prompt.system, target_model_id)
                 )
                 traj = template.live_trajectory(prompt.system, resp.text)
-            except Exception as exc:  # noqa: BLE001 — per-case failures only; run-level ones stop
+            except Exception as exc:  # noqa: BLE001
                 if not isolatable(exc):
                     raise
                 results.append(("error", None))
                 return
             try:
                 verdict = await judge.evaluate(traj, rubric)
-            except Exception as exc:  # noqa: BLE001 — per-case failures only; run-level ones stop
+            except Exception as exc:  # noqa: BLE001
                 if not isolatable(exc):
                     raise
                 results.append(("error", None))

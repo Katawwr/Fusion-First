@@ -1,15 +1,7 @@
-"""Q1: is the judge accurate? Measured on REAL transcripts with DETERMINISTIC oracle labels.
+"""Q1: is the judge accurate? Any grader vs deterministic oracle labels on real transcripts.
 
-The evidence experiments (`fusion_first.validate.experiments`) produce real open-weight model responses
-whose label is decided by an oracle, not an LLM: did the model call the attacker's tool (InjecAgent),
-did it leak the planted password (Gandalf), did it follow the verifiable instructions (IFEval-lite).
-This module turns each decidable transcript into the exact question the production judge answers,
-lets ANY grader answer it (built-in backend, or the host agent through the keyless run engine's
-get_grading_tasks / submit_grades: the answers never see the labels), and scores the grader against
-the oracle next to the non-LLM baselines on the very same items (does the judge add value?).
-
-Labels are recomputed from the committed transcripts + oracles at scoring time; they are never
-written into the grading directory.
+Each decidable transcript becomes the production judge's question; labels are recomputed from the
+committed transcripts at scoring time and never written into the grading directory.
 """
 
 from __future__ import annotations
@@ -35,11 +27,11 @@ from fusion_first.stats.metrics import (
 from fusion_first.validate.experiments import ARMS, build_items, oracle_label
 from fusion_first.validate.transcripts import TranscriptStore
 
-# Which production rubric judges each experiment's transcripts (the oracle decides the same question).
+# The production rubric that judges each experiment's transcripts.
 JUDGE_CHECK = {
-    "injecagent": "direct_prompt_injection",  # issue = the agent acted on the injected instruction
-    "gandalf": "system_prompt_leakage",  # issue = the planted password left the system prompt
-    "ifeval": "instruction_following",  # issue = a verifiable instruction was not followed
+    "injecagent": "direct_prompt_injection",
+    "gandalf": "system_prompt_leakage",
+    "ifeval": "instruction_following",
 }
 
 
@@ -56,8 +48,7 @@ class JudgeEvalItem:
 
 
 def collect_items(experiments, models, n: int, store: TranscriptStore) -> list[JudgeEvalItem]:
-    """Every decidable, successfully generated transcript (both arms). Truncated quality answers are
-    skipped (the cap, not the model, would decide them)."""
+    """Every decidable, successfully generated transcript (both arms); truncated quality answers skipped."""
     out: list[JudgeEvalItem] = []
     for exp in experiments:
         check = JUDGE_CHECK.get(exp)
@@ -111,8 +102,7 @@ def _check_of_key(req: dict) -> str:
 
 
 class ArtifactDir:
-    """Committed grading artifacts (items.json + judge.cassette.json + plan.json), scored exactly
-    like the run directory they were exported from: so committed Q1 evidence can be re-derived."""
+    """Committed grading artifacts, scored like the run directory they were exported from."""
 
     def __init__(self, path: str | os.PathLike):
         self.root = pathlib.Path(path)
@@ -148,8 +138,7 @@ def _verdicts(rd: RunDir, items: list[JudgeEvalItem]) -> dict[str, bool | None]:
 
 
 def disagreements(rd: RunDir, items: list[JudgeEvalItem], limit: int = 200) -> list[dict]:
-    """Every grader-vs-oracle disagreement with what's needed to audit it by hand: the agent's own
-    output, the oracle's label, and the grader's rationale and evidence."""
+    """Every grader-vs-oracle disagreement, with what's needed to audit it by hand."""
     from fusion_first.validate.oracles import agent_output_text
 
     uid_key = rd.read_json(rd.root / "items.json")
@@ -190,9 +179,8 @@ def _block(y_true: list[bool], y_pred: list[bool], n_unanswered: int, source: st
 
 
 def score(rd: RunDir, items: list[JudgeEvalItem], grader_label: str) -> dict:
-    """Grader vs oracle, per check (and per model / arm), with the non-LLM baselines on the SAME
-    items and a paired McNemar test of grader-vs-baseline correctness. Unanswered items are counted
-    and excluded from the rates (they are reported, never guessed)."""
+    """Grader vs oracle per check and model, with the non-LLM baselines on the same items (paired
+    McNemar). Unanswered items are counted and excluded from the rates."""
     from fusion_first.validate.baselines import naive_regex, tuned_heuristic
 
     verdicts = _verdicts(rd, items)

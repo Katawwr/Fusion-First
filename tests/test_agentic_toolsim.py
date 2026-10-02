@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from fusion_first.attacks.agentic import build_agentic_trajectory, extract_tool_calls, has_action
+from fusion_first.attacks.agentic import build_agentic_trajectory, extract_tool_calls
 from fusion_first.schemas import Role
 
 
@@ -40,7 +40,7 @@ def test_extract_multiple_actions():
 @pytest.mark.unit
 def test_no_action_returns_empty():
     assert extract_tool_calls("I can't do that. No actions here.") == []
-    assert has_action("just prose") is False
+    assert extract_tool_calls("just prose") == []
 
 
 @pytest.mark.unit

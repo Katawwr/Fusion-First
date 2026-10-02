@@ -1,9 +1,6 @@
-"""The runtime-guardrail snippet (fusion_first/guardrail/snippet.py) is the code users paste into their agent.
-
-It must run against the real API and use the configuration the published guardrail result measured:
-replies through GuardedModelClient, each tool call through guard_tool_call with the user's own request
-and untrusted_context=True. GuardedModelClient checks replies only, so no doc may say it gates tool calls.
-"""
+"""The guardrail snippet users paste must run against the real API with the measured configuration:
+replies through GuardedModelClient, each tool call through guard_tool_call with the user's request and
+untrusted_context=True. GuardedModelClient checks replies only, so no doc may say it gates tool calls."""
 
 from __future__ import annotations
 
@@ -77,8 +74,7 @@ def test_replies_through_the_wrapped_client_are_redacted():
 
 @pytest.mark.unit
 def test_the_snippets_config_is_the_measured_one_before_untrusted_content_too():
-    """Step 2 ran GuardConfig(require_authorization=True): an unrequested call is blocked even before any
-    tool result or document is in the conversation."""
+    """require_authorization=True: an unrequested call is blocked even before any untrusted content."""
     guard = _run_snippet("GitHubSearchIssues", {}, "Any open issues?")["guard"]
     assert guard.config.require_authorization is True
     early = guard.guard_tool_call("BankManagerTransferFunds", {"amount": 500}, user_request="Check my balance",

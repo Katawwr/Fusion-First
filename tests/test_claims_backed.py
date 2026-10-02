@@ -1,8 +1,4 @@
-"""Every proof-like number in docs and marketing must be backed by committed, non-demo evidence.
-
-This is the guard against the failure mode where impressive numbers from an unrecorded run (or the
-offline stand-in judge) end up in the README or on the landing page with nothing behind them.
-"""
+"""Every proof-like number in docs and marketing must be backed by committed, non-demo evidence."""
 
 from __future__ import annotations
 

@@ -1,6 +1,5 @@
-"""A run's heartbeat: while drive() works it rewrites heartbeat.json, so `fusion run status` (a separate CLI
-process that can't see the worker) tells a live run from one whose process died. Seen live on 2026-09-29:
-the grading process died with its session and status said "check again shortly" for an hour."""
+"""While drive() works it rewrites heartbeat.json, so `fusion run status` (a separate process) tells a live
+run from one whose process died."""
 
 from __future__ import annotations
 

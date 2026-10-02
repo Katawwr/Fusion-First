@@ -1,7 +1,4 @@
-"""Shared helpers for the live provider adapters (schema strictification, model resolution).
-
-Kept tiny and dependency-free (no SDK imports) so the adapters stay easy to unit-test with fakes.
-"""
+"""Shared helpers for the live provider adapters (no SDK imports)."""
 
 from __future__ import annotations
 
@@ -10,8 +7,7 @@ from fusion_first.model.registry import ModelRegistry
 
 
 def strictify_schema(schema: dict) -> dict:
-    """Return a copy of a JSON schema that satisfies structured-output strictness rules:
-    every object gets `additionalProperties: false` and an explicit `required` list."""
+    """A copy of the schema with `additionalProperties: false` and `required` on every object."""
     if not isinstance(schema, dict):
         return schema
     out = dict(schema)
@@ -27,9 +23,7 @@ def strictify_schema(schema: dict) -> dict:
 
 
 def resolve_model(registry: ModelRegistry, request: ModelRequest, role_map: dict[ModelRole, str]) -> str:
-    """Resolve the concrete model id: an explicit `model_id` (checked against the allowlist) wins;
-    otherwise the request's role maps to a registry role key. TARGET has no default — the caller
-    must name the model under test."""
+    """An explicit allowlisted `model_id` wins; else the role's registry default (TARGET has none)."""
     if request.model_id:
         registry.require_allowed(request.model_id)
         return request.model_id
@@ -40,5 +34,5 @@ def resolve_model(registry: ModelRegistry, request: ModelRequest, role_map: dict
 
 
 def is_bad_request(exc: Exception) -> bool:
-    """Best-effort detection of an HTTP 400 (used to fall back from strict schema to plain JSON)."""
+    """Best-effort HTTP 400 detection (falls back from strict schema to plain JSON)."""
     return getattr(exc, "status_code", None) == 400 or "BadRequest" in type(exc).__name__

@@ -1,6 +1,4 @@
-"""Rubrics: a check is expressed as a small set of binary criteria, each a yes/no question
-whose "yes" means an issue is present. Keeping criteria binary and evidence-bearing is the
-single biggest lever for judge consistency."""
+"""Rubrics: each check is a small set of binary criteria whose "yes" means an issue is present."""
 
 from __future__ import annotations
 
@@ -14,17 +12,14 @@ class Rubric(BaseModel):
     intent: str  # one sentence: what good behavior looks like
     criteria: list[Criterion] = Field(default_factory=list)
     owasp: OwaspTag = Field(default_factory=OwaspTag)
-    # "safety" (OWASP-mapped adversarial risks) or "quality" (correctness/instruction-following).
-    # Both run through the identical judge → the same honest Bar A accuracy applies to each.
+    # "safety" (OWASP-mapped adversarial risks) or "quality"; both run through the identical judge.
     kind: str = "safety"
 
     def criterion_ids(self) -> list[str]:
         return [c.id for c in self.criteria]
 
 
-# ------------------------------------------------------------------
-# Direct prompt-injection rubric (the vertical-slice check; ASI01 / LLM01)
-# ------------------------------------------------------------------
+# Direct prompt injection (LLM01 / ASI01)
 
 DIRECT_PROMPT_INJECTION = Rubric(
     check="direct_prompt_injection",
@@ -66,9 +61,7 @@ DIRECT_PROMPT_INJECTION = Rubric(
 )
 
 
-# ------------------------------------------------------------------
-# Excessive agency (ASI02 / LLM06) — agent takes consequential actions beyond authorization
-# ------------------------------------------------------------------
+# Excessive agency (LLM06 / ASI02)
 
 EXCESSIVE_AGENCY = Rubric(
     check="excessive_agency",
@@ -117,9 +110,7 @@ EXCESSIVE_AGENCY = Rubric(
 )
 
 
-# ------------------------------------------------------------------
-# Data exfiltration (ASI03 / LLM02) — sensitive data sent to an external/untrusted sink
-# ------------------------------------------------------------------
+# Data exfiltration (LLM02 / ASI03)
 
 DATA_EXFILTRATION = Rubric(
     check="data_exfiltration",
@@ -167,9 +158,7 @@ DATA_EXFILTRATION = Rubric(
 )
 
 
-# ------------------------------------------------------------------
-# System prompt leakage (ASI06 / LLM07) — agent discloses its hidden instructions or secrets
-# ------------------------------------------------------------------
+# System prompt leakage (LLM07 / ASI06)
 
 SYSTEM_PROMPT_LEAKAGE = Rubric(
     check="system_prompt_leakage",
@@ -212,10 +201,7 @@ SYSTEM_PROMPT_LEAKAGE = Rubric(
 )
 
 
-# ------------------------------------------------------------------
-# QUALITY dimension — same engine, same honest Bar A; not a safety/OWASP risk.
-# instruction_following: did the agent actually do what the user asked, within the stated constraints?
-# ------------------------------------------------------------------
+# Quality: instruction following (no OWASP mapping)
 
 INSTRUCTION_FOLLOWING = Rubric(
     check="instruction_following",
@@ -225,7 +211,7 @@ INSTRUCTION_FOLLOWING = Rubric(
         "output format, length limits, required inclusions/exclusions, and language — without leaving "
         "the task unfinished or drifting off-topic."
     ),
-    owasp=OwaspTag(),  # quality checks have no OWASP mapping
+    owasp=OwaspTag(),
     criteria=[
         Criterion(
             id="violated_explicit_constraint",

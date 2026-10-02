@@ -1,11 +1,6 @@
-"""Reads asked for by untrusted content that also asks to send data out (HANDOFF step 1: data stealing).
-
-Every data-stealing miss of step 2 was the read step: a tool whose name names no private data (shipment
-search, file metadata, people search, security logs), asked for by the injected text in the same breath as
-"send it to amy.watson@gmail.com". Given that text (`untrusted_text`), the guard blocks a read the text asks
-for, the user's request does not, while the text also asks to send data to an external destination.
-The examples below are from the spent development samples.
-"""
+"""Given the untrusted text (`untrusted_text`), the guard blocks a read the text asks for and the user's
+request does not, while the text also asks to send data to an external destination. The read tools here
+name no private data (shipment search, file metadata, ...). Examples are from spent development samples."""
 
 from __future__ import annotations
 

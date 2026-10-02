@@ -133,7 +133,7 @@ async def test_a_builtin_graders_malformed_answer_stays_pending_instead_of_break
     res = await grade_with(rd, _SloppyJudge(), label="weak")
     assert res["failures"].get("judge_parse", 0) > 0 and res["remaining"] == res["failed"]
     assert rd.state().phase == "grading_incomplete"
-    result = await finalize(rd, allow_partial=True)  # never "recorded answer ... was it edited?"
+    result = await finalize(rd, allow_partial=True)
     assert result.cards[0].trust.n_errored > 0
 
 
@@ -277,8 +277,8 @@ async def test_parity_run_engine_equals_a_direct_scan_with_the_same_judge(tmp_pa
 
     assert core(via) == core(direct)
     assert any(o.baseline_issue for o in direct.outcomes)  # the parity is over a non-trivial mix
-    # The only permitted difference: the run engine WITHHOLDS a grade its grader hasn't earned (this
-    # hash-random judge fails the known-answer floor) — it never changes a grade to another letter.
+    # The only permitted difference: the run engine withholds a grade its grader hasn't earned (this
+    # hash-random judge fails the known-answer floor); it never changes a grade to another letter.
     for v, d in zip(via.cards, direct.cards, strict=True):
         assert v.grade in (d.grade, "?")
         if v.grade == "?":

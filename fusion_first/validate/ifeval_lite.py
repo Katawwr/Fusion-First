@@ -1,32 +1,17 @@
-"""IFEval-lite: deterministic instruction-following verifiers: the quality oracle.
+"""IFEval-lite: deterministic instruction-following verifiers (the quality oracle).
 
-Attribution: the instruction semantics below follow Google Research's IFEval
-(https://github.com/google-research/google-research/tree/master/instruction_following_eval;
-Zhou et al. 2023, "Instruction-Following Evaluation for Large Language Models", arXiv:2311.07911),
-released under the Apache License 2.0. This file is an independent re-implementation written for
-Fusion (no upstream code copied); instruction ids and kwarg names match the published dataset.
+An independent re-implementation of Google Research's IFEval semantics (Zhou et al. 2023,
+arXiv:2311.07911, Apache License 2.0; no upstream code copied); instruction ids and kwarg names match
+the published dataset.
 
-WHY this exists: Fusion's quality dimension scores `instruction_following` with an LLM judge, and a
-judge is only as trustworthy as its agreement with ground truth. IFEval instructions ("answer in
-fewer than 50 words", "no commas", "end with 'Peace!'") are verifiable by code, so they give the
-judge a free, deterministic, offline oracle: run the same responses through the judge and through
-these verifiers and measure agreement (Bar A for quality).
-
-Honesty rules baked into the API:
-  * `verify` returns ``None`` for an instruction we cannot check (e.g. ``language:response_language``
-    needs a language-ID model), never a guess. `evaluate_prompt` reports whether a whole prompt is
-    ``decidable`` and uses three-valued logic: one failed instruction makes ``all_followed`` False
-    even if another is undecidable; otherwise an undecidable one makes it ``None``.
-  * Upstream leans on nltk (punkt sentences, ``word_tokenize``) and ``langdetect`` for a few checks.
-    We keep this module dependency-free, so those checks use pure approximations and are listed in
-    `APPROXIMATE`; pass ``exact_only=True`` to `evaluate_prompt` to treat them as undecidable.
-  * Scoring defaults to IFEval "strict" mode (the headline metric): an empty/whitespace response
-    follows nothing. ``loose=True`` applies IFEval's "loose" variants (strip markdown ``*`` and/or
-    the first/last line) and counts the instruction followed if any non-empty variant passes.
-
-Deliberate divergence: upstream replaces a non-``a-z`` ``letter`` kwarg with a RANDOM letter, which
-makes two dataset rows (``letter`` of ``'#'`` and ``'!'``) non-deterministic. We count the given
-character literally, which is what those prompts ask for.
+  * An instruction that cannot be checked (e.g. ``language:response_language``) is ``None``, never a
+    guess; prompt-level results use three-valued (Kleene) logic.
+  * Checks where upstream uses nltk/langdetect use pure approximations, listed in `APPROXIMATE`
+    (``exact_only=True`` treats them as undecidable).
+  * Default is IFEval "strict" (an empty response follows nothing); ``loose=True`` adds the loose
+    variants.
+  * Divergence: upstream replaces a non-``a-z`` ``letter`` kwarg with a random letter; we count the
+    given character literally.
 """
 
 from __future__ import annotations
@@ -44,25 +29,18 @@ _WORD = re.compile(r"\w+")
 
 
 def count_words(text: str) -> int:
-    """Words as IFEval counts them: maximal runs of ``\\w`` (nltk ``RegexpTokenizer(r"\\w+")``).
-
-    So "don't" is two words and "3.14" is two: matching upstream matters more than linguistics here,
-    because the dataset's thresholds were written against this tokenizer.
-    """
+    """Words as IFEval counts them: maximal runs of ``\\w`` ("don't" is two), matching upstream."""
     return len(_WORD.findall(text))
 
 
-# Candidate sentence ends, as punkt finds them: a run of . ! ? that is either followed (after any
-# closing quotes/brackets/markdown emphasis) by whitespace or the end of the text, or directly
-# followed by other punctuation — punkt then splits right after the run, so in '"yes.", "no."' the
-# '", ' starts the next sentence. (Punkt ignores curly quotes here, so we do too.)
+# Candidate sentence ends, as punkt finds them: a run of . ! ? followed (after any closers) by
+# whitespace or the end, or directly by other punctuation (punkt then splits right after the run).
 _SENTENCE_END = re.compile(r"[.!?]+(?:[\"')\]}*]*(?=\s|$)|(?=[\"')\]};*:@({\[]))")
 _CLOSERS = "\"')]}*"
 _OPENERS = "\"'“‘([{*_"
 # Single letters punkt's English model treats as abbreviations: never a sentence end ("Vitamin C.").
 _ABBREV_LETTERS = frozenset("cdefghklmnprstvw")
-# Abbreviations punkt's pretrained English model knows (a common subset; notably it does NOT know
-# "e.g.", "i.e." or "etc.", so it splits after those — and so do we, to match).
+# Abbreviations punkt's English model knows (a subset; it does not know "e.g.", "i.e." or "etc.").
 _ABBREVIATIONS = frozenset(
     {
         "mr", "mrs", "ms", "messrs", "dr", "prof", "sr", "jr", "st", "ft", "ave", "vs", "inc",
@@ -127,14 +105,7 @@ def _ends_sentence(text: str, match: re.Match[str]) -> bool:
 
 
 def split_sentences(text: str) -> list[str]:
-    """Approximate nltk punkt's English sentence split without the nltk dependency.
-
-    Splits after ``. ! ?`` followed by whitespace/end. After a lone period that closes a known
-    abbreviation or an initial, or after an ellipsis, it splits only if the next word is a common
-    sentence starter; after a number, only if the next word is not lower-case. Like punkt, a line
-    break without terminal punctuation does NOT end a sentence, and a punctuation-only fragment
-    (a lone "...") still counts. Agreement with punkt is measured in tests/test_ifeval_lite.py.
-    """
+    """Approximate nltk punkt's English sentence split (a bare line break does not end a sentence)."""
     sentences: list[str] = []
     start = 0
     for m in _SENTENCE_END.finditer(text):
@@ -151,7 +122,6 @@ def split_sentences(text: str) -> list[str]:
 
 
 def count_sentences(text: str) -> int:
-    """Sentence count for ``length_constraints:number_sentences`` (see `split_sentences`)."""
     return len(split_sentences(text))
 
 
@@ -227,7 +197,7 @@ def _compare(actual: int, kw: Mapping[str, Any], relation_key: str, threshold_ke
     raise ValueError(f"kwarg {relation_key!r} must be one of {_RELATIONS}, got {relation!r}")
 
 
-# ── the verifiers (one per instruction id; each takes the raw response + cleaned kwargs) ───────
+# ── the verifiers (one per instruction id) ─────────────────────────────────────────────────────
 
 _Verifier = Callable[[str, Mapping[str, Any]], bool]
 
@@ -470,12 +440,8 @@ def verify(
     *,
     loose: bool = False,
 ) -> bool | None:
-    """Did ``response`` follow one IFEval instruction? ``None`` if the id is unsupported.
-
-    ``kwargs`` is the instruction's kwargs dict from the dataset (None-valued keys are ignored).
-    Malformed kwargs for a supported id raise ``ValueError``: a broken oracle row must fail loudly,
-    not silently score as "followed". An empty/whitespace response follows nothing (IFEval strict).
-    """
+    """Did ``response`` follow one IFEval instruction? ``None`` if unsupported; malformed kwargs raise
+    ``ValueError`` (a broken oracle row must fail loudly)."""
     if not isinstance(response, str):
         raise TypeError(f"response must be a str, got {type(response).__name__}")
     verifier = _VERIFIERS.get(instruction_id)
@@ -509,20 +475,8 @@ def evaluate_prompt(
     loose: bool = False,
     exact_only: bool = False,
 ) -> dict[str, Any]:
-    """Score one response against every instruction of one IFEval row.
-
-    Returns a dict with:
-      ``per_instruction``: {instruction_id: bool | None}; an id repeated in the row (17 dataset rows
-        do this, with different kwargs) is combined with Kleene AND.
-      ``per_position``: [bool | None] aligned with ``instruction_id_list`` (IFEval's
-        instruction-level accuracy counts positions, not unique ids).
-      ``decidable``: every instruction was checkable (no ``None``).
-      ``all_followed``: IFEval's prompt-level result: False if any instruction failed, True if all
-        were decided and passed, else None.
-      ``unsupported``, sorted ids that came back ``None``; ``key``, the row's key, if any.
-
-    ``exact_only=True`` treats the `APPROXIMATE` ids as undecidable instead of approximating them.
-    """
+    """Score one response against every instruction of one IFEval row. A repeated id is combined
+    with Kleene AND; ``per_position`` follows ``instruction_id_list`` (IFEval counts positions)."""
     ids = list(_req(row, "instruction_id_list"))
     if not ids:
         raise ValueError("row has no instructions to verify")
@@ -560,14 +514,13 @@ def evaluate_prompt(
 
 
 def default_raw_path() -> pathlib.Path:
-    """Where the (gitignored) IFEval download lives: datasets/external/raw/ifeval/."""
+    """The gitignored raw IFEval download."""
     from fusion_first._data import data_root
 
     return data_root() / "datasets" / "external" / "raw" / "ifeval" / "ifeval_input_data.jsonl"
 
 
 def iter_rows(path: str | pathlib.Path | None = None) -> Iterator[dict[str, Any]]:
-    """Yield IFEval rows (key, prompt, instruction_id_list, kwargs) from the raw jsonl file."""
     p = pathlib.Path(path) if path is not None else default_raw_path()
     with p.open(encoding="utf-8") as fh:
         for line in fh:

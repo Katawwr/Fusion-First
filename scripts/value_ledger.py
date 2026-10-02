@@ -1,9 +1,6 @@
 """Build the value ledger from committed evidence (see fusion_first/validate/value_ledger.py).
 
     python scripts/value_ledger.py [--store DIR] --out evals/validation/v1/value_ledger.json
-
-Reads the v1 evidence transcripts, the registered guardrail measurement's per-item results and the
-Q3 fix-efficacy evidence. Makes no model call and no new measurement.
 """
 
 from __future__ import annotations

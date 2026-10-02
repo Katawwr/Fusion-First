@@ -118,9 +118,7 @@ async def test_stalled_run_is_detected_and_resumed(tmp_path):
 
 @pytest.mark.integration
 def test_the_cli_status_of_a_run_left_grading_says_how_to_resume(tmp_path):
-    """Seen live: a built-in grader's process died with its session and `fusion run status` said "check
-    again shortly" for an hour. The CLI can't see whether a process still works on the run, so it says how
-    to resume one that stopped (resuming keeps every recorded answer)."""
+    """The CLI can't see whether a grader process still works on the run, so it says how to resume one."""
     from fusion_first.runs.service import start_run as svc_start
     from fusion_first.runs.service import status
 

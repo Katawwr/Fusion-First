@@ -24,8 +24,8 @@ import sys
 
 from fusion_first._data import data_root
 
-# Heavy modules (schemas, judge, engine, stats) are imported inside the commands that use them, so
-# `fusion hook …` — which runs before EVERY Claude Code tool call — starts in milliseconds.
+# Heavy modules are imported inside the commands that use them, so `fusion hook` (run before EVERY
+# Claude Code tool call) starts in milliseconds.
 CASSETTE_DIR = data_root() / "cassettes"  # == fusion_first.recording.CASSETTE_DIR
 _GRADE_ORDER = "ABCDF"
 
@@ -50,8 +50,7 @@ def _load_cassette(check: str, version: str):
 
 def _resolve_checks(check: str) -> list[str]:
     if check == "all":
-        # "all" means all SAFETY checks for the attack-suite commands (record/prove/scan/fix/harden);
-        # quality checks (e.g. instruction_following) have no attack probes and are run explicitly.
+        # "all" means the SAFETY checks: quality checks have no attack probes and are run explicitly.
         from fusion_first.judge.rubric import checks_of_kind
 
         return checks_of_kind("safety")
@@ -63,8 +62,7 @@ def _resolve_checks(check: str) -> list[str]:
 
 
 def _refuses_installed_copy(command: str) -> bool:
-    """A pip install keeps the corpora inside site-packages (read-only for a system Python, replaced on
-    upgrade): the dev commands that rewrite them say where to run instead."""
+    """Dev commands that rewrite the corpora refuse on a pip install (they live inside site-packages)."""
     from fusion_first import _data
 
     if not _data.is_installed_copy():
@@ -90,8 +88,7 @@ def cmd_record(args) -> int:
 
 
 def _record_live(args) -> int:
-    """Record REAL judge verdicts (via the subscription CLI or an API key) into the committed
-    cassette path, so `fusion eval`/`prove` run on real numbers instead of the heuristic stand-in."""
+    """Record real judge verdicts into the cassette path, so `eval`/`prove` use real numbers."""
     import asyncio
 
     from fusion_first.integrations.live import LiveUnavailable, build_live_clients
@@ -109,7 +106,6 @@ def _record_live(args) -> int:
     print(f"recording REAL judge verdicts (judge={judge_id}, independence={choice.independence})…")
     code = 0
     for check in _resolve_checks(args.check):
-        # Quality checks have no attack probes — record the gold set only.
         include_probes = get_rubric(check).kind == "safety"
         path = out_dir / f"{check}.{args.version}.json"
         report = asyncio.run(
@@ -132,8 +128,7 @@ def _record_live(args) -> int:
 
 
 async def _measure(args) -> int:
-    """The self-improving-loop command: run REAL sufficiency (are the attacks strong enough?) and,
-    optionally, accuracy (Bar A) against live models, emitting one honest JSON summary."""
+    """Measure attack sufficiency and, optionally, judge accuracy (Bar A) against live models."""
     import json as _json
 
     from fusion_first.integrations.live import LiveUnavailable, build_live_clients
@@ -378,12 +373,8 @@ def cmd_guard_proof(args) -> int:
 
 
 def cmd_ci(args) -> int:
-    """CI gate: scan a system-prompt file and FAIL (exit 1) if the prompt as written scores below
-    --min-grade on any check. Drop into a pipeline to stop an unsafe agent prompt from shipping.
-
-    Gating needs `--live`: demonstration responses are canned and do not depend on the prompt, so a
-    demo "gate" would fail every prompt (even a hardened one). Without --live the command refuses
-    (exit 2); `--demo` runs an advisory, clearly-labelled demonstration that always exits 0."""
+    """CI gate: exit 1 if the prompt as written scores below --min-grade on any check. Needs `--live`
+    (canned demo responses don't depend on the prompt); `--demo` is advisory and always exits 0."""
     import json as _json
 
     from fusion_first.integrations.agent_tools import scan_prompt
@@ -446,7 +437,7 @@ def cmd_ci(args) -> int:
         else:
             print(f"\nPASSED: every check is at least {min_grade}.")
     if args.demo:
-        return 0  # advisory only — canned data can never pass or fail a real prompt
+        return 0  # advisory only: canned data can never pass or fail a real prompt
     return 1 if failures else 0
 
 
@@ -706,8 +697,7 @@ def main(argv: list[str] | None = None) -> int:
 
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) == 2 and argv[0] == "hook" and argv[1] in _HOOK_EVENTS:
-        # Hot path (before every tool call): skip building the full parser, which imports the run
-        # engine, and go straight to the guard.
+        # Hot path (before every tool call): skip the full parser, which imports the run engine.
         return _cmd_hook(argparse.Namespace(cmd="hook", event=argv[1]))
     args = build_parser().parse_args(argv)
     dispatch = {

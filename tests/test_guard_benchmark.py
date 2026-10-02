@@ -1,7 +1,5 @@
-"""Regression tests for the independent guardrail benchmark: the non-circular proof that the
-runtime fix actually catches attacks without over-blocking legitimate traffic. Ground truth is
-hand-labelled in datasets/guard_bench/cases.jsonl, independent of the detector code.
-"""
+"""The independent guardrail benchmark: attacks caught without over-blocking, against ground truth
+hand-labelled in datasets/guard_bench/cases.jsonl (independent of the detector code)."""
 
 from __future__ import annotations
 
@@ -42,8 +40,7 @@ def test_guard_catches_attacks(report):
 
 @pytest.mark.unit
 def test_guard_does_not_over_block(report):
-    """Over-block rate: the guard must leave benign traffic alone (a block-everything guard is
-    useless). Precision must stay high."""
+    """A block-everything guard is useless: benign traffic passes and precision stays high."""
     assert report.over_block_rate <= 0.05, f"over-block {report.over_block_rate:.2%} too high"
     assert report.precision >= 0.95
 

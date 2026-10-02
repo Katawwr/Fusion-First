@@ -1,14 +1,9 @@
 """Grade EXISTING agent transcripts ("bring your logs"): no attacks, no API key.
 
-Teams already have logs of their agent talking to real users and tools. This turns each transcript
-into the production judge's questions for the chosen checks (safety and/or quality), mixes in the
-blind known-answer questions for the same checks, and lets any keyless grader answer them through
-the run engine (host agent via MCP / `fusion run tasks|submit`, or a built-in grader). The result is
-the issue rate per check with a Wilson interval, the flagged transcripts with the agent's own words
-as evidence, and the grader's measured accuracy. A grade is withheld exactly as for attack runs, 
-unanswered questions, a grader below the known-answer floor, or a grader that calls an
-oracle-confirmed violation in the logs clean (a planted secret the log's own system prompt marks
-confidential, appearing in the agent's reply): and also when there are too few transcripts.
+Each transcript becomes the judge's questions for the chosen checks, mixed with the blind known-answer
+questions, and any grader answers them through the run engine. The result is the issue rate per check
+(Wilson interval), the flagged transcripts, and the grader's measured accuracy. Grades are withheld as
+for attack runs, and also when there are too few transcripts.
 
 Accepted formats (a JSON list, or one JSON object per line):
   Fusion      {"id": ..., "steps": [{"role": ..., "content": ..., "tool_call": ..., "tool_result": ...}]}
@@ -213,8 +208,8 @@ def parse_transcripts(text: str) -> list[tuple[str, Trajectory]]:
 
 
 def windows(traj: Trajectory) -> list[Trajectory]:
-    """Split a transcript that won't fit the judge's evidence window into overlapping-free windows,
-    each keeping the system prompt and the first user turn for context. Fits -> [traj]."""
+    """Split a transcript too long for the judge's evidence window into non-overlapping windows, each
+    keeping the system prompt and first user turn."""
     if len(_fence_untrusted(traj)) <= DEFAULT_EVIDENCE_CHARS:
         return [traj]
     head = [s for s in traj.steps[:2] if s.role in (Role.SYSTEM, Role.USER)]
@@ -243,7 +238,6 @@ async def new_log_run(
     calibration: bool = True,
     run_id: str | None = None,
 ) -> RunDir:
-    """Create a run whose questions are the transcripts' judge questions (+ known-answer questions)."""
     from fusion_first.goldset import load_gold
     from fusion_first.judge.judge import JUDGE_PROMPT_VERSION, judge_prompt_version
     from fusion_first.stats.calibration import run_calibration
@@ -291,8 +285,7 @@ def is_log_run(rd: RunDir) -> bool:
 
 
 async def finalize_logs(rd: RunDir, *, allow_partial: bool = False, write: bool = True) -> dict:
-    """Issue rate per check (Wilson), flagged transcripts, grader accuracy, and the same grade gates
-    as attack runs, plus a minimum-sample rule."""
+    """Issue rate per check, flagged transcripts, grader accuracy; attack-run gates plus a minimum sample."""
     from fusion_first.judge.judge import judge_prompt_version
 
     snap = _snapshot(rd)
@@ -332,6 +325,7 @@ def _log_agreement(rd: RunDir, snap, check: str, items: dict):
 
 async def _finalize_logs(rd: RunDir, snap, allow_partial: bool, write: bool) -> dict:
     from fusion_first.engine.report import grade_for_rate
+    from fusion_first.engine.user_scan import _worst_grade
     from fusion_first.runs.oracle_check import gate_reason
     from fusion_first.stats.calibration import run_calibration
     from fusion_first.stats.gate import load_policy
@@ -418,9 +412,7 @@ async def _finalize_logs(rd: RunDir, snap, allow_partial: bool, write: bool) -> 
             "oracle_agreement": agreement.as_dict() if agreement else None,
             "flagged_transcripts": flagged[:50],
         }
-    grades = [c["grade"] for c in checks_out.values()]
-    rank = {"A": 0, "B": 1, "C": 2, "D": 3, "F": 4, "?": 5}
-    overall = max(grades, key=lambda g: rank.get(g, 5)) if grades else "?"
+    overall = _worst_grade([c["grade"] for c in checks_out.values()])
     result = {"kind": "logs", "run_id": rd.run_id, "grader": plan.grader, "overall_grade": overall,
               "passed": overall in ("A", "B"), "checks": checks_out,
               "partial": len(graded) < snap.n_tasks, "commitment": snap.commitment}

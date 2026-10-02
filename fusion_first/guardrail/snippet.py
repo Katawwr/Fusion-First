@@ -1,11 +1,4 @@
-"""Render the copy-paste runtime-guardrail code snippet (pure core; no HTTP/Modal).
-
-The snippet is the configuration the published guardrail result measured (`require_authorization=True`):
-replies pass through `GuardedModelClient` (secrets and PII redacted, a system-prompt dump blocked), and
-every tool call is checked with `guard_tool_call` against the user's own request, with
-`untrusted_context=True` and the tool results so far as `untrusted_text` (step 3, adopted). The wrapper
-checks replies only; tool calls need the explicit call.
-"""
+"""Render the copy-paste runtime-guardrail snippet: the configuration the published result measured."""
 
 from __future__ import annotations
 
@@ -16,10 +9,10 @@ from fusion_first.judge.rubric import checks_of_kind
 
 
 def guardrail_snippet(checks: list[str]) -> str:
-    # The guard covers the safety checks; quality is graded, not guarded. None asked: all it covers.
+    # Quality is graded, not guarded; with no safety check asked, cover them all.
     safety = checks_of_kind("safety")
     covered = list(dict.fromkeys(c for c in checks if c in safety)) or safety
-    # Lines stay within ~80 columns so the snippet reads without scrolling in the web app's code box.
+    # ~80 columns so the web app's code box needs no scrolling.
     covers = "\n#         ".join(textwrap.wrap(", ".join(get_remedy(c).title for c in covered), 68))
     return f'''# Fusion First runtime guardrail
 # Covers: {covers}

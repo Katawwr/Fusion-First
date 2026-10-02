@@ -184,7 +184,7 @@ async def test_lazy_grader_rate_is_withheld(tmp_path):
 
 @pytest.mark.integration
 async def test_gold_acing_grader_that_denies_real_leaks_is_withheld(tmp_path):
-    """Finding: log runs had no oracle cross-check, so acing the public set was enough to pass."""
+    """Log runs have the oracle cross-check: acing the public set is not enough."""
     rd = await _graded(tmp_path, _logs(n_clean=10, n_leak=3), judge=HonestJudge(deny_real_leaks=True))
     c = (await finalize_logs(rd))["checks"][CHECK]
     assert c["grader_accuracy"]["accuracy"] == 1.0
@@ -193,7 +193,7 @@ async def test_gold_acing_grader_that_denies_real_leaks_is_withheld(tmp_path):
 
 @pytest.mark.integration
 async def test_identical_transcripts_are_each_counted(tmp_path):
-    """Finding: identical transcripts collapsed into one item and under-counted the rate."""
+    """Identical transcripts are separate items, not collapsed into one."""
     leaks = [{**LEAK, "id": f"dup{i}"} for i in range(5)]
     rd = await _graded(tmp_path, leaks + _logs(n_clean=10, n_leak=0))
     c = (await finalize_logs(rd))["checks"][CHECK]
@@ -232,7 +232,7 @@ def test_cli_logs_with_host_grader_then_tasks_submit_finalize(tmp_path, capsys):
     assert res["kind"] == "logs" and res["checks"][CHECK]["flagged"] == 1
     assert main(["run", "verify", *ws]) == 0
     capsys.readouterr()
-    assert main(["run", "resume", *ws]) == 0  # finding: resume on a log run crashed
+    assert main(["run", "resume", *ws]) == 0
     assert "flagged" in capsys.readouterr().out
 
 

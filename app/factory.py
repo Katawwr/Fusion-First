@@ -1,4 +1,4 @@
-"""Alias: this module moved to fusion_first.web.factory (packaged with Fusion so `fusion serve` works)."""
+"""Alias for fusion_first.web.factory (used by app/modal_app.py and `uvicorn app.factory:create_app`)."""
 
 import sys
 

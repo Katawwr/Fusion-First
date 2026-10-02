@@ -1,18 +1,8 @@
-"""Build the LIVE-mode clients for a real (non-demonstration) scan.
+"""Live (real-model) clients for a scan, zero-spend by default.
 
-ZERO-SPEND BY DEFAULT. Real calls ride the user's own free/subscription resources only:
-
-  * `cli` / `auto` → `ClaudeCliModelClient` (the `claude` CLI on subscription auth, verified by
-    `assert_subscription_auth`). Judge = a stronger same-family tier (Sonnet vs a Haiku target).
-  * `ollama`       → a local OPEN-WEIGHT target (free) judged by Claude over the CLI subscription, 
-    genuine cross-family independence.
-  * `api`          → the METERED Anthropic/OpenAI SDKs. Reached ONLY when the caller asks for it
-    explicitly (`prefer="api"`) AND opts in with `FUSION_ALLOW_API_SPEND=1`. An API key merely
-    present in the environment is never used: ambient keys are treated as accidental, not consent.
-
-When nothing keyless is available we raise `LiveUnavailable` (callers fail closed; they never fall
-back to a metered provider). `build_live_scan_kwargs` returns exactly the kwargs `run_user_scan`
-accepts; `build_live_clients` also returns the `JudgeChoice` so reports can disclose independence.
+`cli`/`auto` use the `claude` CLI on subscription auth; `ollama` runs a local open-weight target
+judged by Claude over the CLI; `api` (metered) needs both `prefer="api"` and FUSION_ALLOW_API_SPEND=1,
+so an ambient API key is never used. Without a permitted backend, `LiveUnavailable` is raised.
 """
 
 from __future__ import annotations
@@ -21,7 +11,6 @@ import os
 
 from fusion_first.model.registry import ModelRegistry
 
-# The one switch that permits metered API spend. Never set in build/test.
 METERED_OPT_IN_ENV = "FUSION_ALLOW_API_SPEND"
 
 
@@ -35,7 +24,6 @@ def metered_allowed(prefer: str) -> bool:
 
 
 def _cli_judge(limits, registry: ModelRegistry, judge_id: str):
-    """A Claude judge over the subscription CLI (the guarded, keyless path)."""
     from fusion_first.model.providers.claude_cli import ClaudeCliModelClient
     from fusion_first.security.budget import BudgetedModelClient
 
@@ -44,8 +32,7 @@ def _cli_judge(limits, registry: ModelRegistry, judge_id: str):
 
 
 def _require_cli(purpose: str) -> None:
-    """Refuse BEFORE anything runs unless the CLI can really make calls (found, permitted, on
-    subscription auth): never after the target has already answered."""
+    """Refuse before anything runs (never after the target answered) unless the CLI can make calls."""
     from fusion_first.model.providers import claude_cli
 
     ready, reason = claude_cli.claude_cli_ready()
@@ -62,10 +49,8 @@ def build_live_clients(
     max_calls: int = 400,
     prefer: str | None = None,
 ):
-    """Return (target_client, judge_client, judge_model_id, judge_choice) for a live scan.
-
-    `prefer` ∈ {"auto","cli","ollama","api"}; defaults to env `FUSION_TARGET_BACKEND` then "auto".
-    """
+    """(target_client, judge_client, judge_model_id, judge_choice); `prefer` defaults to
+    FUSION_TARGET_BACKEND, then "auto"."""
     prefer = prefer or os.environ.get("FUSION_TARGET_BACKEND", "auto")
     from fusion_first.model.registry import JudgeChoice
     from fusion_first.security.budget import BudgetedModelClient, BudgetLimits
@@ -81,7 +66,7 @@ def build_live_clients(
                 "Ollama target requested but no server answered at 127.0.0.1:11434: run "
                 "`ollama serve` and `ollama pull <model>` (e.g. llama3.2:1b)"
             )
-        # Open-weight target ids aren't on the Anthropic allowlist → don't enforce it for the target.
+        # Open-weight target ids aren't on the Anthropic allowlist.
         target = BudgetedModelClient(
             OllamaModelClient(model=target_model), limits, enforce_allowlist=False
         )
@@ -100,7 +85,7 @@ def build_live_clients(
 
         _require_cli("this live backend runs Claude through the `claude` CLI (subscription); "
                      "or use --backend ollama with a local model")
-        # No cross-family judge over the CLI (it cannot serve OpenAI) → same-family cross-tier.
+        # The CLI cannot serve another family, so the judge is same-family cross-tier.
         choice = registry.choose_judge_with_disclosure(target_model, cross_family_available=False)
         target = BudgetedModelClient(ClaudeCliModelClient(registry=registry), limits)
         judge = BudgetedModelClient(
@@ -111,7 +96,6 @@ def build_live_clients(
     if prefer != "api":
         raise LiveUnavailable(f"unknown backend '{prefer}' (use auto, cli, ollama, or api)")
 
-    # ---- METERED path: explicit choice + explicit opt-in only -----------------------------------
     if not metered_allowed(prefer):
         raise LiveUnavailable(
             f"--backend api uses METERED API keys and is disabled by default; set "
@@ -131,8 +115,7 @@ def build_live_clients(
         judge = BudgetedModelClient(OpenAIModelClient(openai_key), limits)
         return target, judge, choice.judge_id, choice
 
-    # Same-family cross-tier: the disclosed (stronger) judge tier must ACTUALLY run, so pass it as the
-    # judge_model override — otherwise we'd disclose Opus while the SDK judged with the Sonnet default.
+    # The disclosed (stronger) judge tier must actually run, so pass it as the judge_model override.
     choice = registry.choose_judge_with_disclosure(target_model, cross_family_available=False)
     judge = BudgetedModelClient(
         AnthropicModelClient(anthropic_key, judge_model=choice.judge_id), limits
@@ -143,8 +126,7 @@ def build_live_clients(
 def build_live_scan_kwargs(
     target_model: str = "claude-haiku-4-5", max_calls: int = 400, prefer: str | None = None
 ) -> dict:
-    """The kwargs `run_user_scan` expects for a live scan (subscription CLI or Ollama; API only on
-    explicit opt-in)."""
+    """The kwargs `run_user_scan` expects for a live scan."""
     target, judge, judge_model, choice = build_live_clients(
         target_model, max_calls=max_calls, prefer=prefer
     )
@@ -159,8 +141,8 @@ def build_live_scan_kwargs(
 
 
 def judge_trust_kwargs(judge_client, choice) -> dict:
-    """What the report card must disclose about the judge that actually runs: its backend, its
-    independence from the target, and whether sampling can be pinned (the CLI can't set temperature)."""
+    """Judge disclosure for the card: backend, independence, and whether sampling is pinned (the CLI
+    can't set temperature)."""
     inner = getattr(judge_client, "inner", judge_client)
     name = type(inner).__name__
     backend = {

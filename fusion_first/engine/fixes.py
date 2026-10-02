@@ -1,9 +1,5 @@
-"""Automated remedies: for each safety check, the concrete system-prompt guardrails that move an
-agent from the failing 'baseline' behavior to the safe 'hardened' behavior we measured.
-
-These are the actual guard clauses embodied by the hardened probes, so applying them is what the
-before/after result demonstrates. `apply_fix` patches a user's system prompt directly (idempotently);
-`fusion harden` exposes it as a one-command fix.
+"""Per-check system-prompt fixes (the guard clauses the hardened probes embody); `apply_fix` appends them
+idempotently and backs `fusion harden`.
 """
 
 from __future__ import annotations

@@ -1,25 +1,12 @@
-"""User-prompt scan: the pipeline that turns a pasted system prompt into graded report cards.
+"""User-prompt scan: run each check's attacks against the prompt as pasted (baseline) and hardened, judge
+both arms, and stream `ScanEvent`s.
 
-For each requested check we run every attack template against two arms of the user's prompt, 
-baseline (as pasted) and hardened: judge both, and fold the results into the paired statistics
-and report card. Everything is emitted as a stream of `ScanEvent`s so the HTTP layer can show live
-progress without the engine knowing about HTTP.
+DEMO uses the templates' canned responses (the prompt is NOT run) and the offline heuristic judge;
+cards are stamped `demonstration=True`. LIVE runs a real target and judge.
 
-Two modes, one pipeline:
-  - DEMO (keyless, deterministic): the arms use the templates' canned responses (the user's prompt
-    is NOT run) and the judge is the offline heuristic replayed through the real Judge code path.
-    Every card is stamped `demonstration=True` and `trust.execution="canned"`.
-  - LIVE: the user's prompt runs through a real target model and a real judge scores it.
-
-Reliability contract (what makes a live scan trustworthy rather than fragile):
-  * The hardened arm measures EXACTLY the prompt the user copies: `apply_fix(prompt, checks)`
-    computed once (or an explicit `hardened_prompt`), never a per-check variant.
-  * One failed attack is recorded as UNSCORED (never clean, never a violation) and the scan goes
-    on; the card counts it (`trust.n_errored`). Run-level failures: budget or usage limit hit,
-    a strict-replay cassette miss, metered auth refused: stop the scan with an ERROR event.
-  * A circuit breaker stops a scan whose backend keeps failing (ERROR code backend_unavailable)
-    instead of grinding through every attack.
-  * Every stream ends with exactly one SCAN_COMPLETED or ERROR event.
+Contract: the hardened arm is exactly the prompt the user copies (`apply_fix` computed once); one failed
+attack is UNSCORED and counted, run-level failures stop the scan with an ERROR event; a circuit breaker
+stops a backend that keeps failing; every stream ends with exactly one SCAN_COMPLETED or ERROR event.
 """
 
 from __future__ import annotations
@@ -70,7 +57,7 @@ def _worst_grade(grades: list[str]) -> str:
 
 
 class ScanAbort(Exception):
-    """Internal: stop the scan with an ERROR event carrying `code` and a user-safe message."""
+    """Stop the scan with an ERROR event carrying `code` and a user-safe message."""
 
     def __init__(self, code: str, message: str):
         super().__init__(message)
@@ -80,9 +67,7 @@ class ScanAbort(Exception):
 
 @dataclass
 class ErrorBreaker:
-    """Stops a scan whose backend keeps failing, instead of grinding through every attack.
-
-    Trips on `max_consecutive` errors in a row, or an error rate above `max_error_rate` once at
+    """Trips on `max_consecutive` errors in a row, or an error rate above `max_error_rate` once at
     least `min_seen` attacks have finished."""
 
     max_consecutive: int = 5
@@ -93,7 +78,7 @@ class ErrorBreaker:
     consecutive: int = 0
 
     def record(self, ok: bool) -> bool:
-        """Record one finished attack; return True if the breaker has tripped."""
+        """Record one finished attack; True if the breaker has tripped."""
         self.seen += 1
         if ok:
             self.consecutive = 0
@@ -163,23 +148,13 @@ async def _build_arms(
 
 
 def _demo_judge(trajectories: list[Trajectory], check: str) -> Judge:
-    """A judge that replays offline heuristic verdicts through the production Judge code path."""
     cassette = build_trajectory_cassette(trajectories, check)
     return Judge(ReplayModelClient(cassette, strict=True))
 
 
 def _unscored(template: AttackTemplate, check: str, exc: BaseException, stage: str) -> ProbeOutcome:
-    kind = classify(exc, stage)
-    return ProbeOutcome(
-        check=check,
-        probe_id=template.id,
-        attack_label=template.attack_label,
-        owasp=template.owasp,
-        baseline_issue=None,
-        hardened_issue=None,
-        error=_excerpt(f"{stage} failed: {type(exc).__name__}: {exc}", 240),
-        error_kind=kind.value,
-    )
+    base = dict(check=check, probe_id=template.id, attack_label=template.attack_label, owasp=template.owasp)
+    return _unscored_named(base, exc, stage)
 
 
 async def _score_template(
@@ -194,15 +169,15 @@ async def _score_template(
     target_model_id: str | None,
     arms: tuple[Trajectory, Trajectory] | None = None,
 ) -> ProbeOutcome:
-    """Run one attack on both arms and judge them. Isolatable failures become an UNSCORED outcome;
-    anything run-level (budget, quota, cassette miss, auth, bugs) propagates."""
+    """Run one attack on both arms and judge them. Isolatable failures become UNSCORED; run-level ones
+    propagate."""
     rubric = get_rubric(check)
     try:
         base_traj, hard_traj = arms or await _build_arms(
             template, system_prompt, hardened_prompt,
             demonstration=demonstration, target_client=target_client, target_model_id=target_model_id,
         )
-    except Exception as exc:  # noqa: BLE001 — only isolatable errors are absorbed
+    except Exception as exc:  # noqa: BLE001
         if isolatable(exc):
             return _unscored(template, check, exc, "target")
         raise
@@ -231,14 +206,13 @@ async def _score_template(
 
 
 def _replay(template: AttackTemplate, trajectory: Trajectory, system_prompt: str) -> tuple[str | None, bool | None]:
-    """The in-sample guard verdict for a live reply, and whether a stop was a leak it caught. Canned demo
-    replies were written for the dataset's fictional products, not this prompt, so demos get none. A guard
-    error costs the verdict, not the scan."""
+    """The in-sample guard verdict for a live reply, and whether a stop was a leak it caught. Demos get
+    none (canned replies were not written for this prompt); a guard error costs the verdict, not the scan."""
     try:
         guard = guard_replay.guard_for_prompt(system_prompt)
         verdict = guard_replay.guard_verdict(template, trajectory, guard)
         return verdict, verdict == "stopped" and guard_replay.reply_leaks(trajectory, guard)
-    except Exception:  # noqa: BLE001 — the replay is a diagnostic; the measured scan must still finish
+    except Exception:  # noqa: BLE001  the replay is a diagnostic; the scan must still finish
         log.warning("guard replay failed for %s", template.id, exc_info=True)
         return None, None
 
@@ -257,8 +231,7 @@ async def _plain_response(
 
 
 def _verify(spec: dict, prompt: str, response: str) -> tuple[bool | None, str]:
-    """Deterministic grading of a quality test (IFEval-style verifiers, no LLM). Returns
-    (is_defect | None if undecidable, evidence)."""
+    """IFEval-style deterministic grading: (is_defect, or None if undecidable; evidence)."""
     from fusion_first.validate import ifeval_lite
 
     row = {"prompt": prompt, "instruction_id_list": spec["instruction_id_list"], "kwargs": spec["kwargs"]}
@@ -281,10 +254,8 @@ async def _score_quality_test(
     target_client: ModelClient | None,
     target_model_id: str | None,
 ) -> ProbeOutcome:
-    """Run one QUALITY test on both arms (the prompt as written, and the hardened prompt the user
-    ships) and grade each: by a deterministic verifier when the test has one, else by the judge
-    with the quality rubric. The hardened arm makes the card's before/after a FIX-COST measure:
-    did the safety fix hurt quality?"""
+    """Run one quality test on both arms, graded by its verifier when it has one, else the judge. The
+    before/after is a fix-COST measure: did the safety fix hurt quality?"""
     from fusion_first.attacks.agentic import build_agentic_trajectory
     from fusion_first.errors import JudgeUndecided
 
@@ -296,7 +267,7 @@ async def _score_quality_test(
     try:
         base_text = await _plain_response(test["user"], system_prompt, target_client, target_model_id)
         hard_text = await _plain_response(test["user"], hardened_prompt, target_client, target_model_id)
-    except Exception as exc:  # noqa: BLE001 — only isolatable errors are absorbed
+    except Exception as exc:  # noqa: BLE001
         if isolatable(exc):
             return _unscored_named(base, exc, "target")
         raise
@@ -375,7 +346,6 @@ async def run_user_scan(
     judge_accuracy_provider: AccuracyProvider | None = None,
     breaker: ErrorBreaker | None = None,
 ) -> AsyncIterator[ScanEvent]:
-    """Stream a full user-prompt scan as ScanEvents. See module docstring for the contract."""
     if not demonstration and judge_client is None:
         raise ValueError("live scan requires a judge_client")
     judge_model = judge_model or (DEMO_JUDGE_MODEL if demonstration else "judge")
@@ -505,7 +475,7 @@ async def run_user_scan(
         yield ScanEvent(type=ScanEventType.ERROR, code=abort.code, message=abort.message,
                         completed=completed, total=total, demonstration=demonstration)
         return
-    except Exception as exc:  # noqa: BLE001 — every stream must end with one terminal event
+    except Exception as exc:  # noqa: BLE001  every stream must end with one terminal event
         abort = _abort_for(exc)
         log.warning("scan aborted (%s): %r", abort.code, exc)
         yield ScanEvent(type=ScanEventType.ERROR, code=abort.code, message=abort.message,
@@ -608,9 +578,8 @@ async def _live_accuracy_unmeasured(
 async def _demo_calibration(
     check: str, version: str
 ) -> tuple[AccuracyResult | None, str, str]:
-    """The judge's accuracy on our committed calibration set (a property of the judge, not the
-    user's prompt), that gold set's version, and a note. Strict replay: a missing or stale cassette
-    is reported in the note and logged: never silently dropped."""
+    """The judge's accuracy on the committed calibration set, its gold version, and a note. A missing or
+    stale cassette is reported in the note, never silently dropped."""
     path = CASSETTE_DIR / f"{check}.{version}.json"
     if not path.exists():
         note = f"Judge accuracy unavailable: calibration cassette missing for {check}."

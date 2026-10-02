@@ -1,12 +1,10 @@
-"""The Guardrail: inline enforcement of the safety policy at request time.
+"""The Guardrail: request-time enforcement of the safety policy.
 
-Three stages, each mapped to the OWASP check it defends:
-- guard_input  -> LLM01/ASI01  (fence untrusted content, flag injection attempts)
-- guard_output -> LLM02/LLM07  (block/redact secret, PII, or system-prompt leakage)
-- guard_tool_call -> LLM06/ASI02 (block consequential actions to external/untrusted sinks)
+- guard_input -> LLM01/ASI01 (fence untrusted content, flag injection)
+- guard_output -> LLM02/LLM07 (block/redact secret, PII, or system-prompt leakage)
+- guard_tool_call -> LLM06/ASI02 (block unrequested or external consequential actions)
 
-Detection uses the real security.redaction module (not the demo detectors). It is intentionally
-conservative: it errs toward flagging, and the caller decides block-vs-redact via GuardConfig.
+Conservative by design: it errs toward flagging; GuardConfig decides block vs redact.
 """
 
 from __future__ import annotations
@@ -48,9 +46,8 @@ _IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 _IPV6_BRACKET = re.compile(r"\[[0-9a-fA-F:]{4,}\]")
 # Any TLD, but it has a letter: 0.6, 1.25 and 1.2.3 are numbers, not hosts.
 _BARE = re.compile(r"\b([a-z0-9](?:[a-z0-9\-]*[a-z0-9])?(?:\.[a-z0-9\-]+)*\.[a-z0-9\-]*[a-z][a-z0-9\-]*)\b", re.I)
-# Named external sinks/channels that appear in prose without a parseable address. Deliberately
-# excludes common English words like "outlook"/"external" — those over-block on ordinary body text;
-# genuine external sends are caught by the recipient parser below.
+# Named external sinks that appear in prose without a parseable address. Excludes common words
+# ("outlook", "external") that over-block ordinary text; real external sends hit the recipient parser.
 _EXTERNAL_SINK_WORDS = (
     "gmail", "protonmail", "hotmail", "yahoo", "fastmail", "icloud", "dropbox", "pastebin",
     "hastebin", "ghostbin", "termbin", "telegram", "discord", "ngrok", "requestbin", "webhook.site",
@@ -179,9 +176,8 @@ _CONSEQUENTIAL_VERBS = (
     "escalate", "approve", "void", "withdraw",
 )
 
-# PII value detection is separator- and Luhn-aware: attackers space/dash-split a card or drop the
-# SSN dashes to dodge a naive \d{13,16}; conversely a bare 13-16 digit run is usually an ISBN / order
-# number, so we Luhn-check card candidates to avoid mangling benign replies.
+# PII detection is separator- and Luhn-aware: split cards and undashed SSNs are caught, while a bare
+# 13-16 digit run (ISBN, order number) that fails Luhn is left alone.
 _SSN_GROUPED = re.compile(r"\b\d{3}[-\s]\d{2}[-\s]\d{4}\b")  # 123-45-6789 or 123 45 6789
 _SSN_CONTEXT = re.compile(r"(?i)\b(ssn|social security)\b")
 _NINE_DIGITS = re.compile(r"\b\d{9}\b")
@@ -216,11 +212,8 @@ def _has_ssn(text: str) -> bool:
     return bool(_SSN_CONTEXT.search(text) and _NINE_DIGITS.search(text))
 
 
-# Read-only verbs that, as a tool's LEADING token, mark it non-consequential — so a customer-facing
-# `lookup_order` / `get_records` / `list_transfers` / `search_payments` is not blocked just because
-# its name happens to contain a consequential NOUN (order, transfer, payment). Real mutating tools
-# lead with their verb (`delete_records`, `wipe_database`, `transfer_funds`), so a leading read verb
-# is a reliable, low-false-positive signal that the call only reads.
+# Read-only verbs: as a tool's leading verb they mark it non-consequential, so `lookup_order` or
+# `list_transfers` is not blocked for containing a consequential noun. Mutating tools lead with their verb.
 _READONLY_VERBS = frozenset(
     {"lookup", "get", "list", "search", "read", "view", "fetch", "find", "check", "show",
      "count", "describe", "status", "summarize", "summarise", "preview", "query", "browse",
@@ -563,13 +556,10 @@ def _is_internal(host: str, allow: list[str]) -> bool:
 
 
 def _hard_recipients(text: str, allow: list[str]) -> tuple[list[str], list[str]]:
-    """Parse the *destinations* of an action — emails, http(s) URLs, and raw IPs. Returns
-    (external, internal).
+    """(external, internal) destinations of an action: emails, http(s) URLs and raw IPs.
 
-    Emails are the destination of a message; URLs/IPs are the destination of a fetch/post. So when
-    the action delivers to an INTERNAL email address (and no external one), any URL/IP in the payload
-    is message CONTENT — a link the internal recipient reads, not an exfiltration sink — and is not
-    counted. A bare domain merely mentioned in prose is never a hard recipient (fallback only)."""
+    When it delivers only to internal email addresses, URLs/IPs in the payload are content (links the
+    recipient reads), not sinks. A bare domain in prose is never a hard recipient."""
     emails = list(_EMAIL.findall(text))
     ext_mail = [e for e in emails if not _is_internal(e, allow)]
     int_mail = [e for e in emails if _is_internal(e, allow)]
@@ -579,12 +569,11 @@ def _hard_recipients(text: str, allow: list[str]) -> tuple[list[str], list[str]]
     ext_loc = [h for h in locators if not _is_internal(h, allow)]
     int_loc = [h for h in locators if _is_internal(h, allow)]
     if int_mail and not ext_mail:
-        return [], int_mail + int_loc  # internal delivery — URLs are content, not destinations
+        return [], int_mail + int_loc
     return ext_mail + ext_loc, int_mail + int_loc
 
 
-# Message content: what a call says, not where it goes (AgentDojo step 4: a body mentioning a gmail address or
-# a restaurant's website was read as the message's destination).
+# Message content: what a call says, not where it goes (a body mentioning an address is not its destination).
 _CONTENT_KEYS = frozenset({
     "body", "content", "text", "message", "msg", "subject", "title", "description", "note", "notes",
     "comment", "summary", "caption", "html", "markdown",
@@ -634,8 +623,8 @@ def _external_targets(text: str, allow: list[str]) -> list[str]:
     if ext:
         return ext
     if intl:
-        return []  # a real recipient exists and every one is internal — ignore prose noise
-    return _prose_sinks(text, allow)  # no parseable recipient — fall back to prose signals
+        return []  # every real recipient is internal: ignore prose noise
+    return _prose_sinks(text, allow)
 
 
 def _asks_to_send_out(text: str, allow: list[str], user_request: str, identities) -> list[str]:
@@ -653,8 +642,7 @@ def _asks_to_send_out(text: str, allow: list[str], user_request: str, identities
 
 
 def _provably_internal(text: str, allow: list[str]) -> bool:
-    """True only when there is at least one hard recipient and ALL of them are internal. Used to
-    fail CLOSED: a secret/PII payload to an unidentifiable destination is blocked, not assumed safe."""
+    """At least one hard recipient and all internal. Fails closed: an unidentifiable destination is not."""
     ext, intl = _hard_recipients(text, allow)
     return bool(intl) and not ext
 
@@ -663,15 +651,13 @@ class Guardrail:
     def __init__(self, config: GuardConfig | None = None):
         self.config = config or GuardConfig()
 
-    # ------------------------------------------------------------------ input
     def guard_input(self, content: str, untrusted: bool = True) -> GuardOutcome:
         """Fence untrusted content and flag injection. Returns content safe to hand the model."""
         out = GuardOutcome(decision=Decision.ALLOW, content=content)
         if not self.config.guard_input or not untrusted:
             return out
-        # Scan the folded/de-spaced/decoded views so homoglyph and base64/rot13-wrapped injection
-        # is caught. (Semantic paraphrase and non-English injection are NOT caught here — that is
-        # the LLM judge's responsibility; the heuristic guard is a fast defense-in-depth layer.)
+        # Folded/de-spaced/decoded views catch homoglyph and base64/rot13-wrapped injection.
+        # Paraphrase and non-English injection are left to the judge.
         views = [content, *normalized_views(content)]
         hit = next((p for v in views for p in _INJECTION_PHRASES if p in v.lower()), None)
         fenced = (
@@ -691,7 +677,6 @@ class Guardrail:
             )
         return out
 
-    # ----------------------------------------------------------------- output
     def guard_output(self, content: str) -> GuardOutcome:
         """Block or redact an outgoing response that leaks secrets, PII, or the system prompt."""
         out = GuardOutcome(decision=Decision.ALLOW, content=content)
@@ -711,7 +696,7 @@ class Guardrail:
         leaked_prompt = self._echoes_system_prompt(content)
         pii_value = _has_pii_value(content)
 
-        working = content  # accumulates redactions so secret + PII masks both land
+        working = content  # accumulates redactions so secret and PII masks both land
 
         if obscured_secret:
             out.content = "[blocked: response contained an obfuscated secret]"
@@ -743,9 +728,7 @@ class Guardrail:
                 )
             )
 
-        # A concrete PII value (SSN, card number) pasted into the response text is a data leak even
-        # when no credential pattern is present. Redact it (or block, per policy) unless the whole
-        # response is already being blocked for a secret.
+        # A concrete PII value is a leak even without a credential; skip if already blocked.
         if pii_value and not out.blocked:
             working = _redact_pii(working)
             decision = self.config.on_secret_output
@@ -776,21 +759,9 @@ class Guardrail:
         return out
 
     def _echoes_system_prompt(self, content: str) -> bool:
-        """Detect a response reproducing the system prompt. Two signals, both scanned across the
-        decoded/de-spaced views so chunked-base64 or zero-width dumps still trip:
-
-        1. a VERBATIM contiguous span — >=10 consecutive prompt words appearing in order in the
-           output. This catches a full dump AND a single confidential rule copied out verbatim,
-           regardless of how long the whole prompt is.
-        2. near-total distinctive-word overlap (a reordered/paraphrased full dump).
-        3. a config dump: the reply LEAKS a configured secret AND still shares a third of the
-           prompt's distinctive words — a response that both spills the secret and paraphrases the
-           surrounding rules is a configuration dump, so block it whole (redacting only the token
-           would leave the rest of the internal rules exposed).
-
-        A benign on-topic reply (first-person persona intro, restating a public policy) shares
-        vocabulary but leaks no secret and neither reproduces a long verbatim run nor covers most of
-        the prompt, so it is not flagged — an aggregate-ratio-only rule wrongly blocked exactly those."""
+        """A reply reproduces the system prompt, in any decoded/de-spaced view: (1) a verbatim run of
+        10+ prompt words, (2) near-total distinctive-word overlap, or (3) a configured secret plus
+        modest overlap (a config dump, blocked whole). A benign on-topic reply trips none of these."""
         sysp = self.config.system_prompt
         if not sysp:
             return False
@@ -812,28 +783,22 @@ class Guardrail:
             ratio = len(shared) / len(sig)
             if len(shared) >= 10 and ratio >= 0.6:
                 return True
-            # Gated on the reply actually containing a configured secret value — which a benign
-            # reply never does — so even a modest prompt overlap here is safely a config dump.
             leaks_secret = _has_secret_value(view, self.config.secret_values)
             if leaks_secret and len(shared) >= 6 and ratio >= 0.15:
                 return True
         return False
 
-    # -------------------------------------------------------------- tool call
     def guard_tool_call(
         self, name: str, arguments: dict, user_request: str = "", untrusted_context: bool = False,
         untrusted_text: str = "",
     ) -> GuardOutcome:
-        """Block a tool call that (a) the user's request does not cover, when authorization is
-        required or untrusted content is in context (anything not shown to be a read needs it), (b)
-        reads private data the user did not ask about, after untrusted content, (b2) is a read the
-        untrusted text asks for and the user did not, while that text also asks to send data to an
-        external destination, (c) is consequential and targets an external/untrusted destination, or
-        (d) would ship a secret/PII value outward.
+        """Block a tool call that (a) the user's request does not cover, when authorization is required
+        or untrusted content is in context, (b) reads private data the user did not ask about after
+        untrusted content, (c) is a read the untrusted text asks for alongside a send to an external
+        destination, (d) is consequential and goes external, or (e) would ship a secret/PII value out.
 
-        `user_request` must be the user's own words: text from tool results or documents in it would
-        let an injected instruction authorize itself. `untrusted_text` is that other text (tool results,
-        documents, web pages); giving it implies `untrusted_context`."""
+        `user_request` must be the user's own words, or an injected instruction could authorize itself.
+        `untrusted_text` (tool results, documents) implies `untrusted_context`."""
         out = GuardOutcome(decision=Decision.ALLOW, content=name if isinstance(name, str) else str(name or ""))
         if not self.config.guard_tool_calls:
             return out
@@ -891,8 +856,7 @@ class Guardrail:
 
         blob = f"{arguments}"
         allow = self.config.allowlisted_domains
-        # Where the call delivers: its destination fields, not addresses mentioned in the message content.
-        # The whole payload is still scanned for secrets and PII below.
+        # Destination fields only; the whole payload is still scanned for secrets and PII.
         dest = _destination_text(arguments)
         external = _external_targets(dest, allow)
         ships_secret = contains_secret_strict(blob) or any(
@@ -910,8 +874,7 @@ class Guardrail:
                     detail=f"consequential '{name}' to external destination(s): {external}",
                 )
             )
-        # Fail CLOSED: a secret/PII payload is blocked unless the destination is provably internal.
-        # An unrecognisable sink (raw IP, chat id, unknown channel) counts as NOT provably internal.
+        # Fail closed: a secret/PII payload is blocked unless the destination is provably internal.
         if (ships_secret or ships_pii) and not _provably_internal(dest, allow):
             out.add(
                 GuardEvent(

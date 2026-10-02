@@ -1,11 +1,5 @@
-"""External-benchmark importers: normalization, stable ids, provenance, license allowlist.
-
-Fusion's self-validation leans on public benchmarks (deepset, Gandalf, InjecAgent, BIPIA, IFEval,
-XSTest). If an importer silently mangles a label, renumbers rows between runs, or lets a
-non-redistributable source into the committed jsonl, every downstream accuracy number inherits the
-error. These tests run the importers over tiny SYNTHETIC fixtures (tests/fixtures/external/), 
-parquet fixtures are built in tmp_path so no binaries are committed: and never touch the network.
-"""
+"""External-benchmark importers: normalization, stable ids, provenance, license allowlist. Synthetic
+fixtures only (tests/fixtures/external/; parquet built in tmp_path), never the network."""
 
 from __future__ import annotations
 
@@ -183,7 +177,7 @@ def test_injecagent_normalizes_both_kinds_and_decodes_tool_responses():
     assert dh0["modified"] is True and dh1["modified"] is False
     assert all(r["license"] == "MIT" for r in rows)
     # The tool response is exactly what the tool returned: the template with the attack spliced
-    # in — for the JSON-string encoding, the escaped-quote encoding, and the malformed one.
+    # in, for the JSON-string encoding, the escaped-quote encoding, and the malformed one.
     for r in rows:
         expected = r["tool_response_template"].replace(
             "<Attacker Instruction>", r["attacker_instruction"]

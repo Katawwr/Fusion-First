@@ -1,9 +1,4 @@
-"""Probability calibration: is a judge's P(issue) = 0.8 right about 80% of the time?
-
-Used for the local probability judge (Ollama logprobs) and for any judge's self-reported confidence.
-Brier score, expected calibration error (uniform or equal-mass bins), reliability bins, and Platt
-scaling (1-D logistic fit by Newton's method). Pure Python, deterministic.
-"""
+"""Probability calibration: Brier, ECE, reliability bins and Platt scaling (pure Python, deterministic)."""
 
 from __future__ import annotations
 

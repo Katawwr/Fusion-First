@@ -124,8 +124,7 @@ def test_bundling_ships_runtime_data_only_and_drops_what_the_source_removed(tmp_
 
 @pytest.mark.unit
 def test_a_release_build_without_the_web_app_or_the_marketplace_fails_loudly(tmp_path):
-    """Built from a fresh clone (frontend/dist is not in git) the wheel silently had no web app, and
-    `fusion serve` from PyPI would tell users to run npm."""
+    """frontend/dist is not in git: a release built from a fresh clone must not silently ship no web app."""
     setup_mod = _load_setup()
     root = tmp_path / "repo"
     _release_tree(root)
@@ -141,7 +140,7 @@ def test_a_release_build_without_the_web_app_or_the_marketplace_fails_loudly(tmp
 
 @pytest.mark.integration
 def test_the_sdist_carries_only_what_builds_the_wheel(tmp_path):
-    """Owner (2026-09-29): leave out anything unnecessary: project docs, tests, examples, evidence."""
+    """No project docs, tests, examples or evidence in the sdist."""
     proj = tmp_path / "proj"
     proj.mkdir()
     for rel in ("pyproject.toml", "setup.py", "MANIFEST.in", "PYPI.md"):
@@ -331,8 +330,7 @@ def test_data_root_is_the_checkout_in_a_source_tree():
 
 @pytest.mark.unit
 def test_data_root_ignores_a_site_packages_that_holds_other_datasets(tmp_path):
-    """Hugging Face's `datasets` installs site-packages/datasets/ (lm-eval, evaluate and trl pull it in):
-    an installed wheel took that for a checkout and every corpus read failed."""
+    """Hugging Face's `datasets` installs site-packages/datasets/; that is not a checkout."""
     from fusion_first._data import data_root
 
     site = tmp_path / "site-packages"
@@ -365,8 +363,8 @@ def test_cli_plugin_dir_without_a_marketplace_fails_with_the_install_line(monkey
 
 @pytest.mark.unit
 def test_cli_plugin_dir_prints_an_ascii_short_path_for_a_non_ascii_install(monkeypatch, capsys):
-    """Windows PowerShell 5.1 decodes `$(fusion plugin-dir)` with the console's OEM code page, not UTF-8,
-    so a non-ASCII path arrived mangled; its 8.3 short form survives any decoding."""
+    """Windows PowerShell 5.1 decodes `$(fusion plugin-dir)` with the OEM code page, mangling a non-ASCII
+    path; its 8.3 short form survives any decoding."""
     import fusion_first._data
     import fusion_first.cli as cli
 
@@ -447,7 +445,6 @@ def test_commands_that_rewrite_the_corpora_refuse_in_a_pip_install(monkeypatch, 
     assert main(argv) == 2
     assert writes == []
     assert "FUSION_DATA_DIR" in capsys.readouterr().err
-
 
 
 @pytest.mark.unit

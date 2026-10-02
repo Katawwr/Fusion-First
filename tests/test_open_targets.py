@@ -1,9 +1,5 @@
-"""Any model, any workflow: hosted-provider presets (OpenAI, Hugging Face, OpenRouter, Together, Groq,
-Fireworks, Mistral, DeepSeek), the Anthropic API, a subprocess adapter for arbitrary workflows, and
-in-process Python functions: as targets and as graders.
-
-Offline and zero spend: HTTP is faked at urlopen, the subprocess is a local Python script, and every
-hosted provider needs the explicit spend opt-in plus the user's own key."""
+"""Hosted-provider presets, the Anthropic API, `cmd:` subprocess targets and in-process Python functions,
+as targets and graders. Offline: HTTP is faked at urlopen and the subprocess is a local script."""
 
 from __future__ import annotations
 

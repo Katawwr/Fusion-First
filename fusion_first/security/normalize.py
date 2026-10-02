@@ -1,10 +1,6 @@
-"""Text normalization + encoding-layer decoding for the guardrail.
+"""Fold homoglyphs and decode base64/hex/ROT13 layers so the guard's patterns see the payload.
 
-Red-teaming showed pattern matching is trivially dodged by Unicode homoglyphs and by wrapping the
-payload in base64/hex/ROT13. This module folds confusables to ASCII and surfaces decoded layers so
-the guard can scan those too. It does NOT defend against semantic paraphrase/translation: that is
-the LLM judge's job, and the guard documents it as such.
-"""
+Does not defend against paraphrase or translation; that is the judge's job."""
 
 from __future__ import annotations
 
@@ -46,9 +42,7 @@ def _printable(b: bytes) -> str | None:
 
 
 def decoded_layers(text: str) -> list[str]:
-    """Return decoded views of embedded base64/hex blobs and a ROT13 pass of the whole text.
-
-    These let the guard scan payloads hidden behind an encoding layer. Bounded work; best-effort."""
+    """Decoded views of embedded base64/hex blobs plus a ROT13 pass of the whole text (bounded)."""
     out: list[str] = []
     for tok in _B64.findall(text)[:12]:
         pad = tok + "=" * (-len(tok) % 4)
@@ -73,14 +67,10 @@ def decoded_layers(text: str) -> list[str]:
 
 
 def normalized_views(text: str) -> list[str]:
-    """The set of strings the guard should scan: folded original + de-spaced + single-spaced +
-    decoded layers of BOTH the folded and the de-spaced views, plus one nested decode pass.
+    """Strings the guard scans: folded, de-spaced, single-spaced, their decoded layers, one nested pass.
 
-    Red-teaming showed that only decoding the space-intact view lets an attacker defeat the decoder
-    by splitting a base64 blob across spaces/newlines/short chunks (each broken token decodes to
-    garbage): the reconstituted payload only materialises once whitespace is stripped. We therefore
-    also decode the de-spaced view, collapse repeated spaces (so a doubled space inside a trigger
-    phrase can't hide it), and decode one extra layer to catch nested (double-base64) encodings."""
+    The de-spaced view is decoded too because a base64 blob split across whitespace only decodes
+    once rejoined."""
     folded = fold(text)
     despaced = re.sub(r"\s+", "", folded)  # catch whitespace-split tokens (AKIA XXXX -> AKIAXXXX)
     single_spaced = re.sub(r"\s+", " ", folded)  # "ignore  previous" -> "ignore previous"

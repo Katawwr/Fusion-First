@@ -1,31 +1,18 @@
-"""The keyless run engine: COLLECT -> GRADE -> FINALIZE, so any grader can judge without an API key.
+"""The keyless run engine: COLLECT -> GRADE -> FINALIZE, so any grader (including the host agent, which
+an MCP server cannot call) can judge without an API key. Runs live in `<workspace>/.fusion/runs/<run_id>/`.
 
-Why three phases: the judge is the only step that needs a strong model, and in agentic workflows the
-strongest model available is often the HOST agent itself (e.g. a Claude Code subagent), which an MCP
-server cannot call (MCP sampling is unsupported in Claude Code and deprecated in the spec). So:
+  1. collect : run the scan against the real target, record every response, and capture every judge
+                question plus known-answer questions from the blind gold set. Verdicts don't steer
+                the scan, so a stand-in answers during collect.
+  2. grade   : ONE grader answers. External answers must parse, quote the agent's own words for every
+                violated criterion, and are accepted once per question.
+  3. finalize: replay the unchanged scan from a snapshot of the recordings. A card is GRADED only when
+                every question was answered, the grader clears the policy floor on the known-answer
+                questions, and it agrees with the in-run oracle cross-check (`runs.oracle_check`);
+                otherwise the grade is withheld ('?') with the reason.
 
-  1. collect : run the real scan against the real target (local Ollama or the claude CLI), record
-                every target response, and capture every question the judge would be asked: plus
-                known-answer questions from Fusion's blind gold set for the same checks (in-run
-                calibration). Verdicts don't steer the scan, so a stand-in answers during collect.
-  2. grade   : answer those questions by ONE grader: a built-in backend (claude CLI subscription,
-                local probability judge) or an external one (the host agent via MCP, a human, a
-                script). External answers are validated by the production parser, violated criteria
-                must quote the agent's own words, and each question can be answered once.
-  3. finalize: replay the unchanged scan pipeline from a snapshot of the two recordings. Every card
-                carries the grader's accuracy on the known-answer questions, and a card is only
-                GRADED when that accuracy clears the policy floor (evals/policy.yaml) and every
-                question was answered. Otherwise its grade is withheld ('?') and says why.
-
-Two accuracy checks, because each alone has a gap: the known-answer questions come from a public gold
-set (they measure skill on hard cases, but a grader can tell them apart from the run's own
-questions), and the in-run ORACLE CROSS-CHECK (`fusion_first.runs.oracle_check`) re-labels the run's own
-clear-cut transcripts with deterministic oracles: questions that can't be told apart, whose answer
-key never ships. A grader that aces the public set while rubber-stamping the real questions fails
-the second. `verify` proves the stored result is exactly what the recordings produce; it cannot
-detect someone who edits a recording and re-finalizes.
-
-Everything lives in `<workspace>/.fusion/runs/<run_id>/`.
+`verify` proves the stored result is exactly what the recordings produce; it cannot detect someone who
+edits a recording and re-finalizes.
 """
 
 from __future__ import annotations
@@ -119,8 +106,7 @@ class RunState:
 
 
 def _replace_with_retry(src: str, dst: pathlib.Path, tries: int = 12) -> None:
-    """os.replace, retried briefly on Windows sharing violations (another process: a reader, an
-    antivirus or OneDrive: holding the destination open)."""
+    """os.replace, retried briefly on Windows sharing violations (a reader, antivirus or OneDrive)."""
     for i in range(tries):
         try:
             os.replace(src, dst)
@@ -170,8 +156,8 @@ class RunDir:
 
     @contextlib.contextmanager
     def lock(self, timeout_s: float = 30.0, stale_s: float = 120.0):
-        """Cross-process mutual exclusion for read-modify-write of the run files. Never held across
-        an await (a coroutine waiting on it would block the event loop that must release it)."""
+        """Cross-process lock for read-modify-write of the run files. Never held across an await (a
+        coroutine waiting on it would block the event loop that must release it)."""
         deadline = time.monotonic() + timeout_s
         while True:
             try:
@@ -209,7 +195,7 @@ class RunDir:
         self.write_json(self.state_path, asdict(st))
 
     def update_state(self, **changes) -> RunState:
-        """Re-read + modify + save under the lock (never clobbers a concurrent writer's fields)."""
+        """Re-read, modify and save under the lock (never clobbers a concurrent writer's fields)."""
         with self.lock():
             st = self.state()
             for k, v in changes.items():
@@ -276,7 +262,7 @@ def _family(backend: str, model: str | None) -> str:
 
 
 def independence_of(target: str, grader: str) -> tuple[str, str]:
-    """(independence, disclosure) of a run's grader from its target, from their spec labels."""
+    """(independence, disclosure) of a run's grader from its target."""
     from fusion_first.backends.resolve import parse_grader, parse_target
 
     t = parse_target(target)
@@ -313,9 +299,8 @@ def independence_of(target: str, grader: str) -> tuple[str, str]:
 
 
 class CollectingJudgeClient:
-    """Stands in for the judge during collect: records every judge request and answers 'nothing
-    violated' (a valid, parseable verdict). Scan control flow never depends on verdicts, so the
-    target requests are identical to what a real judge would have caused."""
+    """Records every judge request during collect and answers 'nothing violated'. Scan control flow never
+    depends on verdicts, so the target requests are identical to what a real judge would cause."""
 
     def __init__(self):
         self.requests: dict[str, ModelRequest] = {}
@@ -346,8 +331,7 @@ async def collect(
     concurrency: int = 1,
     on_progress: Callable[[RunState], None] | None = None,
 ) -> RunState:
-    """Phase 1. Runs the scan against the real target (recorded) and captures the judge questions.
-    Resumable: target answers already recorded are replayed instead of re-asked."""
+    """Phase 1. Resumable: target answers already recorded are replayed instead of re-asked."""
     plan = rd.plan()
     with judge_prompt_version(plan.judge_prompt_version):
         return await _collect(rd, plan, target_client, concurrency, on_progress)
@@ -424,10 +408,8 @@ def _load_leases(rd: RunDir, now: float) -> dict[str, float]:
 def grading_tasks(
     rd: RunDir, max_tasks: int = 8, *, lease_s: float | None = None, now: float | None = None
 ) -> list[dict]:
-    """The next ungraded questions, in the exact form the built-in judge would see them.
-
-    With `lease_s`, returned tasks are leased for that long so parallel graders (several subagents)
-    get disjoint work; an expired lease, or a rejected answer, makes the task available again."""
+    """The next ungraded questions, as the built-in judge would see them. With `lease_s`, returned tasks
+    are leased so parallel graders get disjoint work; an expired lease or rejected answer frees the task."""
     _require_tasks(rd)
     t_now = time.time() if now is None else now
     with rd.lock():
@@ -473,10 +455,8 @@ _ROLE_LINE = re.compile(r"^\[(SYSTEM|USER|ASSISTANT(?: calls [^\]]*)?|TOOL_RESUL
 
 
 def agent_spans(transcript: str) -> str:
-    """Only what the AGENT said or did ([ASSISTANT] text and its tool calls): the only place
-    evidence of a violation can legitimately come from."""
-    parts = _ROLE_LINE.split(strip_fence(transcript))
-    # split -> [preamble, role1, body1, role2, body2, ...]
+    """Only what the AGENT said or did: the only legitimate source of violation evidence."""
+    parts = _ROLE_LINE.split(strip_fence(transcript))  # [preamble, role1, body1, role2, body2, ...]
     return "\n".join(body for role, body in zip(parts[1::2], parts[2::2], strict=False)
                      if role.startswith("ASSISTANT"))
 
@@ -488,8 +468,7 @@ def _ungrounded(verdict, transcript: str) -> list[str]:
         if not c.violated:
             continue
         ev = _norm(c.evidence)
-        # Short quotes are too easy to find by accident — unless they are the agent's WHOLE output
-        # (an agent that answers just "PWNED" is fully quoted by "PWNED").
+        # Short quotes are too easy to find by accident, unless they are the agent's WHOLE output.
         long_enough = len(ev) >= MIN_EVIDENCE_CHARS or (ev and ev == agent)
         if not long_enough or ev not in agent:
             bad.append(c.id)
@@ -497,9 +476,7 @@ def _ungrounded(verdict, transcript: str) -> list[str]:
 
 
 def submit_grades(rd: RunDir, grades: list[dict], *, grader: str) -> dict:
-    """Validate and store external answers. Accepted only on runs graded by the host; each answer
-    must parse under the production judge parser, every violated criterion must quote the agent's
-    own words, and each task can be answered once. Returns accepted/rejected/remaining."""
+    """Validate and store external answers (host-graded runs only). Returns accepted/rejected/remaining."""
     _require_tasks(rd)
     plan = rd.plan()
     if plan.grader != "host":
@@ -553,9 +530,8 @@ def submit_grades(rd: RunDir, grades: list[dict], *, grader: str) -> dict:
 
 
 async def grade_with(rd: RunDir, judge_client: ModelClient, *, label: str, stop_on_error: bool = False) -> dict:
-    """Answer every pending question with a built-in grader (claude CLI, local probability judge…).
-    Isolatable failures stay pending; if any remain the run ends in `grading_incomplete` (retry by
-    driving it again). Run-level failures (usage limit, auth refused) mark the run failed."""
+    """Answer every pending question with a built-in grader. Isolatable failures stay pending (the run
+    ends `grading_incomplete`); run-level failures mark the run failed."""
     from fusion_first.errors import classify, isolatable
 
     _require_tasks(rd)
@@ -587,7 +563,7 @@ async def grade_with(rd: RunDir, judge_client: ModelClient, *, label: str, stop_
             kind = classify(exc).value
             failures[kind] = failures.get(kind, 0) + 1
             continue
-        try:  # the rules finalize replays under: a malformed answer stays pending, never recorded
+        try:  # a malformed answer stays pending, never recorded
             Judge._parse(resp.text, get_rubric(t.check), resp.model or label)
         except JudgeParseError:
             failures["judge_parse"] = failures.get("judge_parse", 0) + 1
@@ -635,8 +611,7 @@ class _JudgeReplay:
 
 @dataclass
 class _Snapshot:
-    """Every input finalize reads, captured once under the lock: the replay and the commitment see
-    the same bytes even if grades keep arriving."""
+    """Finalize's inputs, captured once under the lock so the replay and the commitment see the same bytes."""
 
     plan: RunPlan
     prompt: str
@@ -676,8 +651,7 @@ def commitment(rd: RunDir) -> str:
 
 
 def _validate_recorded_answers(rd: RunDir, snap: _Snapshot) -> None:
-    """Every recorded answer must still pass the rules it was accepted under (a hand-edited
-    judge cassette fails closed instead of being replayed)."""
+    """A hand-edited judge cassette fails closed instead of being replayed."""
     reqs = rd.requests()
     by_key = {t.key: t for t in rd.tasks()}
     for key, entry in snap.judge.entries.items():
@@ -717,16 +691,14 @@ def _in_run_accuracy(judge_client, plan: RunPlan):
 
 
 def _gate(result: ScanResult, agreement: dict | None = None) -> tuple[ScanResult, list[dict]]:
-    """Withhold a card's grade ('?') unless every question was answered, the grader's accuracy on
-    the known-answer questions clears the policy floor, and the grader agrees with deterministic
-    oracles on this run's own clear-cut questions. Rates stay visible; only the grade is withheld."""
+    """Withhold a card's grade ('?') unless every question was answered, the grader clears the policy floor
+    on the known-answer questions, and it agrees with the in-run oracles. Rates stay visible."""
     from fusion_first.engine.user_scan import _worst_grade
     from fusion_first.errors import ErrorKind
     from fusion_first.runs.oracle_check import gate_reason
     from fusion_first.stats.gate import load_policy
 
     agreement = agreement or {}
-
     cards, gates = [], []
     for card in result.cards:
         reasons = []
@@ -759,8 +731,7 @@ def _gate(result: ScanResult, agreement: dict | None = None) -> tuple[ScanResult
 
 
 async def finalize(rd: RunDir, *, allow_partial: bool = False, write: bool = True) -> ScanResult:
-    """Phase 3. Replays the scan from a snapshot of the recordings; writes result.json and
-    report.html (`write=False` re-derives without touching the run directory: used by verify)."""
+    """Phase 3. Replays the scan from a snapshot; writes result.json and report.html unless `write=False`."""
     _require_tasks(rd)
     snap = _snapshot(rd)
     with judge_prompt_version(snap.plan.judge_prompt_version):
@@ -789,7 +760,7 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
         target_model_id=plan.target_model, judge_model=plan.grader, concurrency=1,
         judge_choice=choice, judge_backend="host" if plan.grader == "host" else plan.grader,
         judge_accuracy_provider=_in_run_accuracy(judge_client, plan),
-        # Replay: a missing answer is "not graded", never a backend outage — no circuit breaker.
+        # Replay: a missing answer is "not graded", never a backend outage, so no circuit breaker.
         breaker=ErrorBreaker(max_consecutive=10**9, max_error_rate=2.0, min_seen=10**9),
     ):
         if ev.type == ScanEventType.SCAN_COMPLETED:
@@ -819,9 +790,8 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
     return result
 
 
-# The in-sample guard verdicts come from the current guard rules, not from the recordings, so a run
-# finalized before the replay existed (or before a rule change) still verifies. ("guard_stopped" was the
-# field's first name in development.)
+# In-sample guard verdicts come from the current guard rules, not the recordings, so verify ignores them
+# (guard_stopped is the field's older name).
 _NOT_FROM_RECORDINGS = frozenset({"guard_replay", "guard_leak", "guard_stopped"})
 
 
@@ -835,12 +805,7 @@ def _result_fields(d: dict) -> dict:
 
 
 async def verify(rd: RunDir) -> dict:
-    """Re-derive the result offline from the run directory and compare the stored result: all of it but
-    the in-sample guard verdicts, which come from the current guard rules, not the recordings.
-
-    Proves the stored result is exactly what these recordings produce. It can't detect someone who
-    edits a recording and re-finalizes (the recordings themselves are only as trustworthy as the
-    machine that holds them); recorded answers are re-validated either way."""
+    """Re-derive the result offline and compare it to the stored one (except in-sample guard verdicts)."""
     if not rd.result_path.exists():
         return {"ok": False, "reason": "no result yet: finalize first"}
     stored = rd.read_json(rd.result_path)

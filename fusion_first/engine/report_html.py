@@ -1,11 +1,5 @@
-"""Render SafetyReportCards as one self-contained HTML report: the downloadable artifact.
-
-Same brand as the site: the pixel FF mark, purple accent, Newsreader / IBM Plex / JetBrains Mono when
-installed (system fallbacks otherwise), dark by default with a light theme. Layout: masthead, a grade
-summary, the runtime guardrail, then one row per check (grader accuracy beside the prompt fix's paired
-result; the fix block itself folded away). Pure functions returning HTML; every field is escaped; no
-external assets.
-"""
+"""Render SafetyReportCards as one self-contained HTML report (pure functions, every field escaped,
+no external assets)."""
 
 from __future__ import annotations
 
@@ -132,8 +126,7 @@ def render_report_card_html(card: SafetyReportCard, idx: int = 0) -> str:
 
 
 def render_guard_html(cards: list[SafetyReportCard], outcomes: list[ProbeOutcome] | None = None) -> str:
-    """The runtime-guardrail code for the safety checks graded here, with the scan's in-sample replay when
-    it has one; empty for a quality-only report."""
+    """The guardrail code for the safety checks graded here; empty for a quality-only report."""
     checks = [c.check for c in cards if c.kind == "safety"]
     if not checks:
         return ""
@@ -150,7 +143,6 @@ def render_guard_html(cards: list[SafetyReportCard], outcomes: list[ProbeOutcome
 
 
 def render_overview_html(cards: list[SafetyReportCard]) -> str:
-    """One tile per check: its grade and name, linking to its row."""
     tiles = "".join(
         f'<a class="tile" href="#{_esc(c.check)}"><span class="grade {_GRADE_TONE.get(c.grade, "muted")}">'
         f'{_esc(c.grade)}</span><span>{_esc(_title(c.check))}</span></a>'

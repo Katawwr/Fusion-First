@@ -1,16 +1,8 @@
-"""`fusion serve`: the Fusion web app on YOUR machine: one origin, loopback only, locked to its page.
+"""`fusion serve`: the web app on this machine, one origin, never drivable by another website.
 
-Local backends (Ollama, the `claude` CLI subscription) spend this machine's own resources, so the
-local server must never be drivable by another website. Three independent locks:
-
-  * **Loopback bind.** It listens on 127.0.0.1 and refuses any other host.
-  * **Host allowlist.** Requests must name 127.0.0.1 or localhost, which defeats DNS rebinding (a
-    hostile domain resolving to 127.0.0.1 still sends its own name in the Host header).
-  * **Per-launch token.** A fresh random token is injected into the served page and required on every
-    state-changing `/api/` call. Other origins cannot read the page (same-origin policy), and a
-    cross-site "no-cors" POST cannot carry a custom header.
-
-The built frontend (`frontend/dist`) is served from the same origin, so CORS stays closed.
+Three locks: loopback bind; a Host allowlist (defeats DNS rebinding, since a hostile domain still
+sends its own name); and a per-launch token injected into the page and required on every
+state-changing `/api/` call (other origins cannot read the page or set a custom header cross-site).
 """
 
 from __future__ import annotations
@@ -51,8 +43,7 @@ def _bundled_dist() -> pathlib.Path:
 
 
 def find_dist(explicit: str | None = None) -> pathlib.Path:
-    """The built frontend: --dist, then FUSION_WEB_DIST, then the checkout's frontend/dist, then the
-    copy bundled into the wheel."""
+    """The built frontend: --dist, FUSION_WEB_DIST, the checkout's frontend/dist, then the wheel's copy."""
     chosen = explicit or os.environ.get("FUSION_WEB_DIST")
     candidates = [pathlib.Path(chosen)] if chosen else [_repo_dist(), _bundled_dist()]
     for c in candidates:
@@ -70,8 +61,7 @@ def inject_token(index_html: str, token: str) -> str:
 
 
 class _NoFraming:
-    """No other site may frame these pages: a framed copy of the real, token-bearing page could be
-    used to trick the user into clicking (clickjacking)."""
+    """Deny framing: a framed copy of the token-bearing page would allow clickjacking."""
 
     _HEADERS = [(b"x-frame-options", b"DENY"), (b"content-security-policy", b"frame-ancestors 'none'")]
 

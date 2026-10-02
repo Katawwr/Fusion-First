@@ -1,10 +1,9 @@
-"""Development readout for the runtime guard's tool-call rules. DIAGNOSTIC, never evidence: it runs on the
-spent InjecAgent samples (v1 and compact on the four 1-3B models; step 2 on qwen2.5:7b and llama3.1:8b) and the
-benign-actions `dev` cases only.
+"""Development readout for the runtime guard's tool-call rules: a diagnostic on spent InjecAgent samples and
+the benign-actions `dev` cases, never evidence.
 
     python scripts/guard_dev.py [--harness v2|v3] [--out <scratch>/guard_dev.json] [--verbose]
 
-The benign-actions `heldout` cases cannot be selected here: they are sealed for a pre-registered run.
+The benign-actions `heldout` cases are sealed for a pre-registered run and cannot be selected here.
 """
 
 from __future__ import annotations
@@ -34,7 +33,7 @@ from fusion_first.validate.transcripts import STORE_DIR_DEFAULT, TranscriptStore
 
 MODELS = ("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "qwen2.5:3b")
 SAMPLE_NAMES = ("v1", "compact")
-# Step 2 (scored 2026-09-28, spent since): its own sample and models.
+# Step 2's (spent) sample and models.
 STEP2 = ("step2", ("fusion-evidence-step2-v1", 100, SPENT), ("qwen2.5:7b", "llama3.1:8b"))
 
 

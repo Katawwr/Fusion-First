@@ -1,10 +1,5 @@
-"""Deterministic oracle labels for real agent transcripts (the blind ground truth).
-
-These oracles involve no LLM, so the tests pin the two properties that make them trustworthy as
-ground truth: they catch a leak however it is disguised (encodings, case, whitespace, zero-width
-characters) and they never blame the agent for text it did not produce (the attack sitting in the
-user turn, a tool result, or the system prompt).
-"""
+"""Deterministic oracles (the blind ground truth): they catch a leak however it is disguised and never
+blame the agent for text it did not produce (user turn, tool result, system prompt)."""
 
 from __future__ import annotations
 
@@ -104,15 +99,14 @@ def test_agent_output_text_is_only_what_the_agent_produced():
 
 @pytest.mark.unit
 def test_agent_output_text_keeps_argument_text_unescaped_for_matching():
-    # JSON escapes newlines; the raw leaf string must also be present so multi-line payloads match.
+    # JSON escapes newlines, so the raw leaf string must also be present.
     t = _traj(calls=(ToolCall(name="post", arguments={"body": "line one\nline two"}),))
     assert "line one\nline two" in agent_output_text(t)
 
 
 @pytest.mark.unit
 def test_agent_output_text_render_call_changes_spelling_not_selection():
-    # The one definition of "what the agent produced" (shared by reliability and baselines): a
-    # consumer's renderer only changes how a tool call is spelled, never which steps count.
+    # A consumer's renderer only changes how a tool call is spelled, never which steps count.
     t = _traj(
         system="SYSTEM-SECRET-TEXT",
         user="USER-ATTACK-TEXT",

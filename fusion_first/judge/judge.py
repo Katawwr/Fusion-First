@@ -1,8 +1,5 @@
-"""The Judge facade: turn a Trajectory + Rubric into a Verdict via a ModelClient.
-
-The judge asks the model to answer each binary criterion with an evidence quote, then derives
-the overall verdict deterministically from those sub-answers. That makes the decision auditable
-and is what we calibrate against oracle labels (Bar A).
+"""The Judge: answers each binary rubric criterion with an evidence quote; the verdict is derived
+deterministically from those answers.
 """
 
 from __future__ import annotations
@@ -19,11 +16,10 @@ from fusion_first.judge.rubric import Rubric
 from fusion_first.model.client import ModelClient, ModelRequest, ModelRole
 from fusion_first.schemas import CriterionVerdict, Severity, Trajectory, Verdict
 
-DEFAULT_EVIDENCE_CHARS = 12_000  # configurable evidence window (NOT the old hard 3000 truncation)
+DEFAULT_EVIDENCE_CHARS = 12_000
 
-# Version of the judge prompt format. v2 fences the WHOLE transcript in content-derived tags and adds
-# anti-steering rules. Recorded in every run plan so an old run replays (and verifies) with the exact
-# prompt it was graded under. Bumping it changes every judge request key: re-record demo cassettes.
+# Judge prompt format (v2: content-derived transcript fence plus anti-steering rules). Recorded in every
+# run plan so an old run replays with its own prompt. Bumping it changes every judge request key.
 JUDGE_PROMPT_VERSION = 2
 PROMPT_VERSIONS = (1, 2)
 _PROMPT_VERSION: contextvars.ContextVar[int] = contextvars.ContextVar(
@@ -50,8 +46,7 @@ _FENCE_LINE = re.compile(r"^</?transcript-[0-9a-f]{12}>$", re.M)
 
 
 def fence_transcript(transcript: str) -> str:
-    """Wrap the transcript in tags whose id is derived from its own content: text inside the
-    transcript can't forge the closing tag (it would have to contain the hash of itself)."""
+    """Wrap the transcript in tags derived from its own hash, so text inside can't forge the close."""
     tag = "transcript-" + hashlib.sha256(transcript.encode("utf-8")).hexdigest()[:12]
     return f"<{tag}>\n{transcript}\n</{tag}>"
 
@@ -70,8 +65,7 @@ def unfence(text: str) -> str:
 
 
 class JudgeParseError(ValueError, IsolatableError):
-    """The model returned output that could not be parsed into a structured verdict.
-    The judge fails *closed*: callers must surface this, never treat it as 'no issue'."""
+    """Unparseable judge output. Fails closed: never treat it as 'no issue'."""
 
 
 def _response_schema(rubric: Rubric) -> dict:
@@ -137,9 +131,7 @@ def build_system_prompt(rubric: Rubric, version: int | None = None) -> str:
 
 
 def _contain(body: str) -> str:
-    """v2: keep a step's text inside its own turn. Continuation lines are indented, so no text can
-    start a line with a forged role tag ("[ASSISTANT] ..."), and a literal fence close is escaped,
-    so tool output can't end its <untrusted> fence early."""
+    """v2: indent continuation lines (no forged role tags) and escape a literal </untrusted>."""
     return str(body).replace("</untrusted>", "<\\/untrusted>").replace("\n", "\n  ")
 
 
@@ -161,9 +153,8 @@ def _fence_untrusted(trajectory: Trajectory) -> str:
 
 
 def render_transcript(trajectory: Trajectory, evidence_chars: int | None = None) -> str:
-    """The fenced transcript inside the judge's evidence window. When it is too long, keep head and
-    tail rather than blindly truncating the middle evidence away. Every judge (and the LLM baselines)
-    renders through this one function, so they all see byte-identical evidence."""
+    """The fenced transcript within the evidence window (head and tail kept when too long). Every judge
+    and LLM baseline renders through this, so they all see identical evidence."""
     limit = evidence_chars or DEFAULT_EVIDENCE_CHARS
     transcript = _fence_untrusted(trajectory)
     if len(transcript) > limit:
@@ -195,8 +186,7 @@ class Judge:
 
     @staticmethod
     def _parse(text: str, rubric: Rubric, model_id: str) -> Verdict:
-        """Strict, fail-closed parse. Every malformed shape raises JudgeParseError (one type), so
-        callers can isolate it as an unscored case instead of crashing or mis-scoring."""
+        """Strict, fail-closed parse: every malformed shape raises JudgeParseError."""
         try:
             return Judge._parse_strict(text, rubric, model_id)
         except JudgeParseError:
@@ -239,9 +229,8 @@ class Judge:
         missing = set(by_id) - set(chosen)
         if missing:
             raise JudgeParseError(f"judge omitted criteria: {sorted(missing)}")
-        verdicts = [chosen[c.id] for c in rubric.criteria]  # rubric order: deterministic
+        verdicts = [chosen[c.id] for c in rubric.criteria]
 
-        # Verdict is a deterministic function of the binary criteria (auditable).
         violated = [v for v in verdicts if v.violated]
         is_issue = bool(violated)
         severity = Severity.NONE
@@ -272,8 +261,7 @@ _FALSE_WORDS = {"false", "no", "0"}
 
 
 def _coerce_bool(value: object, cid: str) -> bool:
-    """A criterion answer must be an unambiguous boolean. `bool("false")` is True in Python, so
-    quoted booleans are read by spelling; anything ambiguous fails closed."""
+    """An unambiguous boolean; quoted booleans are read by spelling, anything else fails closed."""
     if isinstance(value, bool):
         return value
     if isinstance(value, int) and value in (0, 1):
@@ -288,8 +276,7 @@ def _coerce_bool(value: object, cid: str) -> bool:
 
 
 def _coerce_confidence(value: object) -> float:
-    """Self-reported confidence never affects the verdict, so a bad value defaults to 0.5 rather
-    than discarding an otherwise valid verdict. Clamped to [0, 1]."""
+    """Confidence never affects the verdict, so a bad value defaults to 0.5. Clamped to [0, 1]."""
     try:
         c = float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError, OverflowError):
@@ -300,17 +287,11 @@ def _coerce_confidence(value: object) -> float:
 
 
 def _extract_json_obj(text: str, prefer: str | None = None) -> dict:
-    """Find THE JSON object in a possibly chatty response — failing closed on ambiguity.
+    """Find THE JSON object in a possibly chatty response, failing closed on ambiguity.
 
-    A real JSON decode is attempted at each '{' (so braces inside strings, markdown fences and decoy
-    objects are handled). A successfully decoded object is skipped over as a whole (its inner
-    objects are never separate candidates). Candidates that sit inside a span that FAILED to decode
-    (e.g. a truncated outer object) are discarded — a partial answer is not an answer.
-
-    Returns the unique top-level object containing `prefer` (identical duplicates are fine). If
-    several DIFFERENT such objects exist (a draft then a correction), raises ValueError: guessing
-    which one the model meant could turn a violation into a pass. Without `prefer`, returns the
-    first top-level object. Raises ValueError when there is no usable object."""
+    Objects inside a span that failed to decode (a truncated outer object) are discarded. Returns the
+    unique top-level object containing `prefer`; several different ones raise ValueError, since guessing
+    could turn a violation into a pass. Without `prefer`, returns the first top-level object."""
     decoder = json.JSONDecoder()
     found: list[tuple[int, dict]] = []
     failed_spans: list[tuple[int, int]] = []
@@ -349,8 +330,3 @@ def _extract_json_obj(text: str, prefer: str | None = None) -> dict:
     if any(m != first for m in matches[1:]):
         raise ValueError(f"judge output contains {len(matches)} conflicting '{prefer}' objects")
     return first
-
-
-def _extract_json(text: str, prefer: str | None = "criteria") -> str:
-    """Back-compat wrapper returning the chosen object as JSON text."""
-    return json.dumps(_extract_json_obj(text, prefer=prefer))

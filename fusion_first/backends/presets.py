@@ -1,8 +1,6 @@
-"""Hosted model providers by name: `<name>:<model>` is shorthand for `openai-compat:<base_url>#<model>`
-authenticated with the provider's usual key variable. All of them are metered (the user's money), so
-they need FUSION_ALLOW_API_SPEND=1 and the key; nothing here is ever selected automatically.
-
-`mistral-api` (not `mistral`) so an Ollama model named `mistral:7b` keeps meaning the local model.
+"""Hosted providers: `<name>:<model>` means `openai-compat:<base_url>#<model>` with the provider's key.
+All metered, so they need FUSION_ALLOW_API_SPEND=1 and are never selected automatically.
+`mistral-api` (not `mistral`) so the Ollama model `mistral:7b` keeps meaning the local model.
 """
 
 from __future__ import annotations

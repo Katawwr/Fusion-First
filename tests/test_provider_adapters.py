@@ -1,6 +1,4 @@
-"""Live provider adapters: request shaping and response mapping, exercised offline with fakes.
-
-Real network calls live behind @pytest.mark.live (skipped in the offline gate)."""
+"""Provider adapters: request shaping and response mapping, exercised offline with fake SDKs."""
 
 from __future__ import annotations
 

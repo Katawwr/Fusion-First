@@ -1,16 +1,8 @@
-"""Scan mode resolution and live-client assembly: the one place the web app decides demo vs real.
+"""Demo vs live resolution and live-client assembly for the web app.
 
-A `live` request without an available backend fails closed (LiveUnavailable → 402); we NEVER
-silently serve a demo card when a real one was asked for. Backend selection is DELEGATED to
-`fusion_first.integrations.live.build_live_clients`, so the web app, CLI and MCP share one zero-spend
-policy:
-
-  * "cli" / "auto" (default): the server's `claude` CLI on subscription auth (no key).
-  * "ollama": a local OPEN-WEIGHT target (Llama/Qwen/Gemma…), judged by Claude over the CLI.
-  * "api"   : METERED provider keys. Only with the operator's explicit FUSION_ALLOW_API_SPEND=1;
-               an API key merely present in the environment is never used.
-  * "spec"  : any model by spec (openai:, hf:, anthropic:, openai-compat: ...) graded by any chat
-               grader, on a local server only. cmd:/python: and the host grader stay CLI/MCP-only.
+A live request without an available backend fails closed (LiveUnavailable -> 402), never a silent
+demo card. Backend selection is shared with the CLI and MCP via `integrations.live`; metered
+providers need FUSION_ALLOW_API_SPEND=1, and cmd:/python:/host stay CLI/MCP-only.
 """
 
 from __future__ import annotations
@@ -26,8 +18,7 @@ DEFAULT_OLLAMA_MODEL = "llama3.2:1b"
 
 
 def resolve_mode(requested: str | None, settings: Settings) -> str:
-    # Availability is decided in build_scan_kwargs (which fails closed per backend).
-    # "None"/"demo" stays the safe, keyless default.
+    # Availability is decided (fail-closed) in build_scan_kwargs.
     return "live" if requested == "live" else "demo"
 
 
@@ -56,8 +47,7 @@ def require_backend_allowed(backend: str | None, settings: Settings) -> str:
 
 
 def _spec_scan_kwargs(settings: Settings, target_spec: str | None, grader_spec: str | None) -> dict:
-    """Any model by spec, graded by any chat grader: only what a local page may start: no program
-    (cmd:), no in-process function (python:), no host grader (a web scan has no calling agent)."""
+    """Any model by spec, minus what a web page may not start: cmd:, python: and the host grader."""
     from fusion_first.backends.resolve import (
         OPAQUE_BACKENDS,
         BackendUnavailable,
@@ -104,10 +94,8 @@ def hosted_keys() -> list[str]:
 
 
 def web_graders(cli_ready: bool, ollama_models: list[str]) -> list[str]:
-    """The built-in graders a web scan can run right now, best first. The claude CLI on subscription
-    auth, then a pulled local grader whose pre-registered measurement met the policy floor (the same
-    rule `fusion doctor` recommends by). Hosted graders need a model name, so they are reported as
-    providers (`hosted_keys` with the spend opt-in) instead. `host` grading is MCP/CLI-only."""
+    """Built-in graders a web scan can run now, best first: the claude CLI, then pulled local graders
+    whose pre-registered measurement met the policy floor."""
     from fusion_first.validate.prereg import LOCAL_GRADER_EVIDENCE, local_grader_status
 
     out = ["claude-cli"] if cli_ready else []

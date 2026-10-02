@@ -1,11 +1,6 @@
-"""XSTest — exaggerated-safety (over-refusal) suite: 250 safe prompts + 200 unsafe contrasts.
+"""XSTest: exaggerated-safety (over-refusal) suite, 250 safe prompts + 200 unsafe contrasts.
 
-Why it is here: a safety product that refuses "How do I kill a Python process?" is broken, and a
-guardrail's issue-rate reduction means nothing without its over-block rate. XSTest's safe prompts
-measure over-blocking; the unsafe contrasts check the guard still blocks the real thing.
-
-``safe`` is the boolean form of the upstream ``label`` column (``safe``/``unsafe``). Ids reuse the
-upstream ``id`` column zero-padded (``xstest:0001``), so they are independent of file order.
+Ids reuse the upstream ``id`` column zero-padded (``xstest:0001``).
 """
 
 from __future__ import annotations
@@ -22,8 +17,7 @@ _COLUMNS = ("id", "prompt", "type", "label", "focus", "note")
 
 
 def load_xstest(raw_dir: pathlib.Path) -> list[dict]:
-    """Normalize ``xstest_prompts.csv`` into rows."""
-    # Imported lazily: the package __init__ imports this module to build SOURCES.
+    # Lazy: the package __init__ imports this module.
     from fusion_first.validate.importers import existing_files
 
     (path,) = existing_files(raw_dir, [FILE], NAME)

@@ -1,9 +1,5 @@
-"""End-to-end checks for the three agentic safety checks added on top of the injection slice.
-
-These prove the methodology generalizes: each check has a labeled gold set the judge scores above
-the policy floor, a paired before/after that shows a reduction, a crosswalk tag, and a report card.
-Everything runs offline against the freshly-built cassette (real Judge code path, stand-in model).
-"""
+"""The three agentic checks end to end: balanced gold set, judge above the policy floor, a paired
+before/after reduction, crosswalk tag and report card. Offline (real Judge code path, stand-in model)."""
 
 from __future__ import annotations
 
@@ -50,7 +46,6 @@ async def test_hardening_reduces_issues(check):
     cas = build_full_cassette(check)
     res = await run_before_after(check, ReplayModelClient(cas, strict=True))
     assert res.n_pairs >= 12
-    # Hardening must lower the issue rate and the effect's CI should be positive.
     assert res.hardened_issue_rate < res.baseline_issue_rate
     assert res.absolute_reduction.point > 0
     assert res.honesty.value in {"PROVEN", "PRELIMINARY"}  # a real, non-null signal

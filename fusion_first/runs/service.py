@@ -1,10 +1,5 @@
-"""Run orchestration shared by the `fusion run` CLI and the MCP server.
-
-The engine (`fusion_first.runs.engine`) knows phases; this module knows USERS: it parses target/grader
-specs, drives collect -> grade -> finalize for built-in graders (and resumes stalled runs), tells an
-agent exactly what to do next, and summarizes a finished run in plain, honest language: the grade,
-what got through, how sure we are, how accurate the grader measured in this run, and: when the
-grader hasn't earned it: that the grade is withheld and why.
+"""Run orchestration shared by the `fusion run` CLI and the MCP server: parse specs, drive (and resume)
+runs, say what to do next, and summarize a finished run without overclaiming.
 """
 
 from __future__ import annotations
@@ -15,10 +10,8 @@ import os
 import pathlib
 import time
 from collections.abc import Callable
-from dataclasses import asdict
 
 from fusion_first.backends.resolve import (
-    GraderSpec,
     build_grader_client,
     build_target_client,
     parse_grader,
@@ -41,8 +34,8 @@ from fusion_first.schemas import ScanResult
 
 WORKSPACE_ENV = "FUSION_WORKSPACE"
 BUSY_PHASES = ("created", "collecting", "grading")
-# drive() rewrites the run's heartbeat this often; a beat older than STALE_AFTER_S means the process that
-# was driving the run is gone (a single slow model call must fit inside it: the event loop keeps beating).
+# A heartbeat older than STALE_AFTER_S means the driving process is gone (the event loop keeps beating
+# through a slow model call).
 HEARTBEAT_S = 15.0
 STALE_AFTER_S = 120.0
 
@@ -55,8 +48,7 @@ async def _heartbeat(rd: RunDir) -> None:
 
 
 def worker_alive(rd: RunDir) -> bool | None:
-    """Whether some process is still driving the run, from its heartbeat; None without one (a run from
-    before heartbeats, or never driven)."""
+    """Whether some process is still driving the run, from its heartbeat; None without one."""
     try:
         at = float(rd.read_json(rd.heartbeat_path)["at"])
     except (OSError, ValueError, KeyError, TypeError):
@@ -72,8 +64,7 @@ def workspace_dir(workspace: str | os.PathLike | None = None) -> pathlib.Path:
 
 
 def resolve_checks(checks: list[str] | str | None) -> list[str]:
-    """None/"all" = every safety check; "quality" / "all-quality" = the quality checks; "everything" =
-    both. Unknown names are rejected with the valid list."""
+    """None/"all" = every safety check; "quality" / "all-quality" = the quality checks; "everything" = both."""
     if checks is None or checks == "all" or checks == ["all"]:
         return checks_of_kind("safety")
     items = [checks] if isinstance(checks, str) else list(checks)
@@ -141,10 +132,8 @@ async def drive(
     max_calls: int = 400,
     grade: bool = True,
 ) -> dict:
-    """Run (or RESUME) every phase that needs no outside help: collect, then: for a built-in
-    grader: grade and finalize. Clients are built from the plan when not injected; the grader is
-    built (and its subscription auth checked) BEFORE collect, so a bad grader fails in seconds, not
-    after the whole target run. Returns `status(rd)`. Beats the run's heartbeat while it works."""
+    """Run (or resume) every phase that needs no outside help: collect, then grade and finalize for a
+    built-in grader. The grader is built BEFORE collect so a bad one fails in seconds. Returns `status(rd)`."""
     beat = asyncio.get_running_loop().create_task(_heartbeat(rd))
     try:
         return await _drive(rd, target_client=target_client, grader_client=grader_client,
@@ -185,8 +174,7 @@ async def _drive(rd: RunDir, *, target_client, grader_client, on_progress, max_c
 
 
 def status(rd: RunDir, running: bool | None = None) -> dict:
-    """`running`: whether a worker in THIS process is driving the run. None (the CLI, a separate process)
-    reads the run's heartbeat instead."""
+    """`running`: whether a worker in THIS process drives the run; None reads the heartbeat instead."""
     if running is None:
         running = worker_alive(rd)
     plan, st = rd.plan(), rd.state()
@@ -295,8 +283,8 @@ def _grader_accuracy(card) -> dict:
 
 
 def summarize(rd: RunDir, result: ScanResult) -> dict:
-    """The agent-facing verdict. States only what the numbers support: a '?' grade is never a pass,
-    a withheld grade says why, and 'reduced' is only claimed when the honesty badge says PROVEN."""
+    """The agent-facing verdict: a '?' grade is never a pass, a withheld grade says why, and 'reduced' is
+    only claimed when the honesty badge says PROVEN."""
     from fusion_first.engine.fixes import apply_fix
 
     plan = rd.plan()
@@ -343,7 +331,6 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
         "target": plan.target,
         "grader": plan.grader,
         "cards": cards,
-        # The runtime guardrail over this run's own replies (in-sample; see fusion_first/engine/guard_replay.py).
         "guard_in_sample": in_sample_payload(result.outcomes, result.cards),
         "hardened_prompt": apply_fix(rd.prompt(), safety_checks) if safety_checks else None,
         "report_html": str(rd.report_path) if rd.report_path.exists() else None,
@@ -389,8 +376,7 @@ def result_is_fresh(rd: RunDir) -> bool:
 
 
 async def finalize_and_summarize(rd: RunDir, *, allow_partial: bool = False) -> dict:
-    """Always re-derives from the recordings (offline, cheap): a stored result.json is never
-    trusted as the source of a verdict. Log runs return their own summary shape (kind='logs')."""
+    """Always re-derives from the recordings: a stored result.json is never trusted as a verdict."""
     from fusion_first.runs.logs import finalize_logs, is_log_run
 
     if is_log_run(rd):
@@ -453,12 +439,7 @@ class RunManager:
             await asyncio.sleep(0.5)
 
 
-def plan_dict(rd: RunDir) -> dict:
-    return asdict(rd.plan())
-
-
 __all__ = [
-    "GraderSpec", "RunManager", "drive", "finalize_and_summarize", "list_runs", "needs_grader",
-    "needs_target", "plan_dict", "resolve_checks", "resolve_run", "result_is_fresh", "start_run",
-    "status", "summarize", "workspace_dir",
+    "RunManager", "drive", "finalize_and_summarize", "list_runs", "needs_grader", "needs_target",
+    "resolve_checks", "resolve_run", "result_is_fresh", "start_run", "status", "summarize", "workspace_dir",
 ]

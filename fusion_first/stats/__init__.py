@@ -1,5 +1,1 @@
-"""Statistics for the proof bars. Pure functions, deterministic, no I/O.
-
-Bar A (metrics.py): judge-vs-oracle accuracy with Wilson confidence intervals + Cohen's kappa.
-Bar B (paired.py): paired before/after improvement with exact McNemar + bootstrap CIs + honesty badge.
-"""
+"""Statistics for the proof bars: Bar A (metrics.py, judge vs oracle) and Bar B (paired.py, before/after)."""

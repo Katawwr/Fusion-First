@@ -1,6 +1,4 @@
-"""Model registry: resolves roles to concrete IDs, enforces the allowlist, and applies the
-self-family guard so a model is never the sole judge of its own family's output.
-"""
+"""Model registry: roles to IDs, the allowlist, and the self-family judge guard."""
 
 from __future__ import annotations
 
@@ -14,12 +12,10 @@ _MODELS_YAML = pathlib.Path(__file__).with_name("models.yaml")
 
 @dataclass(frozen=True)
 class JudgeChoice:
-    """A judge selection plus an honest disclosure of how independent it is from the target.
+    """A judge selection plus a disclosure of its independence from the target.
 
-    `independence` is one of: "cross_family" (different model family — strongest),
-    "same_family_cross_tier" (same family, different/stronger tier — self-preference bias cannot be
-    fully excluded), or "same_model" (last-resort; loudly disclosed). The `disclosure` string is
-    rendered on the report card so a reader never mistakes a same-family number for cross-family.
+    `independence`: "cross_family", "same_family_cross_tier" or "same_model". `disclosure` is shown on
+    the report card.
     """
 
     judge_id: str
@@ -49,33 +45,18 @@ class ModelRegistry:
         self.require_allowed(model_id)
         return self.allowlist[model_id]
 
-    def choose_judge(self, target_model_id: str, prefer: str = "judge_primary") -> str:
-        """Pick a judge for a given target, honoring the self-family guard.
-
-        If the preferred judge shares the target's family, fall back to the cross-family judge.
-        This prevents self-preference bias (a model rating its own family too kindly).
-        """
-        preferred = self.resolve(prefer)
-        if target_model_id in self.allowlist and self.family_of(preferred) == self.family_of(
-            target_model_id
-        ):
-            return self.resolve("judge_cross_family")
-        return preferred
-
     def _stronger_same_family(self, target_model_id: str) -> str:
-        """The lightest judge tier that is still stronger than the target (subscription-friendly):
-        Sonnet unless the target already IS Sonnet, in which case escalate to Opus."""
-        primary = self.resolve("judge_primary")  # claude-sonnet-5
+        """The primary judge, escalated to the calibration tier when the target is the primary."""
+        primary = self.resolve("judge_primary")
         if target_model_id != primary:
             return primary
-        return self.resolve("judge_calibration")  # claude-opus-4-8
+        return self.resolve("judge_calibration")
 
     def choose_judge_with_disclosure(
         self, target_model_id: str, *, cross_family_available: bool = True
     ) -> JudgeChoice:
-        """Pick a judge AND state how independent it is. Prefer a real cross-family judge when one is
-        actually callable; otherwise fall back to a stronger same-family tier and disclose the
-        residual self-preference risk (which Bar-A-vs-oracle and the guardrail cross-check bound)."""
+        """Pick a judge and disclose its independence: cross-family when callable, else a stronger
+        same-family tier with the residual self-preference risk stated."""
         if cross_family_available:
             xf = self.resolve("judge_cross_family")
             if target_model_id not in self.allowlist or self.family_of(xf) != self.family_of(

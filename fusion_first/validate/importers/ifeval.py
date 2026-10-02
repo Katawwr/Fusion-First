@@ -1,11 +1,6 @@
-"""IFEval — prompts with machine-verifiable instructions ("no commas", "at least 300 words").
+"""IFEval: prompts with machine-verifiable instructions (the quality dimension's external anchor).
 
-Why it is here: it is the external anchor for Fusion's QUALITY dimension (instruction following).
-Each instruction is checkable by a deterministic verifier, so it gives ground truth without an LLM
-oracle. Only the prompts and instruction specs are imported (there are no reference responses).
-
-Ids reuse the upstream integer ``key`` (``ifeval:1000``) — it is IFEval's own identifier, so it is
-stable independent of file order.
+Ids reuse the upstream integer ``key`` (``ifeval:1000``).
 """
 
 from __future__ import annotations
@@ -21,8 +16,7 @@ FILE = "ifeval_input_data.jsonl"
 
 
 def load_ifeval(raw_dir: pathlib.Path) -> list[dict]:
-    """Normalize ``ifeval_input_data.jsonl`` into rows."""
-    # Imported lazily: the package __init__ imports this module to build SOURCES.
+    # Lazy: the package __init__ imports this module.
     from fusion_first.validate.importers import existing_files
 
     (path,) = existing_files(raw_dir, [FILE], NAME)

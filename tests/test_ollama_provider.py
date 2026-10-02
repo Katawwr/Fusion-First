@@ -81,13 +81,11 @@ async def test_complete_parses_ollama_response(monkeypatch):
 
 @pytest.mark.unit
 def test_ollama_available_is_bool():
-    # No server is running in CI; just assert the probe is safe and returns a bool.
     assert isinstance(ollama_available("http://localhost:59999"), bool)
 
 
 @pytest.mark.unit
 def test_live_clients_ollama_target_is_cross_family(monkeypatch):
-    # An open-weight Ollama target judged by Claude is the strongest (cross-family) independence tier.
     import fusion_first.integrations.live as live
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -110,12 +108,7 @@ def test_live_clients_ollama_unavailable_raises(monkeypatch):
         live.build_live_clients("llama3.2", prefer="ollama")
 
 
-# -- measurement-integrity options (no server: payload/parse helpers + faked _post) -------------
-
-
 def _r(**kw):
-    from fusion_first.model.client import ModelRequest, ModelRole
-
     base = dict(role=ModelRole.TARGET, system="sys", messages=[{"role": "user", "content": "hi"}], model_id="qwen2.5:3b")
     base.update(kw)
     return ModelRequest(**base)
@@ -139,8 +132,6 @@ def test_payload_omits_seed_and_logprobs_by_default():
 @pytest.mark.unit
 @pytest.mark.parametrize("mid", ["claude-haiku-4-5", "gpt-4o"])
 def test_hosted_model_ids_are_rejected(mid):
-    from fusion_first.model.providers.ollama import OllamaUnavailable
-
     with pytest.raises(OllamaUnavailable, match="not an Ollama model"):
         OllamaModelClient()._resolve_model(_r(model_id=mid))
 
@@ -186,8 +177,8 @@ def test_seed_and_logprobs_change_the_cache_key_only_when_set():
 
 @pytest.mark.unit
 def test_default_address_is_the_ipv4_loopback(monkeypatch):
-    """`localhost` resolves to ::1 first on Windows; Ollama listens on IPv4, so every request paid a
-    ~2 s fallback (measured 2.1 s vs 1 ms). The probes and the client must dial 127.0.0.1."""
+    """`localhost` resolves to ::1 first on Windows and Ollama listens on IPv4 (a ~2 s fallback per
+    request), so the probes and the client dial 127.0.0.1."""
     import io
     import urllib.parse
 

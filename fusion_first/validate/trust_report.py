@@ -1,9 +1,6 @@
-"""TRUST_REPORT.md: generated ONLY from committed, non-demonstration evidence files.
+"""Generate TRUST_REPORT.md and the site's evidence.json from committed, non-demonstration evidence.
 
-No number in the report is typed by hand: every figure is read from a JSON file under `evals/` and
-the file is named next to it. `tests/test_trust_report.py` regenerates the report and requires it to
-equal the committed TRUST_REPORT.md, so the report can't drift from its evidence. Evidence that
-doesn't exist yet is reported as NOT YET MEASURED: never estimated.
+Every figure is read from a file under `evals/`, named next to it; missing evidence is NOT YET MEASURED.
 """
 
 from __future__ import annotations
@@ -397,8 +394,7 @@ def _guard_status(d: dict) -> str:
 
 
 def _guard_current(root: pathlib.Path) -> tuple[str, dict] | None:
-    """The newest held-out set: an older one was scored against rules that have changed since (a set stays the
-    honest number only until the rules change), so only the newest is reported; the older files stay for audit."""
+    """The newest held-out set (older ones were scored against rules that have since changed)."""
     sets = _guard_sets(root)
     return next(((v, d) for v, d in reversed(sets) if d["status"].startswith("HELD OUT")), sets[-1] if sets else None)
 
@@ -446,8 +442,7 @@ def _limits() -> list[str]:
     ]
 
 
-# Committed evidence no longer reported: measured on rules since replaced, superseded by a later measurement on
-# the same comparator, or the secondary outcomes of a variant that was not adopted. Kept in the repo for audit.
+# Committed evidence no longer reported (replaced rules, later measurements, a variant not adopted).
 SUPERSEDED_EVIDENCE = (
     "evals/validation/v1/guard_on_transcripts.json",
     "evals/validation/v1/guard_on_fresh_transcripts.json",
@@ -465,8 +460,7 @@ def _superseded(root: pathlib.Path) -> list[str]:
 
 
 def evidence_json(root: pathlib.Path | None = None) -> dict:
-    """The same evidence, structured for the website's /trust page (frontend/src/content/evidence.json).
-    Values are raw rates in [0, 1]; the page formats them."""
+    """The same evidence for the website's /trust page, as raw rates in [0, 1]."""
     root = root or data_root()
     judge = []
     for f in sorted((root / "evals/validation/v1").glob("judge_eval_*.json")):

@@ -1,9 +1,4 @@
-"""The eval gate: does the current judge still meet the accuracy bar?
-
-Run on every change by the Stop hook and before deploy. Fails when the judge's blind-split
-accuracy or F1 has regressed beyond a tolerance against the committed baseline: so the
-autonomous loop can never silently ship a judge that got worse at classifying safety issues.
-"""
+"""The eval gate: fails when the judge misses the policy floor or regresses against the committed baseline."""
 
 from __future__ import annotations
 
@@ -23,8 +18,7 @@ DEFAULT_MARGIN = 0.05  # allowed slack before a metric drop counts as a regressi
 
 
 class PolicyError(ValueError):
-    """evals/policy.yaml is malformed. A typo'd key would otherwise be silently ignored and the gate
-    would run at the built-in default instead of the bar the user meant to set."""
+    """evals/policy.yaml is malformed (a typo'd key would otherwise silently fall back to the default)."""
 
 
 _POLICY_KEYS = {
@@ -71,11 +65,8 @@ def validate_policy(data: dict) -> None:
 
 
 def load_policy(check: str, path: pathlib.Path | None = None) -> dict:
-    """Load the user-configured acceptance gate (evals/policy.yaml).
-
-    Fusion measures autonomously; the user sets the bar. Returns the merged defaults + per-check
-    overrides. Falls back to built-in defaults if the file is absent; a malformed file raises
-    PolicyError (fail closed) instead of silently gating at the defaults."""
+    """The user's acceptance bar (evals/policy.yaml): defaults merged with per-check overrides. Built-in
+    defaults when absent; a malformed file raises PolicyError."""
     builtin = {
         "min_judge_f1": 0.60,
         "min_judge_accuracy": 0.60,
@@ -105,7 +96,7 @@ class GateResult:
     baseline_accuracy: float | None
     n: int
     gold_version: str
-    advisory: bool = False  # True when no baseline exists yet (bootstrap): report, don't block
+    advisory: bool = False  # no baseline yet: report, don't block
 
     def summary(self) -> str:
         status = "PASS" if self.passed else ("ADVISORY" if self.advisory else "FAIL")
@@ -202,7 +193,7 @@ def evaluate_gate(
     margin = margin if margin is not None else policy.get("regression_margin", DEFAULT_MARGIN)
 
     reasons: list[str] = []
-    # (1) User-configured absolute floor — the gate the user set up. Applies even with no baseline.
+    # (1) The user's absolute floor; applies even with no baseline.
     floor_f1 = policy.get("min_judge_f1", 0.0)
     floor_acc = policy.get("min_judge_accuracy", 0.0)
     if current.f1 < floor_f1:
@@ -222,7 +213,7 @@ def evaluate_gate(
             f"(> max_unscored_rate {max_unscored})"
         )
 
-    # (2) Regression vs the committed baseline (Fusion's automatic guard).
+    # (2) Regression vs the committed baseline.
     if baseline is None:
         if not reasons:
             return GateResult(

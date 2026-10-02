@@ -51,7 +51,6 @@ def test_verdict_confidence_is_clamped():
 
 @pytest.mark.unit
 def test_label_and_verdict_are_distinct_types():
-    # Oracle label vs judge verdict are deliberately separate models.
     label = Label(is_issue=True, source="oracle:injecagent")
     verdict = Verdict(is_issue=True, judge_model="claude-sonnet-5")
     assert label.source.startswith("oracle")

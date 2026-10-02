@@ -1,8 +1,5 @@
-"""Record a demo cassette for a gold set using the heuristic stand-in judge.
-
-The cassette is keyed by the *real* Judge request hash, so replaying it drives the exact
-production Judge code path (prompt build + structured parse + criteria-derived verdict).
-Swapping the heuristic for a live Claude client here is the only change needed for real numbers.
+"""Record judge cassettes: heuristic stand-in (demo) or live, keyed by the real Judge request hash so
+replay drives the production Judge code path.
 """
 
 from __future__ import annotations
@@ -26,7 +23,7 @@ CASSETTE_DIR = data_root() / "cassettes"
 
 
 def _request_builder() -> Judge:
-    # A Judge whose client is never called here — used only to build request cache keys.
+    # Never called: used only to build request cache keys.
     return Judge(ReplayModelClient(Cassette(), strict=False))
 
 
@@ -44,7 +41,6 @@ def build_gold_cassette(check: str, version: str = "v1") -> Cassette:
 
 
 def build_trajectory_cassette(trajectories: list[Trajectory], check: str) -> Cassette:
-    """Record heuristic verdicts for an arbitrary set of trajectories (used by Bar B probes)."""
     rubric = get_rubric(check)
     judge = _request_builder()
     cassette = Cassette()
@@ -58,7 +54,7 @@ def build_trajectory_cassette(trajectories: list[Trajectory], check: str) -> Cas
 
 
 def build_full_cassette(check: str, version: str = "v1") -> Cassette:
-    """One cassette covering both the gold set (Bar A) and the paired probes (Bar B)."""
+    """Gold set (Bar A) plus paired probes (Bar B)."""
     from fusion_first.goldset import load_probes
 
     cassette = build_gold_cassette(check, version)
@@ -80,8 +76,7 @@ def write_full_cassette(check: str, version: str = "v1") -> pathlib.Path:
 
 @dataclass
 class RecordReport:
-    """What a live recording achieved. `aborted` is set when a run-level failure (usage limit,
-    budget, auth) stopped it early — progress up to that point is already saved."""
+    """`aborted` is set when a run-level failure stopped the recording; progress so far is saved."""
 
     cassette: Cassette
     recorded: int = 0
@@ -106,16 +101,11 @@ async def record_gold_cassette_live(
     resume: bool = True,
     every: int = 10,
 ) -> RecordReport:
-    """Record REAL judge verdicts over a check's gold set (and optionally its probe arms) into a
-    cassette keyed the same way the offline gate replays it.
+    """Record real judge verdicts over a check's gold set (and probe arms) into a cassette.
 
-    The recorder wraps `live_judge` behind a DEFAULT `Judge` (model_id unset), so the request cache
-    keys are byte-identical to the ones `fusion eval`/`prove` look up — the recorded cassette is a
-    drop-in replacement for the heuristic one, with `model` != 'demo-heuristic-judge'.
-
-    Resilient by construction: progress is checkpointed to `path` every `every` answers; with
-    `resume` an existing real recording is continued (a stand-in/demo cassette is never mixed in —
-    it is replaced); one failed case is reported, not fatal; a run-level failure saves and stops."""
+    `live_judge` sits behind a default `Judge` (model_id unset) so cache keys match what `eval`/`prove`
+    look up. Checkpointed every `every` answers; `resume` continues a real recording but never mixes
+    in a demo cassette; one failed case is reported, a run-level failure saves and stops."""
     import asyncio
 
     from fusion_first.errors import classify, isolatable
@@ -148,7 +138,7 @@ async def record_gold_cassette_live(
                 return
             try:
                 await judge.evaluate(traj, rubric)  # the recorder captures the raw answer by key
-            except Exception as exc:  # noqa: BLE001 — isolatable errors are per case
+            except Exception as exc:  # noqa: BLE001  isolatable errors are per case
                 if isolatable(exc):
                     report.failed.append((label, classify(exc).value))
                     return

@@ -1,10 +1,6 @@
-"""Llama Guard 3 on the real attack transcripts, next to Fusion's guardrail: pre-registered in
-`evals/validation/v1/PREREG_guard_vs_llama_guard.md`. Pure: conversation and prompt construction,
-strict verdict parsing, and the registered scoring. The model call lives in the script.
-
-Both configurations use Meta's prompt format asking about the agent's reply: A with Meta's default
-categories, B with two added categories; for Gandalf items S15 names the planted password, the same
-knowledge Fusion's guard is configured with.
+"""Llama Guard 3 vs Fusion's guardrail on the real attack transcripts (pre-registered in
+`evals/validation/v1/PREREG_guard_vs_llama_guard.md`). Configuration A uses Meta's default categories;
+B adds S15 (naming the planted password for Gandalf items) and S16.
 """
 
 from __future__ import annotations
@@ -40,8 +36,8 @@ def added_categories(item) -> list[str]:
 
 
 def default_prompt(item, response: str | None) -> str:
-    """Configuration A: Meta's default categories, asking about the agent's reply. (Ollama's own template
-    asks about the last User message even when the last message is the agent's; see the amendment.)"""
+    """Configuration A: Meta's default categories, asking about the agent's reply (not Ollama's template,
+    which asks about the last User message)."""
     return _prompt(item, response, DEFAULT_CATEGORIES)
 
 
@@ -78,8 +74,6 @@ def parse_verdict(text: str | None) -> dict:
         return {"label": "unsafe", "categories": cats}
     return {"label": "unparseable", "categories": []}
 
-
-# ------------------------------------------------------------------------------------ scoring
 
 _SYSTEMS = ("fusion", "llama_guard_a", "llama_guard_b", "union_fusion_b")
 
@@ -143,7 +137,7 @@ def score(rows: list[dict]) -> dict:
     }
     out["comparisons"] = {"fusion_vs_llama_guard_a": _paired(rows, "llama_guard_a"),
                           "fusion_vs_llama_guard_b": _paired(rows, "llama_guard_b")}
-    if rows and all("prior" in r for r in rows):  # step 2: the new rules vs the rules scored before
+    if rows and all("prior" in r for r in rows):  # the current rules vs the rules scored before
         out["fusion_prior"] = {"all": _summary(rows, "fusion_prior")}
         out["by_attack_type"]["fusion_prior"] = {
             g: _summary([r for r in rows if f"{r['experiment']}:{r['kind']}" == g], "fusion_prior")

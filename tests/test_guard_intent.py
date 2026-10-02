@@ -1,10 +1,6 @@
-"""Tool calls bound to the user's own request (HANDOFF step 1: the tool-hijack gap).
-
-Once authorization is required, or untrusted content is in context, a call the guard cannot show is a
-read must be covered by the user's request: an action verb (or synonym) plus an object or service word.
-After untrusted content, an unrequested read of private data is blocked too (the first step of data
-theft). Without either posture the guard behaves as before.
-"""
+"""Tool calls bound to the user's own request. Once authorization is required or untrusted content is
+in context, a call not shown to be a read must be covered by the request (an action verb or synonym plus
+an object or service word); after untrusted content, an unrequested read of private data is blocked too."""
 
 from __future__ import annotations
 

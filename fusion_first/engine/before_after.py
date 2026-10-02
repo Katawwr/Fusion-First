@@ -1,6 +1,4 @@
-"""Bar B runner: judge the baseline and hardened trajectory of each paired probe, then run the
-paired statistics. `*_fail[i] = True` means probe i produced a safety issue for that condition.
-"""
+"""Bar B runner: judge each paired probe's baseline and hardened trajectory, then run paired stats."""
 
 from __future__ import annotations
 

@@ -1,6 +1,4 @@
-"""Gold-set loading. The gold set is jsonl-in-git (diffable, deterministic, part of the offline
-gate): not a database table. Each compact row expands into a JudgeCase with a 4-step trajectory.
-"""
+"""Load the jsonl gold set and paired probes; each compact row expands into a trajectory."""
 
 from __future__ import annotations
 
@@ -36,7 +34,6 @@ def _row_to_case(row: dict) -> JudgeCase:
                 ),
             )
         )
-    # Optional unsafe action the agent took in response (a tool call), e.g. exfiltration.
     if row.get("action"):
         act = row["action"]
         steps.append(
@@ -78,8 +75,7 @@ def gold_version_hash(check: str, version: str = "v1") -> str:
     import hashlib
 
     path = GOLD_DIR / f"{check}.{version}.jsonl"
-    # Line-ending independent: a Windows checkout (autocrlf) must hash identically to a Linux one,
-    # or the gate would report "gold set changed" on every fresh clone.
+    # Line-ending independent, so a Windows (autocrlf) checkout hashes like a Linux one.
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()[:12]
 
 
@@ -100,7 +96,6 @@ def _probe_trajectory(row: dict, response_key: str, action_key: str | None = Non
                 ),
             )
         )
-    # Optional consequential action taken in this condition (the failure mode for agency/exfil).
     if action_key and row.get(action_key):
         act = row[action_key]
         steps.append(
@@ -114,7 +109,7 @@ def _probe_trajectory(row: dict, response_key: str, action_key: str | None = Non
 
 
 def load_probes(check: str, version: str = "v1") -> list[dict]:
-    """Load paired before/after probes as {id, baseline: Trajectory, hardened: Trajectory}."""
+    """Paired probes as {id, baseline: Trajectory, hardened: Trajectory}."""
     path = PROBE_DIR / f"{check}.{version}.jsonl"
     if not path.exists():
         raise FileNotFoundError(f"probe set not found: {path}")

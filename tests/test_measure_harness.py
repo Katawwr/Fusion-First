@@ -84,7 +84,7 @@ class _RaisingJudge:
 
 @pytest.mark.unit
 async def test_quality_judge_failure_is_unscored_not_clean():
-    # Fail closed: a judge outage must NOT inflate the grade to A — it is unscored and surfaced.
+    # Fail closed: a judge outage must NOT inflate the grade to A; it is unscored and surfaced.
     from fusion_first.measure.harness import measure_quality
 
     res = await measure_quality(
@@ -95,7 +95,7 @@ async def test_quality_judge_failure_is_unscored_not_clean():
         concurrency=3,
     )
     assert res.n_errored == res.n and res.n_scored == 0
-    assert res.grade == "?"  # NOT "A" — nothing was actually judged
+    assert res.grade == "?"  # nothing was actually judged
     assert res.n_defects == 0
 
 

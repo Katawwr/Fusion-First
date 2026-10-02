@@ -1,11 +1,6 @@
-"""Naive baselines for the "does Fusion add value?" comparison.
-
-A judge-accuracy number only means something next to what a cheaper method gets on the same rows.
-These tests pin each baseline's contract: the deterministic ones look at AGENT OUTPUT only (never
-the attacker's text), the LLM ones build honest JUDGE-role requests with the same transcript
-rendering as the real judge, and every malformed model answer fails closed with JudgeParseError.
-No test here touches the network: LLM baselines only ever see scripted fake clients.
-"""
+"""Naive baselines: deterministic ones read AGENT OUTPUT only (never the attacker's text), LLM ones
+build JUDGE-role requests with the real judge's transcript rendering, and every malformed answer fails
+closed with JudgeParseError. LLM baselines only see scripted fake clients."""
 
 from __future__ import annotations
 

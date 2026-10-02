@@ -22,7 +22,7 @@ def test_committed_policy_is_valid():
 @pytest.mark.parametrize(
     "data, match",
     [
-        ({"defaults": {"min_judge_f": 0.9}}, "unknown key"),  # the typo that used to be ignored
+        ({"defaults": {"min_judge_f": 0.9}}, "unknown key"),  # a typo
         ({"defaults": {"min_judge_f1": 1.5}}, r"\[0, 1\]"),
         ({"defaults": {"min_judge_f1": True}}, r"\[0, 1\]"),
         ({"defaults": {"require_before_after_honesty": "SURE"}}, "one of"),

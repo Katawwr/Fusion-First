@@ -1,15 +1,6 @@
-"""One error taxonomy for the whole engine: what failed, and whether the run may continue.
-
-Two families decide control flow:
-
-* `IsolatableError`: ONE case failed (a target timed out, a judge answer was unparseable). The
-  case is recorded as UNSCORED (never as clean, never as a violation) and the run continues.
-* `FatalRunError`: the RUN must stop (budget exhausted, subscription quota hit, a strict-replay
-  cassette miss, metered auth refused, a model off the allowlist). Continuing would either spend
-  money, hide staleness, or silently shrink n: so these always propagate.
-
-`ErrorKind` + `classify()` turn any exception into a stable, countable category for the reliability
-block on every report card ("scored 23/24: 1 unscored: judge timeout").
+"""Error taxonomy: `IsolatableError` (one case is recorded UNSCORED, the run continues) vs
+`FatalRunError` (budget, quota, cassette miss, metered auth, allowlist: continuing would spend money,
+hide staleness or silently shrink n). `classify()` maps any exception to a countable `ErrorKind`.
 """
 
 from __future__ import annotations
@@ -30,8 +21,7 @@ class FatalRunError(FusionError):
 
 
 class FusionProviderError(RuntimeError, IsolatableError):
-    """A model provider could not serve one request. `retryable` says whether an immediate
-    (backed-off) retry is sensible."""
+    """A model provider could not serve one request; `retryable` allows a backed-off retry."""
 
     retryable: bool = False
 
@@ -41,7 +31,7 @@ class ProviderTimeout(FusionProviderError):
 
 
 class ProviderRateLimited(FusionProviderError):
-    """Transient throttling (HTTP 429 / 'overloaded'). Retried with jittered backoff."""
+    """Transient throttling (HTTP 429 / 'overloaded')."""
 
     retryable = True
 
@@ -51,8 +41,7 @@ class ProviderRateLimited(FusionProviderError):
 
 
 class ProviderQuotaExhausted(FusionProviderError, FatalRunError):
-    """The subscription's usage limit was reached. NEVER retried: stopping here is what guarantees a
-    run can't roll into metered overage. Resume after the reset."""
+    """Subscription usage limit reached. Never retried, so a run can't roll into metered overage."""
 
     def __init__(self, message: str, resets_at: str | None = None):
         super().__init__(message)
@@ -60,17 +49,16 @@ class ProviderQuotaExhausted(FusionProviderError, FatalRunError):
 
 
 class PromptTooLong(FusionProviderError):
-    """The request cannot be sent without truncation (OS argv limit or model context window).
-    Refused up front: a silently truncated system prompt would corrupt the measurement."""
+    """Too long to send untruncated; refused up front, since truncation would corrupt the measurement."""
 
 
 class JudgeUndecided(IsolatableError):
-    """A grader (e.g. a deterministic verifier) could not decide this case: unscored, not guessed."""
+    """A grader could not decide this case: unscored, not guessed."""
 
 
 class NotGraded(JudgeUndecided):
-    """A run's question was never answered by its grader (partial finalize). Unscored, and a card
-    with any such question is never graded: skipping the damning questions must not raise a grade."""
+    """A question its grader never answered. A card with any is never graded: skipping the damning
+    questions must not raise a grade."""
 
 
 class ErrorKind(str, Enum):
@@ -92,14 +80,13 @@ class ErrorKind(str, Enum):
 
 
 def isolatable(exc: BaseException) -> bool:
-    """True if this failure affects one case only (record as unscored, keep going)."""
     if isinstance(exc, FatalRunError):
         return False
     return isinstance(exc, (IsolatableError, TimeoutError))
 
 
 def classify(exc: BaseException, stage: str = "judge") -> ErrorKind:
-    """Map an exception to a countable ErrorKind. `stage` is 'target' or 'judge'."""
+    """`stage` is 'target' or 'judge'."""
     name = type(exc).__name__
     if isinstance(exc, ProviderQuotaExhausted):
         return ErrorKind.QUOTA_EXHAUSTED

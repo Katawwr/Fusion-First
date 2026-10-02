@@ -1,9 +1,5 @@
-"""Unit tests for the CLI-backed ModelClient (no subprocess, no network) + one opt-in live smoke.
-
-The pure helpers (_build_argv/_build_env/_flatten_messages/_parse_cli_json/_cli_model) carry all the
-load-bearing behavior, so they are tested against captured-stdout fixtures. The real subprocess path
-is exercised only by the `@pytest.mark.live` smoke, which is deselected from the default suite.
-"""
+"""The CLI-backed ModelClient's pure helpers against captured-stdout fixtures, plus one opt-in live
+smoke (`@pytest.mark.live`)."""
 
 from __future__ import annotations
 
@@ -162,7 +158,7 @@ def test_parse_cli_json_raises_on_error_envelope():
 
 
 def test_parse_cli_json_empty_result_is_empty_text():
-    # Empty text makes the judge fail CLOSED downstream (JudgeParseError) — never silently "no issue".
+    # Empty text makes the judge fail CLOSED downstream (JudgeParseError), never silently "no issue".
     env = json.dumps({"is_error": False, "result": ""})
     resp = ClaudeCliModelClient._parse_cli_json(env, "claude-sonnet-5")
     assert resp.text == ""

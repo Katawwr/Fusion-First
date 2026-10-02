@@ -1,14 +1,6 @@
-"""Corpus SELF-CONSISTENCY check for the paired probes: NOT evidence that attacks land or fixes work.
-
-The probes' baseline/hardened responses are hand-written, and they are scored here by the same offline
-heuristic detector that was tuned on them. So this only guards against a degenerate corpus (e.g. a
-baseline arm that no longer contains the attack signature, or a hardened arm that regressed). It can
-never answer "do attacks land on a real model?" or "does the fix work?": those are measured on REAL
-model transcripts with deterministic oracles in the validation Trust Report (`fusion validate`).
-
-The offline detector is deliberately imperfect (~0.75 recall), so we do NOT expect 100% of baseline
-arms to be caught, nor 0% residual after hardening. Thresholds are floors chosen from the committed corpus.
-"""
+"""Corpus SELF-CONSISTENCY for the paired probes, NOT evidence that attacks land or fixes work: the
+hand-written arms are scored by the heuristic detector tuned on them, so this only catches a degenerate
+corpus. The detector is deliberately imperfect (~0.75 recall); thresholds are floors from the corpus."""
 
 from __future__ import annotations
 

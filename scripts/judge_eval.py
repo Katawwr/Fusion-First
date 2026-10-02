@@ -1,8 +1,7 @@
 """Measure a grader's accuracy against deterministic oracles on the committed evidence transcripts.
 
     python scripts/judge_eval.py prepare --workspace W --run-id je-v1 --models llama3.2:1b
-        -> a host-graded run: grade it with `fusion run tasks/submit` (or the fusion-judge agent),
-           or a built-in grader: `fusion run resume` is NOT used here (no scan to finalize)
+        -> a run to grade with `fusion run tasks/submit` (the fusion-judge agent) or `grade` below
     python scripts/judge_eval.py grade   --workspace W --run-id je-v1 --grader ollama-prob:qwen2.5:7b
     python scripts/judge_eval.py score   --workspace W --run-id je-v1 --models llama3.2:1b \
         --grader-label "claude-sonnet (host subagent)" --out evals/validation/v1/judge_eval_host.json

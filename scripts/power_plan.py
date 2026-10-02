@@ -1,10 +1,9 @@
-"""Sample sizes for the next evidence run (HANDOFF step 3), from effect sizes in committed evidence.
+"""Sample sizes for the next evidence run, from effect sizes in committed evidence.
 
     python scripts/power_plan.py
 
-Paired questions use `fusion_first.stats.power.mcnemar_power` (exact McNemar, alpha 0.05, 2,000 simulations);
-proportions use the Wilson interval. Assumed rates are read from evals/validation/v1 (small models), so a
-stronger model that lands fewer attacks needs MORE items than shown for the same number of attacks.
+Rates come from small models in evals/validation/v1: a stronger model that lands fewer attacks needs MORE
+items than shown for the same number of attacks.
 """
 
 from __future__ import annotations

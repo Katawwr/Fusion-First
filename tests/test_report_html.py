@@ -136,7 +136,7 @@ def test_the_report_uses_the_site_brand():
     page = render_dashboard_html([_card()])
     assert 'class="mark"' in page and "#504d9a" in page and "Fusion First" in page
     assert "#66c4e1" not in page  # the retired cyan wordmark
-    assert chr(0x2014) not in page  # no em dashes (owner)
+    assert chr(0x2014) not in page  # no em dashes
 
 
 @pytest.mark.unit
@@ -144,12 +144,9 @@ def test_dashboard_is_clean_theme_aware_and_self_contained():
     page = render_dashboard_html([_card(), _card()], title="All checks")
     assert page.startswith("<!doctype html>")
     assert "Fusion" in page and "First" in page
-    # professional/clean: NO gradient background anywhere
     assert "gradient" not in page.lower()
-    # theme-aware token system present
     assert "--bg:" in page
     assert 'data-theme="light"' in page and "prefers-color-scheme:light" in page  # dark by default, like the site
-    # self-contained: no external resource loads
     for bad in ("http://", "https://", "src=", "<link", "cdn.", "//fonts"):
         assert bad not in page
     assert page.count('class="card"') == 2

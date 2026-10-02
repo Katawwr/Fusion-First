@@ -1,20 +1,8 @@
 """External-benchmark importers: raw public datasets -> normalized, license-checked, pinned jsonl.
 
-Fusion's self-validation measures its judge and guard against PUBLIC ground truth (deepset, Gandalf,
-InjecAgent, BIPIA, IFEval, XSTest), not only against its own gold set — a judge graded solely on data
-its authors wrote proves little. For those numbers to be proof-grade, the imported data must be:
-
-  * **normalized** — one flat row per item with a stable, prefixed ``id``, its ``source``
-    (``external:<name>@<raw file>``) and SPDX ``license``, so every downstream result traces back to
-    an exact upstream file;
-  * **pinned** — ``datasets/external/SOURCES.yaml`` records the sha256 of every raw file, the row
-    count and the sha256 of the processed jsonl, so a silently changed upstream is detectable;
-  * **redistributable** — only licenses on :data:`LICENSE_ALLOWLIST` may be written to the committed
-    ``datasets/external/<name>.v1.jsonl``. The check is fail-closed: an unknown, missing, or
-    mismatched license is refused before anything is written.
-
-Everything here is pure and offline: loaders read files under ``datasets/external/raw/<name>/`` (a
-gitignored download) and never touch the network. pyarrow (parquet sources only) is imported lazily.
+Rows carry a stable prefixed ``id``, a ``source`` and an SPDX ``license``; ``SOURCES.yaml`` pins the
+sha256 of every raw and processed file; only allowlisted licenses are written (fail-closed). Loaders
+read the gitignored ``datasets/external/raw/<name>/`` and never touch the network.
 """
 
 from __future__ import annotations
@@ -64,8 +52,7 @@ LICENSE_ALLOWLIST: frozenset[str] = frozenset({"Apache-2.0", "MIT", "CC-BY-4.0",
 PROCESSED_VERSION = "v1"
 MANIFEST_NAME = "SOURCES.yaml"
 
-# name -> {url, license, loader, raw_subdir, note}. The license here is the authority: rows must
-# agree with it, and a registered source whose license is not allowlisted is never written.
+# name -> {url, license, loader, raw_subdir, note}. The registered license is the authority.
 SOURCES: dict[str, dict] = {
     mod.NAME: {
         "url": mod.URL,
@@ -99,17 +86,8 @@ class LicenseNotAllowedError(ValueError):
     """A source (or row) whose license is not on the redistribution allowlist."""
 
 
-# ---------------------------------------------------------------------------------------------
-# helpers shared by the per-source loaders
-# ---------------------------------------------------------------------------------------------
-
-
 def existing_files(raw_dir: pathlib.Path, filenames: Sequence[str], source: str) -> list[pathlib.Path]:
-    """The candidate files that exist in ``raw_dir``, in the given (canonical) order.
-
-    Raises FileNotFoundError when none exist: an importer that silently yields zero rows would look
-    like a clean import of an empty benchmark.
-    """
+    """The candidate files that exist in ``raw_dir``, in order; raises if none (never a silent empty import)."""
     raw_dir = pathlib.Path(raw_dir)
     found = [raw_dir / f for f in filenames if (raw_dir / f).is_file()]
     if not found:
@@ -118,7 +96,6 @@ def existing_files(raw_dir: pathlib.Path, filenames: Sequence[str], source: str)
 
 
 def read_parquet_records(path: pathlib.Path) -> list[dict]:
-    """Read a parquet file into a list of plain-Python dicts (pyarrow imported lazily)."""
     try:
         import pyarrow.parquet as pq
     except ImportError as exc:  # pragma: no cover - depends on the environment
@@ -126,11 +103,6 @@ def read_parquet_records(path: pathlib.Path) -> list[dict]:
             f"pyarrow is required to import parquet sources ({path.name}); pip install pyarrow"
         ) from exc
     return pq.read_table(str(path)).to_pylist()
-
-
-# ---------------------------------------------------------------------------------------------
-# license gate + deterministic writer
-# ---------------------------------------------------------------------------------------------
 
 
 def check_license(name: str, license: object) -> None:
@@ -147,8 +119,7 @@ def processed_filename(name: str) -> str:
 
 
 def _jsonl_line(row: dict) -> str:
-    # sort_keys + fixed separators -> byte-identical output for identical rows (diffable, hashable).
-    # ensure_ascii=False keeps German/emoji text readable in diffs; NaN is refused (invalid JSON).
+    # Byte-identical output for identical rows; readable non-ASCII; NaN refused (invalid JSON).
     line = json.dumps(row, sort_keys=True, ensure_ascii=False, allow_nan=False)
     for raw, escaped in _LINE_BREAK_ESCAPES:
         line = line.replace(raw, escaped)
@@ -156,7 +127,7 @@ def _jsonl_line(row: dict) -> str:
 
 
 def _atomic_write_text(path: pathlib.Path, text: str) -> None:
-    """Write LF-only UTF-8 via a temp file + rename, so a crash never leaves a half-written file."""
+    """Atomic LF-only UTF-8 write (temp file + rename)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     with tmp.open("w", encoding="utf-8", newline="\n") as fh:
@@ -165,12 +136,8 @@ def _atomic_write_text(path: pathlib.Path, text: str) -> None:
 
 
 def write_processed(name: str, rows: Sequence[dict], out_dir: pathlib.Path) -> pathlib.Path:
-    """Validate ``rows`` and write ``out_dir/<name>.v1.jsonl`` (sorted keys, LF, one row per line).
-
-    Refuses — before writing anything — when: the source's registered license or any row's license
-    is not allowlisted; a row's license disagrees with the registry; ids are missing, duplicated, or
-    not prefixed ``<name>:``; a row's source is not ``external:<name>@...``; or there are no rows.
-    """
+    """Validate ``rows`` (licenses, ids, sources) and write ``out_dir/<name>.v1.jsonl``; nothing is
+    written on a refusal."""
     if not rows:
         raise ValueError(f"{name}: no rows to write (an empty import is never a valid import)")
     registered = SOURCES.get(name)
@@ -200,11 +167,6 @@ def write_processed(name: str, rows: Sequence[dict], out_dir: pathlib.Path) -> p
     return path
 
 
-# ---------------------------------------------------------------------------------------------
-# provenance
-# ---------------------------------------------------------------------------------------------
-
-
 def _sha256_file(path: pathlib.Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as fh:
@@ -227,7 +189,7 @@ def sha256_of_raw(raw_dir: pathlib.Path) -> dict[str, str]:
 
 
 def _mtime_date(raw_dir: pathlib.Path) -> str:
-    """Import date fallback: the UTC date of the newest raw file (when it was downloaded)."""
+    """Import date fallback: the UTC date of the newest raw file."""
     files = _files_under(raw_dir)
     if not files:
         raise FileNotFoundError(f"no raw files under {raw_dir}")
@@ -242,12 +204,8 @@ def import_all(
     names: Iterable[str] | None = None,
     import_date: str | None = None,
 ) -> dict[str, dict]:
-    """Import the selected sources (default: all) and return their manifest entries.
-
-    Three phases so a failure writes nothing: (1) every license is checked before any loader runs,
-    (2) every source is loaded into memory (the corpora are small), (3) only then are files written.
-    ``import_date`` (YYYY-MM-DD) defaults per source to the newest raw file's mtime — no network.
-    """
+    """Import the selected sources (default: all) and return their manifest entries. Licenses are
+    checked, then everything is loaded, then written, so a failure writes nothing."""
     raw_root, out_dir = pathlib.Path(raw_root), pathlib.Path(out_dir)
     wanted = list(SOURCES) if names is None else list(dict.fromkeys(names))
     unknown = [n for n in wanted if n not in SOURCES]

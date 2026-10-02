@@ -1,8 +1,4 @@
-"""The ModelClient interface plus request/response value objects and a stable request hash.
-
-The hash is what cassettes are keyed on, so it must be deterministic and must exclude nothing
-that changes the model output. Provider adapters and the replay client all speak this interface.
-"""
+"""The ModelClient interface, request/response objects, and the request hash cassettes are keyed on."""
 
 from __future__ import annotations
 
@@ -37,7 +33,7 @@ class ModelRequest(BaseModel):
     seed: int | None = None
 
     def cache_key(self) -> str:
-        """Stable content hash used to key cassettes. Includes everything that affects output."""
+        """Stable cassette key: includes everything that affects output."""
         payload = {
             "role": self.role.value,
             "system": self.system,
@@ -47,7 +43,7 @@ class ModelRequest(BaseModel):
             "response_schema": self.response_schema,
             "model_id": self.model_id,
         }
-        # Newer fields enter the key ONLY when set, so every pre-existing cassette key is unchanged.
+        # Newer fields enter the key only when set, so existing cassette keys are unchanged.
         if self.logprobs is not None:
             payload["logprobs"] = self.logprobs
         if self.seed is not None:
@@ -62,7 +58,7 @@ class ModelResponse(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
     stop_reason: str | None = None
-    # Provenance / reliability extras (all optional; absent in older cassettes).
+    # Optional extras, absent in older cassettes.
     served_model: str | None = None  # the model that actually answered, when the provider says
     truncated: bool = False  # output hit the length limit (a truncated answer is not trustworthy)
     latency_s: float | None = None

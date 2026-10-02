@@ -1,17 +1,7 @@
-"""Deterministic model replay.
+"""Deterministic model replay: cassettes map request hash -> recorded response.
 
-A *cassette* is a JSON file mapping request-hash -> recorded response. Replaying makes the
-entire eval/scan loop deterministic, offline, and free — which is what lets the autonomous
-test-and-improve workflow run a gate on every change without spending tokens or flaking.
-
-RecordModelClient wraps a live provider to capture cassettes; ReplayModelClient serves them.
-CheckpointingRecordClient additionally saves progress as it goes (a rate limit mid-run must never
-lose what was already recorded), and never double-calls the model for a key already in flight.
-
-Provenance: the request key deliberately does NOT include which judge answered (so a live-recorded
-cassette is a drop-in for the heuristic one). The recorded `model` field is therefore the provenance
-record — `cassette_provenance` reads it, and `ReplayModelClient(expected_models=…)` refuses to serve
-an entry recorded by a different model (e.g. a stand-in verdict leaking into real evidence).
+The request key does not include which judge answered, so the recorded `model` field is the
+provenance record; `ReplayModelClient(expected_models=...)` refuses entries from any other model.
 """
 
 from __future__ import annotations
@@ -31,7 +21,7 @@ DEMO_MODELS = frozenset({"demo-heuristic-judge", "bootstrap"})
 
 
 class CassetteMiss(FatalRunError, KeyError):
-    """Raised when a request has no recorded response and strict replay is on."""
+    """No recorded response under strict replay."""
 
 
 class ProvenanceMismatch(FatalRunError):
@@ -50,7 +40,7 @@ class Cassette:
         return cls(json.loads(p.read_text(encoding="utf-8")))
 
     def save(self, path: str | pathlib.Path) -> None:
-        """Atomic write (temp file + os.replace): an interrupted save never corrupts a cassette."""
+        """Atomic write (temp file + os.replace)."""
         p = pathlib.Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         blob = json.dumps(self.entries, indent=2, sort_keys=True)
@@ -91,7 +81,7 @@ class Cassette:
 class Provenance:
     models: frozenset[str]
     demonstration: bool  # any entry from a stand-in (non-real) judge
-    mixed: bool  # entries from more than one model (e.g. heuristic + real) — never trustworthy
+    mixed: bool  # entries from more than one model: never trustworthy
 
 
 def cassette_provenance(cassette: Cassette) -> Provenance:
@@ -104,11 +94,8 @@ def cassette_provenance(cassette: Cassette) -> Provenance:
 
 
 class ReplayModelClient:
-    """Serves recorded responses. In strict mode a missing cassette entry is an error
-    (so a stale gold set can't silently pass); in non-strict bootstrap mode it returns
-    the provided `bootstrap_response` instead so the harness can seed itself.
-
-    `expected_models`, when given, makes replay refuse any entry recorded by another model."""
+    """Serves recorded responses. Strict: a miss is an error (a stale gold set can't silently pass);
+    non-strict returns `bootstrap_response`. `expected_models` refuses entries from other models."""
 
     def __init__(
         self,
@@ -145,7 +132,7 @@ class ReplayModelClient:
 
 
 class RecordModelClient:
-    """Wraps a live ModelClient and records every response into a cassette (live; needs keys)."""
+    """Wraps a live ModelClient and records every response into a cassette."""
 
     def __init__(self, inner: ModelClient, cassette: Cassette):
         self.inner = inner
@@ -162,9 +149,8 @@ class RecordModelClient:
 
 
 class CheckpointingRecordClient:
-    """A recorder that (a) never calls the model twice for the same key, even concurrently, and
-    (b) saves the cassette atomically every `every` new entries, so an interruption (rate limit,
-    usage limit, crash) loses at most `every - 1` answers. Call `flush()` at the end."""
+    """A recorder that never calls the model twice for a key (even concurrently) and saves every
+    `every` new entries, so an interruption loses at most `every - 1`. Call `flush()` at the end."""
 
     def __init__(
         self, inner: ModelClient, cassette: Cassette, path: str | pathlib.Path | None, every: int = 10

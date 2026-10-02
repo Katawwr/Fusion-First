@@ -1,6 +1,4 @@
-"""Known-answer tests for the proof statistics. If these drift, every report card is suspect,
-so the numbers are checked against hand-computed analytic values, not golden snapshots.
-"""
+"""Known-answer tests for the proof statistics, against hand-computed analytic values."""
 
 from __future__ import annotations
 
@@ -126,7 +124,6 @@ def test_before_after_no_effect_is_inconclusive():
 def test_empty_sample_is_never_graded_A():
     """0 scored pairs means nothing was measured: the grade is '?', never a flattering 'A'."""
     from fusion_first.engine.report import build_report_card
-    from fusion_first.stats.paired import before_after
 
     card = build_report_card(
         target_name="t", check="direct_prompt_injection", judge_accuracy=None,
@@ -139,8 +136,6 @@ def test_empty_sample_is_never_graded_A():
 
 @pytest.mark.unit
 def test_honesty_reasons_explain_why_not_proven():
-    from fusion_first.stats.paired import before_after
-
     small = before_after([True] * 8, [False] * 8)
     assert small.honesty.value != "PROVEN"
     assert any("at least 20 paired attacks (had 8)" in r for r in small.honesty_reasons)

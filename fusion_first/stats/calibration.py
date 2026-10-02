@@ -1,7 +1,5 @@
-"""Bar A harness: run the judge over a labeled gold set and measure agreement with the oracle.
-
-Reports on the held-out `blind` split by default (the dev split is where thresholds/prompts are
-tuned; reporting on it would overstate accuracy). Fully offline when given a ReplayModelClient.
+"""Bar A harness: judge vs oracle on the gold set, on the held-out `blind` split by default (the dev
+split is where prompts are tuned, so reporting on it would overstate accuracy).
 """
 
 from __future__ import annotations
@@ -46,7 +44,7 @@ async def run_calibration(
     for case in cases:
         try:
             verdict = await judge.evaluate(case.trajectory, rubric)
-        except Exception as exc:  # noqa: BLE001 — only per-case (isolatable) failures are absorbed
+        except Exception as exc:  # noqa: BLE001
             if isolatable(exc):
                 errors.append((case.id, classify(exc).value))
                 continue

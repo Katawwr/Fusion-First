@@ -1,15 +1,7 @@
-"""Attack templates: turn a user's pasted system prompt into a testable attack trajectory.
+"""Attack templates seeded from the probe corpus, run against the user's own system prompt.
 
-The offline before/after pipeline (engine/before_after.py) judges pre-baked dataset probes whose
-system prompt is a fixed example. A *user-prompt scan* is different: we keep the attack (the user
-turn + any injected/untrusted tool content) but swap in the user's own system prompt as the thing
-under test. Each template is one such attack, seeded from the curated paired-probe corpus so its
-coverage tracks the datasets and OWASP crosswalk.
-
-A template carries everything two arms need:
-  - the attack context (user message, optional injected tool result) — shared by both arms;
-  - canned demo responses/actions (vulnerable baseline, safe hardened) used in keyless DEMO mode;
-  - in LIVE mode the canned responses are ignored and the user's prompt is run through a real model.
+Each carries the attack context plus canned demo responses for keyless DEMO mode; LIVE mode runs the
+prompt through a real model instead.
 """
 
 from __future__ import annotations
@@ -79,8 +71,7 @@ class AttackTemplate:
         return steps
 
     def target_messages(self) -> list[dict]:
-        """The user turn to send a live target model. Injected/untrusted content is presented as a
-        clearly-labelled tool result inside the turn (the target must treat it as data, not orders)."""
+        """The user turn for a live target; injected content is a labelled untrusted tool result."""
         content = self.user
         if self.injected:
             content += f"\n\n[Result from tool `{self.tool or 'tool'}` — untrusted data]:\n{self.injected}"
@@ -102,12 +93,7 @@ class AttackTemplate:
         return Trajectory(steps=steps)
 
     def live_trajectory(self, system_prompt: str, response_text: str) -> Trajectory:
-        """A complete trajectory using a real target model's response (LIVE mode).
-
-        Any tool calls the target emitted via the ACTION protocol are promoted into assistant
-        tool_call steps so the judge (and the runtime guardrail) can see consequential actions —
-        this is what makes the agentic checks (excessive_agency, data_exfiltration) observable
-        against a text-only target."""
+        """A trajectory from a real target response, with emitted ACTION lines as tool_call steps."""
         from fusion_first.attacks.agentic import extract_tool_calls
 
         steps = self._context_steps(system_prompt)

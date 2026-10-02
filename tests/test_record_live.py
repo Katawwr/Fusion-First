@@ -1,9 +1,5 @@
-"""Offline test that a live-recorded gold cassette is a drop-in replacement for the offline gate.
-
-Uses a fake judge client (no network) that emits valid verdict JSON. The key property under test is
-the cassette-key linchpin: a cassette recorded through a default Judge replays under run_calibration
-with ZERO misses and carries a non-heuristic `model` field.
-"""
+"""A cassette recorded live through a default Judge (faked here) replays under run_calibration with zero
+misses and carries a non-heuristic `model` field."""
 
 from __future__ import annotations
 
@@ -44,10 +40,8 @@ async def test_live_recorded_cassette_replays_with_zero_misses():
     cass = report.cassette
     blind = [c for c in load_gold(CHECK) if c.split == "blind"]
     assert len(cass) == len(blind)  # one recorded verdict per blind gold case
-    # the recorded model must NOT be the heuristic stand-in
     assert all(e["model"] == "claude-sonnet-5" for e in cass.entries.values())
 
-    # The linchpin: the recorded cassette replays under the exact offline calibration path, 0 misses.
     client = ReplayModelClient(cass, strict=True)
     outcome = await run_calibration(CHECK, client, split="blind")
     assert client.misses == []

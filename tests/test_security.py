@@ -46,9 +46,8 @@ def test_contains_secret_ignores_plain_email():
 
 @pytest.mark.unit
 def test_linear_time_patterns_match_the_original_definitions():
-    """The strict assignment and JWT checks were rewritten to run in linear time; they must agree
-    with the original (quadratic) definitions: same truth value for the checks, same spans for
-    redact()."""
+    """The linear-time strict-assignment and JWT patterns agree with the quadratic reference regexes:
+    same truth value for the checks, same spans for redact()."""
     import random
     import re
 
@@ -134,5 +133,4 @@ async def test_budget_enforces_model_allowlist():
     client = BudgetedModelClient(_Counter())
     with pytest.raises(ModelNotAllowed):
         await client.complete(ModelRequest(role=ModelRole.TARGET, model_id="evil-model-9000"))
-    # An allowlisted model is fine.
     await client.complete(ModelRequest(role=ModelRole.JUDGE, model_id="claude-sonnet-5"))

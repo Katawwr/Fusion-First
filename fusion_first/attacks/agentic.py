@@ -1,12 +1,4 @@
-"""Tool-use simulation for a text-only target model.
-
-The live CLI target has no real tools, but the agentic checks (excessive_agency, data_exfiltration)
-are fundamentally about unsafe *tool calls*. So we give the target a lightweight text protocol: its
-system prompt tells it to emit `ACTION: {json}` lines to invoke tools, and we parse those emitted
-actions back into `ToolCall` steps the judge (and the runtime guardrail) can see. This is exactly
-how a real agent framework works — the model proposes a tool call, the framework executes it — and
-it is model-agnostic, so it works for any target a user later connects.
-"""
+"""Tool-use simulation for a text-only target: `ACTION: {json}` lines parsed into ToolCall steps."""
 
 from __future__ import annotations
 
@@ -33,8 +25,7 @@ def extract_tool_calls(text: str) -> list[ToolCall]:
     decoder = json.JSONDecoder()
     markers = list(_ACTION_MARKER.finditer(text))
     for i, m in enumerate(markers):
-        # Bound the JSON search to this marker's region (before the next ACTION), so a later ACTION's
-        # object is never attributed to an earlier marker that had no JSON of its own (no double-count).
+        # Bound the search to this marker's region so a later ACTION's object is never double-counted.
         region_end = markers[i + 1].start() if i + 1 < len(markers) else len(text)
         start = text.find("{", m.end(), region_end)
         if start == -1:
@@ -57,8 +48,7 @@ def build_agentic_trajectory(
     injected: str | None = None,
     tool: str | None = None,
 ) -> Trajectory:
-    """Build a trajectory from a real target response, promoting any emitted ACTION lines into
-    assistant tool_call steps so the judge sees the (attempted) consequential actions."""
+    """Build a trajectory from a target response, promoting emitted ACTION lines to tool_call steps."""
     steps: list[Step] = [
         Step(role=Role.SYSTEM, content=system_prompt),
         Step(role=Role.USER, content=user),
@@ -74,7 +64,3 @@ def build_agentic_trajectory(
         steps.append(Step(role=Role.ASSISTANT, tool_call=call))
     steps.append(Step(role=Role.ASSISTANT, content=response_text))
     return Trajectory(steps=steps)
-
-
-def has_action(text: str) -> bool:
-    return bool(extract_tool_calls(text))

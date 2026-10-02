@@ -6,9 +6,8 @@ transformers pipeline, a call to your own agent's HTTP API, or anything else.
            "max_tokens": 512, "temperature": 0.0, "role": "target" | "judge" | ...}
   stdout  the reply as plain text, or {"text": "..."}; a non-zero exit is an error.
 
-Runs without a shell (argv from the command line; Windows quoting kept). The command runs with the
-user's own permissions, so command targets are accepted from the CLI and the Python API only; the
-MCP server refuses them unless the user sets FUSION_ALLOW_CMD_TARGETS=1.
+Runs without a shell. The command has the user's own permissions, so the MCP server refuses command
+targets unless FUSION_ALLOW_CMD_TARGETS=1.
 """
 
 from __future__ import annotations

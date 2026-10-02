@@ -1,7 +1,5 @@
-"""Prove the runtime guardrail works: apply it to recorded ATTACK trajectories and measure how far
-it drops the issue rate: with no change to the agent's prompt. This isolates the SDK's effect
-(distinct from prompt hardening): output leaks get blocked/redacted, unsafe/external tool calls get
-blocked. Uses the offline detector to score issues, so it runs deterministically without keys.
+"""Replay recorded attack trajectories through the guardrail (prompt unchanged) and measure the issue
+rate drop, scored by the offline detector so it runs without keys.
 """
 
 from __future__ import annotations
@@ -49,14 +47,13 @@ def _user_request(trajectory: Trajectory) -> str:
 
 
 def apply_guard_to_trajectory(trajectory: Trajectory, guard: Guardrail) -> Trajectory:
-    """Return the trajectory as it would look with the guardrail enforcing at runtime:
-    blocked consequential tool calls are dropped; leaking responses are redacted/blocked."""
+    """The trajectory as the guard would leave it: blocked tool calls dropped, leaks redacted/blocked."""
     user_request = _user_request(trajectory)
     steps: list[Step] = []
     for s in trajectory.steps:
         if s.tool_call is not None:
             if guard.guard_tool_call(s.tool_call.name, s.tool_call.arguments, user_request).blocked:
-                continue  # the guard prevented this action
+                continue
             steps.append(s)
             continue
         if s.role == Role.ASSISTANT and s.content:

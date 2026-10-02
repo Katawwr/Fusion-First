@@ -1,9 +1,7 @@
 """Held-out integrity: sealed blind splits, judge-prompt / remedy fingerprints, and the burn ledger.
 
-WHY: a blind split only proves anything while (a) nobody has edited its rows since it was sealed
-and (b) it hasn't been used to tune the judge. The seal detects (a); the ledger counts how many
-DISTINCT judge prompts have been scored on the blind set and declares it burned at 3, because
-iterating a prompt against the same held-out set quietly turns it into a dev set.
+The seal detects edited blind rows; the ledger declares a blind set burned after 3 distinct judge
+prompts, because iterating a prompt against the same held-out set turns it into a dev set.
 """
 
 from __future__ import annotations
@@ -95,8 +93,7 @@ def test_write_and_load_round_trip(tmp_path):
     doc = json.loads(path.read_text(encoding="utf-8"))
     assert doc["digest"] == seal_digest(seal)
     assert doc["n_rows"] == 3
-    # Atomic write: only the seal file is left behind, no temp files.
-    assert [p.name for p in path.parent.iterdir()] == ["gold.blind.seal.json"]
+    assert [p.name for p in path.parent.iterdir()] == ["gold.blind.seal.json"]  # atomic: no temp leftovers
 
 
 @pytest.mark.unit

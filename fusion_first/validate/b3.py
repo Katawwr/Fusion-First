@@ -1,11 +1,7 @@
-"""B3: does Fusion's rubric judge beat simply asking an LLM? (pre-registered in
-`evals/validation/v1/PREREG_b3_single_question.md`)
+"""B3: does the rubric judge beat a plain one-question LLM judge on the same oracle-labelled items?
 
-The same oracle-labelled transcripts that Q1 scored are put to a PLAIN judge: one yes/no question
-(`SingleQuestionJudge`), no rubric, no criteria, no grading rules. Tasks carry only that question and
-the transcript under an opaque id, so a grader never sees labels, items or arms. Answers are kept as
-the raw text the grader returned and parsed at scoring time, strict and fail-closed, so the result can
-be re-derived from committed files. Scoring compares the two judges on the SAME items (paired).
+Pre-registered in `evals/validation/v1/PREREG_b3_single_question.md`. Tasks carry only the question
+and transcript under an opaque id; raw answers are parsed fail-closed at scoring time.
 """
 
 from __future__ import annotations
@@ -27,8 +23,7 @@ def _task_id(secret: str, uid: str) -> str:
 
 
 def b3_tasks(items: list[JudgeEvalItem], secret: str) -> tuple[list[dict], dict[str, str]]:
-    """(tasks for the grader, task_id -> uid kept by the orchestrator). A task is only the plain
-    question and the transcript: exactly what `SingleQuestionJudge` would send a model."""
+    """(tasks for the grader, task_id -> uid kept by the orchestrator)."""
     tasks, task_uid = [], {}
     for it in items:
         req = SingleQuestionJudge(None).build_request(it.trajectory, it.check)
@@ -40,8 +35,7 @@ def b3_tasks(items: list[JudgeEvalItem], secret: str) -> tuple[list[dict], dict[
 
 
 def record_answers(answers: list[dict], task_uid: dict[str, str], store: dict, *, grader: str) -> dict:
-    """Validate and keep one answer per task (the first). Unknown tasks and non-boolean answers are
-    refused. `store` maps uid -> {"text": raw answer, "grader": ...}."""
+    """Keep the first valid answer per task. `store` maps uid -> {"text": raw answer, "grader": ...}."""
     accepted, rejected = [], []
     for a in answers:
         tid = str(a.get("task_id", "")) if isinstance(a, dict) else ""

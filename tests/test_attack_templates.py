@@ -23,11 +23,8 @@ def test_every_template_injects_user_prompt_and_tags_valid_owasp(check):
         assert t.check == check
         assert t.attack_label.strip()
         traj = t.demo_trajectory(sentinel, hardened=False)
-        # The user's own prompt is the system-under-test.
         assert traj.system_prompt() == sentinel
-        # There is always a target response to judge.
         assert traj.final_response()
-        # Injected content is fenced as untrusted.
         if t.injected:
             assert traj.has_injection()
         cw.validate_code(t.owasp)
@@ -36,8 +33,7 @@ def test_every_template_injects_user_prompt_and_tags_valid_owasp(check):
 @pytest.mark.unit
 @pytest.mark.parametrize("check", CHECKS)
 def test_demo_arms_diverge_for_most_templates(check):
-    # A believable before/after needs the arms to diverge for most (not necessarily all —
-    # the corpus deliberately includes a few probes where hardening doesn't fully fix it).
+    # Not all: the corpus deliberately includes a few probes where hardening doesn't fully fix it.
     templates = get_templates(check)
     differ = sum(
         t.demo_trajectory("You are a helpful bot.", hardened=False).final_response()

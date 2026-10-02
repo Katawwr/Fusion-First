@@ -1,10 +1,4 @@
-"""Live OpenAI adapter — implements the ModelClient protocol over the official async SDK.
-
-Its main job in this system is the *cross-family judge*: the self-family guard (registry.py) never
-lets a model be the sole judge of its own family, so a Claude target is judged by gpt-4o. gpt-4o
-accepts `temperature` and native structured output (`response_format` json_schema). The SDK is
-imported lazily so `fusion` stays importable and unit-testable without the package.
-"""
+"""Live OpenAI adapter over the async SDK (imported lazily; metered, opt-in only): the cross-family judge."""
 
 from __future__ import annotations
 
@@ -13,7 +7,7 @@ from fusion_first.model.providers._common import is_bad_request, resolve_model, 
 from fusion_first.model.registry import ModelRegistry
 
 _ROLE_MAP = {
-    ModelRole.JUDGE: "judge_cross_family",  # gpt-4o judges Claude targets
+    ModelRole.JUDGE: "judge_cross_family",
     ModelRole.CALIBRATION: "judge_cross_family",
     ModelRole.PREFILTER: "judge_cross_family",
 }
@@ -37,7 +31,7 @@ class OpenAIModelClient:
 
     def _ensure_client(self):
         if self._client is None:
-            from openai import AsyncOpenAI  # lazy
+            from openai import AsyncOpenAI
 
             self._client = AsyncOpenAI(
                 api_key=self._api_key, timeout=self._timeout, max_retries=self._max_retries

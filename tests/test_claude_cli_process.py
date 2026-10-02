@@ -1,9 +1,6 @@
-"""The claude CLI client's process handling, with a fake subprocess (no real CLI is ever run).
-
-Load-bearing behaviors: the prompt travels over stdin (never argv), an over-long command line is
-refused up front, transient throttling is retried with backoff, a subscription USAGE LIMIT stops
-immediately (never retried into overage), timeouts kill the process, spawn errors are clean.
-"""
+"""The claude CLI client's process handling, with a fake subprocess: prompt over stdin (never argv),
+over-long command lines refused, throttling retried with backoff, a USAGE LIMIT never retried into
+overage, timeouts kill the process, spawn errors are clean."""
 
 from __future__ import annotations
 

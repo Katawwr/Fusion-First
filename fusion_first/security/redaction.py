@@ -1,47 +1,36 @@
-"""Secret / PII redaction.
-
-Used before anything is logged, returned to a client, or embedded in a shared report card, so a
-provider key or user secret can never leak through observability or a public card. Conservative by
-design: it over-redacts rather than risk a miss.
-"""
+"""Secret / PII redaction for logs, API responses and shared report cards (over-redacts by design)."""
 
 from __future__ import annotations
 
 import re
 
-# Ordered (label, pattern). Patterns target credential SHAPES, not specific vendors, so new key
-# formats are still caught.
+# Patterns target credential shapes, not vendors, so new key formats are still caught.
 _PATTERNS: list[tuple[str, re.Pattern]] = [
     ("openai_key", re.compile(r"sk-[A-Za-z0-9_\-]{8,}")),
     ("anthropic_key", re.compile(r"sk-ant-[A-Za-z0-9_\-]{8,}")),
     ("fusion_api_key", re.compile(r"fst_[A-Za-z0-9]{8,}")),
     ("bearer", re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]{12,}")),
-    # Possessive segments: `.` is not in the class, so giving characters back can never help —
-    # identical matches, without the backtracking that made `eyJeyJeyJ…` slow.
+    # Possessive segments: `.` is not in the class, so backtracking can never help (keeps
+    # `eyJeyJeyJ...` linear).
     ("jwt", re.compile(r"eyJ[A-Za-z0-9_\-]++\.[A-Za-z0-9_\-]++\.[A-Za-z0-9_\-]+")),
     ("aws_key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("email", re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")),
     ("assignment", re.compile(r"(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*\S+")),
 ]
 
-# For the yes/no checks only (not for redact(), whose replaced spans must not change): a JWT exists
-# iff the FIRST `eyJ` of some token-character run is followed by `.x…` twice — later `eyJ`s in
-# the same run share its continuation. Trying only run starts keeps `eyJeyJeyJ…` linear.
+# Yes/no checks only (redact() spans must not change): a JWT exists iff the FIRST `eyJ` of a
+# token-character run is followed by `.x` twice; trying only run starts keeps it linear.
 _SEARCH_ONLY = {
     "jwt": re.compile(r"(?<![A-Za-z0-9_\-])(?:(?!eyJ)[A-Za-z0-9_\-])*+eyJ[A-Za-z0-9_\-]++\.[A-Za-z0-9_\-]++"
                       r"\.[A-Za-z0-9_\-]"),
 }
 
-# Precise assignment used at the OUTPUT boundary (see contains_secret_strict): the value must look
-# like a credential (contain a digit / underscore / hyphen), so it does not fire on ordinary English
-# such as "password: click the link" or "the secret: hard work" — which, redacted mid-reply, would
-# corrupt a user-facing answer. Logging keeps the conservative `contains_secret` above.
+# Output-boundary assignment: the value must look like a credential (digit / underscore / hyphen) so
+# prose like "password: click the link" is not redacted mid-reply.
 _ASSIGN_KEYS = r"api[_-]?key|secret|token|password|passwd|pwd"
-# Same truth value as `KEY\s*[:=]\s*[^\s"']*[0-9_\-][^\s"']*`, in linear time: the value scan stops
-# at the next `KEY:`/`KEY=` (that occurrence is tried on its own and sees the rest of the same run),
-# so `token=token=token=…` no longer re-scans the run once per occurrence. The only special
-# character a stopped scan would have skipped is the `_`/`-` inside `api_key`/`api-key` itself,
-# hence the lookahead alternative. (tests/test_security.py checks equivalence on random strings.)
+# Same truth value as `KEY\s*[:=]\s*[^\s"']*[0-9_\-][^\s"']*` in linear time: the value scan stops
+# at the next `KEY:`/`KEY=`; the lookahead covers the `_`/`-` inside `api_key` itself.
+# (tests/test_security.py checks equivalence on random strings.)
 _STRICT_ASSIGN = re.compile(
     rf"(?i)({_ASSIGN_KEYS})\s*[:=]\s*(?:(?!(?:{_ASSIGN_KEYS})\s*[:=])[^\s\"'0-9_\-])*"
     r"(?:[0-9_\-]|(?=api[_-]key))[^\s\"']*"
@@ -83,9 +72,7 @@ def contains_secret(text: str) -> bool:
 
 
 def contains_secret_strict(text: str) -> bool:
-    """Precise variant for the OUTPUT boundary: credential SHAPES plus a credential-shaped
-    assignment, but NOT the loose keyword-assignment that trips on ordinary prose. Avoids redacting
-    benign user-facing replies like 'to reset your password: click the link'."""
+    """Output-boundary variant: credential shapes plus a credential-shaped assignment only."""
     text = text or ""
     for label, pattern in _PATTERNS:
         if label in ("email", "assignment"):

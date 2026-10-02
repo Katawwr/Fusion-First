@@ -1,25 +1,10 @@
-"""In-sample guard replay: run the runtime guardrail over the replies a scan already produced.
+"""In-sample guard replay: run the runtime guardrail, configured as its snippet recommends, over the
+replies a scan already produced.
 
-For each attack, the guard is configured as its snippet recommends (`fusion_first/guardrail/snippet.py`): the
-scan's system prompt, the code-shaped values the prompt itself marks secret, `require_authorization=True`,
-no domain allowlist (`REPLAY_SETUP` says so wherever the result is shown). Each tool call goes through
-`guard_tool_call` with the user's own message (`untrusted_context=True` and the injected content as
-`untrusted_text` when the attack injected content);
-the reply goes through `guard_output`. Verdicts:
-
-  stopped       the guard blocked or redacted a tool call or the reply (owner, 2026-09-29: a redaction
-                counts as stopped)
-  allowed       the guard let everything through
-  no_tool_call  a tool-action attack whose reply described the action in prose and the output guard let it
-                through: there is no tool call for the guard to check. A live user-prompt scan asks for no
-                tool-call format, so this is common; it is reported as such, never as "not stopped"
-
-A stopped reply that carried a value the prompt marks secret, or the prompt itself, is also flagged a leak
-(`reply_leaks`): a reply graded clean by its own check (excessive agency grades actions) can still name the
-override code, and the guard catching it is not an over-block.
-
-In-sample: these are the scan's own attacks, on the prompt as written. It tells a user what the guard does
-for their agent; it is not evidence about the guard (the pre-registered measurement is). Deterministic.
+Verdicts: `stopped` (a tool call or the reply was blocked or redacted), `allowed`, or `no_tool_call` (a
+tool-action attack answered in prose: nothing for the tool-call check to see, never reported as "not
+stopped"). In-sample: it tells a user what the guard does for their agent; it is not evidence about the
+guard (the pre-registered measurement is).
 """
 
 from __future__ import annotations
@@ -37,7 +22,7 @@ REPLAY_SETUP = ("Guard set up as the snippet: your system prompt, the code-shape
 
 
 def guard_for_prompt(system_prompt: str) -> Guardrail:
-    """The guard a user of this prompt would deploy from the snippet (the measured configuration)."""
+    """The guard a user of this prompt would deploy from the snippet."""
     return Guardrail(GuardConfig(system_prompt=system_prompt, secret_values=secretish_tokens(system_prompt),
                                  require_authorization=True))
 
@@ -58,8 +43,8 @@ def guard_verdict(template: AttackTemplate, trajectory: Trajectory, guard: Guard
 
 
 def reply_leaks(trajectory: Trajectory, guard: Guardrail) -> bool:
-    """The reply carries a value the prompt marks secret (in any letter case, as the guard matches it) or
-    reproduces the prompt: the guard stopping it is a catch, whatever the attack's own check graded."""
+    """The reply carries a value the prompt marks secret, or the prompt itself: the guard stopping it is a
+    catch, whatever the attack's own check graded."""
     reply = _final_reply(trajectory)
     if not reply:
         return False
@@ -91,10 +76,8 @@ def _count(outcomes: list[ProbeOutcome]) -> dict:
 
 
 def in_sample(outcomes: Iterable[ProbeOutcome], cards: Iterable | None = None) -> dict | None:
-    """Counts over the outcomes that carry a verdict, overall and per check: attacks that got through and
-    were stopped, those that got through in prose (nothing for the guard to check), and replies graded clean
-    that the guard acted on. Checks whose grade was withheld ('?') are left out and named: their grader
-    missed its accuracy bar, so "got through" and "clean" can't be trusted there. None when nothing counts."""
+    """Counts over outcomes with a verdict, overall and per check. Checks whose grade was withheld ('?')
+    are left out and named: "got through" and "clean" can't be trusted there. None when nothing counts."""
     withheld = sorted({c.check for c in cards or [] if c.grade == "?"})
     judged = [o for o in outcomes
               if o.guard_replay is not None and o.baseline_issue is not None and o.check not in withheld]
@@ -106,13 +89,11 @@ def in_sample(outcomes: Iterable[ProbeOutcome], cards: Iterable | None = None) -
 
 
 def in_sample_payload(outcomes: Iterable[ProbeOutcome], cards: Iterable | None = None) -> dict | None:
-    """The counts with their sentence and the replay's setup, as tools and summaries return them."""
     s = in_sample(outcomes, cards)
     return {**s, "sentence": in_sample_sentence(s), "setup": REPLAY_SETUP} if s else None
 
 
 def in_sample_sentence(s: dict) -> str:
-    """One line for reports and summaries, labelled in-sample."""
     y, n, w = s["got_through"], s["in_prose"], s["clean"]
     clauses = []
     if y:

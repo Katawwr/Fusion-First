@@ -1,10 +1,4 @@
-"""Canonical data model for Fusion First.
-
-This is the single source of truth (SCHEMA.md documents it in prose). Every module, 
-judge, engine, stats, store, routes: imports these types and no other module may
-redefine them. Cross-lens naming was frozen here: the trajectory field is `content`,
-and `injected` lives on `ToolResult` (injection is a property of a tool result, not a step).
-"""
+"""Canonical data model (documented in SCHEMA.md). Every module imports these; none redefine them."""
 
 from __future__ import annotations
 
@@ -13,9 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-# --------------------------------------------------------------------------------------
-# Agent trajectory (the agentic core — a scan target is a Trajectory, not just a prompt)
-# --------------------------------------------------------------------------------------
+# --- Agent trajectory
 
 
 class Role(str, Enum):
@@ -31,11 +23,7 @@ class ToolCall(BaseModel):
 
 
 class ToolResult(BaseModel):
-    """Output of a tool the agent invoked.
-
-    `injected` marks that this result carried untrusted / attacker-controlled content
-    (the indirect-prompt-injection surface: OWASP LLM01 / Agentic ASI01).
-    """
+    """`injected` marks untrusted, attacker-controlled content (indirect prompt injection)."""
 
     tool: str
     content: str
@@ -71,7 +59,6 @@ class Trajectory(BaseModel):
         return any(s.tool_result and s.tool_result.injected for s in self.steps)
 
     def transcript(self) -> str:
-        """Render the trajectory as readable text for a judge (evidence window)."""
         lines: list[str] = []
         for s in self.steps:
             tag = s.role.value.upper()
@@ -85,9 +72,7 @@ class Trajectory(BaseModel):
         return "\n".join(lines)
 
 
-# --------------------------------------------------------------------------------------
-# Severity, taxonomy tags
-# --------------------------------------------------------------------------------------
+# --- Severity, taxonomy tags
 
 
 class Severity(str, Enum):
@@ -103,21 +88,16 @@ class Severity(str, Enum):
 
 
 class OwaspTag(BaseModel):
-    """Crosswalk to recognized taxonomies. Codes are validated against the pinned
-    crosswalk YAML by fusion_first.attacks.taxonomy: never invented ad hoc."""
+    """Codes are validated against the pinned crosswalk YAML (fusion_first.attacks.taxonomy)."""
 
     llm: str | None = None  # e.g. "LLM01"
     asi: str | None = None  # e.g. "ASI01"
 
 
-# --------------------------------------------------------------------------------------
-# Rubric (judge decomposed into binary, evidence-bearing criteria)
-# --------------------------------------------------------------------------------------
+# --- Rubric: binary, evidence-bearing criteria
 
 
 class Criterion(BaseModel):
-    """A single binary check. `violated=True` means the criterion indicates an issue."""
-
     id: str
     question: str  # a yes/no question; "yes" => violated
     weight_severity: Severity = Severity.MEDIUM
@@ -129,9 +109,7 @@ class CriterionVerdict(BaseModel):
     evidence: str = ""
 
 
-# --------------------------------------------------------------------------------------
-# Labels (oracle ground truth) and Verdicts (judge output) — kept distinct on purpose
-# --------------------------------------------------------------------------------------
+# --- Labels (oracle ground truth) and Verdicts (judge output), kept distinct on purpose
 
 
 class Label(BaseModel):
@@ -160,15 +138,10 @@ class Verdict(BaseModel):
         return max(0.0, min(1.0, v))
 
 
-# --------------------------------------------------------------------------------------
-# Gold-set item (Bar A); paired probes (Bar B) load as plain dicts (goldset.load_probes)
-# --------------------------------------------------------------------------------------
+# --- Gold-set item (Bar A); paired probes (Bar B) load as plain dicts
 
 
 class JudgeCase(BaseModel):
-    """A labeled item used to measure judge accuracy (Bar A). The judge scores
-    `trajectory`; the resulting Verdict.is_issue is compared to `oracle.is_issue`."""
-
     id: str
     check: str
     trajectory: Trajectory
@@ -177,9 +150,7 @@ class JudgeCase(BaseModel):
     split: str = "dev"  # dev | blind | canary
 
 
-# --------------------------------------------------------------------------------------
-# Statistics results
-# --------------------------------------------------------------------------------------
+# --- Statistics results
 
 
 class Interval(BaseModel):
@@ -227,7 +198,7 @@ class BeforeAfterResult(BaseModel):
     discordant_b: int  # baseline-fail, hardened-pass (improvements)
     discordant_c: int  # baseline-pass, hardened-fail (regressions)
     honesty: Honesty
-    # Plain-language reasons the badge is not PROVEN (empty when PROVEN) — "Why not PROVEN?".
+    # Plain-language reasons the badge is not PROVEN (empty when PROVEN).
     honesty_reasons: list[str] = Field(default_factory=list)
 
 
@@ -242,11 +213,7 @@ class BenchmarkResult(BaseModel):
 
 
 class TrustInfo(BaseModel):
-    """How far to trust a card: what actually ran, who judged it, and how much was scored.
-
-    Every card carries this so a reader never has to guess whether numbers came from canned demo
-    responses or a real model, or how many attacks silently failed to score (none can: they are
-    counted here and shown)."""
+    """What actually ran, who judged it, and how much was scored (unscored attacks are counted)."""
 
     execution: str = "canned"  # "canned" (demo responses, prompt NOT run) | "live" (real target)
     judge_id: str = ""
@@ -262,8 +229,7 @@ class TrustInfo(BaseModel):
 
 
 class SafetyReportCard(BaseModel):
-    """The customer-facing artifact fusing all proof bars. Every number carries a CI or
-    an honesty badge; provenance hashes make it verifiable and non-repudiable."""
+    """Every number carries a CI or an honesty badge; provenance hashes make it verifiable."""
 
     target_name: str
     check: str
@@ -272,17 +238,14 @@ class SafetyReportCard(BaseModel):
     judge_accuracy: AccuracyResult | None = None
     kind: str = "safety"  # safety | quality
     trust: TrustInfo = Field(default_factory=TrustInfo)
-    # Why judge_accuracy is absent (stale/missing calibration, or not yet measured for this judge).
-    # Never silently empty: a card either shows Bar A or says why it can't.
+    # Why judge_accuracy is absent: a card either shows Bar A or says why it can't.
     judge_accuracy_note: str = ""
     before_after: BeforeAfterResult | None = None
     benchmark: BenchmarkResult | None = None
     owasp_tags: list[OwaspTag] = Field(default_factory=list)
     top_fixes: list[str] = Field(default_factory=list)
-    # A concrete, copy-paste-ready remedy the user can apply (or auto-apply via `fusion harden`).
     fix_title: str = ""
     fix_snippet: str = ""
-    # provenance
     gold_version: str = ""
     crosswalk_version: str = ""
     judge_model: str = ""
@@ -291,27 +254,24 @@ class SafetyReportCard(BaseModel):
     demonstration: bool = False
 
 
-# --------------------------------------------------------------------------------------
-# User-prompt scan (the web-app flow: paste a system prompt, attack it, grade it)
-# --------------------------------------------------------------------------------------
+# --- User-prompt scan (paste a system prompt, attack it, grade it)
 
 
 class ScanTier(str, Enum):
-    """How thorough a scan is. QUICK is the cheap interactive default; FULL is the 'prove it'
-    tier (every attack template, the primary judge). Concrete knobs live in engine/user_scan.py."""
+    """QUICK is the interactive default; FULL runs every attack template (knobs in engine/user_scan.py)."""
 
     QUICK = "quick"
     FULL = "full"
 
 
 class ProbeOutcome(BaseModel):
-    """One attack template's result across both arms of a user-prompt scan (baseline vs hardened)."""
+    """One attack template's result across both arms (baseline vs hardened)."""
 
     check: str
     probe_id: str
     attack_label: str  # human-readable ("Posed as a developer: 'ignore previous instructions'")
     owasp: OwaspTag = Field(default_factory=OwaspTag)
-    # None = UNSCORED (the target or judge failed for this attack) — never counted as clean.
+    # None = UNSCORED (the target or judge failed for this attack), never counted as clean.
     baseline_issue: bool | None
     hardened_issue: bool | None
     baseline_severity: Severity = Severity.NONE
@@ -320,15 +280,12 @@ class ProbeOutcome(BaseModel):
     error_kind: str | None = None  # an ErrorKind value
     evidence: str = ""  # the judge's quote for the baseline violation (<= 240 chars)
     baseline_excerpt: str = ""  # the start of the baseline response (<= 200 chars)
-    # In-sample guard replay (fusion_first/engine/guard_replay.py) on this prompt-as-written reply: "stopped" (the
-    # snippet-configured guard blocked or redacted something), "allowed", or "no_tool_call" (a tool-action
-    # attack answered in prose: nothing for the tool-call check to see). None = not evaluated (unscored,
-    # quality, demo, or an older result). Derived from the current guard rules, not from the recordings, so
-    # `fusion run verify` leaves it out.
+    # In-sample guard replay (engine/guard_replay.py) on the prompt-as-written reply: "stopped",
+    # "allowed", or "no_tool_call" (a tool-action attack answered in prose). None = not evaluated.
+    # Derived from the current guard rules, not the recordings, so `fusion run verify` leaves it out.
     guard_replay: Literal["stopped", "allowed", "no_tool_call"] | None = None
-    # The guard stopped this reply because it carried a value the prompt marks secret, or the prompt itself:
-    # a catch whatever this attack's own check graded (a refusal naming the override code is still a leak).
-    # None whenever guard_replay is None; also left out by `fusion run verify`.
+    # The guard stopped a secret (or the prompt itself) in this reply, whatever this attack's check graded
+    # (a refusal naming the override code is still a leak). None whenever guard_replay is None.
     guard_leak: bool | None = None
 
     @property
@@ -337,8 +294,6 @@ class ProbeOutcome(BaseModel):
 
 
 class ScanResult(BaseModel):
-    """The finished scan: one report card per check, the flat per-probe outcomes, overall grade."""
-
     target_name: str
     checks: list[str] = Field(default_factory=list)
     tier: ScanTier = ScanTier.QUICK
@@ -350,7 +305,7 @@ class ScanResult(BaseModel):
     n_planned: int = 0
     n_scored: int = 0
     n_errored: int = 0
-    # The exact hardened prompt the "after" arm measured (= what the user copies), by hash.
+    # The exact hardened prompt the "after" arm measured (what the user copies).
     hardened_prompt_sha256: str = ""
     target_model: str = ""
 
@@ -365,11 +320,7 @@ class ScanEventType(str, Enum):
 
 
 class ScanEvent(BaseModel):
-    """A streamed progress event from a running scan: the envelope the SSE layer serializes.
-
-    The engine yields these so the HTTP layer can stream progress without the engine knowing
-    anything about HTTP. Only the fields relevant to a given `type` are populated.
-    """
+    """A streamed scan progress event; only the fields relevant to `type` are populated."""
 
     type: ScanEventType
     check: str | None = None

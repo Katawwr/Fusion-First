@@ -1,5 +1,5 @@
 """The verdict strings agents quote to users (audit_agent's `verdict`, finalize_run's `verdict`) lead with
-the runtime guardrail and call the prompt fix optional (owner, 2026-09-29: measure + guard)."""
+the runtime guardrail and call the prompt fix optional."""
 
 from __future__ import annotations
 

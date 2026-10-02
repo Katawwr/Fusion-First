@@ -1,10 +1,7 @@
-"""Integration surface: pure, JSON-returning tools that let an AI coding agent (or a CI pipeline,
-or any host) use Fusion to FIND prompt/agent-safety issues, FIX them, and PROTECT at runtime.
+"""JSON-returning agent tools wrapped by the MCP server and CLI.
 
-Nothing here imports `modal`; the MCP server and CLI wrap these functions.
-
-The agent tools are resolved lazily (PEP 562) so that importing a light submodule: notably
-`claude_hooks`, which runs before every Claude Code tool call: does not load the scan engine."""
+The tools resolve lazily (PEP 562) so importing `claude_hooks`, which runs before every Claude Code
+tool call, does not load the scan engine."""
 
 from __future__ import annotations
 

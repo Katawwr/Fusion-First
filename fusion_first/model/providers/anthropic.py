@@ -1,15 +1,7 @@
-"""Live Anthropic adapter — implements the ModelClient protocol over the official async SDK.
+"""Live Anthropic adapter over the async SDK (imported lazily; metered, opt-in only).
 
-This is the swap that turns the offline demo into real numbers: with a key present, the judge and
-any Claude target run against live models with no other change to the harness. The SDK is imported
-lazily so `fusion` stays importable (and unit-testable with a fake client) without the package.
-
-Model-specific request shaping is load-bearing:
-  * claude-sonnet-5 / claude-opus-4-8 (and the Fable/Opus 4.7 family) reject `temperature` with a
-    400 — we omit it and disable thinking for a fast, deterministic judge.
-  * claude-haiku-4-5 still accepts `temperature`.
-  * A `stop_reason == "refusal"` yields empty text, so the judge fails CLOSED (JudgeParseError)
-    rather than silently scoring "no issue".
+The 2026 tiers reject `temperature`, so it is omitted and thinking disabled for them. A refusal
+yields empty text, so the judge fails closed.
 """
 
 from __future__ import annotations
@@ -18,7 +10,7 @@ from fusion_first.model.client import ModelRequest, ModelResponse, ModelRole
 from fusion_first.model.providers._common import is_bad_request, resolve_model, strictify_schema
 from fusion_first.model.registry import ModelRegistry
 
-# Models that reject sampling params (temperature/top_p/top_k) — the 2026 Claude tiers.
+# Models that reject sampling params (temperature/top_p/top_k).
 _NO_SAMPLING = {
     "claude-sonnet-5",
     "claude-opus-4-8",
@@ -31,7 +23,7 @@ _ROLE_MAP = {
     ModelRole.JUDGE: "judge_primary",
     ModelRole.CALIBRATION: "judge_calibration",
     ModelRole.PREFILTER: "judge_prefilter",
-    # TARGET intentionally absent — a target model must be named explicitly.
+    # TARGET absent: a target model must be named explicitly.
 }
 
 
@@ -47,10 +39,9 @@ class AnthropicModelClient:
         max_retries: int = 2,
     ):
         self._api_key = api_key
-        self._client = client  # injected fake in tests; real AsyncAnthropic otherwise
+        self._client = client
         self._registry = registry or ModelRegistry()
-        # Override the role-default judge tier (e.g. a stronger tier for independence) WITHOUT changing
-        # the request's cache key — the request still carries model_id=None. Must be allowlisted.
+        # Overrides the role-default judge tier without changing the request's cache key. Allowlisted.
         self._judge_model = judge_model
         self._timeout = timeout
         self._max_retries = max_retries
@@ -64,7 +55,7 @@ class AnthropicModelClient:
 
     def _ensure_client(self):
         if self._client is None:
-            from anthropic import AsyncAnthropic  # lazy: keep fusion importable without the SDK
+            from anthropic import AsyncAnthropic
 
             self._client = AsyncAnthropic(
                 api_key=self._api_key, timeout=self._timeout, max_retries=self._max_retries
@@ -83,7 +74,7 @@ class AnthropicModelClient:
         if request.system:
             kwargs["system"] = request.system
         if model in _NO_SAMPLING:
-            kwargs["thinking"] = {"type": "disabled"}  # no sampling param; keep it fast/deterministic
+            kwargs["thinking"] = {"type": "disabled"}
         else:
             kwargs["temperature"] = request.temperature
 
@@ -96,8 +87,7 @@ class AnthropicModelClient:
             msg = await client.messages.create(**kwargs)
         except Exception as exc:  # noqa: BLE001
             if used_schema and is_bad_request(exc):
-                # Some models/versions reject structured output — fall back to prompt-driven JSON
-                # (the judge already asks for a bare JSON object and copes with chatty output).
+                # Some models reject structured output: fall back to prompt-driven JSON.
                 kwargs.pop("output_config", None)
                 msg = await client.messages.create(**kwargs)
             else:

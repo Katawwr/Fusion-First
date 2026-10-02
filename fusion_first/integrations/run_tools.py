@@ -1,20 +1,5 @@
-"""Keyless run tools for MCP hosts: the host agent grades, Fusion does the math.
-
-    fusion_doctor      -> what can run here (Ollama models, claude CLI subscription, host grading)
-    start_run          -> test the target in the background (local model or claude CLI subscription)
-    run_status         -> long-poll progress + the next step to take (detects stalled runs)
-    resume_run         -> continue a stalled / interrupted / partly graded run (recorded work kept)
-    get_grading_tasks  -> bounded questions (rubric + transcript + answer schema), leased
-    submit_grades      -> validated answers (production parser, evidence quoted from the agent's own
-                          output, one answer per question)
-    finalize_run       -> the report card: grade (withheld unless the grader earned it), what got
-                          through, the fix, and the grader's accuracy measured in this run
-    verify_run         -> re-derive the result offline from the run directory
-
-No API key anywhere: targets are local Ollama models or Claude over the user's CLI subscription,
-and the judge is either the host agent itself (via these tools) or a built-in keyless grader.
-Plain async functions returning JSON-serialisable dicts, so they're testable without the `mcp` SDK.
-"""
+"""Keyless run tools behind the MCP server: the host agent (or a built-in grader) grades, Fusion
+does the math. Plain methods returning JSON-serialisable dicts, testable without the `mcp` SDK."""
 
 from __future__ import annotations
 
@@ -50,8 +35,7 @@ HOW_TO_ANSWER = (
 
 
 def _refuse_remote_commands(target, grader) -> None:
-    """cmd: runs a program on the user's machine; over MCP only with FUSION_ALLOW_CMD_TARGETS=1. Checked
-    before any client is built, so the refusal is the first error the agent sees."""
+    """cmd: runs a program on this machine: over MCP only with FUSION_ALLOW_CMD_TARGETS=1."""
     from fusion_first.model.providers.command import ALLOW_REMOTE_ENV
 
     grader_cmd = grader.kind == "target" and parse_target(grader.model or "").backend == "command"
@@ -70,7 +54,6 @@ class RunTools:
     ):
         self.workspace = workspace
         self.manager = service.RunManager()
-        # An agent over MCP can't start a program on this machine unless the user allowed it.
         self._target_factory = target_factory or (lambda spec: build_target_client(
             parse_target(spec), allow_command=remote_commands_allowed()))
         self._grader_factory = grader_factory or (lambda spec: build_grader_client(
@@ -83,8 +66,7 @@ class RunTools:
         return doctor(check_auth=check_auth)
 
     def _clients(self, rd) -> dict:
-        """Build (and pre-flight) exactly the clients this run still needs: before launching, so a
-        missing backend is an immediate tool error, not a silent background failure."""
+        """The clients this run still needs, built before launch so a missing backend errors now."""
         plan = rd.plan()
         g = parse_grader(plan.grader)
         kwargs = {}
@@ -106,7 +88,7 @@ class RunTools:
     ) -> dict:
         t, g = parse_target(target), parse_grader(grader)
         _refuse_remote_commands(t, g)
-        # Resolve every backend BEFORE creating the run.
+        # Resolve every backend before creating the run.
         clients = {"target_client": self._target_factory(t.label)}
         if not g.external:
             clients["grader_client"] = self._grader_factory(g.label)

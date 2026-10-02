@@ -1,7 +1,5 @@
 """The claims registry: every proof-like number in docs/marketing must resolve to committed evidence.
 
-Used by `tests/test_claims_backed.py`. Pure: reads files only.
-
 Fail-closed rules:
   * Evidence must DECLARE `"demonstration": false` (a missing flag counts as a demonstration), unless
     the claim sets `demonstration_ok: true` for deterministic, non-LLM evidence (e.g. the guard bench).
@@ -53,16 +51,16 @@ _METRIC = r"(?:F1|kappa|κ|precision|recall|accuracy|landing\s+rate|issue\s+rate
 
 # Patterns that look like a proof claim (a measured rate/accuracy statement).
 PROOF_PATTERNS = (
-    # "62% injection", "67% of exfiltration attacks landed", "5 percent got through"
+    # e.g. 62% injection; 67% of exfiltration attacks landed; 5 percent got through
     re.compile(rf"\b{_PCT}(?:{_SEP}[\w'-]+){{0,3}}?{_SEP}{_VOCAB}", re.IGNORECASE),
-    # "recall 100%", "accuracy of 92%", "issue rate: 40%"
+    # e.g. recall 100%; accuracy of 92%; issue rate 40%
     re.compile(rf"\b{_METRIC}(?:\s+score)?\s*(?:of|=|:|is|was|at|&nbsp;)?\s*{_PCT}", re.IGNORECASE),
-    # "F1 1.00", "kappa=0.83", "precision: .9", "F1&nbsp;1.00"
+    # e.g. F1 1.00; kappa 0.83; precision .9; F1&nbsp;1.00
     re.compile(
         rf"\b{_METRIC}(?:\s+score)?\s*(?:of|=|:|is|was|&nbsp;)?\s*(?:[01]?\.\d+|1(?:\.0+)?)(?![\d.%])",
         re.IGNORECASE,
     ),
-    # "72% -> 11%", "100% → 8%"
+    # e.g. 72% -> 11%; 100% → 8%
     re.compile(rf"\b{_PCT}\s*(?:->|→|to)\s*{_PCT}", re.IGNORECASE),
     re.compile(r"\bHaiku\s*0\s*%", re.IGNORECASE),
 )
@@ -161,7 +159,7 @@ GENERATED_EVIDENCE = frozenset({"evidence.json"})
 def _is_test_file(p: pathlib.Path) -> bool:
     if p.name in GENERATED_EVIDENCE and p.parent.name == "content":
         return True
-    """Test fixtures are not user-facing copy (they assert sentence templates with sample numbers)."""
+    # Test fixtures are not user-facing copy (they assert sentence templates with sample numbers).
     return ".test." in p.name or ".spec." in p.name or "test" in p.parts
 
 
@@ -175,8 +173,7 @@ def scanned_files(root: pathlib.Path) -> list[pathlib.Path]:
 
 
 def _blank(text: str, spans: list[str]) -> str:
-    """Replace every occurrence of each registered span with spaces (same length), so the rest of
-    the line is still scanned."""
+    """Blank each registered span (same length) so the rest of the line is still scanned."""
     for s in sorted({s for s in spans if s}, key=len, reverse=True):
         text = text.replace(s, " " * len(s))
     return text

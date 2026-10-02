@@ -25,10 +25,8 @@ def test_registry_rejects_unknown_model():
 @pytest.mark.unit
 def test_self_family_guard_picks_cross_family_for_claude_target():
     reg = ModelRegistry()
-    # Claude target -> primary judge (also Claude) must be swapped to the cross-family judge.
-    assert reg.choose_judge("claude-opus-4-8") == "gpt-4o"
-    # OpenAI target -> Claude primary judge is fine (different family).
-    assert reg.choose_judge("gpt-4o") == "claude-sonnet-5"
+    choice = reg.choose_judge_with_disclosure("claude-opus-4-8")
+    assert (choice.judge_id, choice.independence) == ("gpt-4o", "cross_family")
 
 
 @pytest.mark.unit

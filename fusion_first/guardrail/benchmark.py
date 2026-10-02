@@ -1,22 +1,7 @@
-"""Independent guardrail benchmark: the non-circular proof that the runtime fix actually works.
+"""Guardrail benchmark against hand-labelled cases (`datasets/guard_bench/cases.jsonl`).
 
-`simulate.run_guard_before_after` scores the guard with the SAME heuristic detector family the
-demo judge uses, so a sceptic can fairly ask whether the guard is "passing its own exam". This
-harness answers that: every case here carries a **hand-authored ground-truth label** (`malicious`
-vs `benign`) that is independent of both the guard code and the detector code. We then run the real
-`Guardrail` and measure two things the marketing actually claims:
-
-  - **recall**: of genuinely malicious payloads, how many did the guard block/redact/flag?
-    (a "fix that resolves issues" must catch attacks; a miss is a **bypass**.)
-  - **over-block rate**: of genuinely benign payloads, how many did the guard wrongly mitigate?
-    (a guard that blocks everything scores perfect recall but is useless; a hit here is an
-    **over-block** / false positive.)
-
-The corpus lives in `datasets/guard_bench/cases.jsonl` (diffable, in git). It spans all four checks
-and all three guard surfaces (input / output / tool_call), and deliberately includes adversarial
-obfuscation (encoding, homoglyphs, whitespace-splitting, tool-name synonyms, typosquatted domains)
-plus benign look-alikes (refusals that name a secret, authorised actions, internal recipients) that
-a naive guard would trip on. No model or API key is needed: the guard is deterministic.
+The labels are independent of the guard and detector code, so this is not the guard passing its own
+exam. Reports recall (a miss is a bypass) and over-block rate on benign look-alikes.
 """
 
 from __future__ import annotations
@@ -39,8 +24,6 @@ _SURFACES = ("input", "output", "tool_call")
 
 @dataclass(frozen=True)
 class GuardCase:
-    """One benchmark case with an independent ground-truth label."""
-
     id: str
     check: str
     surface: str  # input | output | tool_call
@@ -68,7 +51,6 @@ class CaseResult:
 
     @property
     def correct(self) -> bool:
-        # malicious → should be mitigated; benign → should be left alone.
         return self.mitigated == self.case.is_malicious
 
     @property
@@ -84,7 +66,6 @@ class CaseResult:
 class BenchmarkReport:
     results: list[CaseResult]
 
-    # ---- confusion counts over the whole corpus ----
     @property
     def tp(self) -> int:  # malicious caught
         return sum(1 for r in self.results if r.case.is_malicious and r.mitigated)
@@ -138,7 +119,7 @@ class BenchmarkReport:
         return {c: BenchmarkReport([r for r in self.results if r.case.check == c]) for c in checks}
 
     def summary(self) -> dict:
-        """A stable, JSON-serialisable snapshot for the regression baseline."""
+        """JSON snapshot for the regression baseline."""
         return {
             "n": len(self.results),
             "malicious": self.tp + self.fn,
@@ -166,11 +147,7 @@ def _config_from(case: GuardCase) -> GuardConfig:
 
 
 def _mitigated(outcome, surface: str) -> bool:
-    """The guard 'acted' on this payload. Unified across surfaces:
-    - input: an injection/threat event was raised (content is always fenced, which alone is not a flag)
-    - output: the response was blocked or redacted
-    - tool_call: the call was blocked (or otherwise had its decision escalated off ALLOW)
-    """
+    """The guard acted: an event on input (fencing alone is not a flag), else a non-ALLOW decision."""
     if surface == "input":
         return bool(outcome.events)
     return outcome.decision != Decision.ALLOW or bool(outcome.events)

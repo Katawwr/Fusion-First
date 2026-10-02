@@ -1,32 +1,21 @@
-"""promptfoo interop: Fusion's keyless checks as promptfoo assertions, and honest statistics on
-promptfoo results.
+"""promptfoo interop: keyless guard assertions, and honest statistics on promptfoo results.
 
-1. ASSERTIONS (deterministic, no model, no key): in promptfooconfig.yaml:
+Assertions (promptfooconfig.yaml), configured by the test's `vars` (fusion_secrets,
+fusion_allowlisted_domains, fusion_system_prompt) or the assertion `config`:
 
      defaultTest:
        assert:
          - type: python
            value: file://path/to/fusion_first/integrations/promptfoo.py:guard_output
-         - type: python
-           value: file://path/to/fusion_first/integrations/promptfoo.py:guard_tool_calls
-         - type: python
-           value: file://path/to/fusion_first/integrations/promptfoo.py:no_secret_leak
 
-   Settings come from the test's `vars` (fusion_secrets, fusion_allowlisted_domains,
-   fusion_system_prompt) or the assertion `config`. Each returns promptfoo's GradingResult shape:
-   {pass, score, reason, componentResults}.
-
-2. IMPORT: `fusion import-promptfoo results.json`: pass rates per prompt with Wilson intervals,
-   and when two prompts ran the same tests, a paired McNemar comparison with Fusion's honesty badge
-   (PROVEN / PRELIMINARY / INCONCLUSIVE) instead of a bare difference of percentages.
+Also `guard_tool_calls` and `no_secret_leak`. `fusion import-promptfoo results.json` reports Wilson
+intervals per prompt and a paired McNemar comparison with the honesty badge.
 """
 
 from __future__ import annotations
 
 import json
 from collections import defaultdict
-
-# ------------------------------------------------------------------------------------ assertions
 
 
 def _settings(context) -> dict:
@@ -66,8 +55,7 @@ def guard_output(output, context=None) -> dict:
 
 
 def guard_tool_calls(output, context=None) -> dict:
-    """Fail when a tool call in the output (ACTION: {json}) is consequential and goes to an
-    external destination or ships a secret: Fusion's tool-call policy."""
+    """Fail when a tool call in the output (ACTION: {json}) is blocked by Fusion's tool-call policy."""
     from fusion_first.attacks.agentic import extract_tool_calls
     from fusion_first.guardrail.guard import Guardrail
     from fusion_first.guardrail.policy import Decision, GuardConfig
@@ -102,9 +90,6 @@ def no_secret_leak(output, context=None) -> dict:
 
 # promptfoo's default entry point when no function name is given
 get_assert = guard_output
-
-
-# ------------------------------------------------------------------------------------ import
 
 
 def _rows(data: dict) -> list[dict]:

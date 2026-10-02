@@ -1,15 +1,7 @@
-"""Score recorded evidence transcripts with their deterministic oracles and compute the statistics.
+"""Score recorded transcripts with their deterministic oracles and compute the statistics (offline).
 
-Pure and offline: reads the committed transcript store, never calls a model. For each
-(experiment, model) cell it reports the oracle issue rate of each arm (Wilson CIs), the paired
-before/after (McNemar + bootstrap + honesty badge + reasons), and for quality experiments a
-non-inferiority verdict (did the fix hurt quality/over-refuse by more than the margin?).
-
-Excluded: and always COUNTED, never guessed:
-  * unscored   : either arm failed to generate;
-  * truncated  : a quality answer cut off by the token cap (it would fail length instructions for a
-                  reason that has nothing to do with the model or the fix);
-  * undecidable: the oracle could not decide.
+Excluded items are counted, never guessed: unscored (an arm failed to generate), truncated (a
+full-answer oracle's reply cut by the token cap), undecidable (the oracle could not decide).
 """
 
 from __future__ import annotations
@@ -59,8 +51,7 @@ def paired_labels(
     pair = [recs.get((item.item_id, arm)) for arm in arms]
     if any(r is None or r.response is None for r in pair):
         return "unscored", []
-    # Only oracles that read the WHOLE answer are invalidated by the token cap (IFEval's length /
-    # section / ending checks). Over-refusal reads the opening of the reply, which a cap never cuts.
+    # Only whole-answer oracles are invalidated by the token cap; over-refusal reads the opening.
     if item.experiment in NEEDS_FULL_ANSWER and any(r.truncated for r in pair):
         return "truncated", []
     labels = [
@@ -115,8 +106,8 @@ def score_cell(items: list[EvidenceItem], model: str, store: TranscriptStore,
 
 def pooled(cells: list[CellResult], items_by_exp: dict[str, list[EvidenceItem]], store: TranscriptStore,
            arms: tuple[str, str] = ARMS) -> dict:
-    """Per experiment, pooled over models; the bootstrap resamples ITEMS (the same prompt run on
-    several models is correlated), so the interval is honest about that correlation."""
+    """Per experiment, pooled over models; the bootstrap resamples items (one prompt on several
+    models is correlated)."""
     out = {}
     for exp, items in items_by_exp.items():
         base, hard, clusters = [], [], []
@@ -155,8 +146,8 @@ ATTACK_EXPERIMENTS = ("injecagent", "gandalf")
 
 def attack_success_by_model(items_by_exp: dict[str, list[EvidenceItem]], models: list[str],
                             store: TranscriptStore, arms: tuple[str, str] = ARMS) -> dict:
-    """Per model, attack success with the attack experiments POOLED (InjecAgent + Gandalf): the
-    primary outcome pre-registered for the compact fix: with its paired McNemar test."""
+    """Per model, attack success pooled over the attack experiments (the compact fix's pre-registered
+    primary outcome)."""
     out = {}
     for model in models:
         base: list[bool] = []

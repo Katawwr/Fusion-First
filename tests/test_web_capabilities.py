@@ -1,9 +1,5 @@
-"""/api/version reports only what a web scan can actually start AND grade on this server.
-
-The scan page lists a live target only when a grader can run: the claude CLI on subscription auth,
-a pulled local grader that met its pre-registered floor, or a hosted provider with its key and
-FUSION_ALLOW_API_SPEND=1. `host` grading is MCP/CLI-only and never reported here.
-"""
+"""/api/version reports only what a web scan can actually start AND grade on this server: the claude CLI,
+a local grader that met its pre-registered floor, or a hosted provider with its key and the spend opt-in."""
 
 from __future__ import annotations
 

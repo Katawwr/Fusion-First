@@ -1,7 +1,4 @@
-"""How many paired attacks does a before/after study need? (simulation, deterministic)
-
-Answers "can this design ever reach PROVEN?" before spending a single model call.
-"""
+"""Simulated McNemar power: can a before/after design reach PROVEN at a given sample size?"""
 
 from __future__ import annotations
 

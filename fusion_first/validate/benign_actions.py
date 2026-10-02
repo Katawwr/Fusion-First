@@ -1,14 +1,9 @@
 """Actions the user asked for: how often does the runtime guard block them?
 
-InjecAgent's attacker cases with the roles swapped (uiuc-kang-lab/InjecAgent, MIT): the USER asks for the
-action, in the attacker instruction's own words, so every tool call the attack would make is a requested
-one. InjecAgent's user cases (the reads the agent was asked to make) are included too. Each call goes
-through the guard in its strictest posture: authorization required, untrusted content in context.
-
-Cases whose attacker tools appeared in the development samples (the v1 and compact InjecAgent samples,
-n=30 each) are `dev`; the rest are `heldout`, sealed for a pre-registered measurement. Deterministic and
-offline. A call's arguments are only the values the request itself gives (a send's recipient, quoted
-names, ids and amounts), as a model copies them, so a block comes from the rules, not invented payloads.
+InjecAgent's attacker cases with roles swapped (the user asks for the action in the attacker's words),
+plus its user cases, each through the guard in its strictest posture. Cases whose attacker tools
+appeared in the development samples are `dev`; the rest are `heldout`. A call's arguments are only
+values the request gives, so a block comes from the rules, not invented payloads.
 """
 
 from __future__ import annotations
@@ -59,7 +54,7 @@ def build_cases(rows: list[dict] | None = None) -> list[BenignCase]:
 
 
 def dev_attacker_tools() -> set[tuple[str, ...]]:
-    """Attacker tool sets of every item in the development samples (the spent v1 and compact samples)."""
+    """Attacker tool sets of every item in the spent development samples."""
     return {tuple(it.oracle["forbidden_tools"]) for spec in SPENT
             for it in build_items("injecagent", spec[1], salt=spec[0], exclude=spec[2] if len(spec) > 2 else None)}
 

@@ -1,34 +1,16 @@
 """Fusion's guardrail for Claude Code itself: PreToolUse / PostToolUse hooks (the fusion-guard plugin).
 
-An agent that reads the web, issues and MCP servers can be prompt-injected into exfiltrating
-secrets or damaging the machine. These hooks look at every Bash command, WebFetch, file write and
-MCP tool call BEFORE it runs and raise a finding when it looks like:
+PreToolUse inspects every Bash/PowerShell command, WebFetch, file write and MCP call for
+exfiltration, destruction, persistence, self-tampering (.claude/settings*, .fusion/guard*) and
+remote code execution. PostToolUse taints the session when a tool brings in agent-directed
+instructions; later egress is then escalated one level.
 
-  exfiltration   data sent to a non-allowlisted host (curl -d / scp / nc / Invoke-RestMethod -Body),
-                 especially when the payload comes from a secret file or secret env var; secrets
-                 smuggled out in a URL; consequential MCP actions to external destinations
-  destruction    rm -rf of / or ~, disk formatting, force-push over a protected branch, fork bombs,
-                 database drops that do not target a local / dev database
-  persistence    crontab, shell rc files, authorized_keys, autorun keys
-  self-tampering edits to .claude/settings*.json (permissions / hooks) and to the guard's own
-                 .fusion/guard.json, guard-state.json and guard-log.jsonl
-  remote code    curl | sh, iwr | iex
+Modes: observe (log only), ask (default: medium/high -> ask), enforce (high -> deny, medium -> ask).
+FUSION_GUARD_MODE sets the mode; a project's .fusion/guard.json can only tighten it.
 
-and, after a tool returns (PostToolUse), whether it brought in text with instructions aimed at
-the agent. Such a session is TAINTED, and later egress is escalated one level.
-
-Decisions:
-  observe  log only
-  ask      (default) medium/high findings -> "ask" (the user confirms)
-  enforce  high -> "deny", medium -> "ask"
-FUSION_GUARD_MODE (the user's own environment) sets the mode. A project's .fusion/guard.json can only
-TIGHTEN the default (ask -> enforce): a repository cannot switch the guard down to observe.
-
-The hook NEVER returns "allow": it can only add a confirmation or a block, never bypass the user's
-own permission rules. The decision is computed before anything is written, and a failed log or
-state write never changes it. An internal error in the analysis itself fails OPEN to Claude Code's
-normal permission flow. Commands are inspected up to MAX_ANALYZED characters from each end; a longer
-command is flagged for confirmation because it cannot be inspected in full.
+The hook never returns "allow", so it cannot bypass the user's permission rules. The decision is made
+before any log/state write, which can never change it; an internal error fails open to the normal
+permission flow. A command longer than 2 * MAX_ANALYZED characters is flagged for confirmation.
 """
 
 from __future__ import annotations
@@ -216,6 +198,8 @@ def _value_opts(client: str) -> frozenset:
     if c.startswith("curl"):
         return _CURL_VALUE_OPTS
     return _WGET_VALUE_OPTS if c == "wget" else _HTTPIE_VALUE_OPTS
+
+
 _REDIRECTS = frozenset({">", ">>", "<", "1>", "2>", "&>", ">|"})
 _BARE_TARGET = re.compile(
     r"(?:[\w.\-]+@)?((?:[a-z0-9\-]+\.)+[a-z]{2,24}|\d{1,3}(?:\.\d{1,3}){3})(?::\d{1,5})?(?:[/?#]\S*)?", re.I)
@@ -336,8 +320,8 @@ _LEX = re.compile(r"""
   | (?P<other>.)
 """, re.X | re.S)
 _HSTR_OPEN = re.compile(r"@(['\"])[ \t]*\r?\n")
-# "$(cat <<'EOF' … EOF\n)" — the commit / PR message idiom: a command substitution that only
-# prints its heredoc, i.e. plain text (the heredoc may itself contain quotes).
+# "$(cat <<'EOF' ... EOF\n)": the commit / PR message idiom, a substitution that only prints its
+# heredoc (plain text, which may itself contain quotes).
 _CAT_SUBST_OPEN = re.compile(r"\"\$\(\s*cat\s+<<-?[ \t]*(['\"]?)([A-Za-z_][\w.-]*)\1[ \t]*\r?\n")
 _PATTERN_CMDS = frozenset({"grep", "egrep", "fgrep", "rg", "ag", "ack", "findstr", "select-string", "sls"})
 _OUTPUT_CMDS = frozenset({"echo", "printf", "write-host", "write-output"})
@@ -631,7 +615,7 @@ _GUARD_REMOVE = re.compile(
 _COPY_TO = re.compile(r"(?<![\w.\-])(?:cp|copy|Copy-Item|cpi|rsync|install)(?![\w-])", re.I)
 
 
-# File writes/deletes from a python/node/ruby/perl one-liner — reads (open(p), readFileSync) don't count.
+# File writes/deletes from a python/node/ruby/perl one-liner (reads don't count).
 _LANG_WRITE = re.compile(
     r"open\([^)]*,\s*['\"][wax]|open\([^)]*,\s*['\"]r\+|\bwrite_(?:text|bytes)\(|\b(?:write|append)File(?:Sync)?\("
     r"|\bcreateWriteStream\(|\b(?:os|shutil)\.(?:remove|unlink|rmdir|removedirs|rename|replace|rmtree|move"
@@ -1088,9 +1072,8 @@ guard-state.json
 
 
 def _ensure_gitignore(directory: pathlib.Path) -> None:
-    """On first write, keep the guard's own files out of git (only inside a `.fusion` dir, only when
-    no .gitignore exists yet). Deliberately not `*`: committed runs under .fusion/runs/ must stay
-    addable for the offline-verify CI workflow."""
+    """Create .fusion/.gitignore for the guard's own files if absent. Not `*`: committed runs under
+    .fusion/runs/ must stay addable for the offline-verify CI workflow."""
     if directory.name != ".fusion":
         return
     with contextlib.suppress(OSError), open(directory / ".gitignore", "x", encoding="utf-8") as fh:
@@ -1118,7 +1101,6 @@ def _save_state(cfg: HookConfig, state: dict) -> None:
         p = pathlib.Path(cfg.state_path)
         p.parent.mkdir(parents=True, exist_ok=True)
         _ensure_gitignore(p.parent)
-        # keep the 50 most recent sessions
         items = sorted(((k, v) for k, v in state.items() if isinstance(v, dict)),
                        key=lambda kv: str(kv[1].get("ts", "")), reverse=True)[:50]
         fd, tmp = tempfile.mkstemp(prefix=".guard-state-", suffix=".tmp", dir=str(p.parent))

@@ -1,8 +1,4 @@
-"""Scan storage behind a small protocol.
-
-The in-memory store is enough for the demo loop and offline tests; a durable implementation can
-replace it without touching the routers.
-"""
+"""Scan storage behind a small protocol."""
 
 from __future__ import annotations
 
@@ -17,7 +13,7 @@ class ScanStore(Protocol):
 
 
 class InMemoryScanStore:
-    """Process-local store. Fine for a single Modal container and for tests; not durable."""
+    """Process-local, bounded, not durable."""
 
     def __init__(self, max_entries: int = 512):
         self._data: dict[str, ScanResult] = {}

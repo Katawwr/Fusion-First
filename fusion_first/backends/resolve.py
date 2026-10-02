@@ -1,6 +1,4 @@
-"""One place that turns a target/grader SPEC string into a client: and reports what is available.
-
-Specs are plain strings so they read the same on the CLI, in MCP tool calls and in CI config:
+"""Turn a target/grader spec string into a client, and report what is available (`doctor`).
 
   target  ollama:<model>        a local open-weight model (free)            e.g. ollama:llama3.2:1b
           claude-cli:<model>    a Claude model over the `claude` CLI subscription (no API key)
@@ -30,8 +28,8 @@ Specs are plain strings so they read the same on the CLI, in MCP tool calls and 
                                 the policy floor, so any grader is safe to try.
 
 ZERO SPEND: nothing here ever selects a metered provider on its own; hosted providers need the
-explicit opt-in AND the user's own key. The claude CLI provider refuses
-unless `claude auth status` reports subscription auth, and strips paid-auth env vars from the child.
+explicit opt-in AND the user's own key. The claude CLI provider refuses unless `claude auth status`
+reports subscription auth, and strips paid-auth env vars from the child.
 """
 
 from __future__ import annotations
@@ -121,7 +119,7 @@ def _split(spec: str, prefixes: dict[str, str]) -> tuple[str | None, str]:
 
 
 def _parse_open(spec: str) -> TargetSpec | None:
-    """Provider presets, anthropic:, cmd: and python:: or None for the other spec forms."""
+    """Provider presets, anthropic:, cmd: and python:, or None for the other spec forms."""
     from fusion_first.backends.presets import ALIASES, PROVIDERS
 
     head, sep, rest = spec.partition(":")
@@ -215,8 +213,7 @@ def parse_grader(spec: str) -> GraderSpec:
 
 
 def _cli_preflight() -> None:
-    """Fail in seconds, before any collect, if the claude CLI isn't usable on subscription auth.
-    (`claude auth status` is local; no model call. The provider re-checks before every call.)"""
+    """Fail fast, before any collect, if the claude CLI isn't on subscription auth (no model call)."""
     import shutil
 
     from fusion_first.model.providers.claude_cli import (
@@ -247,8 +244,7 @@ def _require_key(env: str, provider: str) -> str:
 
 def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: float = 600.0,
                         allow_command: bool = True):
-    """A budgeted client for the target under test. Refuses unavailable or unpermitted backends.
-    `allow_command=False` (the MCP server, unless FUSION_ALLOW_CMD_TARGETS=1) refuses cmd: targets."""
+    """A budgeted client for the target. `allow_command=False` (the MCP server default) refuses cmd: targets."""
     from fusion_first.security.budget import BudgetedModelClient, BudgetLimits
 
     limits = BudgetLimits(max_calls=max_calls)
@@ -300,14 +296,15 @@ def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: floa
         raise SpecError("python: targets run in-process: pass target_client=fusion_first.targets.FunctionModelClient(fn) "
                         "to fusion_first.runs.service.drive")
     if spec.backend == "api":
-        raise BackendUnavailable(_metered_refusal())
+        raise BackendUnavailable(
+            "api: is retired for runs: it is metered, so name the provider instead (anthropic:<model>, openai:<model>, "
+            f"hf:<model>, ...), which spends your own key and needs {METERED_OPT_IN_ENV}=1")
     raise SpecError(f"unknown target backend '{spec.backend}'")
 
 
 def build_grader_client(spec: GraderSpec, *, max_calls: int = 1000, timeout: float = 600.0,
                         allow_command: bool = True):
-    """A judge client for a BUILT-IN grader. `host` has no client: the calling agent grades. A chat
-    target used as a grader answers the JSON rubric; the run's calibration measures it like any other."""
+    """A judge client for a built-in grader (`host` has none: the calling agent grades)."""
     from fusion_first.security.budget import BudgetedModelClient, BudgetLimits
 
     limits = BudgetLimits(max_calls=max_calls)
@@ -348,11 +345,6 @@ class _PinnedModel:
         return await self.inner.complete(request.model_copy(update={"model_id": self.model}))
 
 
-def _metered_refusal() -> str:
-    return ("api: is retired for runs: it is metered, so name the provider instead (anthropic:<model>, openai:<model>, "
-            f"hf:<model>, ...), which spends your own key and needs {METERED_OPT_IN_ENV}=1")
-
-
 # ------------------------------------------------------------------------------------ doctor
 
 
@@ -369,7 +361,6 @@ def doctor(*, check_auth: bool = True, auth_runner=None) -> dict:
     registry = ModelRegistry()
     cli = {"available": claude_cli_available(), "subscription": "not checked", "roles": ["target", "grader"]}
     if cli["available"] and check_auth:
-        import os
         import shutil
 
         binary = os.environ.get("FUSION_CLAUDE_BIN") or shutil.which("claude") or "claude"
@@ -387,8 +378,7 @@ def doctor(*, check_auth: bool = True, auth_runner=None) -> dict:
         return next((m for p in prefs for m in models if m.startswith(p)), None)
 
     target_model = _first(("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b", "llama3.2", "qwen2.5"))
-    # A local grader is recommended only when its pre-registered measurement met the policy floor
-    # (evals/validation/v1/PREREG_local_grader.md); an unmeasured one never is.
+    # A local grader is recommended only when its pre-registered measurement met the policy floor.
     from fusion_first.validate.prereg import local_grader_status
 
     local_graders = [local_grader_status(m) for p in ("qwen2.5:7b", "qwen2.5:3b") for m in models if m.startswith(p)]
@@ -422,7 +412,7 @@ def doctor(*, check_auth: bool = True, auth_runner=None) -> dict:
 
 
 def _hosted_backends() -> dict:
-    """Hosted providers: which keys are present (never their values) and whether spending is allowed."""
+    """Which hosted-provider keys are present (never their values) and whether spending is allowed."""
     from fusion_first.backends.presets import ANTHROPIC_KEY_ENV, PROVIDERS
 
     keys = {name: env for name, (_, env) in PROVIDERS.items()} | {"anthropic": ANTHROPIC_KEY_ENV}

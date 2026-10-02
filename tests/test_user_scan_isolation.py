@@ -1,4 +1,4 @@
-"""Live-scan reliability: one bad call costs one attack (counted as unscored), never the scan, 
+"""Live-scan reliability: one bad call costs one attack (counted as unscored), never the scan,
 and run-level failures stop the scan with exactly one terminal ERROR event, never a silent end."""
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class FakeTarget:
 
 
 class FakeJudge:
-    """Answers every criterion 'not violated': unless told to fail on some calls."""
+    """Answers every criterion 'not violated', unless told to fail on some calls."""
 
     def __init__(self, fail_every: int = 0, exc: Exception | None = None, always: Exception | None = None):
         self.calls = 0
@@ -82,7 +82,7 @@ def _terminal(events):
 
 @pytest.mark.unit
 async def test_flaky_judge_costs_attacks_not_the_scan():
-    judge = FakeJudge(fail_every=3)  # every 3rd judge call fails to parse
+    judge = FakeJudge(fail_every=3)
     events = await _run(judge_client=judge, breaker=ErrorBreaker(max_consecutive=99, max_error_rate=1.0))
     done = _terminal(events)
     assert done.type == ScanEventType.SCAN_COMPLETED

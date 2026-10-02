@@ -1,8 +1,7 @@
 """Bar A statistics: judge-vs-oracle accuracy.
 
-All intervals are Wilson score intervals (well-behaved at the extremes and small n, unlike
-the normal approximation). Cohen's kappa is reported alongside raw accuracy because a judge
-on an imbalanced set can look accurate while barely beating chance.
+Wilson intervals (well-behaved at small n and the extremes). Cohen's kappa alongside accuracy, since
+a judge on an imbalanced set can look accurate while barely beating chance.
 """
 
 from __future__ import annotations
@@ -83,9 +82,7 @@ def accuracy_result(
     )
 
 
-# --------------------------------------------------------------------------------------------
-# Validation statistics (Trust Report): sample sizes, balanced accuracy, bootstrap CIs, agreement
-# --------------------------------------------------------------------------------------------
+# Validation statistics (Trust Report): sample sizes, balanced accuracy, bootstrap CIs, agreement.
 
 
 def wilson_halfwidth(p: float, n: int, z: float = Z_95) -> float:
@@ -135,8 +132,7 @@ def bootstrap_ci(
     seed: int = 7,
     alpha: float = 0.05,
 ) -> Interval:
-    """Percentile bootstrap CI for any paired statistic `stat(y_true, y_pred)` (resampling items).
-    Deterministic given `seed`. Used for F1, kappa and balanced accuracy, which have no Wilson form."""
+    """Percentile bootstrap CI for `stat(y_true, y_pred)`, resampling items; deterministic given `seed`."""
     import random
 
     n = len(y_true)
@@ -174,8 +170,7 @@ def fleiss_kappa(ratings: list[list[bool]]) -> float:
 
 
 def flip_rate(runs: list[list[bool]]) -> Interval:
-    """Share of items whose verdict is NOT identical across repeated runs (runs[k][i] = run k on
-    item i), with a Wilson interval: the repeat-run stability of a judge whose sampling isn't pinned."""
+    """Share of items whose verdict differs across repeated runs (runs[k][i]), with a Wilson interval."""
     if not runs:
         return Interval(point=0, low=0, high=1)
     n = len(runs[0])
@@ -188,9 +183,7 @@ def flip_rate(runs: list[list[bool]]) -> Interval:
 def mcnemar_classifiers(
     y_true: list[bool], pred_a: list[bool], pred_b: list[bool]
 ) -> tuple[int, int, float]:
-    """Paired comparison of two classifiers on the same items: (a_right_b_wrong, b_right_a_wrong,
-    exact two-sided McNemar p). Answers "is A really better than B here?" (e.g. Fusion vs a naive
-    single-question judge)."""
+    """Paired comparison of two classifiers: (a_right_b_wrong, b_right_a_wrong, exact McNemar p)."""
     from fusion_first.stats.paired import mcnemar_exact_p
 
     b = sum(1 for t, a, bb in zip(y_true, pred_a, pred_b, strict=True) if a == t and bb != t)

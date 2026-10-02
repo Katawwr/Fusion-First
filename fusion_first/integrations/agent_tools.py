@@ -1,19 +1,5 @@
-"""Fusion agent tools: measure, then guard, as plain functions (the prompt fix is optional).
-
-These are the operations an AI coding agent (Claude Code, Cursor, an autonomous build agent) or a
-CI job wants when it is building or shipping an AI agent:
-
-  find     -> scan_prompt(system_prompt)        : grade the prompt, list what got through
-  protect  -> guardrail_snippet()               : the runtime-guardrail code to drop in
-  protect  -> check_output(text, ...)           : gate a model response at runtime
-  protect  -> check_tool_call(name, args, ...)  : gate a tool call at runtime
-  optional -> harden_prompt(system_prompt)      : the prompt fix; re-test it on the target model
-
-Every function returns a JSON-serialisable dict (no pydantic objects leak out), so the same code
-backs the MCP server, the CLI, and an HTTP layer. Offline and deterministic: `scan_prompt` runs the
-keyless DEMONSTRATION pipeline (stamped `demonstration=True`); the runtime checks use the real,
-model-free guardrail.
-"""
+"""Agent tools (scan, audit, guard, optional prompt fix) as plain functions returning JSON-serialisable
+dicts; they back the MCP server, the CLI and the web API."""
 
 from __future__ import annotations
 
@@ -24,10 +10,9 @@ from fusion_first.guardrail.guard import Guardrail
 from fusion_first.guardrail.policy import Decision, GuardConfig
 from fusion_first.guardrail.snippet import guardrail_snippet as _snippet
 from fusion_first.integrations.live import build_live_scan_kwargs
-from fusion_first.judge.rubric import REGISTRY, get_rubric
+from fusion_first.judge.rubric import REGISTRY, checks_of_kind, get_rubric
 from fusion_first.schemas import ScanEventType, ScanTier
 
-# Plain-language names so a tool result reads well in an agent transcript.
 _CHECK_LABELS = {
     "direct_prompt_injection": "Prompt injection / hijack",
     "excessive_agency": "Excessive agency (runaway actions)",
@@ -39,10 +24,7 @@ _CHECK_LABELS = {
 
 def _resolve_checks(checks: list[str] | None) -> list[str]:
     if not checks:
-        # Default scan/audit to the SAFETY attack-suite checks; quality checks are opt-in by name.
-        from fusion_first.judge.rubric import checks_of_kind
-
-        return checks_of_kind("safety")
+        return checks_of_kind("safety")  # quality checks are opt-in by name
     unknown = [c for c in checks if c not in REGISTRY]
     if unknown:
         raise ValueError(f"unknown checks: {unknown}; valid: {sorted(REGISTRY)}")
@@ -55,8 +37,7 @@ def _owasp(check: str) -> str:
 
 
 def list_checks() -> dict:
-    """The checks Fusion can run, grouped by kind: 'safety' (OWASP-mapped adversarial risks) and
-    'quality' (correctness / instruction-following): with what good behavior means for each."""
+    """The checks Fusion can run, with their kind, OWASP mapping and intent."""
     return {
         "checks": [
             {
@@ -72,11 +53,7 @@ def list_checks() -> dict:
 
 
 def _resolve_live_kwargs(live, target_model: str | None, backend: str | None) -> tuple[dict, str]:
-    """Resolve scan kwargs + a mode label from the `live` setting.
-
-    live ∈ {False,"off"} → demo; {True,"on"} → require a live backend (raise if none);
-    "auto" → live if a backend is available, else fall back to demo. `backend`="ollama" (with a
-    `target_model` like "llama3.2") audits an OPEN-WEIGHT agent locally, judged by Claude."""
+    """(scan kwargs, mode): off -> demo; on -> live or raise; "auto" -> live if available, else demo."""
     from fusion_first.integrations.live import LiveUnavailable
 
     tm = target_model or "claude-haiku-4-5"
@@ -84,7 +61,6 @@ def _resolve_live_kwargs(live, target_model: str | None, backend: str | None) ->
         return {"demonstration": True}, "demo"
     if live in (True, "on"):
         return build_live_scan_kwargs(target_model=tm, prefer=backend), "live"
-    # "auto": try live, gracefully fall back to the labelled demo
     try:
         return build_live_scan_kwargs(target_model=tm, prefer=backend), "live"
     except LiveUnavailable:
@@ -99,22 +75,14 @@ async def scan_prompt(
     target_model: str | None = None,
     backend: str | None = None,
 ) -> dict:
-    """FIND: grade a system prompt against the safety checks and list what got through.
+    """Grade a system prompt against the safety checks and list the attacks that got through.
 
-    `live=False`/"off" runs the offline demonstration pipeline (no key, stamped demonstration=True).
-    `live="auto"` uses a real backend when one is available (the Claude CLI subscription, an API key,
-    or an Ollama open-weight target) and otherwise falls back to the labelled demo. `live=True`/"on"
-    requires a live backend and raises `LiveUnavailable` if none. Set `backend="ollama"` +
-    `target_model="llama3.2"` to audit an open-weight agent locally, judged by Claude (cross-family).
-    Returns per-check grades, the baseline→hardened reduction, the honesty badge, and what landed.
-    """
+    `live`: False/"off" runs the stamped offline demonstration, "auto" uses a live backend when one is
+    available, True/"on" requires one (LiveUnavailable otherwise)."""
     if not system_prompt or not system_prompt.strip():
         raise ValueError("system_prompt must be non-empty")
     resolved = _resolve_checks(checks)
-    # scan_prompt runs the SAFETY attack suite — quality checks have no attack probes and would crash
-    # deep inside with an opaque FileNotFoundError. Reject them clearly and point to grade_quality.
-    from fusion_first.judge.rubric import get_rubric
-
+    # Quality checks have no attack probes; reject them here rather than fail deep inside.
     non_safety = [c for c in resolved if get_rubric(c).kind != "safety"]
     if non_safety:
         raise ValueError(
@@ -162,7 +130,6 @@ async def scan_prompt(
         )
 
     any_issue = any((c["baseline_issue_rate"] or 0) > 0 for c in checks_out)
-    # '?' means nothing was measured for that check — never a pass.
     unmeasured = any(c["grade"] == "?" for c in checks_out)
     return {
         "target": result.target_name,
@@ -189,17 +156,14 @@ async def scan_prompt(
 
 
 def _autonomy_config(autonomy: str) -> dict:
-    """Map a single autonomy word to a runtime GuardConfig (the HITL decision-gate optionality).
-
-    supervised → hold consequential/external/secret actions for human authorization (least-agency);
-    autonomous → run unattended but still redact leaks. Pass this to check_output/check_tool_call."""
+    """Runtime GuardConfig for an autonomy level: supervised holds actions for the user, autonomous redacts."""
     if autonomy == "autonomous":
         return {
             "require_authorization": False,
             "on_external_action": "redact",
             "on_secret_output": "redact",
         }
-    return {  # "supervised" (default, safest)
+    return {  # "supervised" (default)
         "require_authorization": True,
         "on_external_action": "block",
         "on_secret_output": "block",
@@ -207,7 +171,6 @@ def _autonomy_config(autonomy: str) -> dict:
 
 
 def _plain_verdict(scan: dict) -> str:
-    """A one-line, non-expert summary of a scan result."""
     failed = [c for c in scan["checks"] if (c.get("baseline_issue_rate") or 0) > 0]
     mode = "demo" if scan.get("demonstration") else "live"
     if not failed:
@@ -234,11 +197,8 @@ async def grade_quality(
     backend: str | None = None,
     concurrency: int = 6,
 ) -> dict:
-    """Grade a real agent's QUALITY: run its prompt over normal test inputs on a LIVE target and judge
-    each response. Requires a live backend (Claude CLI subscription or an Ollama open-weight target), 
-    there is no 'demo' quality mode, because grading needs the agent's real outputs."""
+    """Run the prompt over normal test inputs on a live target and judge each response (no demo mode)."""
     from fusion_first.integrations.live import build_live_clients
-    from fusion_first.judge.rubric import checks_of_kind, get_rubric
     from fusion_first.measure.harness import measure_quality
 
     if checks:
@@ -277,27 +237,13 @@ async def audit_agent(
     tier: str = "quick",
     dimensions: list[str] | None = None,
 ) -> dict:
-    """One call = FIND + PROTECT across SAFETY and QUALITY, plus the optional prompt fix.
-
-    Runs the safety attack-scan and (when a live backend is available) grades the agent's quality on
-    normal test inputs: both through the same calibrated judge. Returns a plain-language verdict, an
-    overall grade (worst of safety + quality), per-check grades, the runtime-guardrail snippet, the
-    recommended runtime GuardConfig for your chosen `autonomy` (supervised = human-in-the-loop gates;
-    autonomous = unattended + redact), and the optional hardened prompt (re-test it before use).
-
-    Audit an OPEN-WEIGHT agent (where injection/exfil/agency attacks actually land) locally and free:
-    `backend="ollama", target_model="llama3.2"`: judged by Claude (cross-family independence).
-    `live="auto"` uses a real backend when available, else a labelled demo (quality needs a live backend).
-    `dimensions` defaults to ["safety","quality"]; pass ["safety"] to skip quality grading.
-    """
+    """Safety scan plus (with a live backend) quality grading, the guardrail snippet, the runtime config
+    for `autonomy` and the optional hardened prompt; the overall grade is the worst of both."""
     if not system_prompt or not system_prompt.strip():
         raise ValueError("system_prompt must be non-empty")
-    from fusion_first.judge.rubric import checks_of_kind, get_rubric
-
     dimensions = dimensions or ["safety", "quality"]
     resolved = _resolve_checks(checks)
     safety_checks = [c for c in resolved if get_rubric(c).kind == "safety"]
-    # The guardrail and the optional fix are scoped to the requested safety checks (or all safety).
     fix_checks = safety_checks or checks_of_kind("safety")
 
     result: dict = {
@@ -316,7 +262,7 @@ async def audit_agent(
         )
         mode = "demo" if scan["demonstration"] else "live"
         result["safety"] = {"overall_grade": scan["overall_grade"], "checks": scan["checks"]}
-        result["checks"] = scan["checks"]  # backward-compatible top-level safety checks
+        result["checks"] = scan["checks"]
         result["note"] = scan["note"]
         grades.append(scan["overall_grade"])
         verdict_parts.append(_plain_verdict(scan))
@@ -342,9 +288,8 @@ async def audit_agent(
 
 
 def harden_prompt(system_prompt: str, checks: list[str] | None = None) -> dict:
-    """OPTIONAL FIX: the system prompt with Fusion's prompt fix appended (idempotent: it replaces its
-    own block instead of stacking), plus the block on its own. On the small open-weight models measured
-    it rarely cut attacks and raised refusals of safe requests: re-test it on the target model."""
+    """The prompt with Fusion's fix block appended idempotently, plus the block on its own (optional:
+    on small open-weight models it rarely cut attacks and raised refusals)."""
     if not system_prompt or not system_prompt.strip():
         raise ValueError("system_prompt must be non-empty")
     resolved = _resolve_checks(checks)
@@ -356,8 +301,7 @@ def harden_prompt(system_prompt: str, checks: list[str] | None = None) -> dict:
 
 
 def guardrail_snippet(checks: list[str] | None = None) -> dict:
-    """PROTECT: the copy-paste runtime-guardrail code (Python) for the given checks: a client wrapper
-    for replies and a guard_tool_call check before each tool call."""
+    """The copy-paste runtime-guardrail code (Python) for the given checks."""
     resolved = _resolve_checks(checks)
     return {"language": "python", "snippet": _snippet(resolved), "checks": resolved}
 
@@ -390,8 +334,7 @@ def check_output(
     system_prompt: str | None = None,
     on_secret: str = "redact",
 ) -> dict:
-    """PROTECT (runtime): decide whether a model response is safe to return. Blocks/redacts leaked
-    secrets, PII, and system-prompt reproductions. Returns the safe text to send instead."""
+    """Gate a model response: block/redact leaked secrets, PII and system-prompt reproductions."""
     guard = _guard_from(None, secret_values, system_prompt, False, on_secret)
     out = guard.guard_output(text)
     mitigated = out.decision != Decision.ALLOW
@@ -413,12 +356,11 @@ def check_tool_call(
     untrusted_context: bool = False,
     untrusted_text: str = "",
 ) -> dict:
-    """PROTECT (runtime): decide whether a tool call is safe to execute. Blocks actions the user's
-    request does not cover, sends to external/untrusted destinations, and secret/PII exfiltration.
-    Set untrusted_context once tool results or documents are in the conversation: the request then
-    binds every non-read call, and unrequested reads of private data are blocked. Pass those tool
-    results and documents as untrusted_text: a read they ask for alongside a send to an outside address
-    is blocked too. user_request must be the user's own words, never text from a tool result."""
+    """Gate a tool call against the user's own request, external destinations and exfiltration.
+
+    untrusted_context: tool results or documents are in the conversation (unrequested private reads
+    are blocked); untrusted_text: their text (a read it asks for alongside an outside send is blocked).
+    user_request must be the user's own words, never text from a tool result."""
     guard = _guard_from(allowlisted_domains, secret_values, None, require_authorization, "block")
     out = guard.guard_tool_call(name, arguments or {}, user_request, untrusted_context=untrusted_context,
                                 untrusted_text=untrusted_text if isinstance(untrusted_text, str) else "")

@@ -1,6 +1,5 @@
-"""The agent tools are the find/fix/protect loop an AI coding agent (or CI) calls. These verify the
-real behaviour and that every return value is JSON-serialisable (they cross an MCP/CLI boundary).
-"""
+"""The agent tools: real behaviour, and every return value is JSON-serialisable (they cross an MCP/CLI
+boundary)."""
 
 from __future__ import annotations
 
@@ -215,11 +214,10 @@ async def test_audit_agent_one_call_demo():
 
 @pytest.mark.integration
 async def test_audit_agent_unified_structure_demo():
-    # In demo mode quality is skipped (grading needs a live backend); safety section is present.
     res = await t.audit_agent(VULNERABLE, checks=["system_prompt_leakage"], live="off")
     assert "safety" in res and res["safety"]["checks"]
     assert res["overall_grade"] in {"A", "B", "C", "D", "F"}
-    assert "quality" not in res  # skipped in demo
+    assert "quality" not in res  # grading quality needs a live backend
     assert res["checks"]  # backward-compatible top-level safety checks
 
 
@@ -232,7 +230,7 @@ async def test_audit_agent_safety_only_dimension():
 
 @pytest.mark.integration
 async def test_scan_prompt_rejects_quality_check():
-    # Quality checks have no attack probes — scan must reject clearly, not crash with FileNotFoundError.
+    # Quality checks have no attack probes: rejected clearly, not a FileNotFoundError.
     with pytest.raises(ValueError, match="not safety checks"):
         await t.scan_prompt("You are a bot.", checks=["instruction_following"], live="off")
 
@@ -255,7 +253,6 @@ async def test_scan_prompt_live_off_is_demo():
 
 @pytest.mark.unit
 def test_live_kwargs_requires_a_key_or_cli(monkeypatch):
-    # With the CLI backend forced off and no API key, live scans have no backend → fail cleanly.
     from fusion_first.integrations.live import LiveUnavailable, build_live_scan_kwargs
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -266,8 +263,7 @@ def test_live_kwargs_requires_a_key_or_cli(monkeypatch):
 
 @pytest.mark.unit
 def test_live_kwargs_use_cli_when_no_key(monkeypatch):
-    # The retrofit contract: no API key + `claude` CLI present → subscription-backed live clients,
-    # judged by a stronger same-family tier (Sonnet vs a Haiku target).
+    # No API key + `claude` CLI present: subscription-backed clients, judged by a stronger tier.
     import fusion_first.integrations.live as live
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)

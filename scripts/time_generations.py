@@ -1,11 +1,8 @@
-"""Time a few local generations to budget an evidence run (HANDOFF step 4). Outputs are discarded, never
-stored as transcripts; the items come from the spent v1 sample.
+"""Time a few local generations to budget an evidence run (outputs discarded; items from the spent v1 sample).
 
     python scripts/time_generations.py --model qwen2.5:7b --num-ctx 8192,4096 [--k 1] [--out <scratch>.json]
 
-Per generation it records Ollama's own timings (load, prompt eval, generation) and, per context size, how
-much of the model sits in GPU memory (/api/ps). Same request shape as the evidence runner: temperature 0,
-seed 7, the safety cap for InjecAgent / Gandalf / XSTest.
+Same request shape as the evidence runner: temperature 0, seed 7, the safety cap.
 """
 
 from __future__ import annotations

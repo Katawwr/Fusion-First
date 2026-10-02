@@ -1,10 +1,5 @@
-"""No code path may reach a METERED model API unless the user explicitly chose it.
-
-An API key merely present in the environment (a stray `export ANTHROPIC_API_KEY=…`) is never
-consent to spend: every keyless path (auto, cli, ollama: CLI, MCP defaults, the web app) must build
-subscription/local clients only. Metered SDK clients require `--backend api` AND
-FUSION_ALLOW_API_SPEND=1. Nothing here makes a network call: provider constructors are lazy.
-"""
+"""No code path reaches a metered model API unless the user opted in (`--backend api` AND
+FUSION_ALLOW_API_SPEND=1); an API key in the environment is never consent to spend."""
 
 from __future__ import annotations
 
@@ -81,15 +76,14 @@ async def test_mcp_auto_mode_with_ambient_keys_is_not_metered(ambient_keys, monk
 @pytest.mark.unit
 @pytest.mark.parametrize("backend", ["ollama", "cli", None])
 def test_web_app_keyless_backends_ignore_server_keys(monkeypatch, backend):
-    from app.clients import LiveUnavailable, build_scan_kwargs
-    from app.settings import Settings
+    from fusion_first.web.clients import LiveUnavailable, build_scan_kwargs
+    from fusion_first.web.settings import Settings
 
     monkeypatch.delenv(live.METERED_OPT_IN_ENV, raising=False)
     monkeypatch.setattr("fusion_first.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
     monkeypatch.setattr("fusion_first.model.providers.ollama.ollama_available", lambda base_url=None: True)
     settings = Settings(anthropic_api_key="sk-ant-fake", openai_api_key="sk-fake", allow_local_backends=True)
     if backend is None:
-        # The default backend used to be "api" with server keys; now metered needs explicit opt-in.
         with pytest.raises(LiveUnavailable):
             build_scan_kwargs("live", settings, backend="api")
         return
@@ -102,8 +96,8 @@ def test_web_app_keyless_backends_ignore_server_keys(monkeypatch, backend):
 @pytest.mark.parametrize("backend", [None, "auto", "cli", "ollama"])
 def test_web_app_local_backends_are_off_by_default(monkeypatch, backend):
     """A public server must never let visitors drive the host's subscription or CPU."""
-    from app.clients import LiveUnavailable, build_scan_kwargs
-    from app.settings import Settings
+    from fusion_first.web.clients import LiveUnavailable, build_scan_kwargs
+    from fusion_first.web.settings import Settings
 
     monkeypatch.setattr("fusion_first.model.providers.claude_cli.claude_cli_ready", lambda *a, **k: (True, "ok"))
     monkeypatch.setattr("fusion_first.model.providers.ollama.ollama_available", lambda base_url=None: True)
@@ -113,8 +107,7 @@ def test_web_app_local_backends_are_off_by_default(monkeypatch, backend):
 
 @pytest.mark.unit
 def test_offline_switch_disables_real_clients(monkeypatch):
-    """FUSION_OFFLINE=1 (set for every non-live test by conftest) must make both real providers
-    report unavailable and refuse to run."""
+    """FUSION_OFFLINE=1 (set by conftest for non-live tests) makes both real providers unavailable."""
     from fusion_first.model.providers.claude_cli import claude_cli_available
     from fusion_first.model.providers.ollama import ollama_available
 
@@ -127,5 +120,5 @@ def test_offline_switch_disables_real_clients(monkeypatch):
 def test_live_scan_kwargs_disclose_the_judge(ambient_keys):
     kw = live.build_live_scan_kwargs("llama3.2:1b", prefer="ollama")
     assert kw["judge_backend"] == "claude_cli"
-    assert kw["sampling_pinned"] is False  # the CLI cannot pin temperature — disclosed, not assumed
+    assert kw["sampling_pinned"] is False  # the CLI cannot pin temperature
     assert kw["judge_choice"].independence == "cross_family"

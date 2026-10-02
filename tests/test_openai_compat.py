@@ -1,5 +1,4 @@
-"""The OpenAI-compatible target: test your own model server (vLLM, LM Studio, llama.cpp, Ollama /v1).
-Offline: HTTP is faked at urlopen. Zero spend: a public endpoint needs the explicit metered opt-in."""
+"""The OpenAI-compatible target (vLLM, LM Studio, llama.cpp, Ollama /v1). HTTP is faked at urlopen."""
 
 from __future__ import annotations
 
@@ -162,7 +161,7 @@ async def test_a_redirect_is_refused_and_never_followed(monkeypatch, code):
             self.end_headers()
             self.wfile.write(json.dumps(REPLY).encode())
 
-        def do_GET(self):  # noqa: N802 — urllib turns a POST into a GET on 301/302/303
+        def do_GET(self):  # noqa: N802 (urllib turns a POST into a GET on 301/302/303)
             seen_by_elsewhere.append(dict(self.headers))
             self.send_response(200)
             self.end_headers()

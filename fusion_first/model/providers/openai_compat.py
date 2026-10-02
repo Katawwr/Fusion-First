@@ -1,11 +1,7 @@
-"""A target backed by any OpenAI-compatible chat-completions server — test YOUR model where it runs:
-vLLM, LM Studio, llama.cpp's server, text-generation-inference, Ollama's /v1, and so on.
+"""A target on any OpenAI-compatible chat-completions server (vLLM, LM Studio, llama.cpp, Ollama /v1...).
 
-Dependency-free (stdlib urllib, run off the event loop) and modal-free. Whether an endpoint may be used
-without the metered opt-in is decided by the resolver (`fusion_first.backends.resolve`): local and private
-network servers are free to use; a public endpoint may be a metered API and needs FUSION_ALLOW_API_SPEND=1.
-An optional bearer key is read from FUSION_TARGET_API_KEY, or from a provider preset's own variable
-(never logged, never stored in a run).
+Stdlib only. The resolver decides whether an endpoint needs the metered opt-in. An optional bearer key
+comes from FUSION_TARGET_API_KEY or a preset's own variable (never logged or stored).
 """
 
 from __future__ import annotations
@@ -25,9 +21,8 @@ API_KEY_ENV = "FUSION_TARGET_API_KEY"
 
 
 class _NoRedirects(urllib.request.HTTPRedirectHandler):
-    """Never follow a redirect. The stdlib would re-send the request, bearer key included, to whatever
-    host the redirect names: a host the zero-spend gate never checked. A chat-completions endpoint has
-    no reason to redirect, so a redirect is an error that names where it pointed."""
+    """Never follow a redirect: the stdlib would re-send the bearer key to a host the zero-spend gate
+    never checked."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None  # the default error handler then raises HTTPError(code)
@@ -45,7 +40,7 @@ class OpenAICompatModelClient:
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
-        self._api_key_env = api_key_env  # a provider preset reads its own variable (OPENAI_API_KEY, HF_TOKEN...)
+        self._api_key_env = api_key_env
 
     def _payload(self, request: ModelRequest) -> dict:
         messages: list[dict] = []

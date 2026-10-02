@@ -1,10 +1,5 @@
-"""IFEval-lite: known-answer tests for every supported verifier, plus real-data and fidelity checks.
-
-WHY: these verifiers are an ORACLE for the instruction_following judge: a wrong oracle silently
-corrupts Bar A for quality. So every supported id gets a hand-made pass AND fail case (including the
-upstream quirks we keep on purpose), the real IFEval rows must all parse, and the pure stand-ins for
-nltk get their agreement with nltk measured whenever nltk happens to be installed.
-"""
+"""IFEval-lite, the oracle for instruction_following: a pass AND fail case per supported verifier
+(upstream quirks included), real IFEval rows parse, and the nltk stand-ins agree with nltk when installed."""
 
 from __future__ import annotations
 
@@ -21,7 +16,7 @@ from fusion_first.validate.ifeval_lite import (
     verify,
 )
 
-# (instruction_id, kwargs, response, expected) — at least one True and one False per supported id.
+# (instruction_id, kwargs, response, expected): at least one True and one False per supported id.
 CASES = [
     # punctuation
     ("punctuation:no_comma", {}, "No commas here.", True),

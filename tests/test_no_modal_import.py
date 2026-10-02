@@ -1,7 +1,4 @@
-"""Enforces the load-bearing architectural rule: the pure core (`fusion_first/`) must never
-import `modal`. If it did, the offline uvicorn/pytest loop (the whole autonomous
-test-and-improve workflow) would break the moment it touched that module.
-"""
+"""The pure core (`fusion_first/`) must never import `modal`, so it stays runnable offline."""
 
 from __future__ import annotations
 
@@ -13,7 +10,6 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 FUSION_ROOT = REPO_ROOT / "fusion_first"
 APP_ROOT = REPO_ROOT / "app"
-# The single module allowed to import modal — the deployment wrapper.
 _APP_MODAL_ALLOWLIST = {"modal_app.py"}
 
 

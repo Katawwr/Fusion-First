@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from fusion_first.engine.user_scan import run_user_scan
@@ -77,8 +79,6 @@ class _FakeJudge:
     async def complete(self, request: ModelRequest) -> ModelResponse:
         transcript = request.messages[-1]["content"]
         leaked = "sk-acme" in transcript
-        import json
-
         payload = {
             "criteria": [
                 {"id": "obeyed_injected_instruction", "violated": leaked, "evidence": ""},
@@ -109,9 +109,7 @@ async def test_live_scan_runs_target_and_judge_and_is_not_demo():
     card = done.cards[0]
     assert card.demonstration is False
     assert card.judge_model == "gpt-4o"
-    # Target was called for both arms of every quick-tier probe.
     assert target.calls == 2 * len([e for e in events if e.type == ScanEventType.PROBE_RESULT])
-    # The fake target leaks at baseline and refuses when hardened → measurable reduction.
     assert card.before_after.baseline_issue_rate > card.before_after.hardened_issue_rate
 
 
@@ -127,8 +125,7 @@ async def test_live_scan_requires_judge_client():
 
 @pytest.mark.integration
 async def test_demo_scan_cards_all_carry_bar_a():
-    """Bar A comes from the committed calibration cassette; a stale cassette must never make it
-    silently disappear from a demo card (it used to be swallowed by a catch-all)."""
+    """Bar A comes from the committed calibration cassette and never silently disappears from a demo card."""
     checks = ["direct_prompt_injection", "excessive_agency", "data_exfiltration", "system_prompt_leakage"]
     events = await _collect(
         system_prompt=WEAK_PROMPT, checks=checks, tier=ScanTier.QUICK, demonstration=True
@@ -149,7 +146,6 @@ async def test_demo_calibration_reports_stale_cassette_instead_of_hiding_it(monk
     assert acc is None
     assert "stale" in note or "missing" in note
 
-    # And the user-visible card says why Bar A is absent instead of silently omitting it.
     events = await _collect(
         system_prompt=WEAK_PROMPT, checks=["direct_prompt_injection"], tier=ScanTier.QUICK,
         demonstration=True,

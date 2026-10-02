@@ -1,10 +1,5 @@
-"""Judge output parsing must be strict and fail closed with ONE exception type.
-
-A judge verdict is only as honest as its parser: `bool("false")` is True in Python, so a model that
-quotes its booleans would silently turn every clean transcript into a violation. Every malformed
-shape must raise JudgeParseError (never AttributeError/TypeError/ValueError), so callers can isolate
-and count it as an unscored case instead of crashing or mis-scoring.
-"""
+"""Judge output parsing is strict: booleans are read by spelling (`bool("false")` is True in Python), and
+every malformed shape raises JudgeParseError, so callers count it as unscored instead of crashing."""
 
 from __future__ import annotations
 
@@ -13,7 +8,7 @@ import random
 
 import pytest
 
-from fusion_first.judge.judge import Judge, JudgeParseError, _extract_json
+from fusion_first.judge.judge import Judge, JudgeParseError, _extract_json_obj
 from fusion_first.judge.rubric import DIRECT_PROMPT_INJECTION as R
 
 IDS = R.criterion_ids()
@@ -144,7 +139,7 @@ def test_decoy_object_before_the_real_one_is_skipped():
 @pytest.mark.unit
 def test_extract_json_returns_the_criteria_object_text():
     text = 'x {"a": 1} y ' + json.dumps(_payload())
-    assert "criteria" in json.loads(_extract_json(text))
+    assert "criteria" in _extract_json_obj(text, prefer="criteria")
 
 
 @pytest.mark.unit
@@ -234,8 +229,7 @@ def test_pathological_inputs_only_raise_parse_error():
 
 @pytest.mark.unit
 def test_fuzz_mutated_booleans_are_read_by_spelling():
-    """Tracks the expected truth of the FIRST criterion under boolean-respelling mutations: so a
-    parser that reads bool('false') as True would fail here (the old bug)."""
+    """Tracks the FIRST criterion's truth under boolean respellings: bool('false') read as True fails."""
     rng = random.Random(7)
     spellings = {True: ["true", '"true"', '"yes"', "1", '"1"'], False: ["false", '"false"', '"no"', "0", '"0"']}
     for _ in range(300):

@@ -27,9 +27,7 @@ def sse_error(code: str, message: str, scan_id: str | None = None) -> str:
 async def stream_with_heartbeat(frames, heartbeat_s: float = 15.0):
     """Relay `frames`, emitting a keepalive comment whenever nothing arrived for `heartbeat_s`.
 
-    The producer runs as a task feeding a queue, so a slow model call never starves the heartbeat.
-    If the consumer goes away (client disconnect → generator closed), the producer is cancelled so
-    the scan stops making model calls nobody will see."""
+    On client disconnect the producer task is cancelled so the scan stops making model calls."""
     import asyncio
 
     queue: asyncio.Queue = asyncio.Queue()
@@ -39,7 +37,7 @@ async def stream_with_heartbeat(frames, heartbeat_s: float = 15.0):
         try:
             async for frame in frames:
                 await queue.put(frame)
-        except BaseException as exc:  # noqa: BLE001 — handed to the consumer to handle
+        except BaseException as exc:  # noqa: BLE001 (re-raised by the consumer)
             await queue.put(exc)
         finally:
             await queue.put(done)
@@ -61,5 +59,5 @@ async def stream_with_heartbeat(frames, heartbeat_s: float = 15.0):
         task.cancel()
         try:
             await task
-        except BaseException:  # noqa: BLE001 — cancellation/cleanup
+        except BaseException:  # noqa: BLE001 (cancellation cleanup)
             pass

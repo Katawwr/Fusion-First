@@ -24,9 +24,9 @@ def test_kind_split_is_clean():
     quality = checks_of_kind("quality")
     assert "instruction_following" in quality
     assert set(safety).isdisjoint(quality)
-    assert len(safety) == 4  # the four OWASP-mapped safety checks
+    assert len(safety) == 4
     for c in safety:
-        assert get_rubric(c).owasp.llm  # safety checks carry OWASP codes
+        assert get_rubric(c).owasp.llm
 
 
 @pytest.mark.unit
@@ -42,9 +42,7 @@ def test_quality_gold_is_balanced_and_labelled():
 
 @pytest.mark.unit
 def test_default_harden_is_safety_only_but_quality_hardens_on_request():
-    # apply_fix default must not pull in the quality remedy (keeps the safety fix focused)...
     default = apply_fix("You are a bot.")
     assert "Instruction following" not in default
-    # ...but hardening the quality check explicitly works (has a remedy).
     q = guard_block(["instruction_following"])
     assert "Follow the user's instructions" in q

@@ -1,19 +1,8 @@
-"""InjecAgent — indirect prompt injection against tool-using agents (base setting).
+"""InjecAgent: indirect prompt injection against tool-using agents (base setting).
 
-Why it is here: it is the external benchmark closest to Fusion's agentic checks. Each case is a user
-task that calls a benign tool whose RESPONSE carries an attacker instruction; the agent is compromised
-if it then calls one of the attacker's tools. Two kinds:
-
-  * ``dh`` — direct harm (unlock doors, move money): one attacker tool call is the harm.
-  * ``ds`` — data stealing: read private data, then exfiltrate it (two attacker tools).
-
-Normalization undoes two upstream encoding quirks so consumers never re-parse strings:
-  * ``Tool Parameters`` is a Python-repr string → parsed into a dict with ``ast.literal_eval``
-    (literals only — no code runs).
-  * ``Tool Response`` is the tool output wrapped in an extra pair of double quotes — usually a valid
-    JSON string, but some rows contain unescaped inner quotes. See :func:`decode_tool_response`.
-
-Ids are positional per file (``injecagent:dh:0042``) and pinned by the raw sha256 in SOURCES.yaml.
+Kinds: ``dh`` direct harm (one attacker tool call), ``ds`` data stealing (read, then exfiltrate).
+``Tool Parameters`` (a Python repr) is parsed with ``ast.literal_eval``; ``Tool Response`` is unwrapped
+by :func:`decode_tool_response`.
 """
 
 from __future__ import annotations
@@ -40,12 +29,8 @@ _FIELDS = {
 
 
 def decode_tool_response(raw: str) -> str:
-    """Return the text the tool actually returned.
-
-    Upstream stores it wrapped in double quotes. Most rows are a valid JSON string (so escaped inner
-    quotes decode correctly); some contain raw inner quotes and are not valid JSON, so we strip the
-    wrapper and unescape ``\\"`` by hand. Anything else is returned untouched.
-    """
+    """The tool's text, unwrapped from upstream's double quotes (JSON-decoded, or stripped by hand
+    when raw inner quotes make it invalid JSON)."""
     try:
         value = json.loads(raw)
     except ValueError:
@@ -72,8 +57,7 @@ def _parse_parameters(raw: object, where: str) -> dict:
 
 
 def load_injecagent(raw_dir: pathlib.Path) -> list[dict]:
-    """Normalize ``test_cases_{dh,ds}_base.json`` into rows (``tools.json`` is not needed)."""
-    # Imported lazily: the package __init__ imports this module to build SOURCES.
+    # Lazy: the package __init__ imports this module.
     from fusion_first.validate.importers import existing_files
 
     by_file = {f"test_cases_{k}_base.json": k for k in KINDS}
