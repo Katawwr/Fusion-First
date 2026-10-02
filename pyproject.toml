@@ -54,7 +54,7 @@ dev = [
     "pytest>=8.0",
     "scipy>=1.13",  # only to cross-check the exact McNemar implementation in tests
     "pytest-asyncio>=0.24",
-    "ruff>=0.6",
+    "ruff~=0.16.10",
 ]
 
 # The pure core lives in `fusion_first/`; the Modal/FastAPI wrappers live in `app/`.

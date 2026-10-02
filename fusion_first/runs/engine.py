@@ -268,9 +268,9 @@ def independence_of(target: str, grader: str) -> tuple[str, str]:
     t = parse_target(target)
     g = parse_grader(grader.replace("_", "-", 1) if grader.startswith(("claude_cli", "ollama_")) else grader)
     if g.external:
-        return ("host_unverified", "Graded by the calling agent; Fusion can't verify which model that is. If "
+        return ("host_unverified", ("Graded by the calling agent; Fusion can't verify which model that is. If "
                 "it is from the same family as the target, self-preference bias can't be excluded. Its "
-                "accuracy is measured on known-answer questions in this run.")
+                "accuracy is measured on known-answer questions in this run."))
     from fusion_first.backends.resolve import OPAQUE_BACKENDS
 
     g_model = g.model
@@ -283,15 +283,15 @@ def independence_of(target: str, grader: str) -> tuple[str, str]:
         gt = parse_target(g.model or "")
         g_backend, g_model = gt.backend, gt.model
     if t.backend in OPAQUE_BACKENDS or g_backend in OPAQUE_BACKENDS:
-        return ("unknown", "Fusion can't tell which model a command or Python function runs, so the grader's "
+        return ("unknown", ("Fusion can't tell which model a command or Python function runs, so the grader's "
                 "independence from the target is unknown. Its accuracy is measured on known-answer questions "
-                "in this run.")
+                "in this run."))
     if g_backend == t.backend and (g_model or "") == t.model:
-        return ("same_model", f"The target ({t.model}) grades its own answers: self-preference bias is likely; "
-                "treat grades as weak evidence.")
+        return ("same_model", (f"The target ({t.model}) grades its own answers: self-preference bias is likely; "
+                "treat grades as weak evidence."))
     if _family(g_backend, g_model) == _family(t.backend, t.model):
-        return ("same_family_cross_tier", f"Grader {g_model} and target {t.model} are the same model family; "
-                "self-preference bias can't be fully excluded.")
+        return ("same_family_cross_tier", (f"Grader {g_model} and target {t.model} are the same model family; "
+                "self-preference bias can't be fully excluded."))
     return ("cross_family", f"Grader {g_model} and target {t.model} are from different model families.")
 
 
@@ -683,9 +683,9 @@ def _in_run_accuracy(judge_client, plan: RunPlan):
             return None, "", (f"The grader left {skipped} known-answer question(s) unanswered, so its "
                               "accuracy was not measured."), ""
         return (outcome.result, outcome.gold_version, "",
-                f"measured in this run on {outcome.result.n} known-answer cases from Fusion's public gold "
+                (f"measured in this run on {outcome.result.n} known-answer cases from Fusion's public gold "
                 "set (distinguishable from the run's own questions: a check on an honest grader, not "
-                "proof against a gaming one)")
+                "proof against a gaming one)"))
 
     return provider
 
