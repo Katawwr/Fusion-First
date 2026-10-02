@@ -134,8 +134,9 @@ appends it idempotently. The branded, theme-aware HTML card lives in `fusion_fir
   `modal deploy` if the accuracy gate is red. The **PostToolUse hook** lints edited Python.
 - Model IDs live only in `fusion_first/model/models.yaml`; reference models by **role**, never hardcode
   IDs in logic. Default judge role → `claude-sonnet-5`; calibration/escalation → `claude-opus-4-8`.
-- Security posture is load-bearing: keys server-side only, per-user budgets/allowlist, fail-closed
-  webhooks. Never reintroduce the deleted `/api/debug/*` endpoints or `modal.Dict` money state.
+- Security posture is load-bearing: keys server-side only, per-run budgets and a model allowlist. No accounts or
+  billing: never reintroduce the deleted `/api/debug/*`, `/api/me`, `/api/credits` or billing-webhook endpoints,
+  or `modal.Dict` money state.
 - **Zero spend.** Real model calls go only through the `claude` CLI on subscription auth or local
   Ollama. Never set API keys; never run `claude auth login|logout|setup-token` (not even `--help`) —
   they can change the CLI's login and are denied in `.claude/settings.json`. `claude auth status` is

@@ -25,12 +25,6 @@ class Settings(BaseSettings):
     prompt_max_chars: int = 32_000
     sse_heartbeat_s: float = 15.0  # keepalive comment interval for long live scans
 
-    # Reported by /api/credits; not enforced (no accounts).
-    free_scans_per_day: int = 3
-
-    # Fail-closed webhook signature (the webhook has no effect; the signature gate is real).
-    webhook_secret: str | None = None
-
     # Surfaced by /api/version for provenance: VERSION (the Modal deploy sets the git sha), else the release.
     version: str = __version__
 

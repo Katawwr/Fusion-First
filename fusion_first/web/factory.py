@@ -12,9 +12,9 @@ import os
 import uuid
 from collections.abc import AsyncIterator
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from fusion_first.attacks.taxonomy import Crosswalk
 from fusion_first.engine.fixes import apply_fix, guard_block
@@ -22,7 +22,6 @@ from fusion_first.engine.report_html import render_dashboard_html
 from fusion_first.engine.user_scan import run_user_scan
 from fusion_first.judge.rubric import REGISTRY, checks_of_kind
 from fusion_first.schemas import ScanEvent, ScanEventType, ScanResult, ScanTier
-from fusion_first.security.webhook import verify_signature
 from fusion_first.web.clients import (
     LiveUnavailable,
     build_scan_kwargs,
@@ -174,19 +173,6 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
             "backends": b,
         }
 
-    @app.get("/api/me")
-    def me():
-        # No accounts: every caller is anonymous.
-        return {"authenticated": False}
-
-    @app.get("/api/credits")
-    def credits():
-        return {
-            "mode": "demo",
-            "free_scans_per_day": settings.free_scans_per_day,
-            "note": "billing not enforced during beta",
-        }
-
     # ----------------------------------------------------------------- scan
 
     @app.post("/api/scan")
@@ -278,16 +264,5 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
             )
         except FusionLiveUnavailable as e:
             raise HTTPException(402, str(e)) from e
-
-    # ----------------------------------------------------------------- webhooks (stubbed effect)
-
-    @app.post("/api/webhooks/billing")
-    async def billing_webhook(request: Request):
-        body = await request.body()
-        signature = request.headers.get("x-signature")
-        if not verify_signature(body, signature, settings.webhook_secret):
-            raise HTTPException(401, "invalid or missing webhook signature")
-        # Signature is real and fail-closed; the billing effect is intentionally a no-op in beta.
-        return JSONResponse({"received": True, "applied": False})
 
     return app

@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
-
 import pytest
 
 from fusion_first.model.client import ModelRequest, ModelResponse, ModelRole
@@ -13,11 +10,6 @@ from fusion_first.security.budget import (
     ModelNotAllowed,
 )
 from fusion_first.security.redaction import contains_secret, redact, redact_mapping
-from fusion_first.security.webhook import (
-    WebhookVerificationError,
-    require_valid_signature,
-    verify_signature,
-)
 
 # ------------------------------- redaction -------------------------------
 
@@ -88,37 +80,6 @@ def test_secret_checks_are_fast_on_pathological_text():
     assert time.perf_counter() - t < 0.5
     assert contains_secret_strict("token=abc123") and contains_secret_strict("x eyJa.b.c y")
     assert not contains_secret_strict("password: click the link")
-
-
-# ------------------------------- webhook (fail closed) -------------------------------
-
-
-def _sign(payload: bytes, secret: str) -> str:
-    return hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-
-
-@pytest.mark.unit
-def test_webhook_valid_signature_passes():
-    payload = b'{"event":"subscription_created"}'
-    secret = "whsec_test"
-    assert verify_signature(payload, _sign(payload, secret), secret) is True
-    assert verify_signature(payload, "sha256=" + _sign(payload, secret), secret) is True
-
-
-@pytest.mark.unit
-def test_webhook_fails_closed_when_secret_missing():
-    payload = b"{}"
-    # The legacy bug: no secret -> allowed. Must now be rejected.
-    assert verify_signature(payload, "anything", None) is False
-    assert verify_signature(payload, "anything", "") is False
-
-
-@pytest.mark.unit
-def test_webhook_rejects_forged_signature():
-    payload = b'{"event":"forged"}'
-    assert verify_signature(payload, "deadbeef", "whsec_test") is False
-    with pytest.raises(WebhookVerificationError):
-        require_valid_signature(payload, "deadbeef", "whsec_test")
 
 
 # ------------------------------- budget / circuit breaker -------------------------------

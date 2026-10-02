@@ -219,10 +219,10 @@ def test_oversized_prompt_is_413(client):
     assert r.status_code == 413
 
 
-@pytest.mark.integration
-def test_webhook_rejects_unsigned(client):
-    r = client.post("/api/webhooks/billing", content=b"{}")
-    assert r.status_code == 401
+@pytest.mark.unit
+def test_the_retired_account_and_billing_endpoints_are_gone(client):
+    for method, path in (("get", "/api/me"), ("get", "/api/credits"), ("post", "/api/webhooks/billing")):
+        assert getattr(client, method)(path).status_code in (404, 405)
 
 
 @pytest.mark.unit
