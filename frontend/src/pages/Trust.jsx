@@ -358,7 +358,7 @@ export default function Trust() {
               ])}
             />
             <p className="mt-3 text-xs text-app-subtle">
-              Held-out tool calls, scored once{guard[0]?.rules ? ` (rules ${guard[0].rules})` : ""}. Defense in depth, not a
+              Held-out tool calls, scored once. Defense in depth, not a
               sandbox.
             </p>
           </>

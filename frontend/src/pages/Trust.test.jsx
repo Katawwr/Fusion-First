@@ -90,9 +90,8 @@ describe("Trust page", () => {
     const labels = screen.getAllByRole("img").map((el) => el.getAttribute("aria-label") || "");
     expect(labels.some((l) => /by attack type/i.test(l))).toBe(false);
     expect(screen.queryByText(/SUPERSEDED/)).toBeNull();
-    for (const g of evidence.guard_heldout) {
-      if (g.rules) expect(screen.getByText((t) => t.includes(`scored once (rules ${g.rules})`))).toBeInTheDocument();
-    }
+    expect(screen.getByText(/Held-out tool calls, scored once\. Defense/)).toBeInTheDocument();
+    expect(screen.queryByText(/scored once \(rules/)).toBeNull();
     expect(evidence.guard_heldout.length).toBeLessThanOrEqual(1);
   });
 

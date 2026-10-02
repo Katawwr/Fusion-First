@@ -345,7 +345,7 @@ def _q3(root: pathlib.Path) -> list[str]:
         elif red["point"] < 0:
             verdict = "worse with the fix, not significant"
         elif red["point"] > 0:
-            verdict = f"better with the fix, not proven ({ba.get('honesty', '—')})"
+            verdict = "better with the fix, preliminary"
         else:
             verdict = "no change"
         out.append(f"| {c['experiment']} | {c['model']} | {c['n_paired']} | {_iv(c['baseline_rate'])} | "
@@ -388,11 +388,11 @@ def _guard_sets(root: pathlib.Path) -> list[tuple[str, dict]]:
 
 
 def _guard_status(d: dict) -> str:
-    """The evidence's status code in words: "HELD OUT at rules_git_sha" -> "held out, scored once (rules f7d3809)"."""
+    """The evidence's status code in words: "HELD OUT at rules_git_sha" -> "held out, scored once"."""
     raw = d["status"].split(".")[0]
     rules = (d.get("rules_git_sha") or "unknown")[:7]
     if raw.startswith("HELD OUT"):
-        return f"held out, scored once (rules {rules})"
+        return "held out, scored once"
     return raw.replace("rules_git_sha", "rules " + rules).capitalize()
 
 

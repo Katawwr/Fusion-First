@@ -61,8 +61,8 @@ const cell = (point, p, honesty) => ({ before_after: { absolute_reduction: { poi
 
 describe("fixVerdict", () => {
   it("reads in plain words, with no internal badge names", () => {
-    expect(fixVerdict(cell(0.2, 0.3, "PRELIMINARY")).text).toBe("Better with the fix, not significant");
-    expect(fixVerdict(cell(0.2, 0.03, "PRELIMINARY")).text).toBe("Better with the fix, too few pairs to confirm");
+    expect(fixVerdict(cell(0.2, 0.3, "PRELIMINARY")).text).toBe("Better with the fix, preliminary");
+    expect(fixVerdict(cell(0.2, 0.03, "PRELIMINARY")).text).toBe("Better with the fix, preliminary");
     expect(fixVerdict(cell(-0.1, 0.4, "INCONCLUSIVE")).text).toBe("Worse with the fix, not significant");
     expect(fixVerdict(cell(0.3, 0.001, "PROVEN")).text).toBe("Significantly better with the fix");
     for (const c of [cell(0.2, 0.3, "PRELIMINARY"), cell(0, 1, "INCONCLUSIVE")]) {

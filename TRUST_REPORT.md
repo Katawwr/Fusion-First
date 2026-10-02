@@ -59,9 +59,9 @@ The prompt as written vs with Fusion's fix, on local models (gemma3:1b, llama3.2
 | Experiment | Model | Pairs | As written | With fix | Paired test | What it shows |
 |---|---|---|---|---|---|---|
 | injecagent | llama3.2:1b | 30 | 17% (7%–34%) | 33% (19%–51%) | McNemar p=0.125 | worse with the fix, not significant |
-| injecagent | qwen2.5:1.5b | 30 | 10% (3%–26%) | 0% (0%–11%) | McNemar p=0.250 | better with the fix, not proven (PRELIMINARY) |
-| injecagent | gemma3:1b | 30 | 63% (46%–78%) | 43% (27%–61%) | McNemar p=0.146 | better with the fix, not proven (PRELIMINARY) |
-| injecagent | qwen2.5:3b | 30 | 23% (12%–41%) | 13% (5%–30%) | McNemar p=0.453 | better with the fix, not proven (PRELIMINARY) |
+| injecagent | qwen2.5:1.5b | 30 | 10% (3%–26%) | 0% (0%–11%) | McNemar p=0.250 | better with the fix, preliminary |
+| injecagent | gemma3:1b | 30 | 63% (46%–78%) | 43% (27%–61%) | McNemar p=0.146 | better with the fix, preliminary |
+| injecagent | qwen2.5:3b | 30 | 23% (12%–41%) | 13% (5%–30%) | McNemar p=0.453 | better with the fix, preliminary |
 | gandalf | llama3.2:1b | 30 | 20% (10%–37%) | 20% (10%–37%) | McNemar p=1.000 | no change |
 | gandalf | qwen2.5:1.5b | 30 | 33% (19%–51%) | 37% (22%–54%) | McNemar p=1.000 | worse with the fix, not significant |
 | gandalf | gemma3:1b | 30 | 17% (7%–34%) | 17% (7%–34%) | McNemar p=1.000 | no change |
@@ -70,9 +70,9 @@ The prompt as written vs with Fusion's fix, on local models (gemma3:1b, llama3.2
 | xstest | qwen2.5:1.5b | 30 | 17% (7%–34%) | 17% (7%–34%) | McNemar p=1.000 | no change |
 | xstest | gemma3:1b | 30 | 3% (1%–17%) | 20% (10%–37%) | McNemar p=0.062 | worse with the fix, not significant |
 | xstest | qwen2.5:3b | 30 | 3% (1%–17%) | 17% (7%–34%) | McNemar p=0.219 | worse with the fix, not significant |
-| ifeval | llama3.2:1b | 24 | 67% (47%–82%) | 62% (43%–79%) | McNemar p=1.000 | better with the fix, not proven (PRELIMINARY) |
-| ifeval | qwen2.5:1.5b | 14 | 71% (45%–88%) | 64% (39%–84%) | McNemar p=1.000 | better with the fix, not proven (PRELIMINARY) |
-| ifeval | gemma3:1b | 18 | 61% (39%–80%) | 39% (20%–61%) | McNemar p=0.125 | better with the fix, not proven (PRELIMINARY) |
+| ifeval | llama3.2:1b | 24 | 67% (47%–82%) | 62% (43%–79%) | McNemar p=1.000 | better with the fix, preliminary |
+| ifeval | qwen2.5:1.5b | 14 | 71% (45%–88%) | 64% (39%–84%) | McNemar p=1.000 | better with the fix, preliminary |
+| ifeval | gemma3:1b | 18 | 61% (39%–80%) | 39% (20%–61%) | McNemar p=0.125 | better with the fix, preliminary |
 | ifeval | qwen2.5:3b | 18 | 39% (20%–61%) | 44% (25%–66%) | McNemar p=1.000 | worse with the fix, not significant |
 
 Significant regressions: xstest on llama3.2:1b. Proven improvements: gandalf on qwen2.5:3b.
@@ -159,7 +159,7 @@ Tool calls written by independent agents **blind to the rules**, scored once.
 
 | Set | benign n | Prompted (over-block) | attack n | Caught (recall) | Status |
 |---|---|---|---|---|---|
-| v3 | 100 | 5% (2%–11%) | 70 | 76% (64%–84%) | held out, scored once (rules f7d3809) |
+| v3 | 100 | 5% (2%–11%) | 70 | 76% (64%–84%) | held out, scored once |
 
 Pattern rules catch the common exfiltration / destruction / remote-code shapes and miss much of the long tail; treat the hook as defense in depth, not a sandbox.
 

@@ -21,8 +21,7 @@ export function fixVerdict(cell) {
   if (point < 0 && p < 0.05) return { text: "Significantly worse with the fix", tone: "danger" };
   if (point > 0 && ba.honesty === "PROVEN") return { text: "Significantly better with the fix", tone: "ok" };
   if (point < 0) return { text: "Worse with the fix, not significant", tone: "warn" };
-  // Not "significant" either way: a small sample can reach p < 0.05 without enough pairs to confirm it.
-  if (point > 0) return { text: p < 0.05 ? "Better with the fix, too few pairs to confirm" : "Better with the fix, not significant", tone: "muted" };
+  if (point > 0) return { text: "Better with the fix, preliminary", tone: "muted" };
   return { text: "No change", tone: "muted" };
 }
 

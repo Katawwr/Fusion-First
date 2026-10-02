@@ -1122,7 +1122,7 @@
       "recall_sensitivity": null,
       "rules": "f7d3809",
       "set": "v3",
-      "status": "held out, scored once (rules f7d3809)"
+      "status": "held out, scored once"
     }
   ],
   "judge_accuracy": [
