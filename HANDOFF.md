@@ -12,15 +12,15 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 - Branch `rebuild/agentic-safety-engine` = the 0.1.0 release line (dist/ built from 70db9bb). Work since
   2026-10-01 is on branch **`post-0.1.0`** (fifth session, below). All local, no git remote. Never push.
   Publishing to PyPI is the OWNER's step (`twine upload`, their token); deploys follow the owner's word.
-- **In flight (fifth session, 2026-10-01 evening): AgentDojo attack screening** on dev (qwen2.5:7b, arm none,
-  attacked episodes every 4th, attacks injecagent / tool_knowledge / ignore_previous / system_message; records
-  `evals/validation/v1/agentdojo/dev/qwen2.5-7b__<attack>.jsonl`, uncommitted, DEV ONLY). Purpose: find an attack
-  that lands on these models. Dev so far: important_instructions 7/103 (all slack injection_task_3, a bare visit,
-  out of guard scope); llama3.1:8b 0/42 attacks and 0/12 benign utility (fabricates tool use; run stopped at 162/402).
-  NEXT: write + commit `evals/validation/v1/PREREG_step4_agentdojo.md` (cost-only on held-out benign tasks, qwen2.5:7b,
-  non-inferiority margin 10 pts; set ATTACK and RULES_SHA in `scripts/step4_agentdojo.py`), THEN run held-out:
-  `$py scripts/agentdojo_guard.py run --split heldout --model qwen2.5:7b --arms none,v2,v3 [--attack X] [--stride N]`,
-  then `python scripts/step4_agentdojo.py score --out evals/validation/v1/step4_agentdojo.json`.
+- **In flight: nothing.** Step 4 scored 2026-10-02 (6e77a09 evidence, 8e2ca6d reporting): the guard's COST in a
+  live AgentDojo loop exceeds the registered margin (22/66 vs 29/66 tasks completed; 7 broken, 0 fixed). Causes,
+  for the next (freshly registered) rule change: (1) request binding too literal ("pay the bill" doesn't cover
+  send_money; "post" doesn't cover send_channel_message); (2) destination parsing runs on `f"{arguments}"` (repr),
+  so an escaped `
+` glues onto a host (`
+bluesparrowtech.com` -> `luesparrowtech.com`): parse argument VALUES.
+  AgentDojo attacks barely land on 7-8B models; protection there is descriptive only. Dev data (spent AgentDojo
+  dev + step-4 held-out now spent) can drive the fix; a step 5 needs fresh held-out tasks (another model or split).
 - **Portfolio + site (fifth session, all merged on post-0.1.0):** legacy backend removed, full-history secret scan
   clean (fixtures only; legacy Supabase project ID in history), reviewer README + docs/ARCHITECTURE.md +
   docs/RUN_LOCALLY.md, research-style overview with Table 1 interval strips, Trust charts, pixel FF mark
