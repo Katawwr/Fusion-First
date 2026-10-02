@@ -1,13 +1,8 @@
-"""The user's gate config is validated (typos fail closed) and the pre-deploy hook fails closed."""
+"""The user's gate config is validated: typos fail closed."""
 
 from __future__ import annotations
 
-import io
-import json
 import pathlib
-import runpy
-import subprocess
-import types
 
 import pytest
 import yaml
@@ -41,31 +36,3 @@ def test_malformed_policy_fails_closed(tmp_path, data, match):
     path.write_text(yaml.safe_dump(data), encoding="utf-8")
     with pytest.raises(PolicyError, match=match):
         load_policy("excessive_agency", path)
-
-
-def _run_gate(monkeypatch, command: str, run):
-    mod = runpy.run_path(str(ROOT / "scripts/hooks/pre_deploy_gate.py"), run_name="gate")
-    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"tool_input": {"command": command}})))
-    monkeypatch.setattr(subprocess, "run", run)
-    return mod["main"]()
-
-
-@pytest.mark.unit
-def test_deploy_gate(monkeypatch):
-    calls = []
-
-    def green(cmd, **kw):
-        calls.append(cmd)
-        return types.SimpleNamespace(returncode=0, stdout="[eval:PASS] a\n[eval:PASS] b\n")
-
-    def red(cmd, **kw):
-        return types.SimpleNamespace(returncode=1, stdout="[eval:FAIL] a\n")
-
-    def broken(cmd, **kw):
-        raise subprocess.TimeoutExpired(cmd, 180)
-
-    assert _run_gate(monkeypatch, "ls -la", broken) == 0  # not a deploy: untouched
-    assert _run_gate(monkeypatch, "modal deploy app/modal_app.py", green) == 0
-    assert calls[0][-2:] == ["--check", "all"]  # every check is gated
-    assert _run_gate(monkeypatch, "modal deploy app/modal_app.py", red) == 2
-    assert _run_gate(monkeypatch, "modal deploy app/modal_app.py", broken) == 2  # fail closed

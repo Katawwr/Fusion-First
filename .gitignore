@@ -63,3 +63,16 @@ datasets/external/raw/
 # Claude Code agent worktrees (harness-managed)
 .claude/worktrees/
 
+
+# Local Claude Code working files: agent settings and session hooks, the coding-agent guide, session handoff
+# notes, plans and browser-tool output. Kept on disk, never committed.
+.claude/
+CLAUDE.md
+HANDOFF.md
+scripts/hooks/
+tests/test_context_handoff_hook.py
+.superpowers/
+.playwright-mcp/
+frontend/e2e/screenshots*/
+frontend/test-results/
+frontend/playwright-report/

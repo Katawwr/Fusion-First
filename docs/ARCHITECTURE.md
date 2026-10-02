@@ -212,5 +212,3 @@ Offline cards come from a deterministic stand-in judge over committed cassettes.
   app, and nothing dev-only.
 - `.github/workflows/ci.yml`: ruff, pytest, the accuracy gate, Trust Report freshness, frontend
   lint/vitest/build, and Playwright E2E against `fusion serve`.
-- Claude Code hooks (`scripts/hooks/`): lint on edit, unit tests and the gate on stop, and
-  `modal deploy` blocked while the gate is red.

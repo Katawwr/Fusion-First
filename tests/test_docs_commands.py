@@ -11,7 +11,7 @@ import pytest
 from fusion_first.cli import build_parser
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-DOCS = ["README.md", "PYPI.md", "CLAUDE.md", "integrations/README.md", "plugins/fusion/README.md",
+DOCS = ["README.md", "PYPI.md", "integrations/README.md", "plugins/fusion/README.md",
         "plugins/fusion-guard/README.md", "docs/ARCHITECTURE.md", "docs/RUN_LOCALLY.md"]
 
 

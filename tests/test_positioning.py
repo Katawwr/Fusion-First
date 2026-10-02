@@ -39,6 +39,7 @@ def test_the_ci_hint_offers_the_guardrail_before_the_fix():
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(not (ROOT / "CLAUDE.md").exists(), reason="the coding-agent guide is local, not in the repository")
 def test_the_project_guide_names_the_guardrail_and_the_optional_fix():
     intro = _intro("CLAUDE.md")
     assert "runtime guardrail" in intro

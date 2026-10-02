@@ -251,7 +251,7 @@ app/                Modal deployment wrapper
 frontend/           React app, vitest + Playwright
 plugins/            Claude Code plugins: fusion, fusion-guard
 datasets/ cassettes/ crosswalk/ evals/    corpora, recordings, OWASP mapping, evidence
-scripts/            evidence pipelines, guard experiments, hooks
+scripts/            evidence pipelines, guard experiments
 tests/              offline pytest suite
 ```
 
@@ -263,5 +263,3 @@ python -m ruff check fusion_first tests scripts app setup.py
 python -m fusion_first.validate.trust_report
 npm --prefix frontend run build && npm --prefix frontend run test:e2e
 ```
-
-Project guide for contributors and coding agents: `CLAUDE.md`.
