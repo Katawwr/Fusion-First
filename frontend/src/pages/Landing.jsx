@@ -6,7 +6,7 @@ import evidence from "../content/evidence.json";
 import { Doc, DocHeader, DocSection, IntervalStrip } from "../components/doc";
 import RunLocally from "../components/doc/RunLocally";
 import { interval, points } from "../lib/evidence";
-import { findings, limitations, resultGroups } from "../lib/overview";
+import { findings, headlineStats, limitations, resultGroups } from "../lib/overview";
 
 // The overview reads like a paper's abstract and results table. Every number is rendered from the
 // generated evidence (content/evidence.json); the page source carries none.
@@ -73,7 +73,31 @@ export function ResultsTable({ groups }) {
   );
 }
 
+// The guard's pre-registered result, large: the first thing a reader sees after the abstract.
+function HeadlineStats({ stats, models }) {
+  if (!stats.length) return null;
+  return (
+    <figure className="headline-stats">
+      <dl>
+        {stats.map((s) => (
+          <div key={s.label} className={s.muted ? "headline-stat headline-stat--muted" : "headline-stat"}>
+            <dt>{s.label}</dt>
+            <dd>
+              <span className="headline-value">{s.value}</span>
+              <span className="headline-note">{s.note}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <figcaption>
+        Pre-registered, scored once on fresh attacks against {models?.join(" and ")}. <Link to="/trust">Evidence</Link>
+      </figcaption>
+    </figure>
+  );
+}
+
 export default function Landing() {
+  const stats = headlineStats(evidence);
   const groups = resultGroups(evidence);
   const facts = findings(evidence);
   const limits = limitations(evidence);
@@ -139,6 +163,7 @@ export default function Landing() {
               <ArrowRight size={15} aria-hidden />
             </Link>
           </div>
+          <HeadlineStats stats={stats} models={evidence.step2_guard?.models} />
         </DocHeader>
 
         <DocSection id="method" title="Method">

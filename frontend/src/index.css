@@ -684,3 +684,53 @@ a.text-link {
 .nav-active {
   color: var(--accent-ink);
 }
+
+/* Overview: the headline result, large (owner: the guard's result should be obvious). */
+.headline-stats {
+  margin: 2.25rem 0 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.headline-stats dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1.25rem 1.75rem;
+  margin: 0;
+}
+.headline-stat {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.35rem;
+}
+.headline-stat dt {
+  font-size: 0.875rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+.headline-stat dd {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.headline-value {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2.25rem, 6vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--accent-ink);
+}
+.headline-stat--muted .headline-value {
+  color: var(--subtle);
+}
+.headline-note {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--subtle);
+}
+.headline-stats figcaption {
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+  color: var(--subtle);
+}

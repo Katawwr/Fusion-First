@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import evidence from "../content/evidence.json";
-import { findings, limitations, resultGroups } from "./overview";
+import { findings, headlineStats, limitations, resultGroups } from "./overview";
 
 describe("resultGroups", () => {
   const groups = resultGroups(evidence);
@@ -71,5 +71,20 @@ describe("findings and limitations", () => {
     const text = limitations(evidence).join(" ");
     for (const m of evidence.step2_guard.models) expect(text).toContain(m);
     expect(text).toMatch(/not a sandbox/);
+  });
+});
+
+describe("headlineStats", () => {
+  it("leads with the guard against Llama Guard 3, every figure from the evidence", () => {
+    const stats = headlineStats(evidence);
+    const s2 = evidence.step2_guard.systems;
+    expect(stats[0].value).toBe(`${Math.round(s2.fusion.recall.point * 100)}%`);
+    expect(stats[1].value).toBe(`${Math.round(s2.llama_guard_b.recall.point * 100)}%`);
+    expect(stats.map((x) => x.label).join(" ")).toMatch(/Llama Guard 3/);
+    for (const x of stats) expect(x.value).toMatch(/^\d+%$/);
+  });
+
+  it("claims nothing without adopted evidence", () => {
+    expect(headlineStats({})).toEqual([]);
   });
 });

@@ -154,6 +154,26 @@ export function fixModels(ev) {
   return [...new Set((ev.fix_efficacy || []).map((c) => c.model))].sort();
 }
 
+// The overview's headline figures: the guard's pre-registered results, read from the evidence (never typed in).
+export function headlineStats(ev) {
+  const s2 = ev.step2_guard;
+  if (s2?.decision?.new_rules !== "adopted") return [];
+  const f = s2.systems.fusion;
+  const lg = s2.systems.llama_guard_b;
+  const pc = (x) => `${Math.round(x * 100)}%`;
+  const out = [
+    { value: pc(f.recall.point), label: "of real attacks stopped by the guard", note: count(f.stopped, f.attacks) },
+    { value: pc(lg.recall.point), label: "stopped by Llama Guard 3 on the same attacks", note: count(lg.stopped, lg.attacks), muted: true },
+    { value: pc(f.over_block.point), label: "of clean transcripts wrongly blocked", note: count(f.blocked, f.clean) },
+  ];
+  const s3 = ev.step3_guard;
+  if (s3?.decision === "adopted") {
+    const ds = s3.arms.v3.data_stealing;
+    out.push({ value: pc(ds.recall.point), label: "of data-stealing hijacks stopped, given the tool results", note: count(ds.stopped, ds.attacks) });
+  }
+  return out;
+}
+
 // What the table cannot show: the verdicts behind its rows. Numbers stay in the table.
 export function findings(ev) {
   const out = [];
