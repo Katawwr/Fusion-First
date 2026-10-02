@@ -8,7 +8,7 @@ Fail-closed rules:
   * Each metric is checked against its OWN denominator (`n_path`/`min_n` per metric), because a rate
     rests on its denominator, not on the total n.
   * The scanner blanks only the exact registered claim spans, then re-scans the rest of the text, in
-    single lines AND two-line windows — a registered claim can't shelter a second, unbacked number.
+    single lines AND two-line windows: a registered claim can't shelter a second, unbacked number.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ SCANNED_GLOBS = (
 )
 
 _PCT = r"\d{1,3}(?:\.\d+)?\s*(?:%|percent\b)"
-_SEP = r"[\s,:;()\-–—·/]+"
+_SEP = r"[\s,:;()\-–, ·/]+"
 _VOCAB = (
     r"(?:got\s+through|injections?|data[- ]?leaks?|exfil\w*|recall|over[- ]?blocks?|landed|"
     r"attacks?|precision|accuracy|reduction|jailbreaks?|blocked|caught|detect\w*|success\w*|"
@@ -125,7 +125,7 @@ def check_claim(claim: dict, root: pathlib.Path) -> list[ClaimProblem]:
 
     if not claim.get("demonstration_ok", False) and evidence.get("demonstration") is not False:
         problems.append(ClaimProblem(
-            cid, "evidence does not declare \"demonstration\": false — stand-in/demo numbers are not claims"
+            cid, "evidence does not declare \"demonstration\": false: stand-in/demo numbers are not claims"
         ))
     for dotted, spec in (claim.get("metrics") or {}).items():
         expected = spec.get("value") if isinstance(spec, dict) else spec

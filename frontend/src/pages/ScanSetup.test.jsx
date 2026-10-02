@@ -21,7 +21,7 @@ import Scan from "./Scan";
 
 const LOCAL = {
   demo: true, local_backends_enabled: true, cli: false,
-  cli_reason: "the `claude` CLI is not logged in — run `claude auth login`",
+  cli_reason: "the `claude` CLI is not logged in: run `claude auth login`",
   ollama: true, ollama_models: ["llama3.2:1b"], graders: [], hosted_providers: [], hosted_keys: [],
   spend_opt_in: false, api: false,
 };

@@ -1,7 +1,7 @@
 """promptfoo interop: Fusion's keyless checks as promptfoo assertions, and honest statistics on
 promptfoo results.
 
-1. ASSERTIONS (deterministic, no model, no key) — in promptfooconfig.yaml:
+1. ASSERTIONS (deterministic, no model, no key): in promptfooconfig.yaml:
 
      defaultTest:
        assert:
@@ -16,7 +16,7 @@ promptfoo results.
    fusion_system_prompt) or the assertion `config`. Each returns promptfoo's GradingResult shape:
    {pass, score, reason, componentResults}.
 
-2. IMPORT — `fusion import-promptfoo results.json`: pass rates per prompt with Wilson intervals,
+2. IMPORT: `fusion import-promptfoo results.json`: pass rates per prompt with Wilson intervals,
    and when two prompts ran the same tests, a paired McNemar comparison with Fusion's honesty badge
    (PROVEN / PRELIMINARY / INCONCLUSIVE) instead of a bare difference of percentages.
 """
@@ -67,7 +67,7 @@ def guard_output(output, context=None) -> dict:
 
 def guard_tool_calls(output, context=None) -> dict:
     """Fail when a tool call in the output (ACTION: {json}) is consequential and goes to an
-    external destination or ships a secret — Fusion's tool-call policy."""
+    external destination or ships a secret: Fusion's tool-call policy."""
     from fusion_first.attacks.agentic import extract_tool_calls
     from fusion_first.guardrail.guard import Guardrail
     from fusion_first.guardrail.policy import Decision, GuardConfig

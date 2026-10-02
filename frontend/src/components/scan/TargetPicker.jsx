@@ -157,18 +157,20 @@ export default function TargetPicker({
                 <span style={{ display: "block", fontSize: "0.9375rem", fontWeight: 600, color: "var(--text)" }}>
                   {opt.title}
                 </span>
-                <span
-                  style={{
-                    display: "block",
-                    marginTop: "0.1rem",
-                    fontSize: "0.8125rem",
-                    color: "var(--muted)",
-                    lineHeight: 1.5,
-                    overflowWrap: "anywhere",
-                  }}
-                >
-                  {opt.note}
-                </span>
+                {opt.note && (
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: "0.1rem",
+                      fontSize: "0.8125rem",
+                      color: "var(--muted)",
+                      lineHeight: 1.5,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {opt.note}
+                  </span>
+                )}
               </span>
             </button>
 

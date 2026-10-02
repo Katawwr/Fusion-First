@@ -1,5 +1,5 @@
 """Prove the runtime guardrail works: apply it to recorded ATTACK trajectories and measure how far
-it drops the issue rate — with no change to the agent's prompt. This isolates the SDK's effect
+it drops the issue rate: with no change to the agent's prompt. This isolates the SDK's effect
 (distinct from prompt hardening): output leaks get blocked/redacted, unsafe/external tool calls get
 blocked. Uses the offline detector to score issues, so it runs deterministically without keys.
 """

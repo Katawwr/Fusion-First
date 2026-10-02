@@ -1,4 +1,4 @@
-"""Offline tests for the adaptive red-teamer (fake attacker/target/judge — deterministic)."""
+"""Offline tests for the adaptive red-teamer (fake attacker/target/judge: deterministic)."""
 
 from __future__ import annotations
 

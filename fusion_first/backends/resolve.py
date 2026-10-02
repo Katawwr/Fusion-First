@@ -1,4 +1,4 @@
-"""One place that turns a target/grader SPEC string into a client — and reports what is available.
+"""One place that turns a target/grader SPEC string into a client: and reports what is available.
 
 Specs are plain strings so they read the same on the CLI, in MCP tool calls and in CI config:
 
@@ -121,7 +121,7 @@ def _split(spec: str, prefixes: dict[str, str]) -> tuple[str | None, str]:
 
 
 def _parse_open(spec: str) -> TargetSpec | None:
-    """Provider presets, anthropic:, cmd: and python: — or None for the other spec forms."""
+    """Provider presets, anthropic:, cmd: and python:: or None for the other spec forms."""
     from fusion_first.backends.presets import ALIASES, PROVIDERS
 
     head, sep, rest = spec.partition(":")
@@ -215,7 +215,7 @@ def parse_grader(spec: str) -> GraderSpec:
 
 
 def _cli_preflight() -> None:
-    """Fail in seconds — before any collect — if the claude CLI isn't usable on subscription auth.
+    """Fail in seconds, before any collect, if the claude CLI isn't usable on subscription auth.
     (`claude auth status` is local; no model call. The provider re-checks before every call.)"""
     import shutil
 
@@ -256,7 +256,7 @@ def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: floa
         from fusion_first.model.providers.ollama import OllamaModelClient, ollama_available
 
         if not ollama_available():
-            raise BackendUnavailable("Ollama isn't answering at 127.0.0.1:11434 — run `ollama serve`")
+            raise BackendUnavailable("Ollama isn't answering at 127.0.0.1:11434: run `ollama serve`")
         return BudgetedModelClient(
             OllamaModelClient(model=spec.model, timeout=timeout), limits, enforce_allowlist=False
         )
@@ -312,7 +312,7 @@ def build_grader_client(spec: GraderSpec, *, max_calls: int = 1000, timeout: flo
 
     limits = BudgetLimits(max_calls=max_calls)
     if spec.kind == "host":
-        raise SpecError("the host grader has no built-in client — grade via get_grading_tasks/submit_grades")
+        raise SpecError("the host grader has no built-in client: grade via get_grading_tasks/submit_grades")
     if spec.kind == "target":
         return build_target_client(parse_target(spec.model or ""), max_calls=max_calls, timeout=timeout,
                                    allow_command=allow_command)
@@ -327,7 +327,7 @@ def build_grader_client(spec: GraderSpec, *, max_calls: int = 1000, timeout: flo
     from fusion_first.model.providers.ollama import OllamaModelClient, ollama_available
 
     if not ollama_available():
-        raise BackendUnavailable("Ollama isn't answering at 127.0.0.1:11434 — run `ollama serve`")
+        raise BackendUnavailable("Ollama isn't answering at 127.0.0.1:11434: run `ollama serve`")
     ollama = BudgetedModelClient(
         OllamaModelClient(model=spec.model, timeout=timeout), limits, enforce_allowlist=False
     )
@@ -460,8 +460,8 @@ def _hints(cli: dict, ollama: dict, target_model: str | None) -> list[str]:
     if not cli["available"]:
         out.append("Install the Claude Code CLI to use Claude as a grader on your subscription.")
     elif "not logged in" in str(cli["subscription"]):
-        out.append("The claude CLI is logged out — log in with your Claude subscription to use Claude "
+        out.append("The claude CLI is logged out: log in with your Claude subscription to use Claude "
                    "as a grader (Fusion never uses API-key auth).")
     elif str(cli["subscription"]).startswith("refused"):
-        out.append("The claude CLI isn't on subscription auth — Fusion won't use it (nothing is billed).")
+        out.append("The claude CLI isn't on subscription auth: Fusion won't use it (nothing is billed).")
     return out

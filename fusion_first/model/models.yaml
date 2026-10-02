@@ -3,7 +3,7 @@
 #
 # Judge default is Claude (calibrated). The target-under-test is whatever the customer runs.
 # The self-family guard (registry.py) forbids a model from being the sole judge of its own
-# family's output — a Claude target is judged by a non-Claude primary, and vice versa.
+# family's output: a Claude target is judged by a non-Claude primary, and vice versa.
 
 roles:
   judge_primary: claude-sonnet-5        # default interactive judge
@@ -19,7 +19,7 @@ allowlist:
   gpt-4o: openai
   gpt-4o-mini: openai
 
-# Per-call ceilings (defense against runaway cost — OWASP LLM10). Enforced by budget.py.
+# Per-call ceilings (defense against runaway cost: OWASP LLM10). Enforced by budget.py.
 limits:
   max_tokens_judge: 1500
   max_tokens_target: 800

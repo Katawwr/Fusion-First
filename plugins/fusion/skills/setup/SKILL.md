@@ -10,7 +10,7 @@ description: Check and set up what Fusion First needs to test agents without an 
 2. Suggest only what is missing:
    - **Local targets (free):** install Ollama from ollama.com, then `ollama pull llama3.2:1b`.
      Fusion's measurements so far are on small open-weight models (Trust Report).
-   - **Grader:** Claude grades — as the host (the fusion-judge agent) or through the claude CLI. Don't
+   - **Grader:** Claude grades: as the host (the fusion-judge agent) or through the claude CLI. Don't
      suggest a local grader: `ollama-prob:qwen2.5:7b` scored below the policy floor in its pre-registered
      test (Trust Report: https://fusion-first-testing.com/trust), and an unmeasured local model is no
      better evidence.

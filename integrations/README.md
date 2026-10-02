@@ -24,7 +24,7 @@ selects one on its own. Offline, results are labelled `DEMONSTRATION`.
 
 ---
 
-## 1. MCP server — Fusion inside Claude Code / Cursor / Windsurf
+## 1. MCP server: Fusion inside Claude Code / Cursor / Windsurf
 
 ```bash
 pip install "fusion-safety[mcp]"
@@ -84,7 +84,7 @@ fusion measure --stages accuracy --check instruction_following
 
 ---
 
-## 3. CI gate — stop an unsafe prompt from shipping
+## 3. CI gate: stop an unsafe prompt from shipping
 
 **Proof-carrying runs (no model in CI).** CI machines usually have no Ollama and no Claude login. Run
 the evaluation on a developer machine, commit `.fusion/runs/<run_id>/`, and let CI re-derive it

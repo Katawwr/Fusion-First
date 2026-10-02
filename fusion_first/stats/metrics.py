@@ -112,7 +112,7 @@ def specificity(y_true: list[bool], y_pred: list[bool]) -> Interval:
 
 
 def balanced_accuracy(y_true: list[bool], y_pred: list[bool]) -> float:
-    """Mean of recall and specificity — robust to class imbalance (unlike raw accuracy)."""
+    """Mean of recall and specificity: robust to class imbalance (unlike raw accuracy)."""
     tp, fp, tn, fn = confusion(y_true, y_pred)
     parts = []
     if tp + fn:

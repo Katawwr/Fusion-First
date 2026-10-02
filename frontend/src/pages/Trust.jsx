@@ -7,7 +7,7 @@ import { DiscordantPairs, FixChanges, GraderVsBaselines, GuardTradeoff, StoppedB
 import { EXPERIMENT_NAMES, pShort } from "../components/trust/format";
 
 // Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
-// committed evidence files (python -m fusion_first.validate.trust_report) and checked by a test — the
+// committed evidence files (python -m fusion_first.validate.trust_report) and checked by a test: the
 // page can't show a number the evidence doesn't back.
 
 const CHECK_NAMES = {
@@ -31,7 +31,7 @@ function Section({ title, children }) {
 function Table({ head, rows }) {
   const numeric = head
     .map((_, j) => j)
-    .filter((j) => rows.length && rows.every((r) => /^[\d—−+(]/.test(String(r[j] ?? ""))));
+    .filter((j) => rows.length && rows.every((r) => /^[\d, −+(]/.test(String(r[j] ?? ""))));
   return <DataTable head={head} rows={rows} numeric={numeric} />;
 }
 
@@ -251,7 +251,7 @@ export default function Trust() {
                 interval(j.accuracy),
                 interval(j.recall),
                 interval(j.specificity),
-                j.baselines?.naive_regex ? j.baselines.naive_regex.f1.toFixed(2) : "—",
+                j.baselines?.naive_regex ? j.baselines.naive_regex.f1.toFixed(2) : "–",
                 j.f1.toFixed(2),
               ])}
             />

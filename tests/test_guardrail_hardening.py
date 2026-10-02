@@ -1,6 +1,6 @@
 """Regression tests for the red-team-driven hardening. Each corresponds to a confirmed bypass that
 an adversarial workflow found and we then closed. Semantic evasions (paraphrase, translation) are
-deliberately NOT covered here — those require the LLM judge, and the guard documents that boundary.
+deliberately NOT covered here: those require the LLM judge, and the guard documents that boundary.
 """
 
 from __future__ import annotations

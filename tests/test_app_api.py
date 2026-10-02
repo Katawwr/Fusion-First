@@ -1,4 +1,4 @@
-"""The FastAPI layer, exercised offline with TestClient — no provider keys, no modal, no network."""
+"""The FastAPI layer, exercised offline with TestClient: no provider keys, no modal, no network."""
 
 from __future__ import annotations
 
@@ -188,6 +188,9 @@ def test_report_renders_from_the_posted_result_without_server_state(client):
     xss = dict(result, target_name='<script>alert("x")</script>')
     assert "<script>alert" not in fresh.post("/api/report.html", json=xss).text
     assert fresh.post("/api/report.html", json={"cards": "nope"}).status_code == 422
+    # the site passes its selected theme; the report opens in it
+    assert '<html lang="en" data-theme="light">' in fresh.post("/api/report.html?theme=light", json=result).text
+    assert fresh.post("/api/report.html?theme=evil", json=result).status_code == 422
 
 
 @pytest.mark.integration

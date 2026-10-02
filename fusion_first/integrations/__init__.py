@@ -3,8 +3,8 @@ or any host) use Fusion to FIND prompt/agent-safety issues, FIX them, and PROTEC
 
 Nothing here imports `modal`; the MCP server and CLI wrap these functions.
 
-The agent tools are resolved lazily (PEP 562) so that importing a light submodule — notably
-`claude_hooks`, which runs before every Claude Code tool call — does not load the scan engine."""
+The agent tools are resolved lazily (PEP 562) so that importing a light submodule: notably
+`claude_hooks`, which runs before every Claude Code tool call: does not load the scan engine."""
 
 from __future__ import annotations
 

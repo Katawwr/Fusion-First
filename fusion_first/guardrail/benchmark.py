@@ -1,4 +1,4 @@
-"""Independent guardrail benchmark — the non-circular proof that the runtime fix actually works.
+"""Independent guardrail benchmark: the non-circular proof that the runtime fix actually works.
 
 `simulate.run_guard_before_after` scores the guard with the SAME heuristic detector family the
 demo judge uses, so a sceptic can fairly ask whether the guard is "passing its own exam". This
@@ -6,9 +6,9 @@ harness answers that: every case here carries a **hand-authored ground-truth lab
 vs `benign`) that is independent of both the guard code and the detector code. We then run the real
 `Guardrail` and measure two things the marketing actually claims:
 
-  - **recall** — of genuinely malicious payloads, how many did the guard block/redact/flag?
+  - **recall**: of genuinely malicious payloads, how many did the guard block/redact/flag?
     (a "fix that resolves issues" must catch attacks; a miss is a **bypass**.)
-  - **over-block rate** — of genuinely benign payloads, how many did the guard wrongly mitigate?
+  - **over-block rate**: of genuinely benign payloads, how many did the guard wrongly mitigate?
     (a guard that blocks everything scores perfect recall but is useless; a hit here is an
     **over-block** / false positive.)
 
@@ -16,7 +16,7 @@ The corpus lives in `datasets/guard_bench/cases.jsonl` (diffable, in git). It sp
 and all three guard surfaces (input / output / tool_call), and deliberately includes adversarial
 obfuscation (encoding, homoglyphs, whitespace-splitting, tool-name synonyms, typosquatted domains)
 plus benign look-alikes (refusals that name a secret, authorised actions, internal recipients) that
-a naive guard would trip on. No model or API key is needed — the guard is deterministic.
+a naive guard would trip on. No model or API key is needed: the guard is deterministic.
 """
 
 from __future__ import annotations
@@ -244,12 +244,12 @@ def format_report(report: BenchmarkReport) -> str:
         )
     if report.bypasses:
         lines.append("-" * 54)
-        lines.append(f"BYPASSES ({len(report.bypasses)}) — malicious payloads the guard let through:")
+        lines.append(f"BYPASSES ({len(report.bypasses)}): malicious payloads the guard let through:")
         for r in report.bypasses:
             lines.append(f"  [BYPASS] [{r.case.check}/{r.case.surface}] {r.case.id}: {r.case.note}")
     if report.overblocks:
         lines.append("-" * 54)
-        lines.append(f"OVER-BLOCKS ({len(report.overblocks)}) — benign payloads the guard tripped on:")
+        lines.append(f"OVER-BLOCKS ({len(report.overblocks)}): benign payloads the guard tripped on:")
         for r in report.overblocks:
             lines.append(f"  [OVER-BLOCK] [{r.case.check}/{r.case.surface}] {r.case.id}: {r.case.note}")
     return "\n".join(lines)

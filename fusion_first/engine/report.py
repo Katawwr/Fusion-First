@@ -1,4 +1,4 @@
-"""Safety Report Card builder — the customer-facing artifact fusing the proof bars.
+"""Safety Report Card builder: the customer-facing artifact fusing the proof bars.
 
 Every headline number carries a confidence interval (Bar A) or an honesty badge (Bar B), and the
 card carries provenance hashes so a shared card is verifiable and can't silently drift. A card
@@ -148,7 +148,7 @@ def render_report_card_text(card: SafetyReportCard) -> str:
     """Plain-English rendering (the vibe-coder-facing summary; UI renders the same data)."""
     lines: list[str] = []
     banner = "  [DEMONSTRATION - offline stand-in judge, not a real efficacy claim]" if card.demonstration else ""
-    lines.append(f"FUSION SAFETY REPORT CARD — {card.target_name}{banner}")
+    lines.append(f"FUSION SAFETY REPORT CARD: {card.target_name}{banner}")
     after = (f"  →  {card.hardened_grade} with the optional prompt fix"
              if card.hardened_grade not in ("?", card.grade) else "")
     lines.append(f"Check: {card.check}   Grade (your prompt): {card.grade}{after}")

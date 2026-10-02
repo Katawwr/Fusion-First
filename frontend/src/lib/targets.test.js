@@ -17,7 +17,7 @@ const LOCAL = {
   demo: true,
   local_backends_enabled: true,
   cli: false,
-  cli_reason: "the `claude` CLI is not logged in — run `claude auth login`",
+  cli_reason: "the `claude` CLI is not logged in: run `claude auth login`",
   ollama: false,
   ollama_models: [],
   graders: [],

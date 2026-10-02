@@ -2,11 +2,11 @@
 // intervals come as {point, low, high} (judge metrics) or {point, ci95: [low, high]} (guard sets).
 
 export function pct(x) {
-  return x === null || x === undefined ? "—" : `${Math.round(x * 100)}%`;
+  return x === null || x === undefined ? "–" : `${Math.round(x * 100)}%`;
 }
 
 export function interval(iv) {
-  if (!iv) return "—";
+  if (!iv) return "–";
   const low = iv.low ?? iv.ci95?.[0];
   const high = iv.high ?? iv.ci95?.[1];
   return `${pct(iv.point)} (${pct(low)}–${pct(high)})`;
@@ -77,7 +77,7 @@ export function guardResult(step2, step3) {
 
 // A signed difference in percentage points with its 95% range, e.g. "−1 pts (−6 to +4)".
 export function points(d) {
-  if (!d) return "—";
+  if (!d) return "–";
   const f = (x) => {
     const v = Math.round(x * 100);
     return v > 0 ? `+${v}` : `${v}`.replace("-", "−");

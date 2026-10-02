@@ -1,7 +1,7 @@
 # Canonical schema (frozen)
 
 The single source of truth is `fusion_first/schemas.py`. This document explains it; the code is
-authoritative. Freezing these names resolved the cross-lens naming conflicts from design — every
+authoritative. Freezing these names resolved the cross-lens naming conflicts from design: every
 module imports these types and none redefine them.
 
 ## Agent trajectory (the unit a scan targets)
@@ -9,17 +9,17 @@ module imports these types and none redefine them.
 An agent interaction is a `Trajectory` = ordered `Step`s. This is the agentic core: a target is a
 trajectory, not just a prompt string.
 
-- `Step(role, content, tool_call?, tool_result?, thinking?)` — `role ∈ {system,user,assistant,tool}`.
-- `ToolResult(tool, content, injected)` — **`injected`** marks untrusted/attacker-controlled
+- `Step(role, content, tool_call?, tool_result?, thinking?)`: `role ∈ {system,user,assistant,tool}`.
+- `ToolResult(tool, content, injected)`: **`injected`** marks untrusted/attacker-controlled
   content (the indirect-injection surface). It lives on the tool result, not the step.
 - Field name is **`content`** everywhere (never `text`).
 - Helpers: `system_prompt()`, `final_response()`, `has_injection()`, `transcript()`.
 
 ## Labels vs Verdicts (kept distinct on purpose)
 
-- `Label(is_issue, severity, issue_type, source)` — **ground truth** from a deterministic oracle or
+- `Label(is_issue, severity, issue_type, source)`: **ground truth** from a deterministic oracle or
   a user-supplied labeled example. `source` e.g. `"oracle:injecagent"`.
-- `Verdict(is_issue, severity, issue_type, criteria[], rationale, confidence, judge_model)` — the
+- `Verdict(is_issue, severity, issue_type, criteria[], rationale, confidence, judge_model)`: the
   **judge's** decision. Derived deterministically from the binary `CriterionVerdict`s.
 
 Bar A compares `Verdict.is_issue` (judge) against `Label.is_issue` (oracle). We never conflate them.
@@ -32,15 +32,15 @@ Bar A compares `Verdict.is_issue` (judge) against `Label.is_issue` (oracle). We 
 
 ## Proof result types
 
-- `Interval(point, low, high)` — every rate carries one (Wilson CI or bootstrap CI).
-- `AccuracyResult` — Bar A: precision/recall/F1/accuracy (+CIs), Cohen's kappa, confusion counts.
-- `BeforeAfterResult` — Bar B: baseline/hardened issue rates, absolute reduction (CI), McNemar p,
+- `Interval(point, low, high)`: every rate carries one (Wilson CI or bootstrap CI).
+- `AccuracyResult`: Bar A: precision/recall/F1/accuracy (+CIs), Cohen's kappa, confusion counts.
+- `BeforeAfterResult`: Bar B: baseline/hardened issue rates, absolute reduction (CI), McNemar p,
   discordant counts, and an `Honesty` badge (`PROVEN | PRELIMINARY | INCONCLUSIVE`).
-- `BenchmarkResult` — Bar D: detector TPR/FPR on a public-benchmark subset.
-- `SafetyReportCard` — fuses the bars, a letter `grade`, OWASP tags, top fixes, provenance hashes
+- `BenchmarkResult`: Bar D: detector TPR/FPR on a public-benchmark subset.
+- `SafetyReportCard`: fuses the bars, a letter `grade`, OWASP tags, top fixes, provenance hashes
   (`gold_version`, `crosswalk_version`, `judge_model`, `verification_hash`), and a `demonstration`
-  flag (True when built from the offline stand-in judge — never a real efficacy claim).
-- `ScanResult` — a user-prompt scan: its cards plus one `ProbeOutcome` per attack (`baseline_issue` /
+  flag (True when built from the offline stand-in judge: never a real efficacy claim).
+- `ScanResult`: a user-prompt scan: its cards plus one `ProbeOutcome` per attack (`baseline_issue` /
   `hardened_issue`, None = unscored). `ProbeOutcome.guard_replay` is the in-sample guard replay on that
   prompt-as-written reply (`fusion_first/engine/guard_replay.py`): `stopped` (the snippet-configured guard
   blocked or redacted something), `allowed`, or `no_tool_call` (a tool-action attack answered in prose:

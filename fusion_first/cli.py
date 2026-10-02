@@ -1,4 +1,4 @@
-"""Fusion First CLI — the installed `fusion` command (also runnable as `python -m fusion_first.cli`).
+"""Fusion First CLI: the installed `fusion` command (also runnable as `python -m fusion_first.cli`).
 
     fusion record  --check direct_prompt_injection
     fusion eval    --check all [--update-baseline]
@@ -11,7 +11,7 @@
     fusion ci      --prompt my_prompt.txt --min-grade B [--live]
 
 Everything runs offline against committed cassettes (deterministic, no API keys). `--live` (on
-`scan` and `ci`) runs the real prompt through a model — a local Ollama model and/or the `claude` CLI
+`scan` and `ci`) runs the real prompt through a model: a local Ollama model and/or the `claude` CLI
 subscription. Metered API keys are never used unless you pass `--backend api` AND set
 FUSION_ALLOW_API_SPEND=1 (an API key merely present in the environment is ignored).
 """
@@ -126,7 +126,7 @@ def _record_live(args) -> int:
             code = 1
             print(f"    {len(report.failed)} case(s) failed (re-run to retry): {report.failed[:5]}")
         if report.aborted:
-            print(f"    STOPPED: {report.aborted} — progress saved; re-run later to resume.")
+            print(f"    STOPPED: {report.aborted}: progress saved; re-run later to resume.")
             return 1
     return code
 
@@ -156,7 +156,7 @@ async def _measure(args) -> int:
 
     if "sufficiency" in stages:
         prompts = load_reference_agents()
-        print(f"Sufficiency — attacks vs live {args.target_model} (judge={judge_id}, {choice.independence}):")
+        print(f"Sufficiency: attacks vs live {args.target_model} (judge={judge_id}, {choice.independence}):")
         for check in checks:
             res = await measure_sufficiency(
                 check, target, judge, target_model_id=args.target_model,
@@ -181,7 +181,7 @@ async def _measure(args) -> int:
             else [c for c in checks if get_rubric(c).kind == "quality"]
         )
         if quality_checks:
-            print(f"\nQuality — grade the agent on normal test inputs (target={args.target_model}):")
+            print(f"\nQuality: grade the agent on normal test inputs (target={args.target_model}):")
         for check in quality_checks:
             res = await measure_quality(
                 check, target, judge, system_prompt,
@@ -197,7 +197,7 @@ async def _measure(args) -> int:
         from fusion_first.model.replay import ReplayModelClient
         from fusion_first.stats.calibration import run_calibration
 
-        print(f"\nAccuracy (Bar A) — real judge vs oracle on the {args.split} split:")
+        print(f"\nAccuracy (Bar A): real judge vs oracle on the {args.split} split:")
         for check in checks:
             report = await record_gold_cassette_live(
                 check, judge, version=args.version, splits=(args.split,),
@@ -257,7 +257,7 @@ async def _prove_one(check: str, args):
     prov = cassette_provenance(cas)
     if prov.mixed:
         raise CliUsageError(
-            f"{check}: cassette mixes answers from several models {sorted(prov.models)} — "
+            f"{check}: cassette mixes answers from several models {sorted(prov.models)}: "
             "re-record it from one judge before proving anything"
         )
     client = ReplayModelClient(cas, strict=True, expected_models=prov.models)
@@ -392,7 +392,7 @@ def cmd_ci(args) -> int:
     if not args.live and not args.demo:
         print(
             "fusion ci needs --live to gate: demonstration responses are canned and do not depend on "
-            "your prompt. Use --live (local Ollama and/or the claude CLI subscription — no API key), "
+            "your prompt. Use --live (local Ollama and/or the claude CLI subscription: no API key), "
             "or --demo for an advisory, non-gating demonstration run."
         )
         return 2
@@ -435,7 +435,7 @@ def cmd_ci(args) -> int:
         ))
     else:
         mode = "LIVE" if not result["demonstration"] else "DEMO"
-        print(f"Fusion CI gate — prompt must score >= {min_grade} on every check ({mode}):")
+        print(f"Fusion CI gate: prompt must score >= {min_grade} on every check ({mode}):")
         for r in rows:
             mark = "PASS" if r["pass"] else "FAIL"
             print(f"  [{mark}] {r['check']:24s} baseline grade {r['baseline_grade']}  "
@@ -472,7 +472,7 @@ def cmd_guard_bench(args) -> int:
         new_bypasses = set(report.summary()["bypasses"]) - set(base.get("bypasses", []))
         new_overblocks = set(report.summary()["overblocks"]) - set(base.get("overblocks", []))
         if new_bypasses or new_overblocks:
-            print(f"\nREGRESSION vs baseline — new bypasses: {sorted(new_bypasses)} "
+            print(f"\nREGRESSION vs baseline: new bypasses: {sorted(new_bypasses)} "
                   f"new over-blocks: {sorted(new_overblocks)}")
             return 1
     return 0

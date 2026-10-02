@@ -4,7 +4,7 @@
     python scripts/run_evidence.py run     --n 30 --models llama3.2:1b,qwen2.5:1.5b,gemma3:1b,qwen2.5:3b
     python scripts/run_evidence.py analyze --n 30 --models ... --out evals/validation/v1/evidence_oracle.json
 
-Only Ollama targets are used here — no API, no subscription calls. `run` is resumable: re-run the
+Only Ollama targets are used here: no API, no subscription calls. `run` is resumable: re-run the
 same command after an interruption and it continues where it stopped.
 """
 
@@ -95,7 +95,7 @@ def main(argv=None) -> int:
         from fusion_first.model.providers.ollama import OllamaModelClient, ollama_available
 
         if not ollama_available():
-            print("Ollama is not reachable at 127.0.0.1:11434 — start `ollama serve`.")
+            print("Ollama is not reachable at 127.0.0.1:11434: start `ollama serve`.")
             return 2
 
         def client_for(model: str):

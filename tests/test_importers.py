@@ -3,8 +3,8 @@
 Fusion's self-validation leans on public benchmarks (deepset, Gandalf, InjecAgent, BIPIA, IFEval,
 XSTest). If an importer silently mangles a label, renumbers rows between runs, or lets a
 non-redistributable source into the committed jsonl, every downstream accuracy number inherits the
-error. These tests run the importers over tiny SYNTHETIC fixtures (tests/fixtures/external/) —
-parquet fixtures are built in tmp_path so no binaries are committed — and never touch the network.
+error. These tests run the importers over tiny SYNTHETIC fixtures (tests/fixtures/external/), 
+parquet fixtures are built in tmp_path so no binaries are committed: and never touch the network.
 """
 
 from __future__ import annotations

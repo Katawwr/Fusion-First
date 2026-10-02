@@ -33,7 +33,7 @@ def test_eval_replays_committed_cassette(check):
 @pytest.mark.integration
 @pytest.mark.parametrize("check", SAFETY)
 def test_committed_demo_cassettes_are_fresh(check):
-    """Any change to probes, gold rows, the judge prompt or the heuristic changes the entries —
+    """Any change to probes, gold rows, the judge prompt or the heuristic changes the entries, 
     fix with `fusion record --check all` and commit the result."""
     committed = Cassette.load(CASSETTE_DIR / f"{check}.v1.json")
     models = {e.get("model") for e in committed.entries.values()}

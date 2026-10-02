@@ -24,7 +24,7 @@ describe("Trust charts", () => {
     expect(pShort(0.5)).toBe("p=0.50");
     expect(pShort(0.5, { ns: true })).toBe("n.s.");
     expect(pShort(0.049, { ns: true })).toBe("p=0.049");
-    expect(pShort(undefined)).toBe("—");
+    expect(pShort(undefined)).toBe("–");
   });
 
   it("GuardTradeoff plots every system from step 2 with its whiskers and a summary", () => {

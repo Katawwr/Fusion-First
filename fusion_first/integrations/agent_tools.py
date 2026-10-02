@@ -1,4 +1,4 @@
-"""Fusion agent tools — measure, then guard, as plain functions (the prompt fix is optional).
+"""Fusion agent tools: measure, then guard, as plain functions (the prompt fix is optional).
 
 These are the operations an AI coding agent (Claude Code, Cursor, an autonomous build agent) or a
 CI job wants when it is building or shipping an AI agent:
@@ -55,8 +55,8 @@ def _owasp(check: str) -> str:
 
 
 def list_checks() -> dict:
-    """The checks Fusion can run, grouped by kind — 'safety' (OWASP-mapped adversarial risks) and
-    'quality' (correctness / instruction-following) — with what good behavior means for each."""
+    """The checks Fusion can run, grouped by kind: 'safety' (OWASP-mapped adversarial risks) and
+    'quality' (correctness / instruction-following): with what good behavior means for each."""
     return {
         "checks": [
             {
@@ -180,7 +180,7 @@ async def scan_prompt(
         if any_issue
         else ["No baseline issues detected."],
         "note": (
-            "Demonstration numbers from an offline stand-in judge — the methodology is real; use "
+            "Demonstration numbers from an offline stand-in judge: the methodology is real; use "
             "live=\"auto\" (Claude CLI subscription or an Ollama open-weight target) for real numbers."
             if result.demonstration
             else "Live numbers from real models (baseline arm run through the target, judged by a real judge)."
@@ -235,7 +235,7 @@ async def grade_quality(
     concurrency: int = 6,
 ) -> dict:
     """Grade a real agent's QUALITY: run its prompt over normal test inputs on a LIVE target and judge
-    each response. Requires a live backend (Claude CLI subscription or an Ollama open-weight target) —
+    each response. Requires a live backend (Claude CLI subscription or an Ollama open-weight target), 
     there is no 'demo' quality mode, because grading needs the agent's real outputs."""
     from fusion_first.integrations.live import build_live_clients
     from fusion_first.judge.rubric import checks_of_kind, get_rubric
@@ -280,13 +280,13 @@ async def audit_agent(
     """One call = FIND + PROTECT across SAFETY and QUALITY, plus the optional prompt fix.
 
     Runs the safety attack-scan and (when a live backend is available) grades the agent's quality on
-    normal test inputs — both through the same calibrated judge. Returns a plain-language verdict, an
+    normal test inputs: both through the same calibrated judge. Returns a plain-language verdict, an
     overall grade (worst of safety + quality), per-check grades, the runtime-guardrail snippet, the
     recommended runtime GuardConfig for your chosen `autonomy` (supervised = human-in-the-loop gates;
     autonomous = unattended + redact), and the optional hardened prompt (re-test it before use).
 
     Audit an OPEN-WEIGHT agent (where injection/exfil/agency attacks actually land) locally and free:
-    `backend="ollama", target_model="llama3.2"` — judged by Claude (cross-family independence).
+    `backend="ollama", target_model="llama3.2"`: judged by Claude (cross-family independence).
     `live="auto"` uses a real backend when available, else a labelled demo (quality needs a live backend).
     `dimensions` defaults to ["safety","quality"]; pass ["safety"] to skip quality grading.
     """
@@ -342,7 +342,7 @@ async def audit_agent(
 
 
 def harden_prompt(system_prompt: str, checks: list[str] | None = None) -> dict:
-    """OPTIONAL FIX: the system prompt with Fusion's prompt fix appended (idempotent — it replaces its
+    """OPTIONAL FIX: the system prompt with Fusion's prompt fix appended (idempotent: it replaces its
     own block instead of stacking), plus the block on its own. On the small open-weight models measured
     it rarely cut attacks and raised refusals of safe requests: re-test it on the target model."""
     if not system_prompt or not system_prompt.strip():

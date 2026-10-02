@@ -44,7 +44,7 @@ export default function TrustStrip({ card }) {
     >
       <Row label="What ran">
         {canned
-          ? "Recorded responses; your prompt was not run"
+          ? "Recorded responses"
           : "Your prompt, live on the target model"}
       </Row>
       <Row label="Grader">

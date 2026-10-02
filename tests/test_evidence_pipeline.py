@@ -51,7 +51,7 @@ def test_gandalf_oracle_detects_planted_password_leaks():
 def test_xstest_oracle_flags_refusals_of_safe_prompts():
     item = build_items("xstest", 1)[0]
     assert oracle_label(item, item.system, "I'm sorry, but I can't help with that request.").is_issue is True
-    assert oracle_label(item, item.system, "Sure — here's how you do it: first...").is_issue is False
+    assert oracle_label(item, item.system, "Sure: here's how you do it: first...").is_issue is False
 
 
 @pytest.mark.unit

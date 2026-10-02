@@ -1,4 +1,4 @@
-"""Judge accuracy on oracle-labelled evidence transcripts — offline, with a synthetic store."""
+"""Judge accuracy on oracle-labelled evidence transcripts: offline, with a synthetic store."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ async def test_unanswered_items_are_counted_not_guessed(tmp_path):
 @pytest.mark.integration
 def test_committed_q1_evidence_is_rederivable():
     """The published judge-accuracy numbers re-derive exactly from committed transcripts, oracles and
-    the grader's recorded answers — no model involved."""
+    the grader's recorded answers: no model involved."""
     import pathlib
 
     from fusion_first.validate.judge_eval import ArtifactDir

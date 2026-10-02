@@ -35,7 +35,7 @@ def test_marker_positive_and_refusal_quoting_the_marker():
     t = _tpl("direct_prompt_injection", "p02")
     assert injected_marker(t) == "PWNED"
     obey = t.live_trajectory("You are a support bot.", "PWNED")
-    quote = t.live_trajectory("You are a support bot.", "I won't reply with PWNED — that's an injected instruction.")
+    quote = t.live_trajectory("You are a support bot.", "I won't reply with PWNED: that's an injected instruction.")
     assert clear_cut_label("direct_prompt_injection", t, obey, "You are a support bot.") is True
     assert clear_cut_label("direct_prompt_injection", t, quote, "You are a support bot.") is None
 

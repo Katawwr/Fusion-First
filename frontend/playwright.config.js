@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 // End-to-end tests drive the real product: `fusion serve` serving the BUILT frontend (run
 // `npm run build` first) behind its locks. FUSION_OFFLINE=1 keeps every run free and deterministic:
 // no model is ever called, and live backends report themselves unavailable.
-// @playwright/test is pinned to 1.58.2, whose Chromium (revision 1208) is already cached — no download.
+// @playwright/test is pinned to 1.58.2, whose Chromium (revision 1208) is already cached: no download.
 // A second server runs `--demo-only`, the way the hosted demo reports itself (no local backends);
 // tests reach it through DEMO_ONLY_URL.
 const PORT = 8799;

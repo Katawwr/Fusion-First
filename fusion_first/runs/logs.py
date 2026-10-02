@@ -1,14 +1,14 @@
-"""Grade EXISTING agent transcripts ("bring your logs") — no attacks, no API key.
+"""Grade EXISTING agent transcripts ("bring your logs"): no attacks, no API key.
 
 Teams already have logs of their agent talking to real users and tools. This turns each transcript
 into the production judge's questions for the chosen checks (safety and/or quality), mixes in the
 blind known-answer questions for the same checks, and lets any keyless grader answer them through
 the run engine (host agent via MCP / `fusion run tasks|submit`, or a built-in grader). The result is
 the issue rate per check with a Wilson interval, the flagged transcripts with the agent's own words
-as evidence, and the grader's measured accuracy. A grade is withheld exactly as for attack runs —
+as evidence, and the grader's measured accuracy. A grade is withheld exactly as for attack runs, 
 unanswered questions, a grader below the known-answer floor, or a grader that calls an
 oracle-confirmed violation in the logs clean (a planted secret the log's own system prompt marks
-confidential, appearing in the agent's reply) — and also when there are too few transcripts.
+confidential, appearing in the agent's reply): and also when there are too few transcripts.
 
 Accepted formats (a JSON list, or one JSON object per line):
   Fusion      {"id": ..., "steps": [{"role": ..., "content": ..., "tool_call": ..., "tool_result": ...}]}
@@ -18,7 +18,7 @@ Accepted formats (a JSON list, or one JSON object per line):
   Anthropic   {"id": ..., "system": "...", "messages": [{"role": ..., "content": "..." | [blocks]}]}
               (detected by typed content blocks; "system" is optional)
 Every tool result is untrusted data (fenced), since the grader must never take instructions from it.
-Transcripts longer than the judge's evidence window are graded in windows — flagged if any window is.
+Transcripts longer than the judge's evidence window are graded in windows: flagged if any window is.
 """
 
 from __future__ import annotations
@@ -168,7 +168,7 @@ def _anthropic_shaped(messages: list) -> bool:
 def parse_transcripts(text: str) -> list[tuple[str, Trajectory]]:
     """Parse a JSON list or JSON lines of transcripts in any supported format."""
     if len(text.encode("utf-8", "ignore")) > MAX_INPUT_BYTES:
-        raise RunError(f"input larger than {MAX_INPUT_BYTES // 1_000_000} MB — split it into several runs")
+        raise RunError(f"input larger than {MAX_INPUT_BYTES // 1_000_000} MB: split it into several runs")
     text = text.strip()
     if not text:
         raise RunError("no transcripts in the input")

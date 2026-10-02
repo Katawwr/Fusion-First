@@ -7,7 +7,7 @@ import TargetPicker from "./TargetPicker";
 const LOCAL = {
   demo: true,
   cli: false,
-  cli_reason: "the `claude` CLI is not logged in — run `claude auth login`",
+  cli_reason: "the `claude` CLI is not logged in: run `claude auth login`",
   ollama: true,
   ollama_models: ["qwen2.5:3b", "llama3.2:1b"],
   local_backends_enabled: true,

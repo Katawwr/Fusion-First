@@ -1,4 +1,4 @@
-// The report's headline sentence — derived from what was actually measured, never a canned boast.
+// The report's headline sentence: derived from what was actually measured, never a canned boast.
 import { pct } from "./jargon";
 
 // The scan's in-sample guard replay: a mirror of fusion_first/engine/guard_replay.py (in_sample_payload), kept
@@ -67,9 +67,8 @@ export function summarize(result) {
   if (isCanned(result)) {
     return {
       kind: "example",
-      headline: "Example report — your prompt was not run",
-      sentence:
-        "Responses from a deliberately vulnerable sample agent.",
+      headline: "Example Report",
+      sentence: "",
     };
   }
 

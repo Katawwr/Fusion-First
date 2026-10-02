@@ -1,4 +1,4 @@
-"""Offline tests for the Ollama open-weight target adapter (mocked HTTP — no server needed)."""
+"""Offline tests for the Ollama open-weight target adapter (mocked HTTP: no server needed)."""
 
 from __future__ import annotations
 

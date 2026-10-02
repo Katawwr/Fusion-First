@@ -33,8 +33,10 @@ export async function getScan(scanId) {
 }
 
 // The HTML report, rendered by the API from the result the page holds (no server state), saved as a file.
+// The report takes the theme the site shows (the toggle sets <html data-theme>).
 export async function downloadReportHtml(result, filename = "fusion-report.html") {
-  const resp = await apiFetch(`${API_URL}/api/report.html`, json(result));
+  const theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+  const resp = await apiFetch(`${API_URL}/api/report.html?theme=${theme}`, json(result));
   const url = URL.createObjectURL(await resp.blob());
   const a = document.createElement("a");
   a.href = url;
@@ -65,7 +67,7 @@ const TERMINAL = new Set(["scan_completed", "error"]);
 // Stream a scan over SSE. `handlers` maps event name → callback (scan_id, scan_started,
 // check_started, probe_result, check_completed, scan_completed, error). Contract: the server ends
 // every stream with exactly one terminal event (scan_completed | error). If the connection ends
-// without one, this throws ApiError(code "connection_closed") — the UI must never spin forever.
+// without one, this throws ApiError(code "connection_closed"): the UI must never spin forever.
 export async function streamScan(body, handlers = {}, signal) {
   await wakeBackend();
   const resp = await apiFetch(`${API_URL}/api/scan/stream`, { ...json(body), signal });

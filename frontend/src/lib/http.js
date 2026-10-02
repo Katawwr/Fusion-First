@@ -1,4 +1,4 @@
-// One place that turns HTTP failures into friendly, typed errors — never raw JSON on screen.
+// One place that turns HTTP failures into friendly, typed errors: never raw JSON on screen.
 
 export class ApiError extends Error {
   constructor(message, { status = 0, code = "", detail = null } = {}) {
@@ -13,10 +13,10 @@ export class ApiError extends Error {
 const FRIENDLY = {
   402: "Live scans aren't available on this server.",
   403: "This server doesn't allow that.",
-  404: "Not found — it may have expired.",
+  404: "Not found: it may have expired.",
   413: "That prompt is too long.",
   422: "The request wasn't valid.",
-  429: "Too many requests — try again in a moment.",
+  429: "Too many requests: try again in a moment.",
 };
 
 // Extract a human sentence from FastAPI-style bodies: {"detail": "..."} | {"detail": [{msg}]} |
@@ -48,14 +48,14 @@ export async function errorFromResponse(resp) {
 }
 
 // `fusion serve` injects a per-launch token into the page it serves, and its API refuses any write
-// without it — so no other website can drive this machine's models. The token only ever goes to
+// without it: so no other website can drive this machine's models. The token only ever goes to
 // the page's own origin.
 function launchToken() {
   if (typeof document === "undefined") return "";
   return document.querySelector('meta[name="fusion-token"]')?.getAttribute("content") || "";
 }
 
-// True when this page was served by `fusion serve` — its API is then always the page's own origin.
+// True when this page was served by `fusion serve`: its API is then always the page's own origin.
 export function servedByFusion() {
   return Boolean(launchToken());
 }

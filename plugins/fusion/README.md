@@ -1,4 +1,4 @@
-# Fusion First — Claude Code plugin
+# Fusion First: Claude Code plugin
 
 Test an AI agent's system prompt for **safety** (prompt injection, excessive agency, data
 exfiltration, system-prompt leakage; OWASP LLM 2025 / Agentic 2026 mapped, Agentic codes provisional) and **quality**

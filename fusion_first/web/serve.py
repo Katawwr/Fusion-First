@@ -1,4 +1,4 @@
-"""`fusion serve` — the Fusion web app on YOUR machine: one origin, loopback only, locked to its page.
+"""`fusion serve`: the Fusion web app on YOUR machine: one origin, loopback only, locked to its page.
 
 Local backends (Ollama, the `claude` CLI subscription) spend this machine's own resources, so the
 local server must never be drivable by another website. Three independent locks:

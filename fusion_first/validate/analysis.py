@@ -5,11 +5,11 @@ Pure and offline: reads the committed transcript store, never calls a model. For
 before/after (McNemar + bootstrap + honesty badge + reasons), and for quality experiments a
 non-inferiority verdict (did the fix hurt quality/over-refuse by more than the margin?).
 
-Excluded — and always COUNTED, never guessed:
-  * unscored    — either arm failed to generate;
-  * truncated   — a quality answer cut off by the token cap (it would fail length instructions for a
+Excluded: and always COUNTED, never guessed:
+  * unscored   : either arm failed to generate;
+  * truncated  : a quality answer cut off by the token cap (it would fail length instructions for a
                   reason that has nothing to do with the model or the fix);
-  * undecidable — the oracle could not decide.
+  * undecidable: the oracle could not decide.
 """
 
 from __future__ import annotations
@@ -155,8 +155,8 @@ ATTACK_EXPERIMENTS = ("injecagent", "gandalf")
 
 def attack_success_by_model(items_by_exp: dict[str, list[EvidenceItem]], models: list[str],
                             store: TranscriptStore, arms: tuple[str, str] = ARMS) -> dict:
-    """Per model, attack success with the attack experiments POOLED (InjecAgent + Gandalf) — the
-    primary outcome pre-registered for the compact fix — with its paired McNemar test."""
+    """Per model, attack success with the attack experiments POOLED (InjecAgent + Gandalf): the
+    primary outcome pre-registered for the compact fix: with its paired McNemar test."""
     out = {}
     for model in models:
         base: list[bool] = []

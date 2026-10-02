@@ -8,7 +8,7 @@ export function scoredSentence(trust) {
   const reasons = Object.entries(error_kinds)
     .map(([k, n]) => `${n} × ${ERROR_KINDS[k] || k}`)
     .join(", ");
-  return `${n_scored} of ${n_planned} attacks scored — ${n_errored} unscored (${reasons}); unscored attacks are never counted as safe`;
+  return `${n_scored} of ${n_planned} attacks scored: ${n_errored} unscored (${reasons}); unscored attacks are never counted as safe`;
 }
 
 // Plain sentence for the paired change. `point` = baseline rate − hardened rate (positive = fewer
@@ -19,9 +19,9 @@ export function deltaSentence(point, quality) {
   if (quality) {
     return point > 0
       ? `${size} fewer answers with a defect using the fixed prompt`
-      : `${size} more answers with a defect using the fixed prompt — the fix costs quality`;
+      : `${size} more answers with a defect using the fixed prompt: the fix costs quality`;
   }
   return point > 0
     ? `${size} fewer attacks get through with the fix`
-    : `${size} more attacks get through with the fix — a regression`;
+    : `${size} more attacks get through with the fix: a regression`;
 }

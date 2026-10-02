@@ -39,7 +39,7 @@ test.describe("desktop", () => {
     await page.getByRole("button", { name: "Support bot" }).click();
     await page.getByRole("button", { name: "Run the scan" }).click();
     await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText(/Example report — your prompt was not run/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Example Report" })).toBeVisible();
     // The HTML report downloads from the result on the page (no server-side scan lookup).
     const [download] = await Promise.all([
       page.waitForEvent("download"),

@@ -1,7 +1,7 @@
 """Runtime settings, read from the environment.
 
 Keys live server-side only and are never returned to the client. When no provider key is present,
-the app runs in demo mode — every scan is a clearly-badged demonstration.
+the app runs in demo mode: every scan is a clearly-badged demonstration.
 """
 
 from __future__ import annotations

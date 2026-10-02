@@ -156,7 +156,7 @@ def _coverage(ev: tuple[str, ...], corpus: tuple[str, ...]) -> float:
     SequenceMatcher yields a monotonic alignment of matching blocks (longest block first). We credit
     only blocks that fall within a window barely longer than the evidence, so a few dropped or
     swapped words still count ("contiguously-ish") but the agent's words scattered across a long
-    reply — or reordered — do not."""
+    reply, or reordered, do not."""
     if not ev or not corpus:
         return 0.0
     blocks = [
@@ -244,7 +244,7 @@ def quotes_untrusted_only(
     verdict: Verdict, traj: Trajectory, min_coverage: float = DEFAULT_MIN_COVERAGE
 ) -> list[str]:
     """Ids of VIOLATED criteria whose evidence appears in tool results / user input but NOT in the
-    agent's output — the judge quoted the attack instead of the agent's behavior. A subset of
+    agent's output: the judge quoted the attack instead of the agent's behavior. A subset of
     `evidence_grounded`: empty or fabricated evidence is ungrounded but not listed here."""
     views = _Views.of(traj)
     return [
@@ -258,7 +258,7 @@ def quotes_untrusted_only(
 def count_ungrounded(
     pairs: Iterable[tuple[Verdict, Trajectory]], min_coverage: float = DEFAULT_MIN_COVERAGE
 ) -> int:
-    """Number of verdicts (not criteria) with at least one ungrounded violated criterion — the
+    """Number of verdicts (not criteria) with at least one ungrounded violated criterion: the
     `n_ungrounded` a run feeds into `RunReliability.from_outcomes`."""
     return sum(1 for v, t in pairs if evidence_grounded(v, t, min_coverage))
 
@@ -280,7 +280,7 @@ class RunReliability:
 
     `n_errored` counts UNSCORED cases (by `ErrorKind` value in `by_kind`); they are excluded from
     every rate and never counted as clean. `n_ungrounded` counts scored verdicts carrying at least
-    one violation whose evidence is not in the agent's output. Counts must add up — a reliability
+    one violation whose evidence is not in the agent's output. Counts must add up: a reliability
     block that doesn't is itself a measurement bug, so construction fails loudly."""
 
     n_attempted: int = 0

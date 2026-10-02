@@ -1,11 +1,11 @@
-"""Locate the committed data corpora — datasets/, cassettes/, crosswalk/, evals/.
+"""Locate the committed data corpora: datasets/, cassettes/, crosswalk/, evals/.
 
 Source of truth is the repo top level (which is also how the Modal image mounts them, so it is NOT
 moved into the package). Resolution order:
 
-  1. ``FUSION_DATA_DIR`` — explicit override; point it at the directory that CONTAINS datasets/ etc.
-  2. repo checkout / Modal mount — the parent of the ``fusion_first`` package.
-  3. bundled copy inside the wheel (``fusion_first/_bundled/``) — populated at build time, so a bare
+  1. ``FUSION_DATA_DIR``: explicit override; point it at the directory that CONTAINS datasets/ etc.
+  2. repo checkout / Modal mount: the parent of the ``fusion_first`` package.
+  3. bundled copy inside the wheel (``fusion_first/_bundled/``): populated at build time, so a bare
      ``pip install fusion-safety`` has the corpora with no checkout.
 
 A root is recognised by Fusion's own crosswalk file, never by generic names: an installed package's

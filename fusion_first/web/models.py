@@ -75,7 +75,7 @@ class GuardrailRequest(BaseModel):
 
 class QualityRequest(BaseModel):
     """Grade an agent's QUALITY (correctness / instruction-following) on normal test inputs. Live-only
-    — it needs a real backend (the `claude` CLI subscription, an Ollama open-weight target, or a key)."""
+   : it needs a real backend (the `claude` CLI subscription, an Ollama open-weight target, or a key)."""
 
     system_prompt: str = Field(min_length=1)
     checks: list[str] | None = None

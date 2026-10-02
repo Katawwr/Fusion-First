@@ -1,4 +1,4 @@
-"""TRUST_REPORT.md is generated from committed evidence — it must equal a fresh render."""
+"""TRUST_REPORT.md is generated from committed evidence: it must equal a fresh render."""
 
 from __future__ import annotations
 
@@ -232,7 +232,7 @@ def test_website_evidence_matches_its_sources():
 def test_every_question_in_the_header_has_its_section():
     """The header promises four questions; each one is answered by a Q section (Q2: does it error?)."""
     out = render()
-    for q in ("## Q1 ", "## Q2 ", "## Q3 ", "## Q4 "):
+    for q in ("## Q1: ", "## Q2: ", "## Q3: ", "## Q4: "):
         assert q in out
     assert "rules_git_sha" not in out and "`fusion/guardrail`" not in out
 

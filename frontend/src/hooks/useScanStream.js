@@ -9,7 +9,7 @@ const EMPTY = {
   message: "",
   total: 0,
   completed: 0,
-  // null until the server says — never flash a "demo" banner over a live run.
+  // null until the server says: never flash a "demo" banner over a live run.
   demonstration: null,
   checks: [], // order checks appear
   lanes: {}, // check -> { run, issues, unscored, grade }

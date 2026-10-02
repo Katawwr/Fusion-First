@@ -3,7 +3,7 @@
 Real calls in build/test must ride the user's Claude SUBSCRIPTION, never a metered API key. Two
 layers enforce it: (1) paid-auth environment variables are stripped from every child process, and
 (2) the CLI's own `auth status` must report subscription (claude.ai, first-party) auth before any
-call is made — otherwise the client refuses.
+call is made: otherwise the client refuses.
 """
 
 from __future__ import annotations

@@ -77,7 +77,7 @@ def redact_mapping(data: dict, sensitive_keys: tuple[str, ...] = ("authorization
 
 
 def contains_secret(text: str) -> bool:
-    """True if `text` still appears to contain a credential. Conservative — used before logging."""
+    """True if `text` still appears to contain a credential. Conservative: used before logging."""
     return any(_SEARCH_ONLY.get(label, pattern).search(text or "") for label, pattern in _PATTERNS
                if label != "email")
 

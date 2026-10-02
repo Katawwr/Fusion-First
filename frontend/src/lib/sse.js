@@ -31,7 +31,7 @@ export function createSseParser(onEvent) {
     if (l === "") {
       dispatch();
     } else if (l.startsWith(":")) {
-      // comment / heartbeat — ignore
+      // comment / heartbeat: ignore
     } else if (l.startsWith("event:")) {
       eventName = l.slice(6).trim();
     } else if (l.startsWith("data:")) {

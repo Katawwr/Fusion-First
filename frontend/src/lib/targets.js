@@ -6,7 +6,6 @@
 const DEMO = {
   id: "demo",
   title: "Demo scan",
-  note: "Recorded responses; your prompt is not run.",
 };
 
 // True when this server can run live models itself (`fusion serve`), false on the hosted demo.

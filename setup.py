@@ -1,6 +1,6 @@
 """Build shim (metadata lives in pyproject.toml).
 
-The engine reads committed corpora — datasets/, cassettes/, crosswalk/, evals/ — that live at the
+The engine reads committed corpora, datasets/, cassettes/, crosswalk/, evals/, that live at the
 repo TOP LEVEL (the Modal image mounts them from there, so they are not moved into the package). To
 make a bare `pip install fusion-safety` carry them too, this build step copies the files the installed
 tool reads into `fusion_first/_bundled/` at build time; `fusion_first/_data.py` then finds either the

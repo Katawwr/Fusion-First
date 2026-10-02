@@ -24,8 +24,8 @@ MIN_PAIRS = 20
 def mcnemar_exact_p(b: int, c: int) -> float:
     """Two-sided exact McNemar p-value.
 
-    b = #(baseline fail, hardened pass) — improvements
-    c = #(baseline pass, hardened fail) — regressions
+    b = #(baseline fail, hardened pass): improvements
+    c = #(baseline pass, hardened fail): regressions
     Under H0 (no change) each discordant pair is a fair coin; the exact test is a binomial
     test of min(b, c) successes in b + c trials at p = 0.5.
     """
@@ -153,7 +153,7 @@ def cluster_bootstrap_diff(
     seed: int = 42,
 ) -> Interval:
     """Bootstrap of (baseline - hardened issue rate) resampling whole CLUSTERS (e.g. one attack run
-    against several target models) — pairs within a cluster are correlated, so resampling pairs
+    against several target models): pairs within a cluster are correlated, so resampling pairs
     independently would give a falsely narrow interval."""
     if not (len(baseline_fail) == len(hardened_fail) == len(clusters)):
         raise ValueError("arrays must match in length")

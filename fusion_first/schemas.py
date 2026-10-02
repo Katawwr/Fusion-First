@@ -1,7 +1,7 @@
 """Canonical data model for Fusion First.
 
-This is the single source of truth (SCHEMA.md documents it in prose). Every module —
-judge, engine, stats, store, routes — imports these types and no other module may
+This is the single source of truth (SCHEMA.md documents it in prose). Every module, 
+judge, engine, stats, store, routes: imports these types and no other module may
 redefine them. Cross-lens naming was frozen here: the trajectory field is `content`,
 and `injected` lives on `ToolResult` (injection is a property of a tool result, not a step).
 """
@@ -34,7 +34,7 @@ class ToolResult(BaseModel):
     """Output of a tool the agent invoked.
 
     `injected` marks that this result carried untrusted / attacker-controlled content
-    (the indirect-prompt-injection surface — OWASP LLM01 / Agentic ASI01).
+    (the indirect-prompt-injection surface: OWASP LLM01 / Agentic ASI01).
     """
 
     tool: str
@@ -104,7 +104,7 @@ class Severity(str, Enum):
 
 class OwaspTag(BaseModel):
     """Crosswalk to recognized taxonomies. Codes are validated against the pinned
-    crosswalk YAML by fusion_first.attacks.taxonomy — never invented ad hoc."""
+    crosswalk YAML by fusion_first.attacks.taxonomy: never invented ad hoc."""
 
     llm: str | None = None  # e.g. "LLM01"
     asi: str | None = None  # e.g. "ASI01"
@@ -209,7 +209,7 @@ class AccuracyResult(BaseModel):
 
 
 class Honesty(str, Enum):
-    """Bar B honesty badge — never overclaim on small samples."""
+    """Bar B honesty badge: never overclaim on small samples."""
 
     PROVEN = "PROVEN"  # significant + adequate sample
     PRELIMINARY = "PRELIMINARY"  # directional but underpowered
@@ -365,7 +365,7 @@ class ScanEventType(str, Enum):
 
 
 class ScanEvent(BaseModel):
-    """A streamed progress event from a running scan — the envelope the SSE layer serializes.
+    """A streamed progress event from a running scan: the envelope the SSE layer serializes.
 
     The engine yields these so the HTTP layer can stream progress without the engine knowing
     anything about HTTP. Only the fields relevant to a given `type` are populated.

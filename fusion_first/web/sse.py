@@ -12,7 +12,7 @@ def sse_frame(event: str, data: dict) -> str:
 
 
 def sse_comment(text: str = "keepalive") -> str:
-    """A heartbeat comment — keeps proxies/CDNs from idling out a slow stream."""
+    """A heartbeat comment: keeps proxies/CDNs from idling out a slow stream."""
     return f": {text}\n\n"
 
 

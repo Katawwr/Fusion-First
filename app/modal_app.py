@@ -1,4 +1,4 @@
-"""Modal deployment wrapper — THE ONLY module in the repo that imports `modal`.
+"""Modal deployment wrapper: THE ONLY module in the repo that imports `modal`.
 
 Deploys the pure FastAPI app (app.factory.create_app, i.e. fusion_first.web.factory) as the Modal
 app `fusion-safety-api`.

@@ -95,7 +95,7 @@ async def generate(
     """Run every (model, item, arm) not yet recorded successfully. Returns counts.
 
     Isolatable failures (timeouts, a model that errored) are recorded as errors and retried next run;
-    run-level failures (usage limit, budget, auth) propagate — everything already recorded is safe."""
+    run-level failures (usage limit, budget, auth) propagate: everything already recorded is safe."""
     done_cache: dict[tuple[str, str], dict] = {}
     counts = {"generated": 0, "skipped": 0, "errored": 0}
     clients: dict[str, ModelClient] = {}

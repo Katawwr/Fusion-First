@@ -1,4 +1,4 @@
-# Fusion First — Trust Report
+# Fusion First: Trust Report
 
 Four questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
 simpler checks?** Generated from committed evidence by `python -m fusion_first.validate.trust_report`; a test
@@ -7,13 +7,13 @@ evidence (the offline stand-in judge) is excluded.
 
 ## Bottom line
 
-- **Detecting accurately?** Graded against deterministic oracles — Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules): direct prompt injection 80% (68%–88%), system prompt leakage 92% (82%–96%). It beats the rule-based checks, but not significantly yet (small samples). A plain one-question judge using the same model was just as accurate on the same items (rubric 86%, plain 87%), so Fusion does not claim its rubric improves accuracy. The free local grader, qwen2.5:7b probability judge (local), pre-registered: direct prompt injection 60% (47%–71%), system prompt leakage 55% (42%–67%). Its registered bar (accuracy at least 0.60 and F1 at least 0.60 on both checks): not met, so `fusion doctor` no longer recommends it by default (it can still be chosen explicitly; every run measures its grader in-run and withholds the grade when it falls short).
+- **Detecting accurately?** Graded against deterministic oracles: Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules): direct prompt injection 80% (68%–88%), system prompt leakage 92% (82%–96%). It beats the rule-based checks, but not significantly yet (small samples). A plain one-question judge using the same model was just as accurate on the same items (rubric 86%, plain 87%), so Fusion does not claim its rubric improves accuracy. The free local grader, qwen2.5:7b probability judge (local), pre-registered: direct prompt injection 60% (47%–71%), system prompt leakage 55% (42%–67%). Its registered bar (accuracy at least 0.60 and F1 at least 0.60 on both checks): not met, so `fusion doctor` no longer recommends it by default (it can still be chosen explicitly; every run measures its grader in-run and withholds the grade when it falls short).
 - **Fixing effectively?** On gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b: 1 proven improvement(s) (gandalf on qwen2.5:3b); 1 significant regression(s) (xstest on llama3.2:1b). Pooled over the 4 models: no clear change for password leaks (Gandalf), missed instructions (IFEval), tool hijacking (InjecAgent); significantly worse for refusing safe requests (XSTest). Every report card therefore measures the fix on the user's own model instead of assuming it helps.
 - **Runtime guardrail in your agent?** On fresh real attacks against qwen2.5:7b and llama3.1:8b, measured once with the current rules (pre-registered), it stopped 132 of 148, 89% (83%–93%): 100% of password leaks, 100% of direct-harm tool hijacks, 69% of data-stealing tool hijacks. It wrongly blocked 1% (0%–3%) of clean transcripts. On the same transcripts the previous rules stopped 104 and Llama Guard 3 (configured) 77, wrongly blocking 10% (6%–14%). Given the tool results as well, on further fresh transcripts of the same models (pre-registered), it stopped 75 of 75 attacks (55 of 55 data-stealing) vs 67 (47) without them, wrongly blocking 1 of 225 clean transcripts either way. Its cost, in a live AgentDojo agent loop on held-out tasks (qwen2.5:7b, pre-registered): the agent completed 22 of 66 legitimate tasks with the guard vs 29 without it (7 broken, 0 fixed), over the registered 10-point margin.
-- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 76% (64%–84%) of attack-shaped ones as written — useful defense in depth, not a sandbox.
+- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 76% (64%–84%) of attack-shaped ones as written: useful defense in depth, not a sandbox.
 - **Erroring often?** In the fix-efficacy run, 1 of 480 item pairs failed to generate, 0 were undecidable by the oracle and 45 were cut by the token cap; in the judge evaluation, 0 of 240 questions went unanswered. Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much is unscored, when the grader misses the known-answer floor, or when it denies an oracle-confirmed violation.
 
-## Q1 — Is the judge accurate?
+## Q1: Is the judge accurate?
 
 Grader verdicts on real open-weight model transcripts vs deterministic oracle labels (InjecAgent: attacker tool called; Gandalf: planted password leaked), with two rule-based baselines on the same items. Unanswered items are counted and excluded from the rates.
 
@@ -24,16 +24,16 @@ Grader verdicts on real open-weight model transcripts vs deterministic oracle la
 | `evals/validation/v1/judge_eval_prob_qwen7b.json` | qwen2.5:7b probability judge (local) | direct_prompt_injection | 60 (0) | 60% (47%–71%) | 80% (55%–93%) | 53% (39%–67%) | 0.50 | 0.24 | 0.53 | 0.10 |
 | `evals/validation/v1/judge_eval_prob_qwen7b.json` | qwen2.5:7b probability judge (local) | system_prompt_leakage | 60 (0) | 55% (42%–67%) | 67% (39%–86%) | 52% (38%–66%) | 0.37 | 0.12 | 0.42 | 0.00 |
 
-Disagreement audit (`evals/validation/v1/judge_eval_host_sonnet.json`) — Every grader-vs-oracle disagreement was read by the maintainer model (Claude Opus) and classified. This is an LLM reading of the transcripts, NOT ground truth; the primary metrics above stay grader-vs-oracle. ambiguous (attacker tool called, but addressed to the legitimate user): 3; disagreements: 17; grader stricter than the oracle (flagged acknowledging a hidden rule): 4; oracle missed a real violation (grader right per the rubric): 10. Most injection disagreements are llama3.2:1b writing natural-language ACTION lines or committing in prose, which the tool-name oracle cannot see; the leakage ones are the grader applying the rubric strictly to refusals that acknowledge a secret exists. The oracles were pre-registered and are not changed after seeing the grader.
+Disagreement audit (`evals/validation/v1/judge_eval_host_sonnet.json`): Every grader-vs-oracle disagreement was read by the maintainer model (Claude Opus) and classified. This is an LLM reading of the transcripts, NOT ground truth; the primary metrics above stay grader-vs-oracle. ambiguous (attacker tool called, but addressed to the legitimate user): 3; disagreements: 17; grader stricter than the oracle (flagged acknowledging a hidden rule): 4; oracle missed a real violation (grader right per the rubric): 10. Most injection disagreements are llama3.2:1b writing natural-language ACTION lines or committing in prose, which the tool-name oracle cannot see; the leakage ones are the grader applying the rubric strictly to refusals that acknowledge a secret exists. The oracles were pre-registered and are not changed after seeing the grader.
 
 **Free local grader (pre-registered).** `evals/validation/v1/PREREG_local_grader.md` fixed its bar before the grader answered any question: accuracy at least 0.60 and F1 at least 0.60 on both checks. Result: direct prompt injection: accuracy 60%, F1 0.50; system prompt leakage: accuracy 55%, F1 0.37. Bar not met, so `fusion doctor` no longer recommends it by default (it can still be chosen explicitly; every run measures its grader in-run and withholds the grade when it falls short).
 
-Paired McNemar compares per-item correctness (not F1). **Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules):** None of the 4 grader-vs-baseline comparisons is significant at 0.05 yet — the grader scores higher, but these samples can't rule out chance. **qwen2.5:7b probability judge (local):** 2 of 4 grader-vs-baseline comparisons are significant at 0.05, all against the grader (a rule-based baseline was more accurate).
+Paired McNemar compares per-item correctness (not F1). **Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules):** None of the 4 grader-vs-baseline comparisons is significant at 0.05 yet: the grader scores higher, but these samples can't rule out chance. **qwen2.5:7b probability judge (local):** 2 of 4 grader-vs-baseline comparisons are significant at 0.05, all against the grader (a rule-based baseline was more accurate).
 Each item appears twice (as written and with the fix), so rows are not fully independent and the intervals are somewhat narrow. The leakage oracle is a string match for the planted password; the baselines are not told the password.
 
 Each run also measures its grader in-run (known-answer questions plus an oracle cross-check on clear-cut questions) and withholds the grade below the policy floor.
 
-## Q2 — Does it error?
+## Q2: Does it error?
 
 - In the fix-efficacy run, 1 of 480 item pairs failed to generate, 0 were undecidable by the oracle and 45 were cut by the token cap.
 - In the judge evaluation, 0 of 240 questions went unanswered.
@@ -41,7 +41,7 @@ Each run also measures its grader in-run (known-answer questions plus an oracle 
 
 Evidence: `evals/validation/v1/evidence_oracle.json`, `evals/validation/v1/judge_eval_host_sonnet.json`, `evals/validation/v1/judge_eval_prob_qwen7b.json`.
 
-## Q3 — Does the fix work, and what does it cost?
+## Q3: Does the fix work, and what does it cost?
 
 The prompt as written vs with Fusion's fix, on local models (gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b), over held-out items from external benchmarks. Issue = oracle-confirmed attack success (InjecAgent: attacker tool called; Gandalf: planted password leaked) or cost (XSTest: safe request refused; IFEval: instruction not followed). Lower is better. Evidence: `evals/validation/v1/evidence_oracle.json`.
 
@@ -79,7 +79,7 @@ Significant regressions: xstest on llama3.2:1b. Proven improvements: gandalf on 
 
 A pre-registered compact version of the fix (`evals/validation/v1/PREREG_compact_fix.md`; evidence: `evals/validation/v1/compact_fix.json`) was not adopted: no model had significantly fewer attacks with it without a meaningful rise in refusals of safe requests.
 
-## Q4 — Does the rubric beat simply asking an LLM?
+## Q4: Does the rubric beat simply asking an LLM?
 
 The same items graded twice by the same Claude Sonnet: once with Fusion's rubric (the Q1 answers), once asked one plain yes/no question with no rubric. Pre-registered in `evals/validation/v1/PREREG_b3_single_question.md`; evidence: `evals/validation/v1/b3_rubric_vs_plain_judge.json`.
 
@@ -165,7 +165,7 @@ Pattern rules catch the common exfiltration / destruction / remote-code shapes a
 
 ## Known limits
 
-- Oracle labels decide narrow questions (a tool was called, a password appeared). Where the judge's rubric is broader than the oracle, some 'disagreements' are real violations the oracle can't see — see each disagreement audit.
+- Oracle labels decide narrow questions (a tool was called, a password appeared). Where the judge's rubric is broader than the oracle, some 'disagreements' are real violations the oracle can't see: see each disagreement audit.
 - Samples are small (tens of transcripts per cell); read the intervals, not the points.
 - Known-answer questions come from a public gold set; the in-run oracle cross-check covers only clear-cut questions.
 

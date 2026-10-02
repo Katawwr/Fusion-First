@@ -1,7 +1,7 @@
 """User-prompt scan: the pipeline that turns a pasted system prompt into graded report cards.
 
-For each requested check we run every attack template against two arms of the user's prompt —
-baseline (as pasted) and hardened — judge both, and fold the results into the paired statistics
+For each requested check we run every attack template against two arms of the user's prompt, 
+baseline (as pasted) and hardened: judge both, and fold the results into the paired statistics
 and report card. Everything is emitted as a stream of `ScanEvent`s so the HTTP layer can show live
 progress without the engine knowing about HTTP.
 
@@ -15,8 +15,8 @@ Reliability contract (what makes a live scan trustworthy rather than fragile):
   * The hardened arm measures EXACTLY the prompt the user copies: `apply_fix(prompt, checks)`
     computed once (or an explicit `hardened_prompt`), never a per-check variant.
   * One failed attack is recorded as UNSCORED (never clean, never a violation) and the scan goes
-    on; the card counts it (`trust.n_errored`). Run-level failures — budget or usage limit hit,
-    a strict-replay cassette miss, metered auth refused — stop the scan with an ERROR event.
+    on; the card counts it (`trust.n_errored`). Run-level failures: budget or usage limit hit,
+    a strict-replay cassette miss, metered auth refused: stop the scan with an ERROR event.
   * A circuit breaker stops a scan whose backend keeps failing (ERROR code backend_unavailable)
     instead of grinding through every attack.
   * Every stream ends with exactly one SCAN_COMPLETED or ERROR event.
@@ -267,7 +267,7 @@ def _verify(spec: dict, prompt: str, response: str) -> tuple[bool | None, str]:
         return None, "the verifier could not decide"
     failed = [k for k, v in res["per_instruction"].items() if v is False]
     if failed:
-        return True, "verifier: instruction not followed — " + ", ".join(sorted(set(failed)))
+        return True, "verifier: instruction not followed: " + ", ".join(sorted(set(failed)))
     return False, "verifier: every instruction followed"
 
 
@@ -282,7 +282,7 @@ async def _score_quality_test(
     target_model_id: str | None,
 ) -> ProbeOutcome:
     """Run one QUALITY test on both arms (the prompt as written, and the hardened prompt the user
-    ships) and grade each — by a deterministic verifier when the test has one, else by the judge
+    ships) and grade each: by a deterministic verifier when the test has one, else by the judge
     with the quality rubric. The hardened arm makes the card's before/after a FIX-COST measure:
     did the safety fix hurt quality?"""
     from fusion_first.attacks.agentic import build_agentic_trajectory
@@ -391,7 +391,7 @@ async def run_user_scan(
     kinds = {check: get_rubric(check).kind for check in checks}
     if demonstration and any(k == "quality" for k in kinds.values()):
         raise ValueError(
-            "quality checks need a live model — demonstration responses are canned and would say "
+            "quality checks need a live model: demonstration responses are canned and would say "
             "nothing about your agent's quality"
         )
     plan: dict[str, list] = {
@@ -599,7 +599,7 @@ async def _live_accuracy_unmeasured(
     check: str, judge_id: str
 ) -> tuple[AccuracyResult | None, str, str, str]:
     note = (
-        f"Not yet measured for judge {judge_id} on this backend — run "
+        f"Not yet measured for judge {judge_id} on this backend: run "
         f"`fusion measure --stages accuracy` to measure it against the labelled gold set."
     )
     return None, "", note, ""
@@ -610,7 +610,7 @@ async def _demo_calibration(
 ) -> tuple[AccuracyResult | None, str, str]:
     """The judge's accuracy on our committed calibration set (a property of the judge, not the
     user's prompt), that gold set's version, and a note. Strict replay: a missing or stale cassette
-    is reported in the note and logged — never silently dropped."""
+    is reported in the note and logged: never silently dropped."""
     path = CASSETTE_DIR / f"{check}.{version}.json"
     if not path.exists():
         note = f"Judge accuracy unavailable: calibration cassette missing for {check}."

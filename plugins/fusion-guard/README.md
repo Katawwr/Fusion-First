@@ -1,4 +1,4 @@
-# fusion-guard — a runtime guard for Claude Code itself (opt-in)
+# fusion-guard: a runtime guard for Claude Code itself (opt-in)
 
 An agent that reads web pages, issues and MCP tool output can be prompt-injected. This plugin puts
 Fusion's guardrail in front of Claude Code's own tool calls:

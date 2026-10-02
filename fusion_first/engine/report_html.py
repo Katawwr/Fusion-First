@@ -247,12 +247,14 @@ function fusionCopy(id, btn){
 
 
 def render_dashboard_html(cards: list[SafetyReportCard], title: str = "Safety Report",
-                          outcomes: list[ProbeOutcome] | None = None) -> str:
-    """The report page. A scan's `outcomes` add its in-sample guard replay to the guardrail block."""
+                          outcomes: list[ProbeOutcome] | None = None, theme: str | None = None) -> str:
+    """The report page. A scan's `outcomes` add its in-sample guard replay to the guardrail block.
+    `theme` ("dark" | "light") pins the theme the site had selected; otherwise the reader's system decides."""
+    theme_attr = f' data-theme="{theme}"' if theme in ("dark", "light") else ""
     body = "".join(render_report_card_html(c, i) for i, c in enumerate(cards))
     demo = any(c.demonstration for c in cards)
     caveat = f'<p class="caveat">{_esc(FIX_CAVEAT)}</p>' if any(c.fix_snippet for c in cards) else ""
-    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+    return f"""<!doctype html><html lang="en"{theme_attr}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Fusion First: {_esc(title)}</title><style>{_CSS}</style></head>
 <body>

@@ -96,7 +96,7 @@ async def test_record_client_captures(tmp_path):
 @pytest.mark.unit
 def test_pinned_cache_key_is_stable_across_schema_additions():
     """Every committed cassette is keyed by this hash. New optional request fields must not change
-    the key of a request that doesn't set them — pin one known key."""
+    the key of a request that doesn't set them: pin one known key."""
     from fusion_first.model.client import ModelRequest, ModelRole
 
     req = ModelRequest(role=ModelRole.JUDGE, system="s", messages=[{"role": "user", "content": "x"}])

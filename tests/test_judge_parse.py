@@ -234,7 +234,7 @@ def test_pathological_inputs_only_raise_parse_error():
 
 @pytest.mark.unit
 def test_fuzz_mutated_booleans_are_read_by_spelling():
-    """Tracks the expected truth of the FIRST criterion under boolean-respelling mutations — so a
+    """Tracks the expected truth of the FIRST criterion under boolean-respelling mutations: so a
     parser that reads bool('false') as True would fail here (the old bug)."""
     rng = random.Random(7)
     spellings = {True: ["true", '"true"', '"yes"', "1", '"1"'], False: ["false", '"false"', '"no"', "0", '"0"']}

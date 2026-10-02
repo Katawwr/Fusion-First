@@ -3,8 +3,8 @@
 The engine (`fusion_first.runs.engine`) knows phases; this module knows USERS: it parses target/grader
 specs, drives collect -> grade -> finalize for built-in graders (and resumes stalled runs), tells an
 agent exactly what to do next, and summarizes a finished run in plain, honest language: the grade,
-what got through, how sure we are, how accurate the grader measured in this run, and — when the
-grader hasn't earned it — that the grade is withheld and why.
+what got through, how sure we are, how accurate the grader measured in this run, and: when the
+grader hasn't earned it: that the grade is withheld and why.
 """
 
 from __future__ import annotations
@@ -141,8 +141,8 @@ async def drive(
     max_calls: int = 400,
     grade: bool = True,
 ) -> dict:
-    """Run (or RESUME) every phase that needs no outside help: collect, then — for a built-in
-    grader — grade and finalize. Clients are built from the plan when not injected; the grader is
+    """Run (or RESUME) every phase that needs no outside help: collect, then: for a built-in
+    grader: grade and finalize. Clients are built from the plan when not injected; the grader is
     built (and its subscription auth checked) BEFORE collect, so a bad grader fails in seconds, not
     after the whole target run. Returns `status(rd)`. Beats the run's heartbeat while it works."""
     beat = asyncio.get_running_loop().create_task(_heartbeat(rd))
@@ -213,16 +213,16 @@ def _next_step(rd: RunDir, grader: str, st: RunState, running: bool | None) -> s
     external = parse_grader(grader).external
     if st.phase in BUSY_PHASES and running is False:
         return (f"The run is stalled in '{st.phase}' (nothing is working on it). Call resume_run "
-                f"(CLI: fusion run resume {rd.run_id}) — recorded work is kept.")
+                f"(CLI: fusion run resume {rd.run_id}): recorded work is kept.")
     if st.phase in ("created", "collecting"):
         tail = "" if running else " If no process is working on it, resume it (fusion run resume)."
-        return "The target is being tested — check run_status again shortly." + tail
+        return "The target is being tested: check run_status again shortly." + tail
     if st.phase == "failed":
         return f"The run failed: {st.message}. Fix the cause, then resume_run (recorded work is kept)."
     if result_is_fresh(rd) and st.n_graded >= st.n_tasks:
-        return "Done — read the summary with finalize_run (or open report_html)."
+        return "Done: read the summary with finalize_run (or open report_html)."
     if st.n_graded >= st.n_tasks:
-        return "All questions are graded — call finalize_run."
+        return "All questions are graded: call finalize_run."
     left = st.n_tasks - st.n_graded
     if st.phase == "grading_incomplete":
         return (f"{left} questions could not be graded ({st.message}). Retry with resume_run, or "
@@ -232,7 +232,7 @@ def _next_step(rd: RunDir, grader: str, st: RunState, running: bool | None) -> s
                 "transcript, then submit_grades (the fusion-judge agent can do this for you).")
     tail = "" if running else (f" If no process is working on it, resume it (fusion run resume {rd.run_id}); "
                                "graded answers are kept.")
-    return f"Grading with {grader} — check run_status again shortly.{tail}"
+    return f"Grading with {grader}: check run_status again shortly.{tail}"
 
 
 def list_runs(workspace: str | os.PathLike | None = None) -> list[dict]:
@@ -253,7 +253,7 @@ def resolve_run(workspace: str | os.PathLike | None, ref: str | None) -> RunDir:
     """A run by full id, unique prefix, or "latest"/None (most recently touched)."""
     runs = list_runs(workspace)
     if not runs:
-        raise RunError("no runs in this workspace yet — start one with start_run / `fusion run start`")
+        raise RunError("no runs in this workspace yet: start one with start_run / `fusion run start`")
     if ref in (None, "", "latest"):
         return RunDir(workspace_dir(workspace), runs[0]["run_id"])
     matches = [r["run_id"] for r in runs if r["run_id"] == ref] or [
@@ -355,9 +355,9 @@ def _verdict(overall: str, cards: list[dict], has_safety: bool) -> str:
     withheld = [c for c in cards if c["grade_withheld"]]
     if withheld:
         why = " ".join(f"{c['check']}: {c['grade_withheld']}" for c in withheld)
-        return f"No grade — not a pass. {why}"
+        return f"No grade: not a pass. {why}"
     if overall == "?" or any(c["grade"] == "?" for c in cards):
-        return ("Not enough was scored to grade this agent — unscored cases are never counted as "
+        return ("Not enough was scored to grade this agent: unscored cases are never counted as "
                 "safe. See unscored_reasons.")
     bad = [c for c in cards if c["grade"] in ("C", "D", "F")]
     if not bad:
@@ -389,7 +389,7 @@ def result_is_fresh(rd: RunDir) -> bool:
 
 
 async def finalize_and_summarize(rd: RunDir, *, allow_partial: bool = False) -> dict:
-    """Always re-derives from the recordings (offline, cheap) — a stored result.json is never
+    """Always re-derives from the recordings (offline, cheap): a stored result.json is never
     trusted as the source of a verdict. Log runs return their own summary shape (kind='logs')."""
     from fusion_first.runs.logs import finalize_logs, is_log_run
 
@@ -406,7 +406,7 @@ async def verify_any(rd: RunDir) -> dict:
     if not is_log_run(rd):
         return await verify(rd)
     if not rd.result_path.exists():
-        return {"ok": False, "reason": "no result yet — finalize first"}
+        return {"ok": False, "reason": "no result yet: finalize first"}
     stored = rd.read_json(rd.result_path)
     if stored.get("commitment") != commitment(rd):
         return {"ok": False, "reason": "inputs changed since the result was produced (commitment mismatch)"}

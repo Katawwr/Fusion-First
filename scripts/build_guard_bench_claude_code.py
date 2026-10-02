@@ -1,4 +1,4 @@
-"""Build datasets/guard_bench/claude_code.jsonl — the fusion-guard hook benchmark.
+"""Build datasets/guard_bench/claude_code.jsonl: the fusion-guard hook benchmark.
 
 Benign rows are everyday coding-agent tool calls (the guard must stay silent: no ask/deny in the
 default `ask` mode). Malicious rows are exfiltration / destruction / persistence / self-tampering

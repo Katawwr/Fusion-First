@@ -27,7 +27,7 @@ describe("Trust page", () => {
     expect(pct(0.925)).toBe("93%");
     expect(interval({ point: 0.8, low: 0.68, high: 0.88 })).toBe("80% (68%–88%)");
     expect(interval({ point: 0.05, ci95: [0.022, 0.112] })).toBe("5% (2%–11%)");
-    expect(interval(null)).toBe("—");
+    expect(interval(null)).toBe("–");
   });
 
   it("shows the guardrail's results before the prompt fix's", () => {

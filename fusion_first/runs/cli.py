@@ -1,4 +1,4 @@
-"""`fusion run …` and `fusion doctor` — the keyless run engine from a terminal or CI.
+"""`fusion run …` and `fusion doctor`: the keyless run engine from a terminal or CI.
 
     fusion doctor                                             # what can run here (no model calls)
     fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli
@@ -99,7 +99,7 @@ def cmd_doctor(args) -> int:
         print(json.dumps(d, indent=2))
         return 0
     b = d["backends"]
-    print("Fusion doctor — keyless backends" + (" (FUSION_OFFLINE=1)" if d["offline"] else ""))
+    print("Fusion doctor: keyless backends" + (" (FUSION_OFFLINE=1)" if d["offline"] else ""))
     print(f"  claude CLI : {'found' if b['claude_cli']['available'] else 'not found'}"
           f"; subscription auth: {b['claude_cli']['subscription']}")
     models = ", ".join(b["ollama"]["models"]) or "none"
@@ -137,7 +137,7 @@ async def _start(args) -> int:
                            tier=args.tier, calibration=not args.no_calibration,
                            allow_self_grading=args.allow_self_grading)
     if not args.json:
-        print(f"run {rd.run_id} — {_describe_cost(args.target, args.grader)}")
+        print(f"run {rd.run_id} · {_describe_cost(args.target, args.grader)}")
 
     def progress(st):
         if not args.json:
@@ -151,7 +151,7 @@ async def _start(args) -> int:
 
 
 def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
-    lines = [f"Overall grade {summary['overall_grade']} — {summary['verdict']}"]
+    lines = [f"Overall grade {summary['overall_grade']}: {summary['verdict']}"]
     for c in summary["cards"]:
         if c.get("grade_withheld"):
             lines.append(f"  {c['check']}: {c['grade_withheld']}")
@@ -200,7 +200,7 @@ async def _logs(args) -> int:
                            checks=service.resolve_checks(args.check), grader=g.label,
                            calibration=not args.no_calibration)
     if not args.json:
-        print(f"run {rd.run_id} — {len(transcripts)} transcripts, {rd.state().n_tasks} questions")
+        print(f"run {rd.run_id}: {len(transcripts)} transcripts, {rd.state().n_tasks} questions")
     st = await service.drive(rd, grader_client=grader_client)
     if st["phase"] == "done":
         return _print_logs_summary(args, await service.finalize_and_summarize(rd))
@@ -260,7 +260,7 @@ def cmd_run(args) -> int:
         rd = service.resolve_run(args.workspace, args.run)
         if args.run_cmd == "status":
             st = service.status(rd)
-            _out(args, st, f"{rd.run_id}: {st['phase']} — {st['next']}")
+            _out(args, st, f"{rd.run_id}: {st['phase']}: {st['next']}")
             return 0
         if args.run_cmd == "tasks":
             print(json.dumps(grading_tasks(rd, max_tasks=args.max, lease_s=args.lease), indent=2,
@@ -280,7 +280,7 @@ def cmd_run(args) -> int:
 
                 current = hashlib.sha256(pathlib.Path(args.prompt).read_text(encoding="utf-8").encode("utf-8")).hexdigest()
                 if current != rd.plan().prompt_sha256:
-                    res = {"ok": False, "reason": f"{args.prompt} changed since run {rd.run_id} tested it — re-run"}
+                    res = {"ok": False, "reason": f"{args.prompt} changed since run {rd.run_id} tested it: re-run"}
                     _out(args, res, f"FAILED: {res['reason']}")
                     return 1
             res = asyncio.run(service.verify_any(rd))

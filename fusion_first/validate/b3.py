@@ -1,4 +1,4 @@
-"""B3 — does Fusion's rubric judge beat simply asking an LLM? (pre-registered in
+"""B3: does Fusion's rubric judge beat simply asking an LLM? (pre-registered in
 `evals/validation/v1/PREREG_b3_single_question.md`)
 
 The same oracle-labelled transcripts that Q1 scored are put to a PLAIN judge: one yes/no question
@@ -28,7 +28,7 @@ def _task_id(secret: str, uid: str) -> str:
 
 def b3_tasks(items: list[JudgeEvalItem], secret: str) -> tuple[list[dict], dict[str, str]]:
     """(tasks for the grader, task_id -> uid kept by the orchestrator). A task is only the plain
-    question and the transcript — exactly what `SingleQuestionJudge` would send a model."""
+    question and the transcript: exactly what `SingleQuestionJudge` would send a model."""
     tasks, task_uid = [], {}
     for it in items:
         req = SingleQuestionJudge(None).build_request(it.trajectory, it.check)

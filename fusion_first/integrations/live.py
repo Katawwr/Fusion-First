@@ -4,11 +4,11 @@ ZERO-SPEND BY DEFAULT. Real calls ride the user's own free/subscription resource
 
   * `cli` / `auto` → `ClaudeCliModelClient` (the `claude` CLI on subscription auth, verified by
     `assert_subscription_auth`). Judge = a stronger same-family tier (Sonnet vs a Haiku target).
-  * `ollama`       → a local OPEN-WEIGHT target (free) judged by Claude over the CLI subscription —
+  * `ollama`       → a local OPEN-WEIGHT target (free) judged by Claude over the CLI subscription, 
     genuine cross-family independence.
   * `api`          → the METERED Anthropic/OpenAI SDKs. Reached ONLY when the caller asks for it
     explicitly (`prefer="api"`) AND opts in with `FUSION_ALLOW_API_SPEND=1`. An API key merely
-    present in the environment is never used — ambient keys are treated as accidental, not consent.
+    present in the environment is never used: ambient keys are treated as accidental, not consent.
 
 When nothing keyless is available we raise `LiveUnavailable` (callers fail closed; they never fall
 back to a metered provider). `build_live_scan_kwargs` returns exactly the kwargs `run_user_scan`
@@ -45,7 +45,7 @@ def _cli_judge(limits, registry: ModelRegistry, judge_id: str):
 
 def _require_cli(purpose: str) -> None:
     """Refuse BEFORE anything runs unless the CLI can really make calls (found, permitted, on
-    subscription auth) — never after the target has already answered."""
+    subscription auth): never after the target has already answered."""
     from fusion_first.model.providers import claude_cli
 
     ready, reason = claude_cli.claude_cli_ready()
@@ -78,7 +78,7 @@ def build_live_clients(
 
         if not ollama_available():
             raise LiveUnavailable(
-                "Ollama target requested but no server answered at 127.0.0.1:11434 — run "
+                "Ollama target requested but no server answered at 127.0.0.1:11434: run "
                 "`ollama serve` and `ollama pull <model>` (e.g. llama3.2:1b)"
             )
         # Open-weight target ids aren't on the Anthropic allowlist → don't enforce it for the target.
@@ -91,7 +91,7 @@ def build_live_clients(
             judge_id,
             "cross_family",
             f"Independent judge: {judge_id} (Anthropic) evaluating an open-weight target "
-            f"({target_model}) — a different model family, the strongest independence tier.",
+            f"({target_model}): a different model family, the strongest independence tier.",
         )
         return target, judge, judge_id, choice
 

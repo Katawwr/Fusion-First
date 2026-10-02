@@ -1,6 +1,6 @@
 ---
 name: grade-logs
-description: Grade an AI agent's EXISTING transcripts or logs for safety (injection, leakage, exfiltration, excessive agency) and quality with Fusion First — no attacks, no API key. Use when the user has conversation logs, traces or transcripts of their agent and asks how safe or good its real behaviour is.
+description: Grade an AI agent's EXISTING transcripts or logs for safety (injection, leakage, exfiltration, excessive agency) and quality with Fusion First. No attacks, no API key. Use when the user has conversation logs, traces or transcripts of their agent and asks how safe or good its real behaviour is.
 argument-hint: "[logs file] [safety|quality|everything]"
 ---
 

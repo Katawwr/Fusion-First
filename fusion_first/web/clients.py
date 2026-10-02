@@ -1,15 +1,15 @@
-"""Scan mode resolution and live-client assembly — the one place the web app decides demo vs real.
+"""Scan mode resolution and live-client assembly: the one place the web app decides demo vs real.
 
 A `live` request without an available backend fails closed (LiveUnavailable → 402); we NEVER
 silently serve a demo card when a real one was asked for. Backend selection is DELEGATED to
 `fusion_first.integrations.live.build_live_clients`, so the web app, CLI and MCP share one zero-spend
 policy:
 
-  * "cli" / "auto" (default) — the server's `claude` CLI on subscription auth (no key).
-  * "ollama" — a local OPEN-WEIGHT target (Llama/Qwen/Gemma…), judged by Claude over the CLI.
-  * "api"    — METERED provider keys. Only with the operator's explicit FUSION_ALLOW_API_SPEND=1;
+  * "cli" / "auto" (default): the server's `claude` CLI on subscription auth (no key).
+  * "ollama": a local OPEN-WEIGHT target (Llama/Qwen/Gemma…), judged by Claude over the CLI.
+  * "api"   : METERED provider keys. Only with the operator's explicit FUSION_ALLOW_API_SPEND=1;
                an API key merely present in the environment is never used.
-  * "spec"   — any model by spec (openai:, hf:, anthropic:, openai-compat: ...) graded by any chat
+  * "spec"  : any model by spec (openai:, hf:, anthropic:, openai-compat: ...) graded by any chat
                grader, on a local server only. cmd:/python: and the host grader stay CLI/MCP-only.
 """
 
@@ -56,7 +56,7 @@ def require_backend_allowed(backend: str | None, settings: Settings) -> str:
 
 
 def _spec_scan_kwargs(settings: Settings, target_spec: str | None, grader_spec: str | None) -> dict:
-    """Any model by spec, graded by any chat grader — only what a local page may start: no program
+    """Any model by spec, graded by any chat grader: only what a local page may start: no program
     (cmd:), no in-process function (python:), no host grader (a web scan has no calling agent)."""
     from fusion_first.backends.resolve import (
         OPAQUE_BACKENDS,

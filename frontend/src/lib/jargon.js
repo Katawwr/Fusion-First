@@ -43,7 +43,7 @@ export const QUALITY_CHECKS = {
   },
 };
 
-// Safety or quality — one lookup for labels/tooltips anywhere a check id is shown.
+// Safety or quality: one lookup for labels/tooltips anywhere a check id is shown.
 export function metaFor(check) {
   if (QUALITY_CHECKS[check]) return { owasp: "Quality", ...QUALITY_CHECKS[check] };
   return checkMeta(check);

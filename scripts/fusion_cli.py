@@ -1,4 +1,4 @@
-"""Backwards-compatible shim — the CLI now lives in the installed package at `fusion_first/cli.py`
+"""Backwards-compatible shim: the CLI now lives in the installed package at `fusion_first/cli.py`
 (so `pip install fusion-safety` gives you the `fusion` command). This keeps the historical
 `python scripts/fusion_cli.py …` invocations (docs, hooks, CI examples) working from a checkout.
 """

@@ -40,7 +40,7 @@ def main(argv=None) -> int:
 
     out = ROOT / a.out
     if out.exists():
-        print(f"refusing: {a.out} exists — a held-out set is scored once")
+        print(f"refusing: {a.out} exists: a held-out set is scored once")
         return 2
     if _git("diff", "--quiet", a.rules_sha, "--", RULES).returncode != 0:
         print(f"refusing: {RULES} differs from the registered rules at {a.rules_sha}")

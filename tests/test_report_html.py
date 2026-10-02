@@ -136,7 +136,7 @@ def test_the_report_uses_the_site_brand():
     page = render_dashboard_html([_card()])
     assert 'class="mark"' in page and "#504d9a" in page and "Fusion First" in page
     assert "#66c4e1" not in page  # the retired cyan wordmark
-    assert "—" not in page  # no em dashes (owner)
+    assert chr(0x2014) not in page  # no em dashes (owner)
 
 
 @pytest.mark.unit

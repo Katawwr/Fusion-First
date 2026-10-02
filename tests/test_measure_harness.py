@@ -1,4 +1,4 @@
-"""Offline tests for the sufficiency harness (fake clients — no subprocess, no network)."""
+"""Offline tests for the sufficiency harness (fake clients: no subprocess, no network)."""
 
 from __future__ import annotations
 
@@ -176,7 +176,7 @@ async def test_sufficiency_too_weak_when_judge_never_flags():
 
 @pytest.mark.unit
 async def test_run_level_failures_stop_measurement_instead_of_shrinking_n():
-    """A budget/usage-limit stop must propagate — counting it as 'unscored' would silently shrink n
+    """A budget/usage-limit stop must propagate: counting it as 'unscored' would silently shrink n
     and report a rate over whatever happened to finish."""
     from fusion_first.measure.harness import measure_sufficiency
     from fusion_first.security.budget import BudgetExceeded

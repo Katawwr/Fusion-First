@@ -1,7 +1,7 @@
 """Budget / circuit breaker for model access.
 
 `BudgetedModelClient` wraps any ModelClient and enforces, per run:
-- a model allowlist (via the registry) — no calling unapproved/expensive models;
+- a model allowlist (via the registry): no calling unapproved/expensive models;
 - a maximum number of model calls (kills runaway agent loops);
 - a cumulative output-token ceiling (caps cost);
 - a per-call output-token cap clamp.
@@ -20,11 +20,11 @@ from fusion_first.model.registry import ModelRegistry
 
 
 class BudgetExceeded(FatalRunError):
-    """The run's call/token ceiling was hit — the run stops (never silently shrinks n)."""
+    """The run's call/token ceiling was hit: the run stops (never silently shrinks n)."""
 
 
 class ModelNotAllowed(FatalRunError):
-    """A model outside the allowlist was requested — refused for the whole run."""
+    """A model outside the allowlist was requested: refused for the whole run."""
 
 
 @dataclass

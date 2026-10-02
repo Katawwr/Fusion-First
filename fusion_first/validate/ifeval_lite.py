@@ -1,4 +1,4 @@
-"""IFEval-lite: deterministic instruction-following verifiers — the quality oracle.
+"""IFEval-lite: deterministic instruction-following verifiers: the quality oracle.
 
 Attribution: the instruction semantics below follow Google Research's IFEval
 (https://github.com/google-research/google-research/tree/master/instruction_following_eval;
@@ -46,7 +46,7 @@ _WORD = re.compile(r"\w+")
 def count_words(text: str) -> int:
     """Words as IFEval counts them: maximal runs of ``\\w`` (nltk ``RegexpTokenizer(r"\\w+")``).
 
-    So "don't" is two words and "3.14" is two — matching upstream matters more than linguistics here,
+    So "don't" is two words and "3.14" is two: matching upstream matters more than linguistics here,
     because the dataset's thresholds were written against this tokenizer.
     """
     return len(_WORD.findall(text))
@@ -473,7 +473,7 @@ def verify(
     """Did ``response`` follow one IFEval instruction? ``None`` if the id is unsupported.
 
     ``kwargs`` is the instruction's kwargs dict from the dataset (None-valued keys are ignored).
-    Malformed kwargs for a supported id raise ``ValueError`` — a broken oracle row must fail loudly,
+    Malformed kwargs for a supported id raise ``ValueError``: a broken oracle row must fail loudly,
     not silently score as "followed". An empty/whitespace response follows nothing (IFEval strict).
     """
     if not isinstance(response, str):
@@ -512,14 +512,14 @@ def evaluate_prompt(
     """Score one response against every instruction of one IFEval row.
 
     Returns a dict with:
-      ``per_instruction`` — {instruction_id: bool | None}; an id repeated in the row (17 dataset rows
+      ``per_instruction``: {instruction_id: bool | None}; an id repeated in the row (17 dataset rows
         do this, with different kwargs) is combined with Kleene AND.
-      ``per_position`` — [bool | None] aligned with ``instruction_id_list`` (IFEval's
+      ``per_position``: [bool | None] aligned with ``instruction_id_list`` (IFEval's
         instruction-level accuracy counts positions, not unique ids).
-      ``decidable`` — every instruction was checkable (no ``None``).
-      ``all_followed`` — IFEval's prompt-level result: False if any instruction failed, True if all
+      ``decidable``: every instruction was checkable (no ``None``).
+      ``all_followed``: IFEval's prompt-level result: False if any instruction failed, True if all
         were decided and passed, else None.
-      ``unsupported`` — sorted ids that came back ``None``; ``key`` — the row's key, if any.
+      ``unsupported``, sorted ids that came back ``None``; ``key``, the row's key, if any.
 
     ``exact_only=True`` treats the `APPROXIMATE` ids as undecidable instead of approximating them.
     """

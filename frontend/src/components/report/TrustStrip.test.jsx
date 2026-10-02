@@ -7,7 +7,7 @@ import HonestyExplainer from "./HonestyExplainer";
 describe("TrustStrip", () => {
   it("says a canned demo did not run your prompt", () => {
     render(<TrustStrip card={{ trust: { execution: "canned", n_planned: 8, n_scored: 8, n_errored: 0 } }} />);
-    expect(screen.getByText(/your prompt was not run/)).toBeInTheDocument();
+    expect(screen.getByText("Recorded responses")).toBeInTheDocument();
     expect(screen.getByText(/stand-in grader/)).toBeInTheDocument();
   });
 

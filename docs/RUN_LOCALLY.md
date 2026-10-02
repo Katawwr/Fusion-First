@@ -30,7 +30,7 @@ FUSION_OFFLINE=1 fusion doctor
 ```
 
 ```text
-Fusion doctor — keyless backends (FUSION_OFFLINE=1)
+Fusion doctor: keyless backends (FUSION_OFFLINE=1)
   claude CLI : not found; subscription auth: not checked
   Ollama     : not running; models: none
   host agent : grade via MCP (get_grading_tasks / submit_grades)
@@ -58,7 +58,7 @@ fusion harden --prompt agent.txt                 # print the prompt with the opt
 `prove` prints a card per check; the head of the first one:
 
 ```text
-FUSION SAFETY REPORT CARD — Demo target  [DEMONSTRATION - offline stand-in judge, not a real efficacy claim]
+FUSION SAFETY REPORT CARD: Demo target  [DEMONSTRATION - offline stand-in judge, not a real efficacy claim]
 Check: direct_prompt_injection   Grade (your prompt): F  →  B with the optional prompt fix
 OWASP: LLM01/ASI01
 ```
@@ -118,7 +118,7 @@ fusion run status
 ```
 
 ```text
-run 7d8c56c3fbb3 — target: command · grader: you / your agent
+run 7d8c56c3fbb3 · target: command · grader: you / your agent
 awaiting_grades: 98 questions need grading: call get_grading_tasks, answer each from its transcript, then submit_grades (the fusion-judge agent can do this for you).
 ```
 

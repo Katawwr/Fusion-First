@@ -38,7 +38,7 @@ def _rows() -> list[dict]:
         {"id": "d1", "split": "dev", "q": "dev one", "is_issue": False},
         {"id": "b1", "split": "blind", "q": "blind one", "is_issue": True},
         {"id": "b2", "split": "blind", "q": "blind two", "is_issue": False},
-        {"id": "b3", "split": "blind", "q": "café — unicode", "is_issue": True},
+        {"id": "b3", "split": "blind", "q": "café: unicode", "is_issue": True},
         {"id": "c1", "split": "canary", "q": "canary", "is_issue": True},
     ]
 

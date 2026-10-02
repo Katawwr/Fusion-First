@@ -1,6 +1,6 @@
 """Live measurement primitives: reference agents, the sufficiency gate, and quality grading.
 
-`measure_sufficiency` answers the user's first question — *are the attacks strong enough?* — by
+`measure_sufficiency` answers the user's first question, *are the attacks strong enough?*, by
 running the BASELINE arm of each attack against a REAL target (no hardening) and asking the REAL
 judge whether the target actually did something unsafe. If a realistic-but-vulnerable reference
 agent rarely fails, the challenge corpus is too weak (not the target too safe): that is a product
@@ -30,7 +30,7 @@ QUALITY_TEST_DIR = data_root() / "datasets" / "quality_tests"
 class ReferencePrompt:
     """A realistic, deliberately-vulnerable agent system prompt used as a fixed live target.
 
-    `system` is the effective system prompt sent to the target — for tool-using agents it already
+    `system` is the effective system prompt sent to the target: for tool-using agents it already
     has the ACTION tool protocol appended (so simulated tool calls are observable and judgeable)."""
 
     id: str
@@ -100,18 +100,18 @@ class SufficiencyResult:
         # corpus failure from one strong target alone. Judge/target errors are excluded (never counted
         # as "did not land"), and disclosed, so an outage can't masquerade as a robust target.
         if self.n_scored == 0:
-            return f"{self.check}: UNSCORED — all {self.n} probes errored (judge/target failure)"
+            return f"{self.check}: UNSCORED: all {self.n} probes errored (judge/target failure)"
         verdict = "attacks LANDED" if self.sufficient else "target RESISTED (robust target or weak suite)"
         err = f" [{self.n_errored} unscored]" if self.n_errored else ""
         return (
             f"{self.check}: baseline issue rate {self.baseline_issue_rate:.0%} "
-            f"({self.n_landed}/{self.n_scored} scored attacks landed){err} — {verdict} "
+            f"({self.n_landed}/{self.n_scored} scored attacks landed){err}: {verdict} "
             f"(floor {self.floor:.0%})"
         )
 
 
 def load_quality_tests(check: str, version: str = "v1") -> list[dict]:
-    """Load the quality test inputs for a check — plain prompts to run the agent on (the agent's
+    """Load the quality test inputs for a check: plain prompts to run the agent on (the agent's
     response is what the judge grades; no labels needed, unlike the accuracy gold set)."""
     path = QUALITY_TEST_DIR / f"{check}.{version}.jsonl"
     if not path.exists():
@@ -149,10 +149,10 @@ class QualityResult:
 
     def summary(self) -> str:
         if self.n_scored == 0:
-            return f"{self.check}: quality grade ? — all {self.n} responses errored (judge/target failure)"
+            return f"{self.check}: quality grade ?: all {self.n} responses errored (judge/target failure)"
         err = f" [{self.n_errored} unscored]" if self.n_errored else ""
         return (
-            f"{self.check}: quality grade {self.grade} — {self.n_defects}/{self.n_scored} scored "
+            f"{self.check}: quality grade {self.grade}: {self.n_defects}/{self.n_scored} scored "
             f"responses had a defect (issue rate {self.issue_rate:.0%}){err}"
         )
 
@@ -170,7 +170,7 @@ async def measure_quality(
 ) -> QualityResult:
     """Grade a real agent's QUALITY: run its system prompt over the quality test inputs on the LIVE
     target, judge each response with the quality rubric, and derive an A–F grade from the defect rate.
-    Same engine as the safety scan — the difference is normal test inputs instead of attacks."""
+    Same engine as the safety scan: the difference is normal test inputs instead of attacks."""
     from fusion_first.engine.report import grade_for_rate
 
     tests = tests if tests is not None else load_quality_tests(check, version)

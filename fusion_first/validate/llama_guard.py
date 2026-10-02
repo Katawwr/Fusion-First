@@ -1,4 +1,4 @@
-"""Llama Guard 3 on the real attack transcripts, next to Fusion's guardrail — pre-registered in
+"""Llama Guard 3 on the real attack transcripts, next to Fusion's guardrail: pre-registered in
 `evals/validation/v1/PREREG_guard_vs_llama_guard.md`. Pure: conversation and prompt construction,
 strict verdict parsing, and the registered scoring. The model call lives in the script.
 
@@ -68,7 +68,7 @@ def _prompt(item, response: str | None, categories: list[str]) -> str:
 
 
 def parse_verdict(text: str | None) -> dict:
-    """`safe` | `unsafe` (+ categories) | `unparseable` — the first non-empty line decides."""
+    """`safe` | `unsafe` (+ categories) | `unparseable`: the first non-empty line decides."""
     lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
     first = lines[0].lower() if lines else ""
     if first == "safe":

@@ -237,7 +237,7 @@ async def test_leases_give_parallel_graders_disjoint_tasks(tmp_path):
 
 
 class _MixedJudge:
-    """Deterministic, content-dependent verdicts (a mix of issues and clean) — for parity."""
+    """Deterministic, content-dependent verdicts (a mix of issues and clean): for parity."""
 
     async def complete(self, request):
         import hashlib

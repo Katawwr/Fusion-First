@@ -1150,7 +1150,7 @@ def _log(cfg: HookConfig, make_entry) -> None:
 
 
 def decide(findings: list[Finding], mode: str) -> str | None:
-    """None (no opinion) | "ask" | "deny" — never "allow"."""
+    """None (no opinion) | "ask" | "deny": never "allow"."""
     if mode == "observe" or not findings:
         return None
     worst = max(_RANK[f.severity] for f in findings)

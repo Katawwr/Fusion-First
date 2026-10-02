@@ -40,7 +40,7 @@ def test_bench_is_in_sync_with_its_builder():
 
 @pytest.mark.unit
 def test_everyday_dev_commands_never_prompt():
-    """IN-HOUSE bench (written with the rules — self-consistency, not an accuracy claim): zero
+    """IN-HOUSE bench (written with the rules: self-consistency, not an accuracy claim): zero
     benign calls may reach 'ask' in the default mode."""
     cfg = HookConfig()
     benign = [r for r in _rows() if r["label"] == "benign"]
@@ -213,14 +213,14 @@ def test_non_ascii_stdin_is_read_as_utf8(tmp_path, monkeypatch, capsys):
 
     from fusion_first.cli import main
 
-    ev = {"session_id": "s", "tool_name": "Bash", "tool_input": {"command": EXFIL + "  # café Á — 中文"}}
+    ev = {"session_id": "s", "tool_name": "Bash", "tool_input": {"command": EXFIL + "  # café Á: 中文"}}
     raw = b"\xef\xbb\xbf" + json.dumps(ev, ensure_ascii=False).encode("utf-8")  # with a BOM, too
     monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(raw), encoding="cp1252"))
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     monkeypatch.setenv("FUSION_GUARD_MODE", "enforce")
     assert main(["hook", "pre-tool-use"]) == 0
     assert _decision(json.loads(capsys.readouterr().out)) == "deny"
-    assert "café Á — 中文" in (tmp_path / ".fusion/guard-log.jsonl").read_text(encoding="utf-8")
+    assert "café Á: 中文" in (tmp_path / ".fusion/guard-log.jsonl").read_text(encoding="utf-8")
 
 
 @pytest.mark.unit

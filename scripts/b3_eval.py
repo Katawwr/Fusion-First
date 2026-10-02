@@ -88,7 +88,7 @@ def main(argv=None) -> int:
         "demonstration": False,
         "generated_at": _dt.date.today().isoformat(),
         "items": "the 120 Q1 transcripts (llama3.2:1b; InjecAgent, Gandalf; both arms)",
-        "rubric_grader": "Claude Sonnet (Claude Code subagent, fusion-judge rules) — committed Q1 answers",
+        "rubric_grader": "Claude Sonnet (Claude Code subagent, fusion-judge rules): committed Q1 answers",
         "b3_grader": f"{a.grader} (Claude Code subagent, SingleQuestionJudge request only)",
         "preregistration": "evals/validation/v1/PREREG_b3_single_question.md",
     })

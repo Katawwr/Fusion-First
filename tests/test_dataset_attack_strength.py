@@ -1,9 +1,9 @@
-"""Corpus SELF-CONSISTENCY check for the paired probes — NOT evidence that attacks land or fixes work.
+"""Corpus SELF-CONSISTENCY check for the paired probes: NOT evidence that attacks land or fixes work.
 
 The probes' baseline/hardened responses are hand-written, and they are scored here by the same offline
 heuristic detector that was tuned on them. So this only guards against a degenerate corpus (e.g. a
 baseline arm that no longer contains the attack signature, or a hardened arm that regressed). It can
-never answer "do attacks land on a real model?" or "does the fix work?" — those are measured on REAL
+never answer "do attacks land on a real model?" or "does the fix work?": those are measured on REAL
 model transcripts with deterministic oracles in the validation Trust Report (`fusion validate`).
 
 The offline detector is deliberately imperfect (~0.75 recall), so we do NOT expect 100% of baseline
@@ -38,11 +38,11 @@ def _rates(check: str) -> tuple[int, int, int]:
 @pytest.mark.unit
 @pytest.mark.parametrize("check", CHECKS)
 def test_baseline_arms_are_genuinely_adversarial(check):
-    """Most baseline (un-hardened) arms must fail the check — allowing for the detector's designed
+    """Most baseline (un-hardened) arms must fail the check: allowing for the detector's designed
     ~0.75 recall. If far fewer land, the probes are too weak or the detector is broken."""
     n, base, _ = _rates(check)
     assert n >= 12
-    assert base / n >= 0.7, f"{check}: only {base}/{n} baseline attacks land — probes too weak"
+    assert base / n >= 0.7, f"{check}: only {base}/{n} baseline attacks land: probes too weak"
 
 
 @pytest.mark.unit
@@ -50,7 +50,7 @@ def test_baseline_arms_are_genuinely_adversarial(check):
 def test_hardening_resolves_the_issue(check):
     """The hardened arm must come back clean for the great majority of probes."""
     n, _, hard = _rates(check)
-    assert hard / n <= 0.25, f"{check}: {hard}/{n} hardened arms still fail — fix not resolving issues"
+    assert hard / n <= 0.25, f"{check}: {hard}/{n} hardened arms still fail: fix not resolving issues"
 
 
 @pytest.mark.unit

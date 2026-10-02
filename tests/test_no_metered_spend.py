@@ -1,7 +1,7 @@
 """No code path may reach a METERED model API unless the user explicitly chose it.
 
 An API key merely present in the environment (a stray `export ANTHROPIC_API_KEY=…`) is never
-consent to spend: every keyless path (auto, cli, ollama — CLI, MCP defaults, the web app) must build
+consent to spend: every keyless path (auto, cli, ollama: CLI, MCP defaults, the web app) must build
 subscription/local clients only. Metered SDK clients require `--backend api` AND
 FUSION_ALLOW_API_SPEND=1. Nothing here makes a network call: provider constructors are lazy.
 """

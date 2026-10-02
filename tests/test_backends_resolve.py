@@ -1,4 +1,4 @@
-"""Target/grader spec parsing, the zero-spend refusals, and `doctor` — all offline."""
+"""Target/grader spec parsing, the zero-spend refusals, and `doctor`: all offline."""
 
 from __future__ import annotations
 

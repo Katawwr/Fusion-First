@@ -1,9 +1,9 @@
-"""TRUST_REPORT.md — generated ONLY from committed, non-demonstration evidence files.
+"""TRUST_REPORT.md: generated ONLY from committed, non-demonstration evidence files.
 
 No number in the report is typed by hand: every figure is read from a JSON file under `evals/` and
 the file is named next to it. `tests/test_trust_report.py` regenerates the report and requires it to
 equal the committed TRUST_REPORT.md, so the report can't drift from its evidence. Evidence that
-doesn't exist yet is reported as NOT YET MEASURED — never estimated.
+doesn't exist yet is reported as NOT YET MEASURED: never estimated.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import pathlib
 from fusion_first._data import data_root
 from fusion_first.validate.prereg import LOCAL_GRADER_EVIDENCE, local_grader_decision
 
-HEADER = """# Fusion First — Trust Report
+HEADER = """# Fusion First: Trust Report
 
 Four questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
 simpler checks?** Generated from committed evidence by `python -m fusion_first.validate.trust_report`; a test
@@ -34,12 +34,12 @@ def _load(root: pathlib.Path, rel: str) -> dict | None:
 
 
 def _pct(x: float | None) -> str:
-    return "—" if x is None else f"{x * 100:.0f}%"
+    return "–" if x is None else f"{x * 100:.0f}%"
 
 
 def _iv(d: dict | None) -> str:
     if not d:
-        return "—"
+        return "–"
     point = d.get("point")
     lo, hi = d.get("low", (d.get("ci95") or [None, None])[0]), d.get("high", (d.get("ci95") or [None, None])[1])
     return f"{_pct(point)} ({_pct(lo)}–{_pct(hi)})"
@@ -150,7 +150,7 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
                      f" A plain one-question judge using the same model was just as accurate on the same items "
                      f"(rubric {_pct(p['rubric']['accuracy']['point'])}, plain "
                      f"{_pct(p['b3']['accuracy']['point'])}), so Fusion does not claim its rubric improves accuracy.")
-        detect.append(f"Graded against deterministic oracles — {span}. "
+        detect.append(f"Graded against deterministic oracles: {span}. "
                       + ("It beats the rule-based checks" if beats else "It does not always beat the rule-based checks")
                       + (" significantly." if sig else ", but not significantly yet (small samples).") + plain)
     for rel, d in judge:
@@ -191,7 +191,7 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
     if guard:
         out.append(f"- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on "
                    f"{_iv(guard['benign']['over_block'])} of benign calls and caught {_iv(guard['malicious']['recall'])} "
-                   "of attack-shaped ones as written — useful defense in depth, not a sandbox.")
+                   "of attack-shaped ones as written: useful defense in depth, not a sandbox.")
     counts = _error_counts(fix, judge)
     out.append("- **Erroring often?** " + ("; ".join(counts).capitalize() + ". " if counts else "")
                + _WITHHELD)
@@ -225,7 +225,7 @@ def _q2(root: pathlib.Path) -> list[str]:
     fix = _load(root, "evals/validation/v1/evidence_oracle.json")
     judge = _judge_files(root)
     counts = _error_counts(fix, judge)
-    out = ["## Q2 — Does it error?", ""]
+    out = ["## Q2: Does it error?", ""]
     if not counts:
         return out + ["NOT YET MEASURED.", ""]
     sources = (["`evals/validation/v1/evidence_oracle.json`"] if fix else []) + [f"`{rel}`" for rel, _ in judge]
@@ -242,7 +242,7 @@ def _significance_of(d: dict) -> str:
                 "all against the grader (a rule-based baseline was more accurate)" if not better else
                 f"{better} in the grader's favour, {worse} against it")
         return f"{better + worse} of {len(comps)} grader-vs-baseline comparisons are significant at 0.05, {side}."
-    return (f"None of the {len(comps)} grader-vs-baseline comparisons is significant at 0.05 yet — "
+    return (f"None of the {len(comps)} grader-vs-baseline comparisons is significant at 0.05 yet: "
             + ("the grader scores higher, but these samples can't rule out chance." if all(b for _, b in comps)
                else "these samples can't tell the grader and the rule-based baselines apart."))
 
@@ -256,17 +256,17 @@ def _significance(rows: list[tuple[str, dict]]) -> str:
 def _local_grader_paragraph(d: dict) -> list[str]:
     dec = local_grader_decision(d)
     result = "; ".join(f"{c.replace('_', ' ')}: accuracy {_pct(v['accuracy'])}, F1 "
-                       + ("—" if v["f1"] is None else f"{v['f1']:.2f}") for c, v in dec["per_check"].items())
+                       + ("–" if v["f1"] is None else f"{v['f1']:.2f}") for c, v in dec["per_check"].items())
     return ["", f"**Free local grader (pre-registered).** `evals/validation/v1/PREREG_local_grader.md` fixed its bar "
                 f"before the grader answered any question: {_floor_text(dec)}. Result: {result}. Bar "
                 f"{_local_verdict(dec)}."]
 
 
 def _q1(root: pathlib.Path) -> list[str]:
-    out = ["## Q1 — Is the judge accurate?", ""]
+    out = ["## Q1: Is the judge accurate?", ""]
     rows = _judge_files(root)
     if not rows:
-        return out + ["NOT YET MEASURED — no committed judge-vs-oracle evidence.", ""]
+        return out + ["NOT YET MEASURED: no committed judge-vs-oracle evidence.", ""]
     out += [
         "Grader verdicts on real open-weight model transcripts vs deterministic oracle labels (InjecAgent: "
         "attacker tool called; Gandalf: planted password leaked), with two rule-based baselines on the same "
@@ -286,7 +286,7 @@ def _q1(root: pathlib.Path) -> list[str]:
     for rel, d in rows:  # after the table, so a paragraph never splits it
         audit = d.get("audit")
         if audit:
-            out += ["", f"Disagreement audit (`{rel}`) — {audit.get('method', 'an LLM reading, not ground truth')} "
+            out += ["", f"Disagreement audit (`{rel}`): {audit.get('method', 'an LLM reading, not ground truth')} "
                     + "; ".join(f"{k}: {v}" for k, v in audit["summary"].items())
                     + (f". {audit['note']}" if audit.get("note") else "")]
     for rel, d in rows:
@@ -307,10 +307,10 @@ def _q1(root: pathlib.Path) -> list[str]:
 
 
 def _q3(root: pathlib.Path) -> list[str]:
-    out = ["## Q3 — Does the fix work, and what does it cost?", ""]
+    out = ["## Q3: Does the fix work, and what does it cost?", ""]
     d = _load(root, "evals/validation/v1/evidence_oracle.json")
     if not d:
-        return out + ["NOT YET MEASURED — the oracle-labelled evidence run on local open-weight models "
+        return out + ["NOT YET MEASURED: the oracle-labelled evidence run on local open-weight models "
                       "has not been committed yet.", ""]
     models = ", ".join(sorted(d.get("models", {})))
     out += [f"The prompt as written vs with Fusion's fix, on local models ({models}), over held-out items "
@@ -438,7 +438,7 @@ def _limits() -> list[str]:
         "",
         "- Oracle labels decide narrow questions (a tool was called, a password appeared). Where the "
         "judge's rubric is broader than the oracle, some 'disagreements' are real violations the oracle "
-        "can't see — see each disagreement audit.",
+        "can't see: see each disagreement audit.",
         "- Samples are small (tens of transcripts per cell); read the intervals, not the points.",
         "- Known-answer questions come from a public gold set; the in-run oracle cross-check covers only "
         "clear-cut questions.",
@@ -566,7 +566,7 @@ def _b3(root: pathlib.Path) -> list[str]:
     d = _load(root, B3_EVIDENCE)
     if not d:
         return []
-    out = ["## Q4 — Does the rubric beat simply asking an LLM?", "",
+    out = ["## Q4: Does the rubric beat simply asking an LLM?", "",
            "The same items graded twice by the same Claude Sonnet: once with Fusion's rubric (the Q1 "
            "answers), once asked one plain yes/no question with no rubric. Pre-registered in "
            "`evals/validation/v1/PREREG_b3_single_question.md`; evidence: "

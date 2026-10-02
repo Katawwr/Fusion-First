@@ -59,9 +59,9 @@ def test_scanner_catches_classic_unbacked_claims(tmp_path):
     for line in [
         'stat: "62% injection · 67% data-leak",',
         "Graded by an examiner that scores F1&nbsp;1.00",
-        "frontier models resist (verified — Haiku 0%)",
+        "frontier models resist (verified: Haiku 0%)",
         "kappa=1.00 on blind",
-        "open-weight models don't (verified — llama3.2:1b 62% on injection)",
+        "open-weight models don't (verified: llama3.2:1b 62% on injection)",
     ]:
         assert any(p.search(line) for p in PROOF_PATTERNS), line
     for benign in ['width: "100%",', 'transform: "translateX(-50%)",', "95% confidence interval"]:

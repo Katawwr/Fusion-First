@@ -1,5 +1,5 @@
 """The pre-registered compact-fix decision (evals/validation/v1/PREREG_compact_fix.md), computed from
-oracle labels — never judged by eye. Offline: transcripts are seeded, no model runs."""
+oracle labels: never judged by eye. Offline: transcripts are seeded, no model runs."""
 
 from __future__ import annotations
 

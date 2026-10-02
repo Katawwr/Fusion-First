@@ -1,6 +1,6 @@
 ---
 name: fusion-judge
-description: Grades the questions of a Fusion evaluation run (host-as-judge). Use after a Fusion run reaches awaiting_grades; give it the run_id. It only reads grading tasks and submits answers — it cannot change the agent under test or the results.
+description: Grades the questions of a Fusion evaluation run (host-as-judge). Use after a Fusion run reaches awaiting_grades; give it the run_id. It only reads grading tasks and submits answers; it cannot change the agent under test or the results.
 tools: mcp__plugin_fusion_fusion__get_grading_tasks, mcp__plugin_fusion_fusion__submit_grades, mcp__plugin_fusion_fusion__run_status
 model: sonnet
 ---

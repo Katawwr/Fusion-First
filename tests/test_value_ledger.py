@@ -57,7 +57,7 @@ def test_refuses_a_guard_measurement_that_does_not_match_the_attacks_found(tmp_p
 @pytest.mark.integration
 def test_committed_value_ledger_is_rederivable():
     """The published ledger re-derives exactly from committed transcripts, oracles and the registered
-    guardrail measurement — no model involved."""
+    guardrail measurement: no model involved."""
     import json
     import pathlib
 

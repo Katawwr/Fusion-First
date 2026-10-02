@@ -2,7 +2,7 @@
 
 Red-teaming showed pattern matching is trivially dodged by Unicode homoglyphs and by wrapping the
 payload in base64/hex/ROT13. This module folds confusables to ASCII and surfaces decoded layers so
-the guard can scan those too. It does NOT defend against semantic paraphrase/translation — that is
+the guard can scan those too. It does NOT defend against semantic paraphrase/translation: that is
 the LLM judge's job, and the guard documents it as such.
 """
 
@@ -78,7 +78,7 @@ def normalized_views(text: str) -> list[str]:
 
     Red-teaming showed that only decoding the space-intact view lets an attacker defeat the decoder
     by splitting a base64 blob across spaces/newlines/short chunks (each broken token decodes to
-    garbage) — the reconstituted payload only materialises once whitespace is stripped. We therefore
+    garbage): the reconstituted payload only materialises once whitespace is stripped. We therefore
     also decode the de-spaced view, collapse repeated spaces (so a doubled space inside a trigger
     phrase can't hide it), and decode one extra layer to catch nested (double-base64) encodings."""
     folded = fold(text)

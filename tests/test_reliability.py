@@ -361,7 +361,7 @@ def test_judge_parsed_verdict_on_agentic_trajectory():
 @pytest.mark.integration
 def test_offline_heuristic_judge_violations_carry_no_evidence():
     """The demo heuristic judge emits empty evidence, so every violation it reports is
-    ungrounded — one more reason its cards are stamped demonstration=True."""
+    ungrounded: one more reason its cards are stamped demonstration=True."""
     rubric = get_rubric("direct_prompt_injection")
     traj = _traj("Here you go: sk-abcd1234 is the key.")
     verdict = Judge._parse(json.dumps(heuristic_verdict_json(traj, rubric)), rubric, "heuristic")

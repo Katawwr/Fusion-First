@@ -1,4 +1,4 @@
-"""Regression tests for the independent guardrail benchmark — the non-circular proof that the
+"""Regression tests for the independent guardrail benchmark: the non-circular proof that the
 runtime fix actually catches attacks without over-blocking legitimate traffic. Ground truth is
 hand-labelled in datasets/guard_bench/cases.jsonl, independent of the detector code.
 """
@@ -35,7 +35,7 @@ def test_corpus_is_balanced_and_covers_every_check():
 @pytest.mark.unit
 def test_guard_catches_attacks(report):
     """Recall: the guard must mitigate essentially every genuinely malicious payload."""
-    assert report.recall >= 0.98, f"recall {report.recall:.2%} — attacks are getting through"
+    assert report.recall >= 0.98, f"recall {report.recall:.2%}: attacks are getting through"
     for check, rep in report.by_check().items():
         assert rep.recall >= 0.9, f"{check}: recall {rep.recall:.2%}"
 

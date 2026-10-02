@@ -1,4 +1,4 @@
-"""The FastAPI app factory — pure, importable and testable without `modal` or any provider key.
+"""The FastAPI app factory: pure, importable and testable without `modal` or any provider key.
 
 `create_app()` returns a fully-wired app that runs demo scans with zero keys. Real scans engage
 automatically when a provider key is present in settings. The Modal ASGI wrapper (app/modal_app.py)
@@ -11,6 +11,7 @@ import logging
 import os
 import uuid
 from collections.abc import AsyncIterator
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -234,12 +235,12 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
         return HTMLResponse(render_dashboard_html(result.cards, title, outcomes=result.outcomes))
 
     @app.post("/api/report.html", response_class=HTMLResponse)
-    def post_report_html(result: ScanResult):
+    def post_report_html(result: ScanResult, theme: Literal["dark", "light"] | None = None):
         """The report from the result the page already holds: no server state, so it works whichever
         container answers. Served as a download, never rendered on the API's origin."""
         title = result.target_name or "Safety Report"
         return HTMLResponse(
-            render_dashboard_html(result.cards, title, outcomes=result.outcomes),
+            render_dashboard_html(result.cards, title, outcomes=result.outcomes, theme=theme),
             headers={"Content-Disposition": 'attachment; filename="fusion-report.html"'},
         )
 
@@ -260,7 +261,7 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
 
     @app.post("/api/grade-quality")
     async def grade_quality(req: QualityRequest):
-        """Grade an agent's QUALITY on normal test inputs. Live-only — needs a real backend (the
+        """Grade an agent's QUALITY on normal test inputs. Live-only: needs a real backend (the
         `claude` CLI subscription, an Ollama open-weight target, or a key); returns 402 otherwise."""
         from fusion_first.integrations import agent_tools
         from fusion_first.integrations.live import LiveUnavailable as FusionLiveUnavailable

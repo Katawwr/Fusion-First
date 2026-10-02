@@ -32,7 +32,7 @@ def _commands():
 
 
 def _content_commands():
-    """The /use page renders frontend/src/content/integrations.json — its commands must parse too."""
+    """The /use page renders frontend/src/content/integrations.json: its commands must parse too."""
     import json
 
     data = json.loads((ROOT / "frontend/src/content/integrations.json").read_text(encoding="utf-8"))

@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Audit an AI agent's system prompt with Fusion First — safety (prompt injection, excessive agency, data exfiltration, system-prompt leakage; OWASP-mapped) and/or quality (instruction following) — with no API key. Use when the user asks to test, red-team, evaluate, audit or grade an agent, bot or system prompt.
+description: Audit an AI agent's system prompt with Fusion First, safety (prompt injection, excessive agency, data exfiltration, system-prompt leakage; OWASP-mapped) and/or quality (instruction following), with no API key. Use when the user asks to test, red-team, evaluate, audit or grade an agent, bot or system prompt.
 argument-hint: "[prompt file] [target, e.g. ollama:llama3.2:1b] [safety|quality|everything]"
 ---
 
@@ -41,7 +41,7 @@ nothing here costs money.
    `run_status` shows everything graded. If some remain after the leases expire, re-launch a judge.
 4. `finalize_run(run_id)`.
 
-## 4. Report — honestly
+## 4. Report: honestly
 
 Present Fusion's result as it is:
 

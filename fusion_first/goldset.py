@@ -1,5 +1,5 @@
 """Gold-set loading. The gold set is jsonl-in-git (diffable, deterministic, part of the offline
-gate) — not a database table. Each compact row expands into a JudgeCase with a 4-step trajectory.
+gate): not a database table. Each compact row expands into a JudgeCase with a 4-step trajectory.
 """
 
 from __future__ import annotations

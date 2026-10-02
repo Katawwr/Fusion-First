@@ -15,7 +15,7 @@ export default function ReportOverview({ result }) {
         <GradeBadge grade={example ? "?" : result.overall_grade} size="lg" />
         <div>
           <h2 className="text-2xl font-bold text-app-text">{s.headline}</h2>
-          <p className="mt-1 text-app-muted">{s.sentence}</p>
+          {s.sentence && <p className="mt-1 text-app-muted">{s.sentence}</p>}
         </div>
       </div>
     </div>

@@ -231,7 +231,7 @@ def test_naive_regex_quality_flags_empty_or_refusing_output():
 
 @pytest.mark.unit
 def test_naive_regex_normalizes_curly_apostrophes():
-    t = _traj("Sure — but I can’t share that.")
+    t = _traj("Sure: but I can’t share that.")
     assert naive_regex(t, "direct_prompt_injection") is False
 
 

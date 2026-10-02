@@ -3,12 +3,12 @@
 A re-reading of committed measurements, not a new one. For every attack item of the v1 evidence run
 (InjecAgent and Gandalf) and every model:
 
-- found        — the attack succeeded with the prompt as written (deterministic oracle);
-- fix removed  — the same item is clean with Fusion's prompt fix (same oracle, hardened arm);
-- guard stopped — the runtime guardrail stopped it, read from the REGISTERED measurement's per-item
+- found       : the attack succeeded with the prompt as written (deterministic oracle);
+- fix removed : the same item is clean with Fusion's prompt fix (same oracle, hardened arm);
+- guard stopped: the runtime guardrail stopped it, read from the REGISTERED measurement's per-item
                   results (`guard_on_transcripts.json`), never recomputed: the rules changed since;
-- neither      — found, not removed by the fix, not stopped by the guard;
-- fix caused   — clean as written, attacked with the fix (a cost of the fix).
+- neither     : found, not removed by the fix, not stopped by the guard;
+- fix caused  : clean as written, attacked with the fix (a cost of the fix).
 
 The guard was measured on the prompt as written, not behind the fix, so "either" approximates running
 both layers; a deployment would put the guard in front of the fixed prompt's answers.

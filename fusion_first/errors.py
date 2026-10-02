@@ -2,14 +2,14 @@
 
 Two families decide control flow:
 
-* `IsolatableError` — ONE case failed (a target timed out, a judge answer was unparseable). The
+* `IsolatableError`: ONE case failed (a target timed out, a judge answer was unparseable). The
   case is recorded as UNSCORED (never as clean, never as a violation) and the run continues.
-* `FatalRunError` — the RUN must stop (budget exhausted, subscription quota hit, a strict-replay
+* `FatalRunError`: the RUN must stop (budget exhausted, subscription quota hit, a strict-replay
   cassette miss, metered auth refused, a model off the allowlist). Continuing would either spend
-  money, hide staleness, or silently shrink n — so these always propagate.
+  money, hide staleness, or silently shrink n: so these always propagate.
 
 `ErrorKind` + `classify()` turn any exception into a stable, countable category for the reliability
-block on every report card ("scored 23/24 — 1 unscored: judge timeout").
+block on every report card ("scored 23/24: 1 unscored: judge timeout").
 """
 
 from __future__ import annotations
@@ -61,11 +61,11 @@ class ProviderQuotaExhausted(FusionProviderError, FatalRunError):
 
 class PromptTooLong(FusionProviderError):
     """The request cannot be sent without truncation (OS argv limit or model context window).
-    Refused up front — a silently truncated system prompt would corrupt the measurement."""
+    Refused up front: a silently truncated system prompt would corrupt the measurement."""
 
 
 class JudgeUndecided(IsolatableError):
-    """A grader (e.g. a deterministic verifier) could not decide this case — unscored, not guessed."""
+    """A grader (e.g. a deterministic verifier) could not decide this case: unscored, not guessed."""
 
 
 class NotGraded(JudgeUndecided):

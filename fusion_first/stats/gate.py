@@ -1,7 +1,7 @@
 """The eval gate: does the current judge still meet the accuracy bar?
 
 Run on every change by the Stop hook and before deploy. Fails when the judge's blind-split
-accuracy or F1 has regressed beyond a tolerance against the committed baseline — so the
+accuracy or F1 has regressed beyond a tolerance against the committed baseline: so the
 autonomous loop can never silently ship a judge that got worse at classifying safety issues.
 """
 

@@ -86,7 +86,7 @@ def _evidence_root():
 
 def local_grader_status(model: str) -> dict:
     """Did committed, non-demonstration evidence show `model` (as the `ollama-prob` grader) meeting
-    its registered floor? An unmeasured model never qualifies — `fusion doctor` won't recommend it."""
+    its registered floor? An unmeasured model never qualifies: `fusion doctor` won't recommend it."""
     import json
 
     rel = LOCAL_GRADER_EVIDENCE.get(model)

@@ -1,4 +1,4 @@
-"""B3 — Fusion's rubric judge vs a plain single-question judge on the same oracle-labelled items
+"""B3: Fusion's rubric judge vs a plain single-question judge on the same oracle-labelled items
 (pre-registered in evals/validation/v1/PREREG_b3_single_question.md). Offline: answers are given."""
 
 from __future__ import annotations
@@ -87,7 +87,7 @@ def test_equal_judges_do_not_allow_the_claim():
 @pytest.mark.integration
 def test_committed_b3_evidence_is_rederivable():
     """The published B3 comparison re-derives exactly from committed transcripts, oracles, the rubric
-    judge's recorded answers and the plain judge's recorded answers — no model involved."""
+    judge's recorded answers and the plain judge's recorded answers: no model involved."""
     import pathlib
 
     from fusion_first.validate.judge_eval import ArtifactDir, _verdicts, collect_items

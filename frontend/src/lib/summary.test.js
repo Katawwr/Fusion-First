@@ -24,7 +24,7 @@ describe("summarize", () => {
   it("labels canned demo results as an example that did not run your prompt", () => {
     const s = summarize({ execution: "canned", demonstration: true, overall_grade: "F", cards: [card("F", 1, 0)] });
     expect(s.kind).toBe("example");
-    expect(s.headline).toMatch(/your prompt was not run/);
+    expect(s.headline).toBe("Example Report");
     expect(s.sentence).not.toMatch(/moves the needle/);
   });
 

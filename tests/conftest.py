@@ -2,7 +2,7 @@
 
 Every test not marked `live` runs with FUSION_OFFLINE=1, which makes the claude CLI and Ollama
 clients refuse to run and report themselves unavailable. So no plain `pytest` run can spend
-subscription quota or depend on a local model — even if a code path unexpectedly goes live.
+subscription quota or depend on a local model: even if a code path unexpectedly goes live.
 """
 
 from __future__ import annotations

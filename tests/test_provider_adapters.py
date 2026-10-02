@@ -1,4 +1,4 @@
-"""Live provider adapters — request shaping and response mapping, exercised offline with fakes.
+"""Live provider adapters: request shaping and response mapping, exercised offline with fakes.
 
 Real network calls live behind @pytest.mark.live (skipped in the offline gate)."""
 

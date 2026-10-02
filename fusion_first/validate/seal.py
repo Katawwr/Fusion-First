@@ -4,7 +4,7 @@ WHY: a blind split proves judge accuracy only while two things stay true.
 
 1. Nobody edited its rows after it was sealed (relabeling a hard case, dropping a miss, moving a row
    to dev). `compute_seal` records a sha256 per blind row; `verify_seal` reports every changed,
-   missing, or added id — so an edit can't hide inside a "no functional change" commit.
+   missing, or added id: so an edit can't hide inside a "no functional change" commit.
 2. It hasn't been used to TUNE the judge. Each time a new judge prompt is scored on the blind set
    we learn a little about it; iterate enough and it is a dev set wearing a blind label. The
    `BlindLedger` records which judge-prompt hashes were evaluated on which blind set and declares it

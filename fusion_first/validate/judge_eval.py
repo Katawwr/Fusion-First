@@ -1,11 +1,11 @@
-"""Q1 — is the judge accurate? Measured on REAL transcripts with DETERMINISTIC oracle labels.
+"""Q1: is the judge accurate? Measured on REAL transcripts with DETERMINISTIC oracle labels.
 
 The evidence experiments (`fusion_first.validate.experiments`) produce real open-weight model responses
 whose label is decided by an oracle, not an LLM: did the model call the attacker's tool (InjecAgent),
 did it leak the planted password (Gandalf), did it follow the verifiable instructions (IFEval-lite).
 This module turns each decidable transcript into the exact question the production judge answers,
 lets ANY grader answer it (built-in backend, or the host agent through the keyless run engine's
-get_grading_tasks / submit_grades — the answers never see the labels), and scores the grader against
+get_grading_tasks / submit_grades: the answers never see the labels), and scores the grader against
 the oracle next to the non-LLM baselines on the very same items (does the judge add value?).
 
 Labels are recomputed from the committed transcripts + oracles at scoring time; they are never
@@ -112,7 +112,7 @@ def _check_of_key(req: dict) -> str:
 
 class ArtifactDir:
     """Committed grading artifacts (items.json + judge.cassette.json + plan.json), scored exactly
-    like the run directory they were exported from — so committed Q1 evidence can be re-derived."""
+    like the run directory they were exported from: so committed Q1 evidence can be re-derived."""
 
     def __init__(self, path: str | os.PathLike):
         self.root = pathlib.Path(path)
