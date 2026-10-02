@@ -68,3 +68,18 @@ def test_an_episode_missing_an_arm_is_counted_not_scored():
                                  "utility": True, "security": None}]
     s = S4["score_rows"](rows)
     assert s["episodes"]["incomplete"] == 1 and s["episodes"]["benign"] == 3
+
+
+EVIDENCE = ROOT / "evals/validation/v1/step4_agentdojo.json"
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not EVIDENCE.exists(), reason="step 4 has not been scored yet")
+def test_the_committed_step4_result_re_derives_from_its_rows():
+    import json
+
+    ev = json.loads(EVIDENCE.read_text(encoding="utf-8"))
+    again = S4["score_rows"](ev["rows"])
+    for key in ("episodes", "utility_benign", "attack_success_in_scope", "comparisons", "decision"):
+        assert again[key] == ev[key], key
+    assert ev["guardrail_git_sha"] == S4["RULES_SHA"]
