@@ -21,6 +21,9 @@ describe("downloadJson", () => {
     });
     expect(JSON.parse(text)).toEqual({ overall_grade: "B" });
     expect(saved).toEqual({ href: "blob:report", name: "fusion-report.json" });
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled(); // revoking during the click can cancel the download
+    await new Promise((r) => setTimeout(r, 1100));
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:report");
+    expect(document.querySelector("a[download]")).toBeNull();
   });
 });

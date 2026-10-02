@@ -28,11 +28,12 @@ export async function getScan(scanId) {
   return apiJson(`${API_URL}/api/scan/${encodeURIComponent(scanId)}`);
 }
 
-// The HTML report, rendered by the API from the result the page holds (no server state), in the
-// theme the site shows.
+// The HTML report, rendered by the API from the result the page holds (no server state). It takes the
+// theme picked on the site; with none picked it follows the reader's system, as the site does.
 export async function downloadReportHtml(result, filename = "fusion-report.html") {
-  const theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
-  const resp = await apiFetch(`${API_URL}/api/report.html?theme=${theme}`, json(result));
+  const picked = document.documentElement.dataset.theme;
+  const query = picked === "light" || picked === "dark" ? `?theme=${picked}` : "";
+  const resp = await apiFetch(`${API_URL}/api/report.html${query}`, json(result));
   saveBlob(await resp.blob(), filename);
 }
 

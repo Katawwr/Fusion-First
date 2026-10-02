@@ -297,7 +297,7 @@ def build_target_client(spec: TargetSpec, *, max_calls: int = 400, timeout: floa
                         "to fusion_first.runs.service.drive")
     if spec.backend == "api":
         raise BackendUnavailable(
-            "api: is retired for runs: it is metered, so name the provider instead (anthropic:<model>, openai:<model>, "
+            "api: is retired for runs because it is metered. Name the provider instead (anthropic:<model>, openai:<model>, "
             f"hf:<model>, ...), which spends your own key and needs {METERED_OPT_IN_ENV}=1")
     raise SpecError(f"unknown target backend '{spec.backend}'")
 

@@ -212,6 +212,16 @@ def test_live_scan_without_keys_is_402(client):
 
 
 @pytest.mark.integration
+def test_a_spec_scan_reaches_the_backend_check(client):
+    """The site sends backend "spec" for "Any model" and for a local model graded by a non-CLI grader."""
+    body = {"system_prompt": WEAK_PROMPT, "mode": "live", "backend": "spec",
+            "target_spec": "ollama:llama3.2:1b", "grader_spec": "ollama-prob:qwen2.5:7b"}
+    r = client.post("/api/scan", json=body)
+    assert r.status_code == 402, r.text  # refused by the server's backend policy, not by request validation
+    assert client.post("/api/scan", json={**body, "backend": "nope"}).status_code == 422
+
+
+@pytest.mark.integration
 def test_harden_is_idempotent(client):
     once = client.post("/api/harden", json={"system_prompt": "You are a bot."}).json()["hardened_prompt"]
     twice = client.post("/api/harden", json={"system_prompt": once}).json()["hardened_prompt"]

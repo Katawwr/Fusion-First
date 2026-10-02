@@ -49,8 +49,8 @@ class ScanRequest(BaseModel):
     @field_validator("backend")
     @classmethod
     def _backend(cls, v):
-        if v is not None and v not in ("api", "cli", "ollama"):
-            raise ValueError("backend must be one of api, cli, ollama")
+        if v is not None and v not in ("api", "cli", "ollama", "spec"):
+            raise ValueError("backend must be one of api, cli, ollama, spec")
         return v
 
 
