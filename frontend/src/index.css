@@ -688,8 +688,12 @@ a.text-link {
 /* Overview: the headline result, large (owner: the guard's result should be obvious). */
 .headline-stats {
   margin: 2.25rem 0 0;
-  padding-top: 1.5rem;
+  padding-top: 2rem;
   border-top: 1px solid var(--border);
+}
+/* Same gap below the stats as above them, up to the next section's rule. */
+header:has(.headline-stats) + .doc-section {
+  margin-top: 2rem;
 }
 .headline-stats dl {
   display: grid;
@@ -736,10 +740,5 @@ a.text-link {
 .headline-note {
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  color: var(--subtle);
-}
-.headline-stats figcaption {
-  margin-top: 1.5rem;
-  font-size: 0.8125rem;
   color: var(--subtle);
 }

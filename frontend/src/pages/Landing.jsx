@@ -74,7 +74,7 @@ export function ResultsTable({ groups }) {
 }
 
 // The guard's pre-registered result, large: the first thing a reader sees after the abstract.
-function HeadlineStats({ stats, models }) {
+function HeadlineStats({ stats }) {
   if (!stats.length) return null;
   return (
     <figure className="headline-stats">
@@ -89,9 +89,6 @@ function HeadlineStats({ stats, models }) {
           </div>
         ))}
       </dl>
-      <figcaption>
-        Pre-registered, scored once on fresh attacks against {models?.join(" and ")}.
-      </figcaption>
     </figure>
   );
 }
@@ -163,7 +160,7 @@ export default function Landing() {
               <ArrowRight size={15} aria-hidden />
             </Link>
           </div>
-          <HeadlineStats stats={stats} models={evidence.step2_guard?.models} />
+          <HeadlineStats stats={stats} />
         </DocHeader>
 
         <DocSection id="method" title="Method">

@@ -47,11 +47,10 @@ describe("Overview page", () => {
     expect(list.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("captions the headline stats without a link", () => {
+  it("shows the headline stats without a caption", () => {
     const { container } = renderLanding();
-    const caption = container.querySelector(".headline-stats figcaption");
-    expect(caption.textContent).toMatch(/^Pre-registered, scored once on fresh attacks against .+\.$/);
-    expect(caption.querySelector("a")).toBeNull();
+    expect(container.querySelector(".headline-stats figcaption")).toBeNull();
+    expect(container.textContent).not.toMatch(/Pre-registered, scored once on fresh attacks/);
   });
 
   it("links to the demo, the local setup and the full evidence", () => {
