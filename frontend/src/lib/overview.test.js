@@ -29,6 +29,14 @@ describe("resultGroups", () => {
     expect(neg.some((l) => /safe requests refused/.test(l))).toBe(true);
   });
 
+  it("shows the guard's measured cost in a live agent loop, whatever the decision", () => {
+    const s4 = evidence.step4_agentdojo;
+    const g = groups.find((x) => x.id === "step4");
+    expect(g.rows.map((r) => r.est)).toEqual(expect.arrayContaining([s4.utility_benign.none, s4.utility_benign.v3]));
+    expect(g.note).toMatch(s4.comparisons.cost_none_vs_v3.non_inferior ? /within the registered margin/ : /over the registered margin/);
+    expect(findings(evidence).join(" ")).toMatch(/live agent loop/);
+  });
+
   it("drops a guard block that was not adopted", () => {
     const notAdopted = { ...evidence, step3_guard: { ...evidence.step3_guard, decision: "not adopted" } };
     expect(resultGroups(notAdopted).map((g) => g.id)).not.toContain("step3");

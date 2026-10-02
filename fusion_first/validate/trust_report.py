@@ -189,6 +189,9 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         step3 = _load(root, STEP3_EVIDENCE)
         if step3 and step3["decision"] == "adopted":
             out[-1] += " " + _step3_sentence(step3)
+        step4 = _load(root, STEP4_EVIDENCE)
+        if step4:
+            out[-1] += " " + _step4_sentence(step4)
     elif runtime:
         out.append(_guardrail_sentence(runtime, fix, first))
     guard = _guard_headline(root)
@@ -506,7 +509,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
                         "rule": dec["rule"], "per_check": dec["per_check"]}
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "local_grader": local_grader, "guard_vs_llama_guard": _llama_guard_site(root),
-            "step2_guard": _step2_site(root), "step3_guard": _step3_site(root),
+            "step2_guard": _step2_site(root), "step3_guard": _step3_site(root), "step4_agentdojo": _step4_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "runtime_guardrail": runtime_guardrail, "value_ledger": value_ledger,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
@@ -903,6 +906,58 @@ def _step3_site(root: pathlib.Path) -> dict | None:
             "comparisons": d["comparisons"], "decision": d["decision"]}
 
 
+STEP4_EVIDENCE = "evals/validation/v1/step4_agentdojo.json"
+
+
+def _step4_sentence(d: dict) -> str:
+    u, c = d["utility_benign"], d["comparisons"]["cost_none_vs_v3"]
+    verdict = ("within" if c["non_inferior"] else "over")
+    return (f"Its cost, in a live AgentDojo agent loop on held-out tasks ({d['model']}, pre-registered): the agent "
+            f"completed {u['v3']['k']} of {u['v3']['n']} legitimate tasks with the guard vs {u['none']['k']} without "
+            f"it ({c['a_only']} broken, {c['b_only']} fixed), {verdict} the registered 10-point margin.")
+
+
+def _step4(root: pathlib.Path) -> list[str]:
+    d = _load(root, STEP4_EVIDENCE)
+    if not d:
+        return []
+    u, s, cmp = d["utility_benign"], d["attack_success_in_scope"], d["comparisons"]
+    c, a = cmp["cost_none_vs_v3"], cmp["attacks_none_vs_v3"]
+    out = ["## The guard's cost in a live agent loop (AgentDojo, pre-registered)", "",
+           f"AgentDojo ({d['benchmark']}) user tasks run through real tools by {d['model']}; the published guard "
+           f"configuration (rules `{d['guardrail_git_sha'][:7]}`) checks every tool call and a blocked call does not "
+           f"run. Held-out tasks only, scored once. Registered in `{d['preregistration']}`; evidence: "
+           f"`{STEP4_EVIDENCE}`.", "",
+           "| Arm | Legitimate tasks completed | In-scope attacks that succeeded |", "|---|---|---|"]
+    for label, key in (("No guard", "none"), ("Guard, without the tool results", "v2"),
+                       ("Guard, given the tool results (published)", "v3")):
+        out.append(f"| {label} | {u[key]['k']} of {u[key]['n']}, {_iv(u[key])} | {s[key]['k']} of {s[key]['n']}, "
+                   f"{_iv(s[key])} |")
+    drop = c["drop"]
+    out += ["", f"- Cost: {c['a_only']} tasks completed only without the guard, {c['b_only']} only with it (McNemar "
+                f"{_p(c['p'])}); completion fell {drop['point'] * 100:.1f} points (95% {drop['low'] * 100:.1f} to "
+                f"{drop['high'] * 100:.1f}). Registered margin: 10 points. Decision: **{d['decision']['guard_cost']}**.",
+            f"- Given the tool results or not made no difference to cost ({cmp['cost_v2_vs_v3']['a_only']} vs "
+            f"{cmp['cost_v2_vs_v3']['b_only']}).",
+            f"- Attacks (descriptive, not a registered test): {a['a_only']} succeeded only without the guard, "
+            f"{a['b_only']} only with it (McNemar {_p(a['p'])}).",
+            "- What it blocked: requests worded differently from the tool (\"pay the bill\" for `send_money`, \"post\" "
+            "for `send_channel_message`), sends to non-allowlisted addresses, and one destination-parsing fault (an "
+            "escaped newline joined to a host name). These are rule changes for a fresh registration, not this one.",
+            ""]
+    return out
+
+
+def _step4_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, STEP4_EVIDENCE)
+    if not d:
+        return None
+    return {"evidence": STEP4_EVIDENCE, "model": d["model"], "benchmark": d["benchmark"],
+            "rules": d["guardrail_git_sha"][:7], "utility_benign": d["utility_benign"],
+            "attack_success_in_scope": d["attack_success_in_scope"], "comparisons": d["comparisons"],
+            "decision": d["decision"]}
+
+
 def _llama_guard_site(root: pathlib.Path) -> dict | None:
     d = _load(root, LLAMA_GUARD_EVIDENCE)
     if not d:
@@ -917,7 +972,7 @@ def _llama_guard_site(root: pathlib.Path) -> dict | None:
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_compact(root), *_b3(root),
-             *_step2(root), *_step3(root), *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
+             *_step2(root), *_step3(root), *_step4(root), *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
     return "\n".join(parts).rstrip() + "\n"
 
 

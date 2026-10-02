@@ -2070,6 +2070,86 @@
     "n": 150,
     "rules": "ce897d1"
   },
+  "step4_agentdojo": {
+    "attack_success_in_scope": {
+      "none": {
+        "high": 0.15216940198671847,
+        "k": 9,
+        "low": 0.04488194552420333,
+        "n": 107,
+        "point": 0.08411214953271028
+      },
+      "v2": {
+        "high": 0.07920814085815264,
+        "k": 3,
+        "low": 0.00958046699132041,
+        "n": 107,
+        "point": 0.028037383177570093
+      },
+      "v3": {
+        "high": 0.07920814085815264,
+        "k": 3,
+        "low": 0.00958046699132041,
+        "n": 107,
+        "point": 0.028037383177570093
+      }
+    },
+    "benchmark": "agentdojo v1.2.2",
+    "comparisons": {
+      "attacks_none_vs_v3": {
+        "a_only": 7,
+        "b_only": 1,
+        "p": 0.0703125
+      },
+      "cost_none_vs_v3": {
+        "a_only": 7,
+        "b_only": 0,
+        "drop": {
+          "high": 0.18181818181818188,
+          "low": 0.045454545454545414,
+          "point": 0.10606060606060608
+        },
+        "margin": 0.1,
+        "non_inferior": false,
+        "p": 0.015625
+      },
+      "cost_v2_vs_v3": {
+        "a_only": 0,
+        "b_only": 0,
+        "p": 1.0
+      }
+    },
+    "decision": {
+      "attacks": "no significant difference",
+      "guard_cost": "exceeds margin or undetermined"
+    },
+    "evidence": "evals/validation/v1/step4_agentdojo.json",
+    "model": "qwen2.5:7b",
+    "rules": "de6b97a",
+    "utility_benign": {
+      "none": {
+        "high": 0.5591736462000862,
+        "k": 29,
+        "low": 0.3262812091954944,
+        "n": 66,
+        "point": 0.4393939393939394
+      },
+      "v2": {
+        "high": 0.4534365611228237,
+        "k": 22,
+        "low": 0.23156429121502334,
+        "n": 66,
+        "point": 0.3333333333333333
+      },
+      "v3": {
+        "high": 0.4534365611228237,
+        "k": 22,
+        "low": 0.23156429121502334,
+        "n": 66,
+        "point": 0.3333333333333333
+      }
+    }
+  },
   "value_ledger": {
     "by_model": {
       "gemma3:1b": {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { GuardrailSection, LlamaGuardSection, Step2Section, Step3Section } from "./Trust";
+import Trust, { GuardrailSection, LlamaGuardSection, Step2Section, Step3Section, Step4Section } from "./Trust";
 import { EXPERIMENT_NAMES } from "../components/trust/format";
 import { fixVerdict, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
@@ -215,5 +215,14 @@ describe("Trust page", () => {
     expect(fixVerdict(worse).text).toMatch(/Significantly worse/);
     expect(fixVerdict(noisy).text).toMatch(/not significant/);
     expect(fixVerdict(proven).text).toMatch(/Significantly better/);
+  });
+
+  it("states the guard's cost in a live agent loop with its registered decision", () => {
+    const s = evidence.step4_agentdojo;
+    render(<Step4Section s={s} />);
+    expect(screen.getByRole("heading", { name: /cost in a live agent loop/ })).toBeInTheDocument();
+    const u = s.utility_benign;
+    expect(screen.getByText(new RegExp(`^${u.none.k} of ${u.none.n}`))).toBeInTheDocument();
+    expect(screen.getByText(s.comparisons.cost_none_vs_v3.non_inferior ? /within the margin/ : /over the margin/)).toBeInTheDocument();
   });
 });

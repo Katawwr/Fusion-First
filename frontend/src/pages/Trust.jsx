@@ -174,6 +174,33 @@ export function Step2Section({ s, fig = 1 }) {
 
 // Same rules with and without the tool results. The McNemar counts are one sentence, not a chart: the
 // arms disagree on a handful of transcripts, all in one direction.
+export function Step4Section({ s }) {
+  const u = s.utility_benign;
+  const at = s.attack_success_in_scope;
+  const c = s.comparisons.cost_none_vs_v3;
+  const a = s.comparisons.attacks_none_vs_v3;
+  const pts = (x) => `${(x * 100).toFixed(1)}`;
+  const arms = [["No guard", "none"], ["Guard, without the tool results", "v2"], ["Guard, given the tool results", "v3"]];
+  return (
+    <Section title="The guard's cost in a live agent loop">
+      <p className="mb-3 text-sm text-app-muted">
+        AgentDojo user tasks run through real tools by {s.model}; the published guard configuration (rules {s.rules})
+        checks every tool call and a blocked call does not run. Held-out tasks, pre-registered, scored once.
+      </p>
+      <DataTable
+        head={["Arm", "Legitimate tasks completed", "In-scope attacks that succeeded"]}
+        rows={arms.map(([label, k]) => [label, `${u[k].k} of ${u[k].n}, ${interval(u[k])}`, `${at[k].k} of ${at[k].n}, ${interval(at[k])}`])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        Cost: {c.a_only} tasks completed only without the guard, {c.b_only} only with it ({pShort(c.p)}); completion
+        fell {pts(c.drop.point)} points (95% {pts(c.drop.low)} to {pts(c.drop.high)}) against a registered margin of{" "}
+        {pts(c.margin)}. Decision: {c.non_inferior ? "within the margin" : "over the margin"}. Attacks (descriptive):{" "}
+        {a.a_only} succeeded only without the guard, {a.b_only} only with it ({pShort(a.p, { ns: true })}).
+      </p>
+    </Section>
+  );
+}
+
 export function Step3Section({ s, fig = 1 }) {
   const rows = ["v3", "v2"].map((k) => s.arms[k]);
   const a = s.comparisons.attacks;
@@ -337,6 +364,8 @@ export default function Trust() {
       {evidence.step2_guard && <Step2Section s={evidence.step2_guard} fig={step2Fig} />}
 
       {evidence.step3_guard && <Step3Section s={evidence.step3_guard} fig={step3Fig} />}
+
+      {evidence.step4_agentdojo && <Step4Section s={evidence.step4_agentdojo} />}
 
       {evidence.runtime_guardrail && (
         <GuardrailSection runtime={evidence.runtime_guardrail} supersededBy={evidence.step2_guard?.rules} />

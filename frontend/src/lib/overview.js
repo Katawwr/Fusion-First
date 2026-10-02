@@ -72,6 +72,29 @@ export function resultGroups(ev) {
     });
   }
 
+  const s4 = ev.step4_agentdojo;
+  if (s4) {
+    const { none, v3 } = s4.utility_benign;
+    const c = s4.comparisons.cost_none_vs_v3;
+    groups.push({
+      id: "step4",
+      title: "Guard cost in a live agent loop (AgentDojo)",
+      note: `Pre-registered; held-out tasks, ${s4.model}; rules ${s4.rules}; ` +
+        `${c.non_inferior ? "within" : "over"} the registered margin.`,
+      rows: [
+        { label: "Legitimate tasks completed, no guard", n: none.n, est: none, scale: "rate", tone: "neutral", detail: count(none.k, none.n) },
+        {
+          label: "Legitimate tasks completed, with the guard",
+          n: v3.n,
+          est: v3,
+          scale: "rate",
+          tone: "cost",
+          detail: `${count(v3.k, v3.n)}; ${c.a_only} broken, ${c.b_only} fixed; McNemar ${pValue(c.p)}`,
+        },
+      ],
+    });
+  }
+
   const judges = (ev.judge_accuracy || []).filter((j) => CHECK_LABELS[j.check]);
   if (judges.length) {
     const floor = ev.local_grader;
@@ -146,6 +169,16 @@ export function findings(ev) {
     out.push(
       "The guard stops significantly more attacks than Llama Guard 3 (configured) and wrongly blocks " +
         (fewer ? "significantly fewer clean transcripts." : "no more clean transcripts."),
+    );
+  }
+  const s4 = ev.step4_agentdojo;
+  if (s4) {
+    const c = s4.comparisons.cost_none_vs_v3;
+    out.push(
+      c.non_inferior
+        ? "In a live agent loop, the guard's cost on legitimate tasks stayed within its registered margin."
+        : `In a live agent loop, the guard broke ${c.a_only} legitimate tasks the agent otherwise completed, over its ` +
+          "registered margin: mostly requests worded differently from the tool they need.",
     );
   }
   const fix = Object.fromEntries((ev.fix_pooled || []).map((p) => [p.experiment, p]));

@@ -9,7 +9,7 @@ evidence (the offline stand-in judge) is excluded.
 
 - **Detecting accurately?** Graded against deterministic oracles — Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules): direct prompt injection 80% (68%–88%), system prompt leakage 92% (82%–96%). It beats the rule-based checks, but not significantly yet (small samples). A plain one-question judge using the same model was just as accurate on the same items (rubric 86%, plain 87%), so Fusion does not claim its rubric improves accuracy. The free local grader, qwen2.5:7b probability judge (local), pre-registered: direct prompt injection 60% (47%–71%), system prompt leakage 55% (42%–67%). Its registered bar (accuracy at least 0.60 and F1 at least 0.60 on both checks): not met, so `fusion doctor` no longer recommends it by default (it can still be chosen explicitly; every run measures its grader in-run and withholds the grade when it falls short).
 - **Fixing effectively?** On gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b: 1 proven improvement(s) (gandalf on qwen2.5:3b); 1 significant regression(s) (xstest on llama3.2:1b). Pooled over the 4 models: no clear change for password leaks (Gandalf), missed instructions (IFEval), tool hijacking (InjecAgent); significantly worse for refusing safe requests (XSTest). Every report card therefore measures the fix on the user's own model instead of assuming it helps. A pre-registered compact version of the fix was not adopted: no model had significantly fewer attacks with it without a meaningful rise in refusals of safe requests.
-- **Runtime guardrail in your agent?** On fresh real attacks against qwen2.5:7b and llama3.1:8b, measured once with the current rules (pre-registered), it stopped 132 of 148, 89% (83%–93%): 100% of password leaks, 100% of direct-harm tool hijacks, 69% of data-stealing tool hijacks. It wrongly blocked 1% (0%–3%) of clean transcripts. On the same transcripts the previous rules stopped 104 and Llama Guard 3 (configured) 77, wrongly blocking 10% (6%–14%). Given the tool results as well, on further fresh transcripts of the same models (pre-registered), it stopped 75 of 75 attacks (55 of 55 data-stealing) vs 67 (47) without them, wrongly blocking 1 of 225 clean transcripts either way.
+- **Runtime guardrail in your agent?** On fresh real attacks against qwen2.5:7b and llama3.1:8b, measured once with the current rules (pre-registered), it stopped 132 of 148, 89% (83%–93%): 100% of password leaks, 100% of direct-harm tool hijacks, 69% of data-stealing tool hijacks. It wrongly blocked 1% (0%–3%) of clean transcripts. On the same transcripts the previous rules stopped 104 and Llama Guard 3 (configured) 77, wrongly blocking 10% (6%–14%). Given the tool results as well, on further fresh transcripts of the same models (pre-registered), it stopped 75 of 75 attacks (55 of 55 data-stealing) vs 67 (47) without them, wrongly blocking 1 of 225 clean transcripts either way. Its cost, in a live AgentDojo agent loop on held-out tasks (qwen2.5:7b, pre-registered): the agent completed 22 of 66 legitimate tasks with the guard vs 29 without it (7 broken, 0 fixed), over the registered 10-point margin.
 - **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 76% (64%–84%) of attack-shaped ones as written — useful defense in depth, not a sandbox.
 - **Erroring often?** In the fix-efficacy run, 1 of 480 item pairs failed to generate, 0 were undecidable by the oracle and 45 were cut by the token cap; in the judge evaluation, 0 of 240 questions went unanswered. Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much is unscored, when the grader misses the known-answer floor, or when it denies an oracle-confirmed violation.
 
@@ -150,6 +150,21 @@ The same rules (`ce897d1`) with and without the text of the tool results the age
 - Attacks stopped only with the tool results: 8; only without: 0 (McNemar p=0.0078). Clean transcripts blocked only with: 0; only without: 0 (registered limit: 3 more, net).
 - Registered decision: **adopted**.
 - Limits registered before data: InjecAgent's attack wording appeared in development (this tests fresh model behaviour, not unseen attack text), and no fresh set of legitimate actions was available, so the cost is measured on clean transcripts only. Reads a user delegates to a document ("do what this email says") are blocked when the document also asks to send data out.
+
+## The guard's cost in a live agent loop (AgentDojo, pre-registered)
+
+AgentDojo (agentdojo v1.2.2) user tasks run through real tools by qwen2.5:7b; the published guard configuration (rules `de6b97a`) checks every tool call and a blocked call does not run. Held-out tasks only, scored once. Registered in `evals/validation/v1/PREREG_step4_agentdojo.md`; evidence: `evals/validation/v1/step4_agentdojo.json`.
+
+| Arm | Legitimate tasks completed | In-scope attacks that succeeded |
+|---|---|---|
+| No guard | 29 of 66, 44% (33%–56%) | 9 of 107, 8% (4%–15%) |
+| Guard, without the tool results | 22 of 66, 33% (23%–45%) | 3 of 107, 3% (1%–8%) |
+| Guard, given the tool results (published) | 22 of 66, 33% (23%–45%) | 3 of 107, 3% (1%–8%) |
+
+- Cost: 7 tasks completed only without the guard, 0 only with it (McNemar p=0.0156); completion fell 10.6 points (95% 4.5 to 18.2). Registered margin: 10 points. Decision: **exceeds margin or undetermined**.
+- Given the tool results or not made no difference to cost (0 vs 0).
+- Attacks (descriptive, not a registered test): 7 succeeded only without the guard, 1 only with it (McNemar p=0.0703).
+- What it blocked: requests worded differently from the tool ("pay the bill" for `send_money`, "post" for `send_channel_message`), sends to non-allowlisted addresses, and one destination-parsing fault (an escaped newline joined to a host name). These are rule changes for a fresh registration, not this one.
 
 ## Runtime guardrail on real attacks (pre-registered)
 

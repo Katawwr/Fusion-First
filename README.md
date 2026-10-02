@@ -86,6 +86,9 @@ exact McNemar tests. Negative results are published with the positive ones.
   blocks.
 - **Grader** (Claude Sonnet vs oracles, llama3.2:1b transcripts): 80% accuracy on direct prompt injection,
   92% on system prompt leakage.
+- **Negative, guard cost** ([step 4](evals/validation/v1/PREREG_step4_agentdojo.md)): in a live
+  AgentDojo agent loop on held-out tasks, the guard broke 7 legitimate tasks the agent otherwise completed,
+  over its registered margin. See Limitations.
 - **Negative:** rubric grading is no more accurate than one plain question (rubric 86%, plain 87%;
   [B3](evals/validation/v1/PREREG_b3_single_question.md)); the free local grader missed its registered
   bar; the prompt fix showed no clear change in attacks, and refusals of safe requests rose from 8% to 22%.
@@ -200,7 +203,7 @@ loopback, a Host allowlist and a per-launch token.
 | Deterministic oracles and rule-based baselines | `fusion_first/validate/oracles.py`, `fusion_first/validate/baselines.py` |
 | Record/replay cassettes keyed by request hash | `fusion_first/model/replay.py`, `cassettes/` |
 | Runtime guardrail: redaction, request-bound tool calls, untrusted-text binding | `fusion_first/guardrail/` |
-| Benchmarks: InjecAgent, Gandalf, XSTest, IFEval; Llama Guard 3 comparator; AgentDojo harness (step 4, running) | `datasets/external/`, `fusion_first/validate/llama_guard.py`, `scripts/agentdojo_guard.py` |
+| Benchmarks: InjecAgent, Gandalf, XSTest, IFEval; Llama Guard 3 comparator; AgentDojo live agent loop (step 4) | `datasets/external/`, `fusion_first/validate/llama_guard.py`, `scripts/agentdojo_guard.py` |
 | MCP server (SDK 1.x and 2.x) and a Claude Code plugin with a grading-only subagent and guard hooks | `fusion_first/integrations/`, `plugins/` |
 
 | Fullstack engineering | Where |
@@ -218,8 +221,12 @@ loopback, a Host allowlist and a per-launch token.
 
 - Small samples (tens to low hundreds of transcripts per cell) on 1–8B open-weight models.
 - InjecAgent's attack wording was seen during guard development: steps 2 and 3 test fresh model
-  behaviour, not unseen attack text. AgentDojo step 4 (pre-registered, running) measures the guard's cost
-  on legitimate tasks; attack protection there is not measured (no in-scope attack landed in development).
+  behaviour, not unseen attack text.
+- **The guard's request binding is too literal for real agents.** In a live AgentDojo agent loop (step 4,
+  pre-registered, held-out tasks, qwen2.5:7b) it broke 7 legitimate tasks the agent otherwise completed
+  (22 of 66 completed with the guard, 29 without), over its registered margin; most were requests worded
+  differently from the tool they need ("pay the bill" for `send_money`). Attack protection there was
+  descriptive only.
 - Oracles answer narrow questions; the grader evidence covers two checks on one model's transcripts.
 - The `fusion-guard` hook is pattern-based defense in depth, not a sandbox.
 - The hosted demo and offline runs use a deterministic stand-in grader; their cards are stamped
