@@ -29,7 +29,7 @@ test.describe("desktop", () => {
     await page.goto("/");
     await page.getByRole("link", { name: "Run it locally", exact: true }).first().click();
     await expect(page).toHaveURL(/\/use#local$/);
-    await expect(page.getByRole("heading", { name: "Run it locally" })).toBeInViewport();
+    await expect(page.getByRole("heading", { name: "Run Locally" })).toBeInViewport();
     await expect(page.getByText(/FUSION_ALLOW_API_SPEND=1/).first()).toBeVisible();
   });
 

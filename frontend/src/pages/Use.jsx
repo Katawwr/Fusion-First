@@ -19,7 +19,7 @@ export default function Use() {
       </Helmet>
       <DocHeader title="Use Fusion" />
 
-      <nav aria-label="On this page" className="mt-7 flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+      <nav aria-label="On this page" className="mt-7 flex flex-wrap gap-x-3.5 gap-y-1.5 whitespace-nowrap text-[0.8125rem]">
         {content.sections.map((s) => (
           <a key={s.id} href={`#${s.id}`} className="text-app-muted underline-offset-4 hover:text-app-text hover:underline">
             {s.title}

@@ -2,7 +2,7 @@
   "sections": [
     {
       "id": "local",
-      "title": "Run it locally",
+      "title": "Run Locally",
       "steps": [
         {
           "label": "Install and start (opens `127.0.0.1:8765`)",
@@ -23,7 +23,7 @@
     },
     {
       "id": "plugin",
-      "title": "Claude Code plugin",
+      "title": "Claude Code Plugin",
       "badge": "Recommended",
       "steps": [
         {
@@ -45,7 +45,7 @@
     },
     {
       "id": "cli",
-      "title": "Command line",
+      "title": "Command Line",
       "steps": [
         {
           "label": "Install; list available backends",
@@ -81,7 +81,7 @@
     },
     {
       "id": "guard",
-      "title": "Runtime guard",
+      "title": "Runtime Guard",
       "steps": [
         {
           "label": "In your agent",
@@ -97,7 +97,7 @@
     },
     {
       "id": "models",
-      "title": "Any model or workflow",
+      "title": "Model/Workflow",
       "steps": [
         {
           "label": "Any Hugging Face GGUF, via Ollama",
@@ -123,7 +123,7 @@
     },
     {
       "id": "mcp",
-      "title": "Any MCP client",
+      "title": "MCP Client",
       "steps": [
         {
           "label": "Install",
@@ -139,7 +139,7 @@
     },
     {
       "id": "ci",
-      "title": "CI (offline)",
+      "title": "CI (Offline)",
       "steps": [
         {
           "label": "Re-derive a recorded run (fails on drift or a different prompt); fail below grade B",
