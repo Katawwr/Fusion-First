@@ -82,7 +82,7 @@ export default function Report() {
           Download Report (HTML)
         </DownloadReportButton>
         <a href="/scan">
-          <Button>Scan another prompt</Button>
+          <Button>Scan Another Prompt</Button>
         </a>
       </div>
     </div>

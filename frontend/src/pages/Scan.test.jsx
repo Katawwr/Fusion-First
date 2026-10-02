@@ -43,7 +43,7 @@ function Harness() {
 
 async function scanPrompt(text) {
   fireEvent.change(screen.getByPlaceholderText(/You are a helpful assistant/), { target: { value: text } });
-  fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
+  fireEvent.click(screen.getByRole("button", { name: "Run Scan" }));
   const { opts } = api.starts.at(-1);
   await act(async () => opts.onCompleted(live(text)));
 }
@@ -61,8 +61,8 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     await screen.findByText("FIX for Prompt A");
     fireEvent.click(screen.getByRole("button", { name: "Re-Test on Your Model" }));
-    fireEvent.click(screen.getByRole("button", { name: "Re-run" }));  // live: re-runs, and we cancel it
-    fireEvent.click(screen.getByRole("button", { name: /Cancel and edit/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Re-Run" }));  // live: re-runs, and we cancel it
+    fireEvent.click(screen.getByRole("button", { name: /Cancel and Edit/ }));
     await scanPrompt("Prompt B");
     fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     await screen.findByText("FIX for Prompt B");
@@ -79,11 +79,11 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     await scanPrompt("Prompt A");
     fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
     await waitFor(() => expect(api.harden).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByRole("button", { name: "Scan another prompt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan Another Prompt" }));
     // B's run starts (which clears the Guard step), THEN A's late answer lands: only the request id
     // keeps it from filling B's Guard step.
     fireEvent.change(screen.getByPlaceholderText(/You are a helpful assistant/), { target: { value: "Prompt B" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run Scan" }));
     await act(async () => release());
     await act(async () => api.starts.at(-1).opts.onCompleted(live("Prompt B")));
     fireEvent.click(screen.getByRole("button", { name: "Guard It" }));
@@ -117,7 +117,7 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     api.harden = vi.fn(async (p) => ({ hardened_prompt: p, guard_block: `FIX for ${p}` }));
     render(<Harness />);
     fireEvent.change(screen.getByPlaceholderText(/You are a helpful assistant/), { target: { value: "Prompt A" } });
-    fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run Scan" }));
     const outcomes = [
       { check: "direct_prompt_injection", probe_id: "1", attack_label: "a", baseline_issue: true, hardened_issue: true, guard_replay: "stopped" },
       { check: "direct_prompt_injection", probe_id: "2", attack_label: "b", baseline_issue: false, hardened_issue: false, guard_replay: "allowed" },

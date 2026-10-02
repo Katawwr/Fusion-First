@@ -117,12 +117,12 @@ describe("TargetPicker", () => {
     expect(radios()).toEqual([expect.stringMatching(/^Demo scan/)]);
     expect(screen.getByText('pip install "fusion-safety[serve]"')).toBeInTheDocument();
     expect(screen.getByText("fusion serve")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Run it locally" })).toHaveAttribute("href", "/use#local");
+    expect(screen.getByRole("link", { name: "Run Locally" })).toHaveAttribute("href", "/use#local");
   });
 
   it("keeps a space between inline code and the words around it", () => {
     const { container } = pick({ capabilities: HOSTED_DEMO });
-    expect(container.textContent).toMatch(/Live models: pip install "fusion-safety\[serve\]", then fusion serve\. Run it locally/);
+    expect(container.textContent).toMatch(/Live models: pip install "fusion-safety\[serve\]", then fusion serve\. Run Locally/);
   });
 
   it("offers a hosted scan only where the server enabled one", () => {
@@ -144,7 +144,7 @@ describe("TargetPicker", () => {
   it("treats a server that never answered as the demo", () => {
     pick({ capabilities: null });
     expect(screen.getAllByRole("radio")).toHaveLength(1);
-    expect(screen.getByRole("link", { name: "Run it locally" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Run Locally" })).toBeInTheDocument();
   });
 
   it("does not offer an Ollama that has no models pulled", () => {

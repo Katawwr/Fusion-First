@@ -39,7 +39,7 @@ function open(backends) {
 }
 
 const run = () => {
-  fireEvent.click(screen.getByRole("button", { name: "Run the scan" }));
+  fireEvent.click(screen.getByRole("button", { name: "Run Scan" }));
   return env.starts.at(-1);
 };
 
@@ -61,7 +61,7 @@ describe("Scan setup: only what can run here", () => {
   it("a demo-only server shows the demo without a Quality section", () => {
     open({ ...LOCAL, local_backends_enabled: false });
     expect(screen.queryByRole("heading", { name: "Quality checks" })).toBeNull();
-    expect(screen.getByRole("link", { name: "Run it locally" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Run Locally" })).toBeInTheDocument();
   });
 
   it("with a grader, quality checks say once that they need a live target", () => {
@@ -87,7 +87,7 @@ describe("Scan setup: only what can run here", () => {
   it("Any model with a hosted grader waits for a target and a grader", () => {
     open({ ...LOCAL, ollama_models: [], hosted_providers: ["openai"], hosted_keys: ["openai"], spend_opt_in: true });
     fireEvent.click(screen.getByRole("radio", { name: /Any model/ }));
-    const button = screen.getByRole("button", { name: "Run the scan" });
+    const button = screen.getByRole("button", { name: "Run Scan" });
     expect(button).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Target spec"), { target: { value: "openai:gpt-4o-mini" } });
     expect(button).toBeDisabled();

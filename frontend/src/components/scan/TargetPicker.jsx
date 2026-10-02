@@ -212,7 +212,7 @@ export default function TargetPicker({
         <p style={HINT}>
           Live models: <Code>pip install "fusion-safety[serve]"</Code>, then <Code>fusion serve</Code>.{" "}
           <a href="/use#local" className="text-link">
-            Run it locally
+            Run Locally
           </a>
         </p>
       )}

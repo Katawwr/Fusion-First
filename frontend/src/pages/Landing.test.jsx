@@ -21,7 +21,7 @@ describe("Overview page", () => {
     renderLanding();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/runtime guard/i);
     const h2 = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(h2).toEqual(["Method", "Results", "Limitations", "Run it locally"]);
+    expect(h2).toEqual(["Method", "Results", "Limitations", "Run Locally"]);
   });
 
   it("renders the step 3 guard result with its interval from the evidence", () => {
@@ -55,9 +55,9 @@ describe("Overview page", () => {
 
   it("links to the demo, the local setup and the full evidence", () => {
     renderLanding();
-    expect(screen.getByRole("link", { name: "Run the demo scan" })).toHaveAttribute("href", "/scan");
-    expect(screen.getAllByRole("link", { name: "Run it locally" })[0]).toHaveAttribute("href", "/use#local");
-    expect(screen.getByRole("link", { name: /Full evidence/ })).toHaveAttribute("href", "/trust");
+    expect(screen.getByRole("link", { name: "Run Demo" })).toHaveAttribute("href", "/scan");
+    expect(screen.getAllByRole("link", { name: "Run Locally" })[0]).toHaveAttribute("href", "/use#local");
+    expect(screen.getByRole("link", { name: /Evidence/ })).toHaveAttribute("href", "/trust");
   });
 
   it("keeps a space between words and inline code", () => {

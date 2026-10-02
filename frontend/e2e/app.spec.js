@@ -20,14 +20,14 @@ test.describe("desktop", () => {
     await expect(page).toHaveTitle(/Fusion First/);
     await expect(page.getByText("Table 1.")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Limitations" })).toBeVisible();
-    await page.getByRole("link", { name: "Run the demo scan", exact: true }).click();
+    await page.getByRole("link", { name: "Run Demo", exact: true }).click();
     await expect(page).toHaveURL(/\/scan$/);
     expect(errors).toEqual([]);
   });
 
   test("run it locally: the overview links straight to the setup on /use", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "Run it locally", exact: true }).first().click();
+    await page.getByRole("link", { name: "Run Locally", exact: true }).first().click();
     await expect(page).toHaveURL(/\/use#local$/);
     await expect(page.getByRole("heading", { name: "Run Locally" })).toBeInViewport();
     await expect(page.getByText(/FUSION_ALLOW_API_SPEND=1/).first()).toBeVisible();
@@ -36,8 +36,8 @@ test.describe("desktop", () => {
   test("a demo scan runs end to end and says it is an example, not a measurement", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto("/scan");
-    await page.getByRole("button", { name: "Support bot" }).click();
-    await page.getByRole("button", { name: "Run the scan" }).click();
+    await page.getByRole("button", { name: "Support Bot" }).click();
+    await page.getByRole("button", { name: "Run Scan" }).click();
     await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("heading", { name: "Example Report" })).toBeVisible();
     // The HTML report downloads from the result on the page (no server-side scan lookup).
@@ -61,8 +61,8 @@ test.describe("desktop", () => {
 
   test("a finished report survives a page refresh and downloads as JSON", async ({ page }) => {
     await page.goto("/scan");
-    await page.getByRole("button", { name: "Support bot" }).click();
-    await page.getByRole("button", { name: "Run the scan" }).click();
+    await page.getByRole("button", { name: "Support Bot" }).click();
+    await page.getByRole("button", { name: "Run Scan" }).click();
     await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
     await page.reload();
     await expect(page.getByText("Your report card")).toBeVisible();
@@ -83,14 +83,14 @@ test.describe("desktop", () => {
     await expect(page.getByRole("heading", { name: "Quality checks" })).toHaveCount(0);
     await expect(page.getByRole("radiogroup", { name: "Attack set" })).toBeVisible();
     // A server that runs local models shows no install line.
-    await expect(page.getByRole("link", { name: "Run it locally", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Run Locally", exact: true })).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
   test("a demo-only server offers the demo alone and one line to run live models locally", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto(`${process.env.DEMO_ONLY_URL}/scan`);
-    const link = page.getByRole("link", { name: "Run it locally", exact: true });
+    const link = page.getByRole("link", { name: "Run Locally", exact: true });
     await expect(link).toHaveAttribute("href", "/use#local");
     await expect(page.getByText('pip install "fusion-safety[serve]"')).toBeVisible();
     await expect(page.getByRole("radio", { name: /^Demo scan/ })).toBeEnabled();
@@ -98,8 +98,8 @@ test.describe("desktop", () => {
     await expect(page.getByRole("heading", { name: "Quality checks" })).toHaveCount(0);
     await expect(page.getByText(/Live scans need a grader/)).toHaveCount(0);
     // The demo still runs end to end there.
-    await page.getByRole("button", { name: "Support bot" }).click();
-    await page.getByRole("button", { name: "Run the scan" }).click();
+    await page.getByRole("button", { name: "Support Bot" }).click();
+    await page.getByRole("button", { name: "Run Scan" }).click();
     await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
     expect(errors).toEqual([]);
   });
@@ -148,8 +148,8 @@ test.describe("phone", () => {
 
   test("no sideways scrolling on the Guard step @phone", async ({ page }) => {
     await page.goto("/scan");
-    await page.getByRole("button", { name: "Support bot" }).click();
-    await page.getByRole("button", { name: "Run the scan" }).click();
+    await page.getByRole("button", { name: "Support Bot" }).click();
+    await page.getByRole("button", { name: "Run Scan" }).click();
     await page.getByRole("button", { name: "Guard It" }).click();
     await expect(page.getByRole("button", { name: "Hardened Prompt" })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

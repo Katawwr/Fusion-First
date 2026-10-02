@@ -46,7 +46,7 @@ function AttackList({ outcomes, quality = false }) {
           onClick={() => setOpen((v) => !v)}
           className="self-start text-xs text-accent-ink hover:underline"
         >
-          {open ? "Show fewer" : `Show all ${gotThrough.length}`}
+          {open ? "Show Fewer" : `Show All ${gotThrough.length}`}
         </button>
       )}
     </div>

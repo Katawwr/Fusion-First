@@ -38,7 +38,7 @@ export default function QualityPanel({ systemPrompt }) {
 
       {state === "idle" && (
         <Button variant="outline" onClick={run}>
-          Grade quality
+          Grade Quality
         </Button>
       )}
 

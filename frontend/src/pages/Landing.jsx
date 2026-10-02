@@ -148,13 +148,13 @@ export default function Landing() {
           </p>
           <div className="mt-6 flex flex-wrap gap-2.5">
             <Link to="/scan" className="action action--primary">
-              Run the demo scan
+              Run Demo
             </Link>
             <Link to="/use#local" className="action">
-              Run it locally
+              Run Locally
             </Link>
             <Link to="/trust" className="action">
-              Full evidence
+              Evidence
               <ArrowRight size={15} aria-hidden />
             </Link>
           </div>
@@ -209,7 +209,7 @@ export default function Landing() {
 
         <DocSection
           id="run-locally"
-          title="Run it locally"
+          title="Run Locally"
           lead="This site's demo replays recorded responses. Locally, the same app tests a live model."
         >
           <RunLocally compact />
