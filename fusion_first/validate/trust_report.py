@@ -176,13 +176,6 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
                    + "Every report card therefore measures the fix on the user's own model instead of assuming it helps.")
     else:
         out.append("- **Fixing effectively?** Not yet measured.")
-    compact = _load(root, COMPACT_EVIDENCE)
-    if compact and "prereg_decision" in compact:
-        adopted = compact["prereg_decision"]["adopt"]
-        out[-1] += (" A pre-registered compact version of the fix was adopted for small models (registered rule met)."
-                    if adopted else " A pre-registered compact version of the fix was not adopted: no model had "
-                    "significantly fewer attacks with it without a meaningful rise in refusals of safe requests.")
-    runtime, first, _ = _guardrail_measurements(root)
     step2 = _load(root, STEP2_EVIDENCE)
     if step2 and step2["decision"]["new_rules"] == "adopted":
         out.append(_step2_sentence(step2))
@@ -192,8 +185,8 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         step4 = _load(root, STEP4_EVIDENCE)
         if step4:
             out[-1] += " " + _step4_sentence(step4)
-    elif runtime:
-        out.append(_guardrail_sentence(runtime, fix, first))
+    else:
+        out.append("- **Runtime guardrail in your agent?** Not yet measured with the current rules.")
     guard = _guard_headline(root)
     if guard:
         out.append(f"- **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on "
@@ -361,8 +354,27 @@ def _q3(root: pathlib.Path) -> list[str]:
     if regressions:
         summary.append("Significant regressions: " + "; ".join(regressions) + ".")
     summary.append("Proven improvements: " + ("; ".join(wins) + "." if wins else "none yet."))
-    out += ["", " ".join(summary), ""]
+    out += ["", " ".join(summary), *_compact_clause(root), ""]
     return out
+
+
+COMPACT_EVIDENCE = "evals/validation/v1/compact_fix.json"
+
+
+def _compact_clause(root: pathlib.Path) -> list[str]:
+    """The pre-registered compact variant of the fix, as one sentence: its registered decision."""
+    d = _load(root, COMPACT_EVIDENCE)
+    if not d or "prereg_decision" not in d:
+        return []
+    if d["prereg_decision"]["adopt"]:
+        verdict = "was adopted for small models (registered rule met)"
+    elif any(m["attack_higher"] for m in d["prereg_decision"]["per_model"].values()):
+        verdict = "was not adopted: a model had significantly more attacks with it"
+    else:
+        verdict = ("was not adopted: no model had significantly fewer attacks with it without a meaningful rise in "
+                   "refusals of safe requests")
+    return ["", f"A pre-registered compact version of the fix (`evals/validation/v1/PREREG_compact_fix.md`; evidence: "
+                f"`{COMPACT_EVIDENCE}`) {verdict}."]
 
 
 def _guard_sets(root: pathlib.Path) -> list[tuple[str, dict]]:
@@ -375,38 +387,39 @@ def _guard_sets(root: pathlib.Path) -> list[tuple[str, dict]]:
     return found
 
 
-def _guard_status(v: str, d: dict, sets: list[tuple[str, dict]]) -> str:
-    """A held-out set stays the honest number only until a newer one is scored against changed rules."""
-    status = d["status"].split(".")[0].replace("rules_git_sha", "rules " + (d.get("rules_git_sha") or "unknown")[:7])
-    newest_held_out = next((sv for sv, sd in reversed(sets) if sd["status"].startswith("HELD OUT")), None)
-    if status.startswith("HELD OUT") and v != newest_held_out:
-        return "SUPERSEDED (rules changed after scoring)"
-    return status
+def _guard_status(d: dict) -> str:
+    return d["status"].split(".")[0].replace("rules_git_sha", "rules " + (d.get("rules_git_sha") or "unknown")[:7])
+
+
+def _guard_current(root: pathlib.Path) -> tuple[str, dict] | None:
+    """The newest held-out set: an older one was scored against rules that have changed since (a set stays the
+    honest number only until the rules change), so only the newest is reported; the older files stay for audit."""
+    sets = _guard_sets(root)
+    return next(((v, d) for v, d in reversed(sets) if d["status"].startswith("HELD OUT")), sets[-1] if sets else None)
 
 
 def _guard_headline(root: pathlib.Path) -> dict | None:
-    sets = _guard_sets(root)
-    return next((d for _, d in reversed(sets) if d["status"].startswith("HELD OUT")), sets[-1][1] if sets else None)
+    cur = _guard_current(root)
+    return cur[1] if cur else None
 
 
 def _guard(root: pathlib.Path) -> list[str]:
     out = ["## Runtime guard for Claude Code (fusion-guard hook)", ""]
-    rows = []
-    sets = _guard_sets(root)
-    for v, d in sets:
-        sens = d.get("sensitivity_test_tld_as_public")
-        rows.append(
-            f"| {v} | {d['benign']['n']} | {_iv(d['benign']['over_block'])} | {d['malicious']['n']} | "
-            f"{_iv(d['malicious']['recall'])} | {_iv(sens['recall']) if sens else '—'} | "
-            f"{_guard_status(v, d, sets)} |")
-    if not rows:
+    cur = _guard_current(root)
+    if not cur:
         return out + ["NOT YET MEASURED.", ""]
+    v, d = cur
+    sens = d.get("sensitivity_test_tld_as_public")
+    head = "| Set | benign n | Prompted (over-block) | attack n | Caught (recall) |" + (
+        " Caught, .test hosts as public |" if sens else "") + " Status |"
+    row = (f"| {v} | {d['benign']['n']} | {_iv(d['benign']['over_block'])} | {d['malicious']['n']} | "
+           f"{_iv(d['malicious']['recall'])} |" + (f" {_iv(sens['recall'])} |" if sens else "") + f" {_guard_status(d)} |")
     return out + [
-        "Tool calls written by independent agents **blind to the rules**; each set scored once.",
+        "Tool calls written by independent agents **blind to the rules**, scored once.",
         "",
-        "| Set | benign n | Prompted (over-block) | attack n | Caught (recall) | Caught, .test hosts as public | Status |",
-        "|---|---|---|---|---|---|---|",
-        *rows,
+        head,
+        "|---" * head.count(" |") + "|",
+        row,
         "",
         "Pattern rules catch the common exfiltration / destruction / remote-code shapes and miss much of "
         "the long tail; treat the hook as defense in depth, not a sandbox.",
@@ -426,6 +439,24 @@ def _limits() -> list[str]:
         "clear-cut questions.",
         "",
     ]
+
+
+# Committed evidence no longer reported: measured on rules since replaced, superseded by a later measurement on
+# the same comparator, or the secondary outcomes of a variant that was not adopted. Kept in the repo for audit.
+SUPERSEDED_EVIDENCE = (
+    "evals/validation/v1/guard_on_transcripts.json",
+    "evals/validation/v1/guard_on_fresh_transcripts.json",
+    "evals/validation/v1/guard_vs_llama_guard.json",
+    "evals/validation/v1/value_ledger.json",
+    "evals/validation/v1/compact_vs_full_fix.json",
+)
+
+
+def _superseded(root: pathlib.Path) -> list[str]:
+    cur = _guard_current(root)
+    older_sets = [f"evals/guard_bench/claude_code_heldout_{v}.json" for v, _ in _guard_sets(root) if cur and v != cur[0]]
+    kept = [rel for rel in SUPERSEDED_EVIDENCE if (root / rel).is_file()] + older_sets
+    return [f"Superseded evidence kept for audit: {', '.join(f'`{rel}`' for rel in kept)}.", ""] if kept else []
 
 
 def evidence_json(root: pathlib.Path | None = None) -> dict:
@@ -450,13 +481,14 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
                 "audit": (d.get("audit") or {}).get("summary"),
             })
     guard = []
-    sets = _guard_sets(root)
-    for v, d in sets:
+    cur = _guard_current(root)
+    if cur:
+        v, d = cur
         guard.append({"set": v, "evidence": f"evals/guard_bench/claude_code_heldout_{v}.json",
                       "benign_n": d["benign"]["n"], "over_block": d["benign"]["over_block"],
                       "attack_n": d["malicious"]["n"], "recall": d["malicious"]["recall"],
                       "recall_sensitivity": (d.get("sensitivity_test_tld_as_public") or {}).get("recall"),
-                      "status": _guard_status(v, d, sets)})
+                      "status": _guard_status(d)})
     fix = _load(root, "evals/validation/v1/evidence_oracle.json")
     fix_pooled = []
     if fix and len(fix.get("models", {})) > 1:
@@ -476,31 +508,6 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
         rubric_vs_plain = {"evidence": B3_EVIDENCE, "claim_allowed": b3["decision"]["claim_allowed"],
                            "pooled": _pair(b3["pooled"]),
                            "by_check": {c: _pair(b) for c, b in sorted(b3["by_check"].items())}}
-    runtime, first, runtime_rel = _guardrail_measurements(root)
-    runtime_guardrail = None
-    if runtime:
-        keep = ("attacks", "stopped", "recall", "clean", "over_blocked", "over_block")
-
-        def _summary(r: dict) -> dict:
-            return {"all": {k: r["all"][k] for k in keep},
-                    "by_attack_type": {g: {**{k: s[k] for k in keep}, "name": _ATTACK_TYPE_NAMES.get(g, g)}
-                                       for g, s in sorted(r["by_attack_type"].items())}}
-
-        runtime_guardrail = {
-            "evidence": runtime_rel, "models": runtime.get("models", []), **_summary(runtime),
-            "fresh": first is not None, "findings": runtime.get("findings", []),
-            "rules": (runtime.get("guardrail_git_sha") or "")[:7] or None,
-            "first_measurement": {"evidence": GUARDRAIL_EVIDENCE, **_summary(first)} if first else None,
-        }
-    ledger = _load(root, LEDGER_EVIDENCE)
-    counts = ("found", "fix_removed", "fix_caused", "guard_stopped", "either", "neither")
-    value_ledger = None if not ledger else {
-        "evidence": LEDGER_EVIDENCE,
-        "total": {k: ledger["total"][k] for k in counts},
-        "by_model": {m: {k: s[k] for k in counts} for m, s in ledger["by_model"].items()},
-        "fix_refusal_cost": ledger.get("fix_refusal_cost"),
-        "note": ledger.get("note"),
-    }
     local = next(((rel, d) for rel, d in _judge_files(root) if rel in _LOCAL_GRADER_FILES), None)
     local_grader = None
     if local:
@@ -508,27 +515,15 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
         local_grader = {"evidence": local[0], "grader": local[1]["grader"], "meets_floor": dec["meets_floor"],
                         "rule": dec["rule"], "per_check": dec["per_check"]}
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
-            "local_grader": local_grader, "guard_vs_llama_guard": _llama_guard_site(root),
+            "local_grader": local_grader,
             "step2_guard": _step2_site(root), "step3_guard": _step3_site(root), "step4_agentdojo": _step4_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
-            "runtime_guardrail": runtime_guardrail, "value_ledger": value_ledger,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
 
 
 B3_EVIDENCE = "evals/validation/v1/b3_rubric_vs_plain_judge.json"
-GUARDRAIL_EVIDENCE = "evals/validation/v1/guard_on_transcripts.json"
-GUARDRAIL_FRESH_EVIDENCE = "evals/validation/v1/guard_on_fresh_transcripts.json"
 
 
-def _guardrail_measurements(root: pathlib.Path) -> tuple[dict | None, dict | None, str]:
-    """(headline, first measurement or None, headline evidence path). A measurement that led to a rule
-    fix is a development number for the new rules, so the fresh re-measurement of the current rules
-    is the headline once it exists; the first one stays disclosed."""
-    first = _load(root, GUARDRAIL_EVIDENCE)
-    fresh = _load(root, GUARDRAIL_FRESH_EVIDENCE)
-    if fresh:
-        return fresh, first, GUARDRAIL_FRESH_EVIDENCE
-    return first, None, GUARDRAIL_EVIDENCE
 _ATTACK_TYPE_NAMES = {"gandalf:leak": "password leaks (Gandalf)",
                       "injecagent:ds": "tool hijack, data stealing (InjecAgent)",
                       "injecagent:dh": "tool hijack, direct harm (InjecAgent)"}
@@ -536,57 +531,6 @@ _ATTACK_TYPE_NAMES = {"gandalf:leak": "password leaks (Gandalf)",
 
 _ATTACK_TYPE_SHORT = {"gandalf:leak": "password leaks", "injecagent:ds": "data-stealing tool hijacks",
                       "injecagent:dh": "direct-harm tool hijacks"}
-
-
-def _guardrail_sentence(d: dict, fix: dict | None, first: dict | None = None) -> str:
-    a = d["all"]
-    ranked = sorted(d["by_attack_type"].items(), key=lambda kv: -kv[1]["recall"]["point"])
-    parts = [f"{_pct(s['recall']['point'])} of {_ATTACK_TYPE_SHORT.get(k, k)}" for k, s in ranked]
-    listed = ", ".join(parts[:-1]) + f" and {parts[-1]}" if len(parts) > 1 else "".join(parts)
-    models = len(d.get("models", []))
-    if first:
-        f0 = first["all"]
-        return (f"- **Runtime guardrail in your agent?** On fresh real attacks that succeeded against {models} small "
-                f"open-weight models, measured once with the current rules (pre-registered), it stopped "
-                f"{a['stopped']} of {a['attacks']}, {_iv(a['recall'])}: {listed}. It wrongly blocked "
-                f"{_iv(a['over_block'])} of clean transcripts. The first measurement (earlier transcripts, older "
-                f"rules) stopped {f0['stopped']} of {f0['attacks']}.")
-    sentence = (f"- **Runtime guardrail in your agent?** On real attacks that succeeded against "
-                f"{models} small open-weight models it stopped {a['stopped']} of {a['attacks']}, "
-                f"{_iv(a['recall'])}: {listed}. It wrongly blocked {_iv(a['over_block'])} of clean transcripts.")
-    pooled = (fix or {}).get("pooled") or {}
-    same = [pooled[e] for e in ("injecagent", "gandalf") if e in pooled]
-    if same and all(_pooled_verdict(_pooled_ci(p)) == "no clear change" for p in same):
-        sentence += " On the same attacks the prompt fix gave no clear reduction."
-    return sentence
-
-
-LEDGER_EVIDENCE = "evals/validation/v1/value_ledger.json"
-
-
-def _ledger(root: pathlib.Path) -> list[str]:
-    d = _load(root, LEDGER_EVIDENCE)
-    if not d:
-        return []
-    head = ("| Model | Real attacks found | Removed by the prompt fix | New attacks the fix caused | "
-            "Stopped by the guardrail | Caught by either | Got through both |")
-    out = ["## Value ledger: what each layer bought on real attacks", "",
-           "A re-reading of the first run's committed measurements (the Q3 fix run and the guardrail's first "
-           "measurement on the same transcripts; no new data): of the attacks that succeeded "
-           f"with the prompt as written, what the fix removed and what the guardrail stopped. Evidence: `{LEDGER_EVIDENCE}`.",
-           "", head, "|---|---|---|---|---|---|---|"]
-    for name, s in [*d["by_model"].items(), ("all models", d["total"])]:
-        out.append(f"| {name} | {s['found']} | {s['fix_removed']} | {s['fix_caused']} | {s['guard_stopped']} | "
-                   f"{s['either']} | {s['neither']} |")
-    cost = d.get("fix_refusal_cost") or {}
-    out.append("")
-    if cost:
-        out.append(f"The fix also made the models refuse {cost['safe_requests_newly_refused']} safe requests they "
-                   f"had answered (and answer {cost['safe_requests_newly_answered']} they had refused), out of "
-                   f"{cost['pairs']} XSTest pairs.")
-    if d.get("note"):
-        out.append(f"Caveat: {d['note']}")
-    return out + [""]
 
 
 def _guardrail_table(d: dict) -> list[str]:
@@ -601,102 +545,6 @@ def _guardrail_table(d: dict) -> list[str]:
     if d.get("deviation_note"):
         out.append(f"- Deviation, disclosed: {d['deviation_note']}")
     return out
-
-
-def _guardrail(root: pathlib.Path) -> list[str]:
-    d = _load(root, GUARDRAIL_EVIDENCE)
-    fresh = _load(root, GUARDRAIL_FRESH_EVIDENCE)
-    if not d and not fresh:
-        return []
-    out = ["## Runtime guardrail on real attacks (pre-registered)", ""]
-    step2 = _load(root, STEP2_EVIDENCE)
-    if step2 and step2["decision"]["new_rules"] == "adopted":
-        out += [f"Previous rules, superseded by the request-bound rules adopted in step 2 (`"
-                f"{step2['guardrail_git_sha'][:7]}`, above); kept as the record of how the guard got there.", ""]
-    if d:
-        out += ["The runtime guardrail (`fusion_first/guardrail`) applied to the attacks that really succeeded against "
-                "the small models in the Q3 run (prompt as written), re-scored by the same oracles. Registered in "
-                f"`evals/validation/v1/PREREG_guard_on_real_transcripts.md`; evidence: `{GUARDRAIL_EVIDENCE}`.", "",
-                *_guardrail_table(d)]
-    if fresh:
-        sha = (fresh.get("guardrail_git_sha") or "unknown")[:7]
-        salt = (fresh.get("sample") or {}).get("salt", "unknown")
-        out += (["", f"### Re-measured on fresh transcripts (rules {sha})", ""] if d else []) + [
-            "A measurement that leads to a rule fix becomes a development number for the fixed rules, so the rules "
-            f"of the time (`fusion_first/guardrail` at `{sha}`) were applied once to fresh transcripts that no rule was written "
-            f"against: the prompt as written on new items (sample `{salt}`), with the same configuration, reading of "
-            f"tool calls and oracles. Registered in `{fresh.get('preregistration')}`; evidence: "
-            f"`{GUARDRAIL_FRESH_EVIDENCE}`.", "", *_guardrail_table(fresh)]
-    return out + [""]
-COMPACT_EVIDENCE = "evals/validation/v1/compact_fix.json"
-
-
-def _compact_verdict(dec: dict) -> str:
-    per = dec["per_model"].values()
-    if dec["adopt"]:
-        return ("**Decision (registered rule): ADOPTED.** On at least one model the compact block cut attack "
-                "success significantly without a meaningful rise in refusals of safe requests, and no model got "
-                "significantly worse, so it becomes the default fix for small models.")
-    why = ("a model got significantly MORE attacks with it" if any(m["attack_higher"] for m in per)
-           else "no model met both primary outcomes (fewer attacks AND no meaningful rise in refusals)")
-    return f"**Decision (registered rule): NOT ADOPTED** — {why}. The full fix stays, measured per model."
-
-
-def _compact(root: pathlib.Path) -> list[str]:
-    d = _load(root, COMPACT_EVIDENCE)
-    if not d or "prereg_decision" not in d:
-        return []
-    dec = d["prereg_decision"]
-    xs = {c["model"]: c for c in d.get("cells", []) if c["experiment"] == "xstest"}
-    out = ["### Pre-registered: a compact fix for small models", "",
-           "A few short rules ending with an instruction to otherwise help normally, compared with the prompt as "
-           "written on FRESH items (none used to design any fix). Registered before any data in "
-           f"`evals/validation/v1/PREREG_compact_fix.md`; evidence: `{COMPACT_EVIDENCE}`. Attacks = InjecAgent "
-           "and Gandalf pooled per model.", "",
-           "| Model | Attacks as written | With the compact block | Paired test | Refusals of safe requests "
-           "(upper 95% bound of the rise) | Both primary outcomes met |",
-           "|---|---|---|---|---|---|"]
-    for model, a in sorted(d["attack_success_by_model"].items()):
-        pm = dec["per_model"].get(model, {})
-        drop = (xs.get(model) or {}).get("quality_drop") or {}
-        rise = f"{drop['high'] * 100:+.0f} pts" if "high" in drop else "—"
-        ni = "within 10 pts" if pm.get("over_refusal_noninferior") else "NOT within 10 pts"
-        out.append(f"| {model} | {_iv(a['baseline_rate'])} | {_iv(a['treatment_rate'])} | "
-                   f"McNemar p={a['before_after']['mcnemar_p']:.3f} | {rise} ({ni}) | "
-                   f"{'yes' if pm.get('both_primary') else 'no'} |")
-    return out + ["", _compact_verdict(dec), "", *_compact_secondary(root, d)]
-
-
-COMPACT_VS_FULL_EVIDENCE = "evals/validation/v1/compact_vs_full_fix.json"
-
-
-def _vs_full(ba: dict) -> str:
-    if ba["mcnemar_p"] >= 0.05:
-        return "no significant difference"
-    return ("significantly more with the compact block" if ba["discordant_c"] > ba["discordant_b"]
-            else "significantly fewer with the compact block")
-
-
-def _compact_secondary(root: pathlib.Path, primary: dict) -> list[str]:
-    """The registered secondary outcomes: compact vs the full fix (attacks, refusals of safe requests),
-    and the IFEval cost of the compact block (non-inferior to the prompt as written within 10 points)."""
-    d = _load(root, COMPACT_VS_FULL_EVIDENCE)
-    if not d:
-        return []
-    attacks = "; ".join(
-        f"{m} {_pct(a['baseline_rate']['point'])} → {_pct(a['treatment_rate']['point'])} "
-        f"(McNemar p={a['before_after']['mcnemar_p']:.3f}, {_vs_full(a['before_after'])})"
-        for m, a in sorted(d["attack_success_by_model"].items()))
-    refusals = "; ".join(f"{c['model']} {_pct(c['baseline_rate']['point'])} → {_pct(c['hardened_rate']['point'])}"
-                         for c in sorted(d.get("cells", []), key=lambda c: c["model"])
-                         if c["experiment"] == "xstest")
-    ifeval = ", ".join(f"{c['model']} {'yes' if c.get('noninferior') else 'no'}"
-                       for c in sorted(primary.get("cells", []), key=lambda c: c["model"])
-                       if c["experiment"] == "ifeval")
-    return [f"**Secondary outcomes (registered).** The full fix vs the compact block on the same fresh items "
-            f"(evidence: `{COMPACT_VS_FULL_EVIDENCE}`). Attacks, InjecAgent + Gandalf pooled, full fix → compact: "
-            f"{attacks}. Refusals of safe requests (XSTest), full fix → compact: {refusals}. Missed instructions "
-            f"(IFEval) with the compact block within 10 points of the prompt as written: {ifeval}.", ""]
 
 
 def _b3_verdict(d: dict) -> str:
@@ -728,11 +576,6 @@ def _b3(root: pathlib.Path) -> list[str]:
     return out + ["", _b3_verdict(d), ""]
 
 
-LLAMA_GUARD_EVIDENCE = "evals/validation/v1/guard_vs_llama_guard.json"
-_LG_ROWS = (("Fusion guardrail", "fusion"), ("Llama Guard 3, off the shelf", "llama_guard_a"),
-            ("Llama Guard 3, configured", "llama_guard_b"), ("Fusion + Llama Guard 3 (configured)", "union_fusion_b"))
-
-
 def _p(p: float) -> str:
     return "p<0.0001" if p < 0.0001 else f"p={p:.4f}"
 
@@ -748,24 +591,6 @@ def _lg_verdict(name: str, c: dict) -> str:
                 f"({a['other_only']} vs {a['fusion_only']}; McNemar {_p(a['mcnemar_p'])}).")
     return (f"Against Llama Guard 3 {name}: no significant difference by the registered rule ({a['fusion_only']} "
             f"stopped only by Fusion, {a['other_only']} only by Llama Guard; McNemar {_p(a['mcnemar_p'])}).")
-
-
-def _llama_guard(root: pathlib.Path) -> list[str]:
-    d = _load(root, LLAMA_GUARD_EVIDENCE)
-    if not d:
-        return []
-    out = ["## Runtime guardrail vs Llama Guard 3 (pre-registered)", "",
-           f"The same fresh transcripts, scored by Fusion's guardrail and by `{d['llama_guard']['model']}` (off the "
-           "shelf, and configured with two added categories plus the planted secret). Registered in "
-           f"`{d['preregistration']}`; evidence: `{LLAMA_GUARD_EVIDENCE}`.", "",
-           "| System | Real attacks stopped | Clean transcripts wrongly blocked |", "|---|---|---|"]
-    for label, key in _LG_ROWS:
-        s = d[key]["all"]
-        out.append(f"| {label} | {s['stopped']} of {s['attacks']}, {_iv(s['recall'])} | "
-                   f"{s['blocked']} of {s['clean']}, {_iv(s['over_block'])} |")
-    comps = d["comparisons"]
-    return out + ["", f"- {_lg_verdict('off the shelf', comps['fusion_vs_llama_guard_a'])}",
-                  f"- {_lg_verdict('configured', comps['fusion_vs_llama_guard_b'])}", ""]
 
 
 STEP2_EVIDENCE = "evals/validation/v1/step2_guard.json"
@@ -808,7 +633,7 @@ def _step2(root: pathlib.Path) -> list[str]:
            "context, a tool call that is not a read must be covered by the user's own request, and an unrequested "
            "read of private data is blocked) measured once on fresh transcripts of "
            f"{' and '.join(d['models'])} ({n['injecagent']} InjecAgent and {n['gandalf']} Gandalf items each, prompt "
-           f"as written), against the rules scored before (`{d['prior_guardrail_git_sha'][:7]}`) and Llama Guard 3 "
+           f"as written), against the previous rules (`{d['prior_guardrail_git_sha'][:7]}`) and Llama Guard 3 "
            f"8B on the same transcripts. Registered in `{d['preregistration']}`; evidence: `{STEP2_EVIDENCE}`.", "",
            "| System | Real attacks stopped | Clean transcripts wrongly blocked |", "|---|---|---|"]
     for label, key in _STEP2_ROWS:
@@ -942,8 +767,9 @@ def _step4(root: pathlib.Path) -> list[str]:
             f"- Attacks (descriptive, not a registered test): {a['a_only']} succeeded only without the guard, "
             f"{a['b_only']} only with it (McNemar {_p(a['p'])}).",
             "- What it blocked: requests worded differently from the tool (\"pay the bill\" for `send_money`, \"post\" "
-            "for `send_channel_message`), sends to non-allowlisted addresses, and one destination-parsing fault (an "
-            "escaped newline joined to a host name). These are rule changes for a fresh registration, not this one.",
+            "for `send_channel_message`), sends to non-allowlisted addresses, addresses or links mentioned inside a "
+            "message body read as destinations, and a file name (recipe-collection.docx) read as a host. These are rule "
+            "changes for a fresh registration, not this one.",
             ""]
     return out
 
@@ -958,21 +784,11 @@ def _step4_site(root: pathlib.Path) -> dict | None:
             "decision": d["decision"]}
 
 
-def _llama_guard_site(root: pathlib.Path) -> dict | None:
-    d = _load(root, LLAMA_GUARD_EVIDENCE)
-    if not d:
-        return None
-    keep = ("attacks", "stopped", "recall", "clean", "blocked", "over_block")
-    return {"evidence": LLAMA_GUARD_EVIDENCE, "model": d["llama_guard"]["model"],
-            "systems": {key: {k: d[key]["all"][k] for k in keep} | {"label": label} for label, key in _LG_ROWS},
-            "comparisons": {"off_the_shelf": d["comparisons"]["fusion_vs_llama_guard_a"],
-                            "configured": d["comparisons"]["fusion_vs_llama_guard_b"]}}
-
-
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
-    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_compact(root), *_b3(root),
-             *_step2(root), *_step3(root), *_step4(root), *_guardrail(root), *_llama_guard(root), *_ledger(root), *_guard(root), *_limits()]
+    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root),
+             *_step2(root), *_step3(root), *_step4(root), *_guard(root),
+             *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"
 
 

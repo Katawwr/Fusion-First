@@ -35,62 +35,11 @@ function Table({ head, rows }) {
   return <DataTable head={head} rows={rows} numeric={numeric} />;
 }
 
-// The small-model measurements: the fresh re-measurement of the rules of that time once it exists (the
-// first measurement led to a rule fix); the first one stays disclosed. supersededBy = the rules measured
-// since (step 2), when they differ: these numbers then describe the previous rules, not the current guard.
-export function GuardrailSection({ runtime, supersededBy }) {
-  const first = runtime.first_measurement;
-  const rules = runtime.rules ? `rules ${runtime.rules}` : "pre-registered";
-  const old = supersededBy && runtime.rules && supersededBy !== runtime.rules;
-  return (
-    <Section title={old ? "Runtime guard on real attacks: previous rules" : "Runtime guard on real attacks"}>
-      <p className="mb-3 text-sm text-app-muted">
-        {runtime.fresh
-          ? `Fresh transcripts, ${rules}, ${runtime.models.length} small models. First measurement (older rules): ${first.all.stopped} of ${first.all.attacks} stopped.`
-          : `${runtime.models.length} models, pre-registered.`}
-        {old && ` Superseded by the current rules (${supersededBy}) above; these numbers do not describe them.`}
-      </p>
-      <Table
-        head={["Attack", "Attacks", "Stopped", "Clean", "Wrongly blocked"]}
-        rows={[
-          ...Object.values(runtime.by_attack_type).map((s) => [
-            s.name,
-            s.attacks,
-            interval(s.recall),
-            s.clean,
-            interval(s.over_block),
-          ]),
-          ["All", runtime.all.attacks, interval(runtime.all.recall), runtime.all.clean, interval(runtime.all.over_block)],
-        ]}
-      />
-    </Section>
-  );
-}
-
 const LG_VERDICT = {
   fusion_better: "Fusion stops significantly more real attacks, without significantly more wrong blocks.",
   other_better: "Llama Guard stops significantly more real attacks.",
   no_significant_difference: "no significant difference.",
 };
-
-export function LlamaGuardSection({ cmp }) {
-  const rows = ["fusion", "llama_guard_a", "llama_guard_b", "union_fusion_b"].map((k) => cmp.systems[k]);
-  const line = (name, c) => `${name}: ${LG_VERDICT[c.decision]} (McNemar ${pShort(c.attacks.mcnemar_p)})`;
-  return (
-    <Section title={`Runtime guard vs Llama Guard 3 (${cmp.model})`}>
-      <Table
-        head={["System", "Real attacks stopped", "Clean transcripts wrongly blocked"]}
-        rows={rows.map((s) => [
-          s.label,
-          `${s.stopped} of ${s.attacks}, ${interval(s.recall)}`,
-          `${s.blocked} of ${s.clean}, ${interval(s.over_block)}`,
-        ])}
-      />
-      <p className="mt-3 text-xs text-app-subtle">{line("Off the shelf", cmp.comparisons.off_the_shelf)}</p>
-      <p className="mt-1 text-xs text-app-subtle">{line("Configured", cmp.comparisons.configured)}</p>
-    </Section>
-  );
-}
 
 const PRIOR_VERDICT = {
   fusion_better: "the current rules stop significantly more real attacks, without significantly more wrong blocks.",
@@ -154,16 +103,7 @@ export function Step2Section({ s, fig = 1 }) {
       <p className="mt-1 text-xs text-app-subtle">
         Llama Guard 3 configured: {LG_VERDICT[c.configured.decision]} (McNemar {pShort(c.configured.attacks.mcnemar_p)})
       </p>
-      <StoppedBars
-        n={fig + 2}
-        label="Attacks stopped by the current rules, by attack type"
-        rows={[
-          ...Object.values(s.by_attack_type || {}).map((t) => ({ label: t.name.charAt(0).toUpperCase() + t.name.slice(1), stopped: t.stopped, attacks: t.attacks })),
-          s.systems.fusion && { label: "All", stopped: s.systems.fusion.stopped, attacks: s.systems.fusion.attacks },
-        ].filter(Boolean)}
-        caption="Attacks stopped by the current rules, by attack type. Purple fill: stopped; outline: every attack of that type."
-      />
-      <p className="text-xs text-app-subtle">
+      <p className="mt-1 text-xs text-app-subtle">
         Legitimate actions never used in development: {b.blocked} of {b.cases} blocked (registered limit {b.max_allowed}).
         {Number.isFinite(dest) &&
           ` The external-recipient rule, unchanged and with no allowlist, blocked ${dest} of ${b.cases} (every send to the user's own address).`}
@@ -275,7 +215,7 @@ export default function Trust() {
   let fig = 0;
   const judgeFig = judge.length ? ++fig : null;
   const step2Fig = evidence.step2_guard ? fig + 1 : null;
-  if (step2Fig) fig += 3;
+  if (step2Fig) fig += 2;
   const step3Fig = evidence.step3_guard ? ++fig : null;
   const fixFig = evidence.fix_efficacy ? ++fig : null;
   // The local grader's pre-registered bar: both checks at the policy floor (evals/policy.yaml).
@@ -367,12 +307,6 @@ export default function Trust() {
 
       {evidence.step4_agentdojo && <Step4Section s={evidence.step4_agentdojo} />}
 
-      {evidence.runtime_guardrail && (
-        <GuardrailSection runtime={evidence.runtime_guardrail} supersededBy={evidence.step2_guard?.rules} />
-      )}
-
-      {evidence.guard_vs_llama_guard && <LlamaGuardSection cmp={evidence.guard_vs_llama_guard} />}
-
       <Section title="Prompt fix: effect and cost">
         {evidence.fix_pooled && (
           <div className="mb-4">
@@ -408,28 +342,6 @@ export default function Trust() {
           <NotYet what="the as-written vs fixed prompt comparison on local models" />
         )}
       </Section>
-
-      {evidence.value_ledger && (
-        <Section title="Value ledger: fix vs guard">
-          <p className="mb-3 text-sm text-app-muted">First-run transcripts.</p>
-          <Table
-            head={["Model", "Attacks", "Removed by fix", "Caused by fix", "Stopped by guard", "Either", "Neither"]}
-            rows={[
-              ...Object.entries(evidence.value_ledger.by_model).map(([m, s]) => [
-                m, s.found, s.fix_removed, s.fix_caused, s.guard_stopped, s.either, s.neither,
-              ]),
-              (() => {
-                const t = evidence.value_ledger.total;
-                return ["All models", t.found, t.fix_removed, t.fix_caused, t.guard_stopped, t.either, t.neither];
-              })(),
-            ]}
-          />
-          <p className="mt-3 text-xs text-app-subtle">
-            {evidence.value_ledger.fix_refusal_cost &&
-              `The fix also caused ${evidence.value_ledger.fix_refusal_cost.safe_requests_newly_refused} new refusals of safe requests. `}
-          </p>
-        </Section>
-      )}
 
       <Section title="Claude Code guard hook">
         {guard.length === 0 ? (

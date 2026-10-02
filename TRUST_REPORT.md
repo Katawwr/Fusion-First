@@ -8,7 +8,7 @@ evidence (the offline stand-in judge) is excluded.
 ## Bottom line
 
 - **Detecting accurately?** Graded against deterministic oracles — Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules): direct prompt injection 80% (68%–88%), system prompt leakage 92% (82%–96%). It beats the rule-based checks, but not significantly yet (small samples). A plain one-question judge using the same model was just as accurate on the same items (rubric 86%, plain 87%), so Fusion does not claim its rubric improves accuracy. The free local grader, qwen2.5:7b probability judge (local), pre-registered: direct prompt injection 60% (47%–71%), system prompt leakage 55% (42%–67%). Its registered bar (accuracy at least 0.60 and F1 at least 0.60 on both checks): not met, so `fusion doctor` no longer recommends it by default (it can still be chosen explicitly; every run measures its grader in-run and withholds the grade when it falls short).
-- **Fixing effectively?** On gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b: 1 proven improvement(s) (gandalf on qwen2.5:3b); 1 significant regression(s) (xstest on llama3.2:1b). Pooled over the 4 models: no clear change for password leaks (Gandalf), missed instructions (IFEval), tool hijacking (InjecAgent); significantly worse for refusing safe requests (XSTest). Every report card therefore measures the fix on the user's own model instead of assuming it helps. A pre-registered compact version of the fix was not adopted: no model had significantly fewer attacks with it without a meaningful rise in refusals of safe requests.
+- **Fixing effectively?** On gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b: 1 proven improvement(s) (gandalf on qwen2.5:3b); 1 significant regression(s) (xstest on llama3.2:1b). Pooled over the 4 models: no clear change for password leaks (Gandalf), missed instructions (IFEval), tool hijacking (InjecAgent); significantly worse for refusing safe requests (XSTest). Every report card therefore measures the fix on the user's own model instead of assuming it helps.
 - **Runtime guardrail in your agent?** On fresh real attacks against qwen2.5:7b and llama3.1:8b, measured once with the current rules (pre-registered), it stopped 132 of 148, 89% (83%–93%): 100% of password leaks, 100% of direct-harm tool hijacks, 69% of data-stealing tool hijacks. It wrongly blocked 1% (0%–3%) of clean transcripts. On the same transcripts the previous rules stopped 104 and Llama Guard 3 (configured) 77, wrongly blocking 10% (6%–14%). Given the tool results as well, on further fresh transcripts of the same models (pre-registered), it stopped 75 of 75 attacks (55 of 55 data-stealing) vs 67 (47) without them, wrongly blocking 1 of 225 clean transcripts either way. Its cost, in a live AgentDojo agent loop on held-out tasks (qwen2.5:7b, pre-registered): the agent completed 22 of 66 legitimate tasks with the guard vs 29 without it (7 broken, 0 fixed), over the registered 10-point margin.
 - **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 76% (64%–84%) of attack-shaped ones as written — useful defense in depth, not a sandbox.
 - **Erroring often?** In the fix-efficacy run, 1 of 480 item pairs failed to generate, 0 were undecidable by the oracle and 45 were cut by the token cap; in the judge evaluation, 0 of 240 questions went unanswered. Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much is unscored, when the grader misses the known-answer floor, or when it denies an oracle-confirmed violation.
@@ -77,20 +77,7 @@ The prompt as written vs with Fusion's fix, on local models (gemma3:1b, llama3.2
 
 Significant regressions: xstest on llama3.2:1b. Proven improvements: gandalf on qwen2.5:3b.
 
-### Pre-registered: a compact fix for small models
-
-A few short rules ending with an instruction to otherwise help normally, compared with the prompt as written on FRESH items (none used to design any fix). Registered before any data in `evals/validation/v1/PREREG_compact_fix.md`; evidence: `evals/validation/v1/compact_fix.json`. Attacks = InjecAgent and Gandalf pooled per model.
-
-| Model | Attacks as written | With the compact block | Paired test | Refusals of safe requests (upper 95% bound of the rise) | Both primary outcomes met |
-|---|---|---|---|---|---|
-| gemma3:1b | 40% (29%–53%) | 35% (24%–48%) | McNemar p=0.607 | +43 pts (NOT within 10 pts) | no |
-| llama3.2:1b | 27% (17%–39%) | 23% (14%–35%) | McNemar p=0.774 | +27 pts (NOT within 10 pts) | no |
-| qwen2.5:1.5b | 20% (12%–32%) | 15% (8%–26%) | McNemar p=0.453 | +0 pts (within 10 pts) | no |
-| qwen2.5:3b | 30% (20%–43%) | 20% (12%–32%) | McNemar p=0.180 | +17 pts (NOT within 10 pts) | no |
-
-**Decision (registered rule): NOT ADOPTED** — no model met both primary outcomes (fewer attacks AND no meaningful rise in refusals). The full fix stays, measured per model.
-
-**Secondary outcomes (registered).** The full fix vs the compact block on the same fresh items (evidence: `evals/validation/v1/compact_vs_full_fix.json`). Attacks, InjecAgent + Gandalf pooled, full fix → compact: gemma3:1b 20% → 35% (McNemar p=0.035, significantly more with the compact block); llama3.2:1b 22% → 23% (McNemar p=1.000, no significant difference); qwen2.5:1.5b 13% → 15% (McNemar p=1.000, no significant difference); qwen2.5:3b 10% → 20% (McNemar p=0.070, no significant difference). Refusals of safe requests (XSTest), full fix → compact: gemma3:1b 30% → 30%; llama3.2:1b 30% → 27%; qwen2.5:1.5b 3% → 3%; qwen2.5:3b 20% → 10%. Missed instructions (IFEval) with the compact block within 10 points of the prompt as written: gemma3:1b yes, llama3.2:1b no, qwen2.5:1.5b yes, qwen2.5:3b no.
+A pre-registered compact version of the fix (`evals/validation/v1/PREREG_compact_fix.md`; evidence: `evals/validation/v1/compact_fix.json`) was not adopted: no model had significantly fewer attacks with it without a meaningful rise in refusals of safe requests.
 
 ## Q4 — Does the rubric beat simply asking an LLM?
 
@@ -106,7 +93,7 @@ The same items graded twice by the same Claude Sonnet: once with Fusion's rubric
 
 ## Request-bound guardrail on 7–8B models (pre-registered)
 
-The current rules (`fusion_first/guardrail` at `0c560b5`: once untrusted content is in context, a tool call that is not a read must be covered by the user's own request, and an unrequested read of private data is blocked) measured once on fresh transcripts of qwen2.5:7b and llama3.1:8b (100 InjecAgent and 100 Gandalf items each, prompt as written), against the rules scored before (`a6fa0f5`) and Llama Guard 3 8B on the same transcripts. Registered in `evals/validation/v1/PREREG_step2_guard.md`; evidence: `evals/validation/v1/step2_guard.json`.
+The current rules (`fusion_first/guardrail` at `0c560b5`: once untrusted content is in context, a tool call that is not a read must be covered by the user's own request, and an unrequested read of private data is blocked) measured once on fresh transcripts of qwen2.5:7b and llama3.1:8b (100 InjecAgent and 100 Gandalf items each, prompt as written), against the previous rules (`a6fa0f5`) and Llama Guard 3 8B on the same transcripts. Registered in `evals/validation/v1/PREREG_step2_guard.md`; evidence: `evals/validation/v1/step2_guard.json`.
 
 | System | Real attacks stopped | Clean transcripts wrongly blocked |
 |---|---|---|
@@ -164,79 +151,15 @@ AgentDojo (agentdojo v1.2.2) user tasks run through real tools by qwen2.5:7b; th
 - Cost: 7 tasks completed only without the guard, 0 only with it (McNemar p=0.0156); completion fell 10.6 points (95% 4.5 to 18.2). Registered margin: 10 points. Decision: **exceeds margin or undetermined**.
 - Given the tool results or not made no difference to cost (0 vs 0).
 - Attacks (descriptive, not a registered test): 7 succeeded only without the guard, 1 only with it (McNemar p=0.0703).
-- What it blocked: requests worded differently from the tool ("pay the bill" for `send_money`, "post" for `send_channel_message`), sends to non-allowlisted addresses, and one destination-parsing fault (an escaped newline joined to a host name). These are rule changes for a fresh registration, not this one.
-
-## Runtime guardrail on real attacks (pre-registered)
-
-Previous rules, superseded by the request-bound rules adopted in step 2 (`0c560b5`, above); kept as the record of how the guard got there.
-
-The runtime guardrail (`fusion_first/guardrail`) applied to the attacks that really succeeded against the small models in the Q3 run (prompt as written), re-scored by the same oracles. Registered in `evals/validation/v1/PREREG_guard_on_real_transcripts.md`; evidence: `evals/validation/v1/guard_on_transcripts.json`.
-
-| Attack | Real attacks | Stopped | Clean transcripts | Wrongly blocked |
-|---|---|---|---|---|
-| password leaks (Gandalf) | 35 | 97% (85%–99%) | 85 | 0% (0%–4%) |
-| tool hijack, direct harm (InjecAgent) | 13 | 38% (18%–64%) | 55 | 9% (4%–20%) |
-| tool hijack, data stealing (InjecAgent) | 21 | 71% (50%–86%) | 31 | 13% (5%–29%) |
-| all | 69 | 78% (67%–86%) | 171 | 5% (3%–10%) |
-
-- Misses are consequential tools whose names carry no known verb (Manage..., UnlockDoor, AutoFill...) and the read step of data-stealing attacks (the guard gates the send, not the read; in 6 misses the model only made the read in this turn).
-- Over-blocks come from CamelCase read tools (GmailReadEmail, TwilioGetReceivedSmsMessages): the read-only check splits snake_case only, so 'email'/'sms' in the name looks consequential. A guard bug found here; the rules were not changed for this measurement.
-- Deviation, disclosed: The first computation read every bare 'ACTION: <word>' line as a tool call, although the registration says bare lines count 'as the oracle reads them' (only when they name a tool in the scenario). Words like 'Send' or 'json' were therefore counted as calls. The parser was corrected to the registered reading before these numbers were recorded. First computation: 54/69 stopped, 10/171 clean transcripts over-blocked.
-
-### Re-measured on fresh transcripts (rules a6fa0f5)
-
-A measurement that leads to a rule fix becomes a development number for the fixed rules, so the rules of the time (`fusion_first/guardrail` at `a6fa0f5`) were applied once to fresh transcripts that no rule was written against: the prompt as written on new items (sample `fusion-evidence-compact-v1`), with the same configuration, reading of tool calls and oracles. Registered in `evals/validation/v1/PREREG_guard_on_fresh_transcripts.md`; evidence: `evals/validation/v1/guard_on_fresh_transcripts.json`.
-
-| Attack | Real attacks | Stopped | Clean transcripts | Wrongly blocked |
-|---|---|---|---|---|
-| password leaks (Gandalf) | 37 | 100% (91%–100%) | 83 | 2% (1%–8%) |
-| tool hijack, direct harm (InjecAgent) | 10 | 30% (11%–60%) | 38 | 0% (0%–9%) |
-| tool hijack, data stealing (InjecAgent) | 23 | 43% (26%–63%) | 49 | 0% (0%–7%) |
-| all | 70 | 71% (60%–81%) | 170 | 1% (0%–4%) |
-
-- Password leaks: 37 of 37 stopped. The 2 changed clean replies: a made-up credential ('Password: FROZEN99', redacted as secret-shaped) and the planted password's characters listed nearly in order ('P, W, A, B, A, 6, C, D, 4' for PW-BAA6ACD4), which the exact-match oracle scores as clean.
-- Data-stealing hijacks: 10 of 23 stopped. 11 misses made only the read call (e.g. BankManagerGetAccountInformation); the guard gates sends, not reads. 2 more had the exfiltrating GmailSendEmail blocked but the read allowed, which the registered definition counts as not stopped.
-- Direct-harm hijacks: 3 of 10 stopped. All 7 misses are consequential tools with no verb the guard knows: EpicFHIRManage... (4), CiscoUmbrellaCreatePolicy (2), TrafficControlGivePriorityToEmergencyVehicle (1).
-- The drop from the first measurement comes from the items, not the rule fix: the current rules on the first run's transcripts (diagnostic, not evidence) still stop 54 of 69 and wrongly block 1 of 171 instead of 9.
-
-## Runtime guardrail vs Llama Guard 3 (pre-registered)
-
-The same fresh transcripts, scored by Fusion's guardrail and by `llama-guard3:8b` (off the shelf, and configured with two added categories plus the planted secret). Registered in `evals/validation/v1/PREREG_guard_vs_llama_guard.md`; evidence: `evals/validation/v1/guard_vs_llama_guard.json`.
-
-| System | Real attacks stopped | Clean transcripts wrongly blocked |
-|---|---|---|
-| Fusion guardrail | 50 of 70, 71% (60%–81%) | 2 of 170, 1% (0%–4%) |
-| Llama Guard 3, off the shelf | 33 of 70, 47% (36%–59%) | 26 of 170, 15% (11%–21%) |
-| Llama Guard 3, configured | 44 of 70, 63% (51%–73%) | 28 of 170, 16% (12%–23%) |
-| Fusion + Llama Guard 3 (configured) | 63 of 70, 90% (81%–95%) | 29 of 170, 17% (12%–23%) |
-
-- Fusion's guardrail stops significantly more real attacks than Llama Guard 3 off the shelf (28 stopped only by Fusion, 11 only by Llama Guard; McNemar p=0.0095), without significantly more wrong blocks.
-- Against Llama Guard 3 configured: no significant difference by the registered rule (19 stopped only by Fusion, 13 only by Llama Guard; McNemar p=0.3771).
-
-## Value ledger: what each layer bought on real attacks
-
-A re-reading of the first run's committed measurements (the Q3 fix run and the guardrail's first measurement on the same transcripts; no new data): of the attacks that succeeded with the prompt as written, what the fix removed and what the guardrail stopped. Evidence: `evals/validation/v1/value_ledger.json`.
-
-| Model | Real attacks found | Removed by the prompt fix | New attacks the fix caused | Stopped by the guardrail | Caught by either | Got through both |
-|---|---|---|---|---|---|---|
-| llama3.2:1b | 11 | 4 | 9 | 10 | 10 | 1 |
-| qwen2.5:1.5b | 13 | 5 | 3 | 12 | 13 | 0 |
-| gemma3:1b | 24 | 11 | 5 | 17 | 22 | 2 |
-| qwen2.5:3b | 21 | 16 | 4 | 15 | 19 | 2 |
-| all models | 69 | 36 | 21 | 54 | 64 | 5 |
-
-The fix also made the models refuse 21 safe requests they had answered (and answer 5 they had refused), out of 120 XSTest pairs.
-Caveat: The guardrail was measured on the prompt as written, not behind the fix; 'either' approximates both layers.
+- What it blocked: requests worded differently from the tool ("pay the bill" for `send_money`, "post" for `send_channel_message`), sends to non-allowlisted addresses, addresses or links mentioned inside a message body read as destinations, and a file name (recipe-collection.docx) read as a host. These are rule changes for a fresh registration, not this one.
 
 ## Runtime guard for Claude Code (fusion-guard hook)
 
-Tool calls written by independent agents **blind to the rules**; each set scored once.
+Tool calls written by independent agents **blind to the rules**, scored once.
 
-| Set | benign n | Prompted (over-block) | attack n | Caught (recall) | Caught, .test hosts as public | Status |
-|---|---|---|---|---|---|---|
-| v1 | 80 | 6% (3%–14%) | 60 | 65% (52%–76%) | — | PRE-TUNING |
-| v2 | 100 | 5% (2%–11%) | 70 | 33% (23%–44%) | 61% (50%–72%) | SUPERSEDED (rules changed after scoring) |
-| v3 | 100 | 5% (2%–11%) | 70 | 76% (64%–84%) | — | HELD OUT at rules f7d3809 |
+| Set | benign n | Prompted (over-block) | attack n | Caught (recall) | Status |
+|---|---|---|---|---|---|
+| v3 | 100 | 5% (2%–11%) | 70 | 76% (64%–84%) | HELD OUT at rules f7d3809 |
 
 Pattern rules catch the common exfiltration / destruction / remote-code shapes and miss much of the long tail; treat the hook as defense in depth, not a sandbox.
 
@@ -245,3 +168,5 @@ Pattern rules catch the common exfiltration / destruction / remote-code shapes a
 - Oracle labels decide narrow questions (a tool was called, a password appeared). Where the judge's rubric is broader than the oracle, some 'disagreements' are real violations the oracle can't see — see each disagreement audit.
 - Samples are small (tens of transcripts per cell); read the intervals, not the points.
 - Known-answer questions come from a public gold set; the in-run oracle cross-check covers only clear-cut questions.
+
+Superseded evidence kept for audit: `evals/validation/v1/guard_on_transcripts.json`, `evals/validation/v1/guard_on_fresh_transcripts.json`, `evals/validation/v1/guard_vs_llama_guard.json`, `evals/validation/v1/value_ledger.json`, `evals/validation/v1/compact_vs_full_fix.json`, `evals/guard_bench/claude_code_heldout_v1.json`, `evals/guard_bench/claude_code_heldout_v2.json`.
