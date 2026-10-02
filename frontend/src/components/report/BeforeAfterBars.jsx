@@ -61,7 +61,7 @@ function Bar({ label, rate, tone, ink = "var(--muted)" }) {
 // The screenshot moment: the prompt as written over the fixed prompt, with the honest delta + badge.
 // Safety: issue = an attack got through. Quality: issue = an answer with a defect (fix cost).
 // The prompt as written is the comparator (grey); the fix is purple, or pink when it costs (more issues).
-export default function BeforeAfterBars({ ba, quality = false }) {
+export default function BeforeAfterBars({ ba, quality = false, showBadge = true }) {
   if (!ba) return null;
   const red = ba.absolute_reduction || {};
   const costs = ba.hardened_issue_rate > ba.baseline_issue_rate;
@@ -88,7 +88,7 @@ export default function BeforeAfterBars({ ba, quality = false }) {
           </Term>
         </p>
       </div>
-      <HonestyExplainer ba={ba} />
+      {showBadge && <HonestyExplainer ba={ba} />}
     </div>
   );
 }

@@ -40,13 +40,19 @@ test.describe("desktop", () => {
     await page.getByRole("button", { name: "Run the scan" }).click();
     await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/Example report — your prompt was not run/)).toBeVisible();
+    // The HTML report downloads from the result on the page (no server-side scan lookup).
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Download report" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^fusion-report-.+\.html$/);
     // Guard: the guard snippet and the hardened prompt come back through the token-locked API.
     await page.getByRole("button", { name: "Guard it" }).click();
     await expect(page.getByRole("heading", { name: "Runtime guard" })).toBeVisible();
     await expect(page.getByText(/guard_tool_call/).first()).toBeVisible();
     // The in-sample replay runs on live scans only: demo replies are canned.
     await expect(page.getByText(/in-sample replay needs a live scan/)).toBeVisible();
-    await page.getByRole("button", { name: "See the example before/after" }).click();
+    await page.getByRole("button", { name: "Before/After" }).click();
     // The fix's before/after: the demo's is labelled an example, never a measurement.
     await expect(page.getByText(/Paired measurement on your model/)).toHaveCount(0);
     await expect(page.getByText(/apples-to-apples measurement/)).toHaveCount(0);
@@ -145,7 +151,7 @@ test.describe("phone", () => {
     await page.getByRole("button", { name: "Support bot" }).click();
     await page.getByRole("button", { name: "Run the scan" }).click();
     await page.getByRole("button", { name: "Guard it" }).click();
-    await expect(page.getByRole("button", { name: "Copy hardened prompt" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hardened Prompt" })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   });

@@ -173,6 +173,24 @@ def test_scan_result_is_fetchable_and_renders_html(client):
 
 
 @pytest.mark.integration
+def test_report_renders_from_the_posted_result_without_server_state(client):
+    """The hosted API runs several containers; the report must not depend on the one that ran the scan."""
+    scan_id = client.post(
+        "/api/scan", json={"system_prompt": WEAK_PROMPT, "checks": ["direct_prompt_injection"]}
+    ).json()["scan_id"]
+    result = client.get(f"/api/scan/{scan_id}").json()
+    fresh = TestClient(create_app(settings=Settings(anthropic_api_key=None, openai_api_key=None, version="test")))  # a different container: empty scan store
+    r = fresh.post("/api/report.html", json=result)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    assert r.headers["content-disposition"].startswith("attachment")
+    assert "Fusion" in r.text
+    xss = dict(result, target_name='<script>alert("x")</script>')
+    assert "<script>alert" not in fresh.post("/api/report.html", json=xss).text
+    assert fresh.post("/api/report.html", json={"cards": "nope"}).status_code == 422
+
+
+@pytest.mark.integration
 def test_pasted_prompt_is_html_escaped_in_report(client):
     xss = 'You are a bot. <script>alert("xss")</script>'
     scan_id = client.post(

@@ -32,8 +32,15 @@ export async function getScan(scanId) {
   return apiJson(`${API_URL}/api/scan/${encodeURIComponent(scanId)}`);
 }
 
-export function reportHtmlUrl(scanId) {
-  return `${API_URL}/api/scan/${encodeURIComponent(scanId)}/report.html`;
+// The HTML report, rendered by the API from the result the page holds (no server state), saved as a file.
+export async function downloadReportHtml(result, filename = "fusion-report.html") {
+  const resp = await apiFetch(`${API_URL}/api/report.html`, json(result));
+  const url = URL.createObjectURL(await resp.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function harden(systemPrompt, checks = null) {

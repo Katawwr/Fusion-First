@@ -8,6 +8,7 @@ import DemoBanner from "../components/ui/DemoBanner";
 import CheckToggleCard from "../components/scan/CheckToggleCard";
 import TierPicker from "../components/scan/TierPicker";
 import { downloadJson } from "../lib/download";
+import DownloadReportButton from "../components/report/DownloadReportButton";
 import TargetPicker from "../components/scan/TargetPicker";
 import {
   canGradeQuality,
@@ -32,7 +33,6 @@ import { useScanStream, useScanQuota } from "../hooks";
 import {
   harden as apiHarden,
   guardrailSnippet,
-  reportHtmlUrl,
 } from "../lib/scanApi";
 import { CHECKS, QUALITY_CHECKS, checkMeta, worstGrade } from "../lib/jargon";
 import { guardResult } from "../lib/evidence";
@@ -428,7 +428,7 @@ export default function Scan({ scanState, setScanState }) {
               display: "flex",
               flexWrap: "wrap",
               alignItems: "center",
-              justifyContent: "flex-end",
+              justifyContent: "center",
               gap: "0.75rem",
               padding: "1rem 1.25rem",
               borderRadius: "1.1rem",
@@ -441,11 +441,7 @@ export default function Scan({ scanState, setScanState }) {
             <Button variant="outline" onClick={() => downloadJson(result, `fusion-report-${scanId || "scan"}.json`)}>
               Download JSON
             </Button>
-            {scanId && (
-              <a href={reportHtmlUrl(scanId)} target="_blank" rel="noreferrer">
-                <Button variant="outline">Download report</Button>
-              </a>
-            )}
+            <DownloadReportButton result={result} filename={`fusion-report-${scanId || "scan"}.html`} />
             <Button onClick={goToGuard}>Guard it</Button>
           </div>
         </div>
@@ -874,14 +870,14 @@ export function GuardStep({
               >
                 <CopyButton
                   text={hardened.hardened_prompt}
-                  label="Copy hardened prompt"
+                  label="Hardened Prompt"
                 />
                 <CopyButton
                   text={hardened.guard_block}
-                  label="Copy fix block only"
+                  label="Fix Block Only"
                 />
                 <Button variant="outline" onClick={onProve}>
-                  {canned ? "See the example before/after" : "Re-test it on your model"}
+                  {canned ? "Before/After" : "Re-Test on Your Model"}
                 </Button>
               </div>
             </>
@@ -1019,11 +1015,7 @@ export function ProveStep({
               Back to guard
             </QuietButton>
           )}
-          {scanId && (
-            <a href={reportHtmlUrl(scanId)} target="_blank" rel="noreferrer">
-              <Button variant="outline">Download report</Button>
-            </a>
-          )}
+          <DownloadReportButton result={result} filename={`fusion-report-${scanId || "scan"}.html`} />
         </div>
         <QuietButton onClick={onRestart} icon={ArrowRight} iconRight>
           Scan another prompt

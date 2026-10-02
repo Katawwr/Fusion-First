@@ -4,7 +4,8 @@ import { Helmet } from "react-helmet-async";
 import Button from "../components/ui/Button";
 import ReportOverview from "../components/report/ReportOverview";
 import ReportCard from "../components/report/ReportCard";
-import { getScan, reportHtmlUrl } from "../lib/scanApi";
+import { getScan } from "../lib/scanApi";
+import DownloadReportButton from "../components/report/DownloadReportButton";
 
 export default function Report() {
   const { scanId } = useParams();
@@ -79,9 +80,9 @@ export default function Report() {
         />
       ))}
       <div className="flex flex-wrap gap-3">
-        <a href={reportHtmlUrl(scanId)} target="_blank" rel="noreferrer">
-          <Button variant="outline">Download report (HTML)</Button>
-        </a>
+        <DownloadReportButton result={result} filename={`fusion-report-${scanId}.html`}>
+          Download report (HTML)
+        </DownloadReportButton>
         <a href="/scan">
           <Button>Scan another prompt</Button>
         </a>

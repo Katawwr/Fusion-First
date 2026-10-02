@@ -7,8 +7,7 @@ const TONE = {
   bad: "var(--subtle)",
 };
 
-// The differentiator: translated but never softened. Keeps the real badge word (PROVEN/…)
-// visible as a small caps prefix, with the plain-language reading beside it.
+// The badge word (PROVEN/PRELIMINARY/INCONCLUSIVE), toned; a PROVEN result adds its p and pair count.
 export default function HonestyPill({ badge, p, nPairs }) {
   const meta = HONESTY[badge] || HONESTY.INCONCLUSIVE;
   const tone = TONE[meta.tone] || TONE.bad;
@@ -40,10 +39,7 @@ export default function HonestyPill({ badge, p, nPairs }) {
       >
         {badge}
       </span>
-      <span style={{ fontWeight: 500 }}>
-        {meta.label}
-        {stat}
-      </span>
+      {stat && <span style={{ fontWeight: 500 }}>{stat.trim()}</span>}
     </span>
   );
 }

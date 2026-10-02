@@ -54,7 +54,7 @@ describe("GuardStep", () => {
   it("re-tests the fix on the user's model from the fix section", () => {
     const onProve = vi.fn();
     renderGuard({ onProve });
-    fireEvent.click(screen.getByRole("button", { name: "Re-test it on your model" }));
+    fireEvent.click(screen.getByRole("button", { name: "Re-Test on Your Model" }));
     expect(onProve).toHaveBeenCalled();
   });
 
@@ -108,14 +108,14 @@ describe("GuardStep", () => {
 
   it("names the fix's block as the fix, not the guard", () => {
     renderGuard();
-    expect(screen.getByRole("button", { name: /Copy fix block only/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Fix Block Only/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Copy guard block only/ })).toBeNull();
   });
 
   it("calls the demo's before/after an example, not a re-test", () => {
     renderGuard({ canned: true });
-    expect(screen.queryByRole("button", { name: "Re-test it on your model" })).toBeNull();
-    expect(screen.getByRole("button", { name: "See the example before/after" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Re-Test on Your Model" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Before/After" })).toBeInTheDocument();
   });
 });
 

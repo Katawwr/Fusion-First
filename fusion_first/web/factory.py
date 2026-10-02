@@ -233,6 +233,16 @@ def create_app(settings: Settings | None = None, store: ScanStore | None = None,
         title = result.target_name or "Safety Report"
         return HTMLResponse(render_dashboard_html(result.cards, title, outcomes=result.outcomes))
 
+    @app.post("/api/report.html", response_class=HTMLResponse)
+    def post_report_html(result: ScanResult):
+        """The report from the result the page already holds: no server state, so it works whichever
+        container answers. Served as a download, never rendered on the API's origin."""
+        title = result.target_name or "Safety Report"
+        return HTMLResponse(
+            render_dashboard_html(result.cards, title, outcomes=result.outcomes),
+            headers={"Content-Disposition": 'attachment; filename="fusion-report.html"'},
+        )
+
     # ----------------------------------------------------------------- fix
 
     @app.post("/api/harden")

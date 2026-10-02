@@ -19,7 +19,7 @@ vi.mock("../hooks", () => ({
 vi.mock("../lib/scanApi", () => ({
   harden: (...args) => api.harden(...args),
   guardrailSnippet: (...args) => api.guardrailSnippet(...args),
-  reportHtmlUrl: () => "#",
+  downloadReportHtml: (...args) => api.downloadReportHtml?.(...args),
 }));
 
 import Scan from "./Scan";
@@ -60,7 +60,7 @@ describe("Scan page: the Guard step never shows another prompt's fix", () => {
     await scanPrompt("Prompt A");
     fireEvent.click(screen.getByRole("button", { name: "Guard it" }));
     await screen.findByText("FIX for Prompt A");
-    fireEvent.click(screen.getByRole("button", { name: "Re-test it on your model" }));
+    fireEvent.click(screen.getByRole("button", { name: "Re-Test on Your Model" }));
     fireEvent.click(screen.getByRole("button", { name: "Re-run" }));  // live: re-runs, and we cancel it
     fireEvent.click(screen.getByRole("button", { name: /Cancel and edit/ }));
     await scanPrompt("Prompt B");

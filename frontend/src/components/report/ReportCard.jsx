@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Card from "../ui/Card";
 import GradeBadge from "./GradeBadge";
+import HonestyPill from "./HonestyPill";
 import OwaspChip from "./OwaspChip";
 import BeforeAfterBars from "./BeforeAfterBars";
 import JudgeAccuracyBlock from "./JudgeAccuracyBlock";
@@ -65,6 +66,15 @@ export default function ReportCard({ card, outcomes = [] }) {
         {(card.owasp_tags || []).map((t, i) => (
           <OwaspChip key={i} tag={t} />
         ))}
+        {card.before_after?.honesty && (
+          <span className="ml-auto">
+            <HonestyPill
+              badge={card.before_after.honesty}
+              p={card.before_after.mcnemar_p}
+              nPairs={card.before_after.n_pairs}
+            />
+          </span>
+        )}
       </div>
 
       <AttackList outcomes={outcomes} quality={quality} />
@@ -81,6 +91,7 @@ export default function ReportCard({ card, outcomes = [] }) {
           <BeforeAfterBars
             ba={card.before_after}
             quality={quality}
+            showBadge={false}
           />
         </div>
       )}
