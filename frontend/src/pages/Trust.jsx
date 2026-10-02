@@ -1,7 +1,7 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import evidence from "../content/evidence.json";
-import { fixVerdict, interval, points as signedPoints, significanceByGrader } from "../lib/evidence";
+import { fixVerdict, graderName, interval, points as signedPoints, significanceByGrader } from "../lib/evidence";
 import { DataTable, Doc, DocHeader } from "../components/doc";
 import { DiscordantPairs, FixChanges, GraderVsBaselines, GuardTradeoff, StoppedBars } from "../components/trust/charts";
 import { EXPERIMENT_NAMES, pShort } from "../components/trust/format";
@@ -246,7 +246,7 @@ export default function Trust() {
               head={["Check", "Grader", "n", "Accuracy", "Recall", "Specificity", "Regex baseline F1", "Grader F1"]}
               rows={judge.map((j) => [
                 CHECK_NAMES[j.check] || j.check,
-                belowFloor(j) ? `${j.grader}, below the policy floor` : j.grader,
+                belowFloor(j) ? `${graderName(j.grader)} (below the floor)` : graderName(j.grader),
                 j.n,
                 interval(j.accuracy),
                 interval(j.recall),
@@ -258,8 +258,8 @@ export default function Trust() {
             {lg && floor && (
               <p className="mt-3 text-xs text-app-subtle">
                 {lg.meets_floor
-                  ? `${lg.grader}: meets the policy floor (accuracy ${floor.accuracy.toFixed(2)}, F1 ${floor.f1.toFixed(2)}) on every check; the pre-registered bar is met.`
-                  : `${lg.grader}: below the policy floor (accuracy ${floor.accuracy.toFixed(2)}, F1 ${floor.f1.toFixed(2)}) on ${lgChecks.filter((c) => !c.meets).length} of ${lgChecks.length} checks; the pre-registered bar for staying the default free grader (both checks at the floor) is not met.`}
+                  ? `${graderName(lg.grader)}: at or above the policy floor (accuracy and F1 ${floor.accuracy.toFixed(2)}) on every check.`
+                  : `${graderName(lg.grader)}: below the policy floor (accuracy and F1 ${floor.accuracy.toFixed(2)}) on ${lgChecks.filter((c) => !c.meets).length} of ${lgChecks.length} checks, so it is not recommended.`}
               </p>
             )}
             <p className="mt-3 text-xs text-app-subtle">Grader vs baselines (paired McNemar, p &lt; 0.05):</p>
@@ -349,18 +349,17 @@ export default function Trust() {
         ) : (
           <>
             <Table
-              head={["Set", "Benign calls", "Prompted", "Attacks", "Caught", "Status"]}
+              head={["Benign calls", "Prompted", "Attacks", "Caught"]}
               rows={guard.map((g) => [
-                g.set,
                 g.benign_n,
                 interval(g.over_block),
                 g.attack_n,
                 interval(g.recall) + (g.recall_sensitivity ? ` · ${interval(g.recall_sensitivity)} adjusted` : ""),
-                g.status,
               ])}
             />
             <p className="mt-3 text-xs text-app-subtle">
-              Defense in depth, not a sandbox.
+              Held-out tool calls, scored once{guard[0]?.rules ? ` (rules ${guard[0].rules})` : ""}. Defense in depth, not a
+              sandbox.
             </p>
           </>
         )}

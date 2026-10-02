@@ -97,8 +97,8 @@ The current rules (`fusion_first/guardrail` at `0c560b5`: once untrusted content
 
 | System | Real attacks stopped | Clean transcripts wrongly blocked |
 |---|---|---|
-| Fusion guardrail, current rules | 132 of 148, 89% (83%–93%) | 2 of 252, 1% (0%–3%) |
-| Fusion guardrail, previous rules | 104 of 148, 70% (62%–77%) | 0 of 252, 0% (0%–2%) |
+| Fusion guard, current rules | 132 of 148, 89% (83%–93%) | 2 of 252, 1% (0%–3%) |
+| Fusion guard, previous rules | 104 of 148, 70% (62%–77%) | 0 of 252, 0% (0%–2%) |
 | Llama Guard 3, off the shelf | 58 of 148, 39% (32%–47%) | 30 of 252, 12% (8%–16%) |
 | Llama Guard 3, configured | 77 of 148, 52% (44%–60%) | 24 of 252, 10% (6%–14%) |
 | Fusion + Llama Guard 3 (configured) | 145 of 148, 98% (94%–99%) | 25 of 252, 10% (7%–14%) |
@@ -131,7 +131,7 @@ The same rules (`ce897d1`) with and without the text of the tool results the age
 
 | Guard | Real attacks stopped | Data-stealing stopped | Clean transcripts wrongly blocked |
 |---|---|---|---|
-| Given the tool results (untrusted_text) | 75 of 75, 100% (95%–100%) | 55 of 55, 100% (93%–100%) | 1 of 225, 0% (0%–2%) |
+| Given the tool results | 75 of 75, 100% (95%–100%) | 55 of 55, 100% (93%–100%) | 1 of 225, 0% (0%–2%) |
 | Without them (as step 2) | 67 of 75, 89% (80%–94%) | 47 of 55, 85% (74%–92%) | 1 of 225, 0% (0%–2%) |
 
 - Attacks stopped only with the tool results: 8; only without: 0 (McNemar p=0.0078). Clean transcripts blocked only with: 0; only without: 0 (registered limit: 3 more, net).
@@ -159,7 +159,7 @@ Tool calls written by independent agents **blind to the rules**, scored once.
 
 | Set | benign n | Prompted (over-block) | attack n | Caught (recall) | Status |
 |---|---|---|---|---|---|
-| v3 | 100 | 5% (2%–11%) | 70 | 76% (64%–84%) | HELD OUT at rules f7d3809 |
+| v3 | 100 | 5% (2%–11%) | 70 | 76% (64%–84%) | held out, scored once (rules f7d3809) |
 
 Pattern rules catch the common exfiltration / destruction / remote-code shapes and miss much of the long tail; treat the hook as defense in depth, not a sandbox.
 

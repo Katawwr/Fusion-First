@@ -5,7 +5,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import Trust, { Step2Section, Step3Section, Step4Section } from "./Trust";
 import { EXPERIMENT_NAMES } from "../components/trust/format";
-import { fixVerdict, interval, pct, significanceByGrader } from "../lib/evidence";
+import { fixVerdict, graderName, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
 
 const renderTrust = () =>
@@ -90,7 +90,9 @@ describe("Trust page", () => {
     const labels = screen.getAllByRole("img").map((el) => el.getAttribute("aria-label") || "");
     expect(labels.some((l) => /by attack type/i.test(l))).toBe(false);
     expect(screen.queryByText(/SUPERSEDED/)).toBeNull();
-    for (const g of evidence.guard_heldout) expect(screen.getByRole("cell", { name: g.set })).toBeInTheDocument();
+    for (const g of evidence.guard_heldout) {
+      if (g.rules) expect(screen.getByText((t) => t.includes(`scored once (rules ${g.rules})`))).toBeInTheDocument();
+    }
     expect(evidence.guard_heldout.length).toBeLessThanOrEqual(1);
   });
 
@@ -99,9 +101,9 @@ describe("Trust page", () => {
     const lg = evidence.local_grader;
     if (!lg) return;
     for (const j of evidence.judge_accuracy.filter((r) => r.grader === lg.grader && lg.per_check[r.check]?.meets === false)) {
-      expect(screen.getAllByRole("cell", { name: `${j.grader}, below the policy floor` }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("cell", { name: `${graderName(j.grader)} (below the floor)` }).length).toBeGreaterThan(0);
     }
-    if (!lg.meets_floor) expect(screen.getByText(/pre-registered bar .* is not met/)).toBeInTheDocument();
+    if (!lg.meets_floor) expect(screen.getByText(/below the policy floor .* not recommended/)).toBeInTheDocument();
   });
 
   it("shows the current rules against the previous rules and Llama Guard, with the registered decisions", () => {
@@ -112,7 +114,7 @@ describe("Trust page", () => {
     const s = {
       models: ["qwen2.5:7b", "llama3.1:8b"], rules: "0c560b5", prior_rules: "a6fa0f5",
       systems: {
-        fusion: sys("Fusion guardrail, current rules", 132, 2),
+        fusion: sys("Fusion guard, current rules", 132, 2),
         fusion_prior: sys("Fusion guardrail, previous rules", 104, 0),
         llama_guard_a: sys("Llama Guard 3, off the shelf", 58, 30),
         llama_guard_b: sys("Llama Guard 3, configured", 77, 24),

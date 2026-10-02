@@ -20,9 +20,19 @@ export function fixVerdict(cell) {
   const p = ba.mcnemar_p ?? 1;
   if (point < 0 && p < 0.05) return { text: "Significantly worse with the fix", tone: "danger" };
   if (point > 0 && ba.honesty === "PROVEN") return { text: "Significantly better with the fix", tone: "ok" };
-  if (point < 0) return { text: "Worse with the fix (not significant)", tone: "warn" };
-  if (point > 0) return { text: `Better with the fix, not proven (${ba.honesty || "—"})`, tone: "muted" };
+  if (point < 0) return { text: "Worse with the fix, not significant", tone: "warn" };
+  // Not "significant" either way: a small sample can reach p < 0.05 without enough pairs to confirm it.
+  if (point > 0) return { text: p < 0.05 ? "Better with the fix, too few pairs to confirm" : "Better with the fix, not significant", tone: "muted" };
   return { text: "No change", tone: "muted" };
+}
+
+// The evidence describes graders in full ("Claude Sonnet (Claude Code subagent, host-as-judge, ...)"); pages
+// show the model and, for a local grader, that it runs locally.
+export function graderName(g) {
+  if (!g) return g;
+  const local = /probability judge/.test(g);
+  const name = g.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s*probability judge\s*/, " ").trim();
+  return local ? `${name}, local` : name;
 }
 
 // One sentence per grader on its grader-vs-baseline comparisons (paired McNemar). The direction comes
@@ -32,7 +42,8 @@ export function significanceByGrader(rows) {
   for (const r of rows || []) {
     byGrader.set(r.grader, [...(byGrader.get(r.grader) || []), ...Object.values(r.baselines || {})]);
   }
-  return [...byGrader.entries()].map(([grader, comps]) => {
+  return [...byGrader.entries()].map(([full, comps]) => {
+    const grader = graderName(full);
     const better = comps.filter((c) => c.mcnemar_p < 0.05 && c.grader_more_accurate).length;
     const worse = comps.filter((c) => c.mcnemar_p < 0.05 && !c.grader_more_accurate).length;
     const n = comps.length;

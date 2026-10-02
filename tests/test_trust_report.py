@@ -126,7 +126,7 @@ def test_only_the_newest_held_out_guard_set_is_reported_and_older_ones_are_liste
         (tmp_path / f"evals/guard_bench/claude_code_heldout_{v}.json").write_text(json.dumps(ev), encoding="utf-8")
     out = render(tmp_path)
     rows = {line.split("|")[1].strip(): line for line in out.splitlines() if line.startswith("| v")}
-    assert set(rows) == {"v3"} and "HELD OUT" in rows["v3"]  # v2 was scored against rules changed since
+    assert set(rows) == {"v3"} and "held out, scored once" in rows["v3"]  # v2 was scored against rules changed since
     assert "rules_git_sha" not in out  # a field name never reaches the report; the sha does
     bottom = out.split("## Q1")[0]
     assert "70%" in bottom and "2%" in bottom  # v3's recall and over-block, not v2's

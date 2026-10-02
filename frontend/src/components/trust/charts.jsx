@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
-import { pct } from "../../lib/evidence";
+import { graderName, pct } from "../../lib/evidence";
 import { EXPERIMENT_NAMES, pShort, stack } from "./format";
 
 // Charts for the Trust page. Inline SVG, drawn at the container's pixel width so text stays 12px on a
@@ -494,8 +494,8 @@ const BASELINES = [
   { key: "tuned_heuristic", label: "Tuned heuristic", shape: "square" },
 ];
 const shortGrader = (g, narrow) => {
-  const s = String(g).split(" (")[0];
-  return narrow && s.length > 16 ? s.split(" ")[0] : s;
+  const s = graderName(String(g));
+  return narrow && s.length > 16 ? s.split(/[ ,]/)[0] : s;
 };
 
 // A dot plot: one row per grader, grouped under its check. Purple dot = the grader's F1; grey ring and

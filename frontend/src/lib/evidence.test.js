@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guardResult, significanceByGrader } from "./evidence";
+import { fixVerdict, graderName, guardResult, significanceByGrader } from "./evidence";
 
 const sys = (stopped, attacks, blocked, clean) => ({
   stopped, attacks, blocked, clean,
@@ -53,5 +53,28 @@ describe("significanceByGrader", () => {
     expect(s).toBe("G: no difference from the rule-based checks is significant yet.");
     const [win] = significanceByGrader([{ grader: "G", baselines: { naive_regex: b(0.01, true) } }]);
     expect(win).toBe("G: significantly more accurate than a rule-based check in 1 of 1 comparisons.");
+  });
+});
+
+
+const cell = (point, p, honesty) => ({ before_after: { absolute_reduction: { point }, mcnemar_p: p, honesty } });
+
+describe("fixVerdict", () => {
+  it("reads in plain words, with no internal badge names", () => {
+    expect(fixVerdict(cell(0.2, 0.3, "PRELIMINARY")).text).toBe("Better with the fix, not significant");
+    expect(fixVerdict(cell(0.2, 0.03, "PRELIMINARY")).text).toBe("Better with the fix, too few pairs to confirm");
+    expect(fixVerdict(cell(-0.1, 0.4, "INCONCLUSIVE")).text).toBe("Worse with the fix, not significant");
+    expect(fixVerdict(cell(0.3, 0.001, "PROVEN")).text).toBe("Significantly better with the fix");
+    for (const c of [cell(0.2, 0.3, "PRELIMINARY"), cell(0, 1, "INCONCLUSIVE")]) {
+      expect(fixVerdict(c).text).not.toMatch(/PRELIMINARY|INCONCLUSIVE|PROVEN|not proven/);
+    }
+  });
+});
+
+describe("graderName", () => {
+  it("shortens the evidence's grader descriptions", () => {
+    expect(graderName("Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules)")).toBe("Claude Sonnet");
+    expect(graderName("qwen2.5:7b probability judge (local)")).toBe("qwen2.5:7b, local");
+    expect(graderName("Some grader")).toBe("Some grader");
   });
 });

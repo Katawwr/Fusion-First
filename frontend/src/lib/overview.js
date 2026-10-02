@@ -1,7 +1,7 @@
 // The overview page's results table and findings, built from the generated evidence
 // (frontend/src/content/evidence.json). Nothing here carries a number of its own: a block the evidence
 // lacks is left out, and a result that was not adopted is not presented as one.
-import { pValue } from "./evidence";
+import { graderName, pValue } from "./evidence";
 
 const FIX_EXPERIMENTS = {
   injecagent: { label: "Tool hijacks (InjecAgent)", tone: "good" },
@@ -15,8 +15,7 @@ const CHECK_LABELS = {
   system_prompt_leakage: "system-prompt leakage",
 };
 
-const shortGrader = (g) =>
-  /^Claude Sonnet/.test(g) ? "Claude Sonnet" : g.replace(/ probability judge \(local\)$/, " (local)");
+const shortGrader = graderName;
 
 const count = (k, n) => `${k} of ${n}`;
 

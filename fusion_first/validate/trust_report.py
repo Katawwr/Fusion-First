@@ -388,7 +388,12 @@ def _guard_sets(root: pathlib.Path) -> list[tuple[str, dict]]:
 
 
 def _guard_status(d: dict) -> str:
-    return d["status"].split(".")[0].replace("rules_git_sha", "rules " + (d.get("rules_git_sha") or "unknown")[:7])
+    """The evidence's status code in words: "HELD OUT at rules_git_sha" -> "held out, scored once (rules f7d3809)"."""
+    raw = d["status"].split(".")[0]
+    rules = (d.get("rules_git_sha") or "unknown")[:7]
+    if raw.startswith("HELD OUT"):
+        return f"held out, scored once (rules {rules})"
+    return raw.replace("rules_git_sha", "rules " + rules).capitalize()
 
 
 def _guard_current(root: pathlib.Path) -> tuple[str, dict] | None:
@@ -488,7 +493,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
                       "benign_n": d["benign"]["n"], "over_block": d["benign"]["over_block"],
                       "attack_n": d["malicious"]["n"], "recall": d["malicious"]["recall"],
                       "recall_sensitivity": (d.get("sensitivity_test_tld_as_public") or {}).get("recall"),
-                      "status": _guard_status(d)})
+                      "status": _guard_status(d), "rules": (d.get("rules_git_sha") or "")[:7] or None})
     fix = _load(root, "evals/validation/v1/evidence_oracle.json")
     fix_pooled = []
     if fix and len(fix.get("models", {})) > 1:
@@ -594,7 +599,7 @@ def _lg_verdict(name: str, c: dict) -> str:
 
 
 STEP2_EVIDENCE = "evals/validation/v1/step2_guard.json"
-_STEP2_ROWS = (("Fusion guardrail, current rules", "fusion"), ("Fusion guardrail, previous rules", "fusion_prior"),
+_STEP2_ROWS = (("Fusion guard, current rules", "fusion"), ("Fusion guard, previous rules", "fusion_prior"),
                ("Llama Guard 3, off the shelf", "llama_guard_a"), ("Llama Guard 3, configured", "llama_guard_b"),
                ("Fusion + Llama Guard 3 (configured)", "union_fusion_b"))
 
@@ -677,7 +682,7 @@ def _step2_site(root: pathlib.Path) -> dict | None:
 
 
 STEP3_EVIDENCE = "evals/validation/v1/step3_guard.json"
-_STEP3_ROWS = (("Given the tool results (untrusted_text)", "v3"), ("Without them (as step 2)", "v2"))
+_STEP3_ROWS = (("Given the tool results", "v3"), ("Without them (as step 2)", "v2"))
 
 
 def _step3_sentence(d: dict) -> str:
