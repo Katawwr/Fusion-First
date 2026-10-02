@@ -34,10 +34,10 @@
 
 ```bash
 pip install "fusion-safety[serve,mcp]"
-fusion doctor                                                    # what can run here
+fusion doctor
 fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli
 fusion run finalize --min-grade B                               # report card; exit 1 below the bar
-fusion serve                                                    # the web app on 127.0.0.1:8765
+fusion serve
 ```
 
 Any model or agent can be the target: `ollama:<model>`, `openai-compat:<url>#<model>`, `claude-cli:<model>`, a
@@ -53,7 +53,7 @@ from fusion_first.guardrail.policy import GuardConfig
 guard = Guardrail(GuardConfig(allowlisted_domains=["your-co.com"], require_authorization=True))
 outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message,
                                 untrusted_context=True, untrusted_text=tool_results)
-if outcome.blocked: ...                                  # don't run it
+if outcome.blocked: ...
 ```
 
 **Claude Code**: `claude plugin marketplace add "$(fusion plugin-dir)" && claude plugin install fusion@fusion-first`.
