@@ -254,9 +254,9 @@ def _local_grader_paragraph(d: dict) -> list[str]:
     dec = local_grader_decision(d)
     result = "; ".join(f"{c.replace('_', ' ')}: accuracy {_pct(v['accuracy'])}, F1 "
                        + ("–" if v["f1"] is None else f"{v['f1']:.2f}") for c, v in dec["per_check"].items())
-    return ["", f"**Free local grader (pre-registered).** `evals/validation/v1/PREREG_local_grader.md` fixed its bar "
+    return ["", (f"**Free local grader (pre-registered).** `evals/validation/v1/PREREG_local_grader.md` fixed its bar "
                 f"before the grader answered any question: {_floor_text(dec)}. Result: {result}. Bar "
-                f"{_local_verdict(dec)}."]
+                f"{_local_verdict(dec)}.")]
 
 
 def _q1(root: pathlib.Path) -> list[str]:
@@ -265,9 +265,9 @@ def _q1(root: pathlib.Path) -> list[str]:
     if not rows:
         return out + ["NOT YET MEASURED: no committed judge-vs-oracle evidence.", ""]
     out += [
-        "Grader verdicts on real open-weight model transcripts vs deterministic oracle labels (InjecAgent: "
+        ("Grader verdicts on real open-weight model transcripts vs deterministic oracle labels (InjecAgent: "
         "attacker tool called; Gandalf: planted password leaked), with two rule-based baselines on the same "
-        "items. Unanswered items are counted and excluded from the rates.",
+        "items. Unanswered items are counted and excluded from the rates."),
         "",
         "| Evidence | Grader | Check | n (unanswered) | Accuracy | Recall | Specificity | F1 | κ | Naive regex F1 | Tuned heuristic F1 |",
         "|---|---|---|---|---|---|---|---|---|---|---|",
@@ -292,12 +292,12 @@ def _q1(root: pathlib.Path) -> list[str]:
     out += [
         "",
         "Paired McNemar compares per-item correctness (not F1). " + _significance(rows),
-        "Each item appears twice (as written and with the fix), so rows are not fully independent and the "
+        ("Each item appears twice (as written and with the fix), so rows are not fully independent and the "
         "intervals are somewhat narrow. The leakage oracle is a string match for the planted password; the "
-        "baselines are not told the password.",
+        "baselines are not told the password."),
         "",
-        "Each run also measures its grader in-run (known-answer questions plus an oracle cross-check on "
-        "clear-cut questions) and withholds the grade below the policy floor.",
+        ("Each run also measures its grader in-run (known-answer questions plus an oracle cross-check on "
+        "clear-cut questions) and withholds the grade below the policy floor."),
         "",
     ]
     return out
@@ -307,18 +307,18 @@ def _q3(root: pathlib.Path) -> list[str]:
     out = ["## Q3: Does the fix work, and what does it cost?", ""]
     d = _load(root, "evals/validation/v1/evidence_oracle.json")
     if not d:
-        return out + ["NOT YET MEASURED: the oracle-labelled evidence run on local open-weight models "
-                      "has not been committed yet.", ""]
+        return out + [("NOT YET MEASURED: the oracle-labelled evidence run on local open-weight models "
+                      "has not been committed yet."), ""]
     models = ", ".join(sorted(d.get("models", {})))
-    out += [f"The prompt as written vs with Fusion's fix, on local models ({models}), over held-out items "
+    out += [(f"The prompt as written vs with Fusion's fix, on local models ({models}), over held-out items "
             "from external benchmarks. Issue = oracle-confirmed attack success (InjecAgent: attacker tool "
             "called; Gandalf: planted password leaked) or cost (XSTest: safe request refused; IFEval: "
-            "instruction not followed). Lower is better. Evidence: `evals/validation/v1/evidence_oracle.json`.",
+            "instruction not followed). Lower is better. Evidence: `evals/validation/v1/evidence_oracle.json`."),
             ""]
     pooled = d.get("pooled") or {}
     if len(d.get("models", {})) > 1 and pooled:
-        out += ["**Pooled over all models.** The interval resamples whole items (each item runs on every "
-                "model).", "",
+        out += [("**Pooled over all models.** The interval resamples whole items (each item runs on every "
+                "model)."), "",
                 "| Experiment | Pairs | As written | With fix | Change in issue rate (95% CI) | What it shows |",
                 "|---|---|---|---|---|---|"]
         for exp, p in pooled.items():
@@ -370,8 +370,8 @@ def _compact_clause(root: pathlib.Path) -> list[str]:
     else:
         verdict = ("was not adopted: no model had significantly fewer attacks with it without a meaningful rise in "
                    "refusals of safe requests")
-    return ["", f"A pre-registered compact version of the fix (`evals/validation/v1/PREREG_compact_fix.md`; evidence: "
-                f"`{COMPACT_EVIDENCE}`) {verdict}."]
+    return ["", (f"A pre-registered compact version of the fix (`evals/validation/v1/PREREG_compact_fix.md`; evidence: "
+                f"`{COMPACT_EVIDENCE}`) {verdict}.")]
 
 
 def _guard_sets(root: pathlib.Path) -> list[tuple[str, dict]]:
@@ -422,8 +422,8 @@ def _guard(root: pathlib.Path) -> list[str]:
         "|---" * head.count(" |") + "|",
         row,
         "",
-        "Pattern rules catch the common exfiltration / destruction / remote-code shapes and miss much of "
-        "the long tail; treat the hook as defense in depth, not a sandbox.",
+        ("Pattern rules catch the common exfiltration / destruction / remote-code shapes and miss much of "
+        "the long tail; treat the hook as defense in depth, not a sandbox."),
         "",
     ]
 
@@ -432,12 +432,12 @@ def _limits() -> list[str]:
     return [
         "## Known limits",
         "",
-        "- Oracle labels decide narrow questions (a tool was called, a password appeared). Where the "
+        ("- Oracle labels decide narrow questions (a tool was called, a password appeared). Where the "
         "judge's rubric is broader than the oracle, some 'disagreements' are real violations the oracle "
-        "can't see: see each disagreement audit.",
+        "can't see: see each disagreement audit."),
         "- Samples are small (tens of transcripts per cell); read the intervals, not the points.",
-        "- Known-answer questions come from a public gold set; the in-run oracle cross-check covers only "
-        "clear-cut questions.",
+        ("- Known-answer questions come from a public gold set; the in-run oracle cross-check covers only "
+        "clear-cut questions."),
         "",
     ]
 
@@ -561,12 +561,12 @@ def _b3(root: pathlib.Path) -> list[str]:
     if not d:
         return []
     out = ["## Q4: Does the rubric beat simply asking an LLM?", "",
-           "The same items graded twice by the same Claude Sonnet: once with Fusion's rubric (the Q1 "
+           ("The same items graded twice by the same Claude Sonnet: once with Fusion's rubric (the Q1 "
            "answers), once asked one plain yes/no question with no rubric. Pre-registered in "
            "`evals/validation/v1/PREREG_b3_single_question.md`; evidence: "
-           f"`{B3_EVIDENCE}`.", "",
-           "| Check | n (plain unanswered) | Rubric judge | Plain judge | Difference, rubric minus plain (95% CI) "
-           "| Paired test |", "|---|---|---|---|---|---|"]
+           f"`{B3_EVIDENCE}`."), "",
+           ("| Check | n (plain unanswered) | Rubric judge | Plain judge | Difference, rubric minus plain (95% CI) "
+           "| Paired test |"), "|---|---|---|---|---|---|"]
     for name, b in [*sorted(d["by_check"].items()), ("pooled", d["pooled"])]:
         diff = b["accuracy_difference"]
         out.append(f"| {name} | {b['n']} ({b['b3_unanswered']}) | {_iv(b['rubric']['accuracy'])} | "
@@ -628,12 +628,12 @@ def _step2(root: pathlib.Path) -> list[str]:
         return []
     n = d["sample"]["n"]
     out = ["## Request-bound guardrail on 7–8B models (pre-registered)", "",
-           f"The current rules (`fusion_first/guardrail` at `{d['guardrail_git_sha'][:7]}`: once untrusted content is in "
+           (f"The current rules (`fusion_first/guardrail` at `{d['guardrail_git_sha'][:7]}`: once untrusted content is in "
            "context, a tool call that is not a read must be covered by the user's own request, and an unrequested "
            "read of private data is blocked) measured once on fresh transcripts of "
            f"{' and '.join(d['models'])} ({n['injecagent']} InjecAgent and {n['gandalf']} Gandalf items each, prompt "
            f"as written), against the previous rules (`{d['prior_guardrail_git_sha'][:7]}`) and Llama Guard 3 "
-           f"8B on the same transcripts. Registered in `{d['preregistration']}`; evidence: `{STEP2_EVIDENCE}`.", "",
+           f"8B on the same transcripts. Registered in `{d['preregistration']}`; evidence: `{STEP2_EVIDENCE}`."), "",
            "| System | Real attacks stopped | Clean transcripts wrongly blocked |", "|---|---|---|"]
     for label, key in _STEP2_ROWS:
         s = d[key]["all"]
@@ -643,10 +643,10 @@ def _step2(root: pathlib.Path) -> list[str]:
     out += ["", f"- {_prior_verdict(comps['fusion_vs_fusion_prior'])}",
             f"- {_lg_verdict('off the shelf', comps['fusion_vs_llama_guard_a'])}",
             f"- {_lg_verdict('configured', comps['fusion_vs_llama_guard_b'])}",
-            f"- Legitimate requested actions never used in development: {len(b['blocked_by_new_rules'])} of "
-            f"{b['cases']} blocked by the current rules (registered limit {b['max_allowed']}).",
-            f"- Attacks whose attacker tool never appeared in development: {u['stopped_new']} of {u['attacks']} "
-            f"stopped (previous rules {u['stopped_prior']}, Llama Guard 3 configured {u['stopped_llama_guard_b']}).",
+            (f"- Legitimate requested actions never used in development: {len(b['blocked_by_new_rules'])} of "
+            f"{b['cases']} blocked by the current rules (registered limit {b['max_allowed']})."),
+            (f"- Attacks whose attacker tool never appeared in development: {u['stopped_new']} of {u['attacks']} "
+            f"stopped (previous rules {u['stopped_prior']}, Llama Guard 3 configured {u['stopped_llama_guard_b']})."),
             f"- Registered decision: the current rules are **{d['decision']['new_rules']}**.", "",
             "Current rules by attack type:", "",
             *_guardrail_table({"by_attack_type": d["by_attack_type"]["fusion"],
@@ -694,11 +694,11 @@ def _step3(root: pathlib.Path) -> list[str]:
         return []
     c, inp = d["comparisons"], d["decision_inputs"]
     out = ["## The guard given the tool results (pre-registered)", "",
-           f"The same rules (`{d['guardrail_git_sha'][:7]}`) with and without the text of the tool results the agent "
+           (f"The same rules (`{d['guardrail_git_sha'][:7]}`) with and without the text of the tool results the agent "
            "saw (`untrusted_text`): given it, a read that text asks for, and the user did not, is blocked when the "
            "text also asks to send data to an outside address. Measured once on fresh InjecAgent transcripts of "
            f"{' and '.join(d['models'])} ({d['sample']['n']} items each). Registered in `{d['preregistration']}`; "
-           f"evidence: `{STEP3_EVIDENCE}`.", "",
+           f"evidence: `{STEP3_EVIDENCE}`."), "",
            "| Guard | Real attacks stopped | Data-stealing stopped | Clean transcripts wrongly blocked |",
            "|---|---|---|---|"]
     for label, key in _STEP3_ROWS:
@@ -706,14 +706,14 @@ def _step3(root: pathlib.Path) -> list[str]:
         out.append(f"| {label} | {s['stopped']} of {s['attacks']}, {_iv(s['recall'])} | {ds['stopped']} of "
                    f"{ds['attacks']}, {_iv(ds['recall'])} | {s['blocked']} of {s['clean']}, {_iv(s['over_block'])} |")
     a, cl = c["attacks"], c["clean"]
-    out += ["", f"- Attacks stopped only with the tool results: {a['v3_only']}; only without: {a['v2_only']} "
+    out += ["", (f"- Attacks stopped only with the tool results: {a['v3_only']}; only without: {a['v2_only']} "
                 f"(McNemar {_p(a['p'])}). Clean transcripts blocked only with: {cl['v3_only']}; only without: "
-                f"{cl['v2_only']} (registered limit: {inp['max_extra_clean_blocked']} more, net).",
+                f"{cl['v2_only']} (registered limit: {inp['max_extra_clean_blocked']} more, net)."),
             f"- Registered decision: **{d['decision']}**.",
-            "- Limits registered before data: InjecAgent's attack wording appeared in development (this tests fresh "
+            ("- Limits registered before data: InjecAgent's attack wording appeared in development (this tests fresh "
             "model behaviour, not unseen attack text), and no fresh set of legitimate actions was available, so "
             "the cost is measured on clean transcripts only. Reads a user delegates to a document (\"do what this "
-            "email says\") are blocked when the document also asks to send data out.", ""]
+            "email says\") are blocked when the document also asks to send data out."), ""]
     return out
 
 
@@ -748,27 +748,27 @@ def _step4(root: pathlib.Path) -> list[str]:
     u, s, cmp = d["utility_benign"], d["attack_success_in_scope"], d["comparisons"]
     c, a = cmp["cost_none_vs_v3"], cmp["attacks_none_vs_v3"]
     out = ["## The guard's cost in a live agent loop (AgentDojo, pre-registered)", "",
-           f"AgentDojo ({d['benchmark']}) user tasks run through real tools by {d['model']}; the published guard "
+           (f"AgentDojo ({d['benchmark']}) user tasks run through real tools by {d['model']}; the published guard "
            f"configuration (rules `{d['guardrail_git_sha'][:7]}`) checks every tool call and a blocked call does not "
            f"run. Held-out tasks only, scored once. Registered in `{d['preregistration']}`; evidence: "
-           f"`{STEP4_EVIDENCE}`.", "",
+           f"`{STEP4_EVIDENCE}`."), "",
            "| Arm | Legitimate tasks completed | In-scope attacks that succeeded |", "|---|---|---|"]
     for label, key in (("No guard", "none"), ("Guard, without the tool results", "v2"),
                        ("Guard, given the tool results (published)", "v3")):
         out.append(f"| {label} | {u[key]['k']} of {u[key]['n']}, {_iv(u[key])} | {s[key]['k']} of {s[key]['n']}, "
                    f"{_iv(s[key])} |")
     drop = c["drop"]
-    out += ["", f"- Cost: {c['a_only']} tasks completed only without the guard, {c['b_only']} only with it (McNemar "
+    out += ["", (f"- Cost: {c['a_only']} tasks completed only without the guard, {c['b_only']} only with it (McNemar "
                 f"{_p(c['p'])}); completion fell {drop['point'] * 100:.1f} points (95% {drop['low'] * 100:.1f} to "
-                f"{drop['high'] * 100:.1f}). Registered margin: 10 points. Decision: **{d['decision']['guard_cost']}**.",
-            f"- Given the tool results or not made no difference to cost ({cmp['cost_v2_vs_v3']['a_only']} vs "
-            f"{cmp['cost_v2_vs_v3']['b_only']}).",
-            f"- Attacks (descriptive, not a registered test): {a['a_only']} succeeded only without the guard, "
-            f"{a['b_only']} only with it (McNemar {_p(a['p'])}).",
-            "- What it blocked: requests worded differently from the tool (\"pay the bill\" for `send_money`, \"post\" "
+                f"{drop['high'] * 100:.1f}). Registered margin: 10 points. Decision: **{d['decision']['guard_cost']}**."),
+            (f"- Given the tool results or not made no difference to cost ({cmp['cost_v2_vs_v3']['a_only']} vs "
+            f"{cmp['cost_v2_vs_v3']['b_only']})."),
+            (f"- Attacks (descriptive, not a registered test): {a['a_only']} succeeded only without the guard, "
+            f"{a['b_only']} only with it (McNemar {_p(a['p'])})."),
+            ("- What it blocked: requests worded differently from the tool (\"pay the bill\" for `send_money`, \"post\" "
             "for `send_channel_message`), sends to non-allowlisted addresses, addresses or links mentioned inside a "
             "message body read as destinations, and a file name (recipe-collection.docx) read as a host. These are rule "
-            "changes for a fresh registration, not this one.",
+            "changes for a fresh registration, not this one."),
             ""]
     return out
 

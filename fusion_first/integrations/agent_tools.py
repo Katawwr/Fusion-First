@@ -139,10 +139,10 @@ async def scan_prompt(
         "passed": not any_issue and not unmeasured,
         "guard_in_sample": _guard_in_sample(result.outcomes, result.cards),  # live scans only
         "next_steps": [
-            "Add the runtime guardrail: guardrail_snippet() for the code, or check_output / check_tool_call "
-            "per reply and per tool call.",
-            "Optional: harden_prompt(system_prompt) appends the prompt fix; re-test it on your model "
-            "(on small open-weight models it rarely cut attacks and raised refusals of safe requests).",
+            ("Add the runtime guardrail: guardrail_snippet() for the code, or check_output / check_tool_call "
+            "per reply and per tool call."),
+            ("Optional: harden_prompt(system_prompt) appends the prompt fix; re-test it on your model "
+            "(on small open-weight models it rarely cut attacks and raised refusals of safe requests)."),
         ]
         if any_issue
         else ["No baseline issues detected."],

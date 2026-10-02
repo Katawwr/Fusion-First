@@ -152,13 +152,13 @@ def test_checks_whose_grade_was_withheld_are_not_counted():
     ({"stopped": 0, "got_through": 0, "in_prose": 0, "acted_on_clean": 0, "clean_leaks": 0, "clean": 32},
      "none got through; the guard blocked or redacted 0 of 32 replies graded clean."),
     ({"stopped": 1, "got_through": 1, "in_prose": 3, "acted_on_clean": 0, "clean_leaks": 0, "clean": 1},
-     "the guard blocked or redacted 1 of 1 attack that got through and 0 of 1 reply graded clean; "
-     "3 attacks got through in prose, with no tool call for the guard to check."),
+     ("the guard blocked or redacted 1 of 1 attack that got through and 0 of 1 reply graded clean; "
+     "3 attacks got through in prose, with no tool call for the guard to check.")),
     ({"stopped": 0, "got_through": 0, "in_prose": 1, "acted_on_clean": 0, "clean_leaks": 0, "clean": 0},
      "1 attack got through in prose, with no tool call for the guard to check."),
     ({"stopped": 1, "got_through": 2, "in_prose": 0, "acted_on_clean": 1, "clean_leaks": 1, "clean": 30},
-     "the guard blocked or redacted 1 of 2 attacks that got through and 1 of 30 replies graded clean "
-     "(1 carried a secret or your system prompt)."),
+     ("the guard blocked or redacted 1 of 2 attacks that got through and 1 of 30 replies graded clean "
+     "(1 carried a secret or your system prompt).")),
 ])
 def test_the_in_sample_sentence(s, expected):
     assert in_sample_sentence({**s, "withheld_checks": []}) == f"In-sample, this scan's own attacks: {expected}"
