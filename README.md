@@ -21,24 +21,14 @@
   <img alt="PyPI" src="https://img.shields.io/pypi/v/fusion-safety?color=504d9a">
   <img alt="MCP server" src="https://img.shields.io/badge/MCP-server-504d9a">
   <img alt="Claude Code plugin" src="https://img.shields.io/badge/Claude%20Code-plugin-504d9a">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-504d9a">
 </p>
 
-## Results
-
-> **The runtime guardrail stopped 89% of real attacks while wrongly blocking 1% of clean transcripts.**
-> Llama Guard 3 8B, configured, stopped 52% of the same attacks.
->
-> Given the tool results as well, it stopped 100% of data-stealing hijacks.
-
-Pre-registered and scored once, on fresh attacks against qwen2.5:7b and llama3.1:8b (InjecAgent and Gandalf).
-The grader, Claude Sonnet, scored 80% accuracy on direct prompt injection and 92% on system prompt leakage
-against deterministic oracles. Every number is generated from committed evidence and checked by a test;
-details on the [evidence page](https://fusion-first-testing.com/trust).
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/guard-tradeoff-dark.png">
-  <img alt="Attacks stopped against clean transcripts wrongly blocked: Fusion vs Llama Guard 3" src="docs/img/guard-tradeoff-light.png" width="720">
-</picture>
+<p align="center">
+  <a href="https://fusion-first-testing.com">
+    <img alt="The Fusion First site: the guard's headline results" src="docs/img/overview-dark.png" width="820">
+  </a>
+</p>
 
 ## Use
 
@@ -70,12 +60,11 @@ if outcome.blocked: ...                                  # don't run it
 **MCP**: `{ "mcpServers": { "fusion": { "command": "fusion-mcp" } } }` exposes the run engine and the guard's
 `guardrail_snippet` / `check_tool_call` tools.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/overview-dark.png">
-  <img alt="The Fusion First site: method and pre-registered results" src="docs/img/overview-light.png" width="720">
-</picture>
-
 ## Built with
 
 Python 3.11 · FastAPI · React 19 / Vite / Tailwind · MCP · Modal · Vercel · pytest, vitest, Playwright.
 Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## License
+
+[MIT](LICENSE)

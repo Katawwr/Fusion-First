@@ -8,12 +8,12 @@ version = "0.1.0"
 description = "Measure and guard AI agents: safety and quality evaluation with a runtime guardrail"
 readme = "PYPI.md"  # the PyPI page; README.md is the repository page
 requires-python = ">=3.11"
-license = { text = "Proprietary" }
+license = { text = "MIT" }
 authors = [{ name = "Fusion First" }]
 keywords = ["llm", "ai-safety", "agentic", "owasp", "prompt-injection", "guardrail", "red-team", "mcp"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: MIT License",
     "Topic :: Security",
     "Topic :: Software Development :: Quality Assurance",
 ]

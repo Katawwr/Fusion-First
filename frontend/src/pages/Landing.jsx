@@ -191,14 +191,14 @@ export default function Landing() {
         </DocSection>
 
         <DocSection id="results" title="Results">
+          <ResultsTable groups={groups} />
           {facts.length > 0 && (
-            <ol className="mb-6 flex list-decimal flex-col gap-2 pl-5 text-[0.95rem] leading-relaxed text-app-text marker:text-app-subtle">
+            <ol className="mt-6 flex list-decimal flex-col gap-2 pl-5 text-[0.95rem] leading-relaxed text-app-text marker:text-app-subtle">
               {facts.map((f) => (
                 <li key={f}>{f}</li>
               ))}
             </ol>
           )}
-          <ResultsTable groups={groups} />
         </DocSection>
 
         <DocSection id="limitations" title="Limitations">

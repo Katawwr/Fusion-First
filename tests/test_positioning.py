@@ -1,5 +1,5 @@
 """Owner decisions: Fusion is positioned as measure + guard (2026-09-29); the README leads with the positive
-results and how to use it, while caveats and negative results live on the site and in the Trust Report
+site and how to use it, while results, caveats and negative results live on the site and in the Trust Report
 (2026-10-02)."""
 
 from __future__ import annotations
@@ -24,12 +24,15 @@ def test_the_readme_leads_with_measure_and_guard():
 
 
 @pytest.mark.unit
-def test_the_readme_leads_its_results_with_the_guard_against_llama_guard():
+def test_the_readme_shows_the_site_then_how_to_use_it():
+    """Owner 2026-10-02: no Results section; a dark screenshot of the home page, linked to the site, near the top."""
     text = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
-    results = text[text.index("## Results"):]
-    assert results.index("89% of real attacks") < results.index("52% of the same attacks") < results.index("## Use")
+    assert "## Results" not in text and "-light.png" not in text
+    shot = text.index("docs/img/overview-dark.png")
+    assert text.rindex('<a href="https://fusion-first-testing.com">', 0, shot) < shot < text.index("## Use")
     mcp = text[text.index("**MCP**"):]
     assert "guardrail_snippet" in mcp[:300]
+    assert "[MIT](LICENSE)" in text and (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License")
 
 
 @pytest.mark.unit

@@ -39,12 +39,12 @@ describe("Overview page", () => {
     expect(container.textContent).toMatch(/prompt fix did not reliably reduce attacks/);
   });
 
-  it("lists the findings above the results table", () => {
+  it("lists the findings below the results table", () => {
     const { container } = renderLanding();
     const results = container.querySelector("#results");
     const list = results.querySelector("ol");
     const table = results.querySelector("table");
-    expect(list.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(list.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it("shows the headline stats without a caption", () => {

@@ -31,7 +31,7 @@ claims:
   - id: runtime_guardrail_step2_recall
     text: "stopped 89% of real attacks"
     qualifier: "runtime guardrail, current rules (0c560b5), on fresh successful attacks against qwen2.5:7b and llama3.1:8b, scored once, pre-registered (PREREG_step2_guard.md)"
-    files: [README.md]
+    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       fusion.all.recall.point: {value: 0.8919, n_path: fusion.all.attacks, min_n: 50}
@@ -40,7 +40,7 @@ claims:
   - id: runtime_guardrail_step2_overblock
     text: "wrongly blocking 1% of clean transcripts"
     qualifier: "same measurement; clean = oracle-clean transcripts"
-    files: [README.md]
+    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       fusion.all.over_block.point: {value: 0.0079, n_path: fusion.all.clean, min_n: 50}
@@ -49,7 +49,7 @@ claims:
   - id: llama_guard_step2_recall
     text: "stopped 52% of the same attacks"
     qualifier: "Llama Guard 3 8B, configured (Meta's format + S15/S16, told the secret), on the same transcripts"
-    files: [README.md]
+    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       llama_guard_b.all.recall.point: {value: 0.5203, n_path: llama_guard_b.all.attacks, min_n: 50}
@@ -58,7 +58,7 @@ claims:
   - id: runtime_guardrail_step3_data_stealing
     text: "100% of data-stealing hijacks"
     qualifier: "guard given the tool results (untrusted_text), rules ce897d1, fresh InjecAgent transcripts of qwen2.5:7b and llama3.1:8b, scored once, pre-registered (PREREG_step3_guard.md)"
-    files: [README.md]
+    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
     evidence: evals/validation/v1/step3_guard.json
     metrics:
       v3.by_kind.ds.recall.point: {value: 1.0, n_path: v3.by_kind.ds.attacks, min_n: 50}
@@ -67,7 +67,7 @@ claims:
   - id: judge_sonnet_injection_accuracy
     text: "80% accuracy on direct prompt injection"
     qualifier: "Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules) vs deterministic oracle labels on llama3.2:1b InjecAgent transcripts (Trust Report Q1)"
-    files: [README.md]
+    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
     evidence: evals/validation/v1/judge_eval_host_sonnet.json
     metrics:
       checks.direct_prompt_injection.grader.accuracy.point: {value: 0.8, n_path: checks.direct_prompt_injection.grader.n, min_n: 50}
@@ -76,7 +76,7 @@ claims:
   - id: judge_sonnet_leakage_accuracy
     text: "92% on system prompt leakage"
     qualifier: "same grader vs the planted-password oracle on llama3.2:1b Gandalf transcripts (Trust Report Q1)"
-    files: [README.md]
+    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
     evidence: evals/validation/v1/judge_eval_host_sonnet.json
     metrics:
       checks.system_prompt_leakage.grader.accuracy.point: {value: 0.9167, n_path: checks.system_prompt_leakage.grader.n, min_n: 50}
