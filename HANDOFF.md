@@ -15,11 +15,9 @@ ledgers with every ruling in the gitignored `.superpowers/sdd/<plan>/progress.md
 - **In flight: nothing.** Step 4 scored 2026-10-02 (6e77a09 evidence, 8e2ca6d reporting): the guard's COST in a
   live AgentDojo loop exceeds the registered margin (22/66 vs 29/66 tasks completed; 7 broken, 0 fixed). Causes,
   for the next (freshly registered) rule change: (1) request binding too literal ("pay the bill" doesn't cover
-  send_money; "post" doesn't cover send_channel_message); (2) destination parsing runs on `f"{arguments}"` (repr),
-  so an escaped `
-` glues onto a host (`
-bluesparrowtech.com` -> `luesparrowtech.com`): parse argument VALUES.
-  AgentDojo attacks barely land on 7-8B models; protection there is descriptive only. Dev data (spent AgentDojo
+  send_money; "post" doesn't cover send_channel_message); (2) FIXED d5ea9a8: addresses/links inside message
+  content and file names were read as destinations (an earlier note blaming an escaped newline was wrong: the
+  model misspelled that recipient domain, and that block was correct). AgentDojo attacks barely land on 7-8B models; protection there is descriptive only. Dev data (spent AgentDojo
   dev + step-4 held-out now spent) can drive the fix; a step 5 needs fresh held-out tasks (another model or split).
 - **Portfolio + site (fifth session, all merged on post-0.1.0):** legacy backend removed, full-history secret scan
   clean (fixtures only; legacy Supabase project ID in history), reviewer README + docs/ARCHITECTURE.md +
