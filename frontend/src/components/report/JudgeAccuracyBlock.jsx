@@ -99,8 +99,8 @@ export default function JudgeAccuracyBlock({ acc, note }) {
         }}
       >
         {note ? <strong className="text-app-text">{note} </strong> : null}
-        {acc.n} known-answer cases{acc.n_unscored ? `, ${acc.n_unscored} unscored` : ""}. Precision 95% CI:{" "}
-        {pct(acc.precision?.low)}–{pct(acc.precision?.high)}.
+        {acc.n} known-answer cases{acc.n_unscored ? `, ${acc.n_unscored} unscored` : ""}. Precision:{" "}
+        {pct(acc.precision?.low)}–{pct(acc.precision?.high)}, 95% CI.
       </p>
     </div>
   );
