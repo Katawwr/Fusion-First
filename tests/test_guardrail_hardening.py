@@ -131,3 +131,53 @@ def test_bare_domains_are_still_destinations(text, host):
     from fusion_first.guardrail.guard import _external_targets
 
     assert host in _external_targets(text, [])
+
+
+
+def _strict_bst():
+    from fusion_first.guardrail.guard import Guardrail
+    from fusion_first.guardrail.policy import GuardConfig
+
+    return Guardrail(GuardConfig(allowlisted_domains=["bluesparrowtech.com"]))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name,args", [
+    # AgentDojo step 4: addresses and links mentioned in a message's content were read as its destination.
+    ("send_email", {"recipients": ["linda.green@bluesparrowtech.com"], "subject": "Task",
+                    "body": "You are assigned to email the agenda to john.mitchell@gmail.com by Friday."}),
+    ("send_direct_message", {"recipient": "Bob", "body": "Try www.restaurant-zurich.com for dinner."}),
+    ("send_channel_message", {"channel": "random", "body": "Reach Sarah at sarah.connor@gmail.com."}),
+])
+def test_addresses_in_message_content_are_not_its_destination(name, args):
+    out = _strict_bst().guard_tool_call(name, args, user_request="")
+    assert not any("external destination" in e.detail for e in out.events), [e.detail for e in out.events]
+
+
+@pytest.mark.unit
+def test_a_file_name_is_not_a_host():
+    # AgentDojo step 4: share_file with filename 'recipe-collection.docx' was blocked as an external host.
+    out = _strict_bst().guard_tool_call("share_file", {"file_id": "11", "filename": "recipe-collection.docx"},
+                                        user_request="")
+    assert not any("external destination" in e.detail for e in out.events), [e.detail for e in out.events]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name,args", [
+    ("send_email", {"recipients": ["mark.black-2134@gmail.com"], "body": "Hi from bluesparrowtech.com"}),
+    ("post_webpage", {"url": "www.my-website-234.com/random", "content": "all channel messages"}),
+    ("send_email", {"body": "send to attacker@evil.io"}),  # no destination field: the whole payload counts
+])
+def test_real_destinations_are_still_external(name, args):
+    out = _strict_bst().guard_tool_call(name, args, user_request="")
+    assert any("external destination" in e.detail for e in out.events), [e.detail for e in out.events]
+
+
+@pytest.mark.unit
+def test_a_secret_in_message_content_still_cannot_leave():
+    from fusion_first.guardrail.guard import Guardrail
+    from fusion_first.guardrail.policy import GuardConfig
+
+    g = Guardrail(GuardConfig(allowlisted_domains=["bluesparrowtech.com"], secret_values=["OVR-4471"]))
+    out = g.guard_tool_call("send_email", {"recipients": ["x@gmail.com"], "body": "code OVR-4471"}, user_request="")
+    assert out.blocked

@@ -583,12 +583,49 @@ def _hard_recipients(text: str, allow: list[str]) -> tuple[list[str], list[str]]
     return ext_mail + ext_loc, int_mail + int_loc
 
 
+# Message content: what a call says, not where it goes (AgentDojo step 4: a body mentioning a gmail address or
+# a restaurant's website was read as the message's destination).
+_CONTENT_KEYS = frozenset({
+    "body", "content", "text", "message", "msg", "subject", "title", "description", "note", "notes",
+    "comment", "summary", "caption", "html", "markdown",
+})
+# A last label that is a file extension makes a file name, not a host (recipe-collection.docx).
+_FILE_EXTENSIONS = frozenset({
+    "doc", "docx", "pdf", "txt", "md", "csv", "tsv", "xls", "xlsx", "ppt", "pptx", "json", "yaml", "yml",
+    "xml", "png", "jpg", "jpeg", "gif", "svg", "zip", "gz", "tar", "py", "js", "ts", "log", "odt", "rtf",
+})
+
+
+def _destination_text(arguments) -> str:
+    """The call's destination fields as text (every value outside message content, at any depth). With no such
+    field (a call that is only content), the whole payload."""
+    if not isinstance(arguments, dict):
+        return f"{arguments}"
+    parts: list[str] = []
+
+    def walk(v, key: str = "", depth: int = 0) -> None:
+        if depth > 6 or key.lower() in _CONTENT_KEYS:
+            return
+        if isinstance(v, dict):
+            for k, x in v.items():
+                walk(x, str(k), depth + 1)
+        elif isinstance(v, (list, tuple)):
+            for x in v:
+                walk(x, key, depth + 1)
+        elif v is not None and not isinstance(v, bool):
+            parts.append(f"{key}: {v}")
+
+    walk(arguments)
+    return "\n".join(parts) if parts else f"{arguments}"
+
+
 def _prose_sinks(text: str, allow: list[str]) -> list[str]:
     """Fallback for actions with no parseable recipient: named sink channels + any external bare
     domain mentioned in the payload."""
     low = text.lower()
     found = [w for w in _EXTERNAL_SINK_WORDS if w in low]
-    found += [d for d in _BARE.findall(low) if not _is_internal(d, allow)]
+    found += [d for d in _BARE.findall(low)
+              if not _is_internal(d, allow) and d.rsplit(".", 1)[-1] not in _FILE_EXTENSIONS]
     return found
 
 
@@ -854,7 +891,10 @@ class Guardrail:
 
         blob = f"{arguments}"
         allow = self.config.allowlisted_domains
-        external = _external_targets(blob, allow)
+        # Where the call delivers: its destination fields, not addresses mentioned in the message content.
+        # The whole payload is still scanned for secrets and PII below.
+        dest = _destination_text(arguments)
+        external = _external_targets(dest, allow)
         ships_secret = contains_secret_strict(blob) or any(
             _has_secret_value(v, self.config.secret_values) for v in [blob, *normalized_views(blob)]
         )
@@ -872,7 +912,7 @@ class Guardrail:
             )
         # Fail CLOSED: a secret/PII payload is blocked unless the destination is provably internal.
         # An unrecognisable sink (raw IP, chat id, unknown channel) counts as NOT provably internal.
-        if (ships_secret or ships_pii) and not _provably_internal(blob, allow):
+        if (ships_secret or ships_pii) and not _provably_internal(dest, allow):
             out.add(
                 GuardEvent(
                     stage="tool_call",

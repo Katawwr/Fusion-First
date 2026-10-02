@@ -180,8 +180,9 @@ A tool call that is not a read must be covered by the user's own request. Given 
 the tool results ask for (and the user didn't) is blocked when they also ask to send data to a
 non-allowlisted address. Allowlist entries match the host or any subdomain; the user's own addresses are
 not exempt from the destination rule, so set the allowlist (on 20 held-out legitimate actions, the
-destination rule without an allowlist blocked 12). Measured with rules 0c560b5 / ce897d1; the later fix
-b9e9338 only narrows the destination rule. Every live scan also replays the guard over its own replies
+destination rule without an allowlist blocked 12). Measured with rules 0c560b5 / ce897d1; later fixes
+only narrow the destination rule (numbers, file names and addresses inside message content are not
+destinations), from false blocks found in step 4. Every live scan also replays the guard over its own replies
 (in-sample) and reports what it would have stopped.
 
 **4. Local web app**: `pip install "fusion-safety[serve]"`, then `fusion serve` (127.0.0.1:8765). Locked to
