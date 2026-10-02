@@ -1,5 +1,6 @@
-"""Owner decision (2026-09-29): Fusion is positioned as measure + guard; the prompt fix is optional and
-carries its measured caveat. The README and the project guide must say so."""
+"""Owner decisions: Fusion is positioned as measure + guard (2026-09-29); the README leads with the positive
+results and how to use it, while caveats and negative results live on the site and in the Trust Report
+(2026-10-02)."""
 
 from __future__ import annotations
 
@@ -18,17 +19,17 @@ def _intro(path: str) -> str:
 @pytest.mark.unit
 def test_the_readme_leads_with_measure_and_guard():
     intro = _intro("README.md")
-    assert "Measure and guard" in intro
-    assert intro.index("runtime guardrail") < intro.index("prompt fix")
-    assert "prompt fix is optional" in intro
-    assert "rarely cut attacks" in intro
+    assert "Measure and guard" in intro and "runtime guardrail" in intro
+    assert "harden" not in intro and "prompt fix" not in intro  # the optional fix is not a headline
 
 
 @pytest.mark.unit
-def test_the_readme_lists_the_guard_tools_and_the_fix_as_optional():
+def test_the_readme_leads_its_results_with_the_guard_against_llama_guard():
     text = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
+    results = text[text.index("## Results"):]
+    assert results.index("89% of real attacks") < results.index("52% of the same attacks") < results.index("## Use")
     mcp = text[text.index("**MCP**"):]
-    assert "guardrail_snippet" in mcp[:600] and "optional `harden_prompt`" in mcp[:600]
+    assert "guardrail_snippet" in mcp[:300]
 
 
 @pytest.mark.unit
@@ -48,8 +49,8 @@ def test_the_project_guide_names_the_guardrail_and_the_optional_fix():
 
 @pytest.mark.unit
 def test_the_docs_describe_the_in_sample_guard_replay():
-    readme = " ".join((ROOT / "README.md").read_text(encoding="utf-8").split())
-    assert "in-sample" in readme[readme.index("**3. Runtime guardrail**"):]
+    arch = " ".join((ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8").split())
+    assert "in-sample" in arch
     audit = (ROOT / "plugins" / "fusion" / "skills" / "audit" / "SKILL.md").read_text(encoding="utf-8")
     assert "guard_in_sample" in audit and "in-sample" in audit
 

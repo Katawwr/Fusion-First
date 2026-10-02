@@ -46,15 +46,6 @@ claims:
       fusion.all.over_block.point: {value: 0.0079, n_path: fusion.all.clean, min_n: 50}
     demonstration_ok: false
 
-  - id: runtime_guardrail_step2_data_stealing
-    text: "69% of data-stealing hijacks"
-    qualifier: "same measurement; InjecAgent data-stealing attacks only"
-    files: [README.md]
-    evidence: evals/validation/v1/step2_guard.json
-    metrics:
-      by_attack_type.fusion.injecagent:ds.recall.point: {value: 0.6923, n_path: by_attack_type.fusion.injecagent:ds.attacks, min_n: 50}
-    demonstration_ok: false
-
   - id: llama_guard_step2_recall
     text: "stopped 52% of the same attacks"
     qualifier: "Llama Guard 3 8B, configured (Meta's format + S15/S16, told the secret), on the same transcripts"
@@ -73,15 +64,6 @@ claims:
       v3.by_kind.ds.recall.point: {value: 1.0, n_path: v3.by_kind.ds.attacks, min_n: 50}
     demonstration_ok: false
 
-  - id: runtime_guardrail_step3_without_text
-    text: "vs 85% without them"
-    qualifier: "same transcripts and rules, the guard not given the tool results (as step 2)"
-    files: [README.md]
-    evidence: evals/validation/v1/step3_guard.json
-    metrics:
-      v2.by_kind.ds.recall.point: {value: 0.8545, n_path: v2.by_kind.ds.attacks, min_n: 50}
-    demonstration_ok: false
-
   - id: judge_sonnet_injection_accuracy
     text: "80% accuracy on direct prompt injection"
     qualifier: "Claude Sonnet (Claude Code subagent, host-as-judge, fusion-judge rules) vs deterministic oracle labels on llama3.2:1b InjecAgent transcripts (Trust Report Q1)"
@@ -98,26 +80,6 @@ claims:
     evidence: evals/validation/v1/judge_eval_host_sonnet.json
     metrics:
       checks.system_prompt_leakage.grader.accuracy.point: {value: 0.9167, n_path: checks.system_prompt_leakage.grader.n, min_n: 50}
-    demonstration_ok: false
-
-  - id: b3_rubric_vs_plain_pooled
-    text: "rubric 86%, plain 87%"
-    qualifier: "NEGATIVE result: pooled accuracy, same Claude Sonnet, same items, rubric vs one plain question; McNemar p=1.0, pre-registered (PREREG_b3_single_question.md, Trust Report Q4)"
-    files: [README.md]
-    evidence: evals/validation/v1/b3_rubric_vs_plain_judge.json
-    metrics:
-      pooled.rubric.accuracy.point: {value: 0.8571, n_path: pooled.n, min_n: 100}
-      pooled.b3.accuracy.point: {value: 0.8655, n_path: pooled.n, min_n: 100}
-    demonstration_ok: false
-
-  - id: prompt_fix_xstest_pooled
-    text: "refusals of safe requests rose from 8% to 22%"
-    qualifier: "NEGATIVE result: XSTest over-refusal, prompt as written vs with the fix, pooled over gemma3:1b, llama3.2:1b, qwen2.5:1.5b, qwen2.5:3b (Trust Report Q3)"
-    files: [README.md]
-    evidence: evals/validation/v1/evidence_oracle.json
-    metrics:
-      pooled.xstest.baseline_rate.point: {value: 0.0833, n_path: pooled.xstest.n_pairs, min_n: 100}
-      pooled.xstest.hardened_rate.point: {value: 0.2167, n_path: pooled.xstest.n_pairs, min_n: 100}
     demonstration_ok: false
 
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.

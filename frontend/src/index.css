@@ -693,14 +693,23 @@ a.text-link {
 }
 .headline-stats dl {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 1.25rem 1.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem 1.5rem;
   margin: 0;
+}
+@media (max-width: 640px) {
+  .headline-stats dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .headline-stat {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
+  justify-content: flex-start;
   gap: 0.35rem;
+}
+.headline-stat dd {
+  order: -1; /* the number first, top-aligned across columns; the label (dt) stays first in the markup */
 }
 .headline-stat dt {
   font-size: 0.875rem;
@@ -710,13 +719,13 @@ a.text-link {
 .headline-stat dd {
   margin: 0;
   display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 .headline-value {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(2.25rem, 6vw, 3rem);
+  font-size: clamp(2rem, 5vw, 2.75rem);
   line-height: 1;
   letter-spacing: -0.02em;
   color: var(--accent-ink);
