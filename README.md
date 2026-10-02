@@ -62,4 +62,4 @@ if outcome.blocked: ...
 
 ## License
 
-[MIT](LICENSE)
+MIT

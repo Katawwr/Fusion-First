@@ -31,7 +31,7 @@ def test_the_readme_shows_the_site_then_how_to_use_it():
     assert text.rindex('<a href="https://fusion-first-testing.com">', 0, shot) < shot < text.index("## Use")
     mcp = text[text.index("**MCP**"):]
     assert "guardrail_snippet" in mcp[:300]
-    assert "[MIT](LICENSE)" in text and (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License")
+    assert text.rstrip().endswith("## License MIT") and (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License")
 
 
 @pytest.mark.unit
