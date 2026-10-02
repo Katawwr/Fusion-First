@@ -55,7 +55,7 @@ def _card(demo: bool = True) -> SafetyReportCard:
 @pytest.mark.unit
 def test_card_html_contains_key_values():
     h = render_report_card_html(_card())
-    assert "excessive agency" in h  # underscores humanized
+    assert "Excessive agency" in h  # underscores humanized
     assert "LLM06" in h and "ASI02" in h
     assert "PRELIMINARY" in h
     assert "72%" in h  # reduction
@@ -92,10 +92,10 @@ def test_the_guardrail_block_states_the_in_sample_replay_when_the_scan_has_one()
 
 
 @pytest.mark.unit
-def test_the_overview_counts_are_named_as_the_fixs_badges():
+def test_the_summary_links_each_checks_grade_to_its_row():
     page = render_dashboard_html([_card()])
-    assert '<span class="ov-l">fix proven</span>' in page
-    assert '<span class="ov-l">fix preliminary</span>' in page
+    assert '<a class="tile" href="#excessive_agency">' in page and 'id="excessive_agency"' in page
+    assert page.index('class="tile"') < page.index("Runtime guardrail") < page.index('class="card"')
 
 
 @pytest.mark.unit
@@ -125,9 +125,18 @@ def test_card_shows_copyable_fix_and_harden_command():
 
 
 @pytest.mark.unit
-def test_demonstration_banner_present_and_absent():
-    assert "Demonstration" in render_report_card_html(_card(demo=True))
-    assert "Demonstration" not in render_report_card_html(_card(demo=False))
+def test_an_example_report_is_labelled_once_in_the_masthead():
+    page = render_dashboard_html([_card(demo=True), _card(demo=True)])
+    assert page.count("Example Report") == 1 and "Demonstration" not in page
+    assert "Example Report" not in render_dashboard_html([_card(demo=False)])
+
+
+@pytest.mark.unit
+def test_the_report_uses_the_site_brand():
+    page = render_dashboard_html([_card()])
+    assert 'class="mark"' in page and "#504d9a" in page and "Fusion First" in page
+    assert "#66c4e1" not in page  # the retired cyan wordmark
+    assert "—" not in page  # no em dashes (owner)
 
 
 @pytest.mark.unit
@@ -139,7 +148,7 @@ def test_dashboard_is_clean_theme_aware_and_self_contained():
     assert "gradient" not in page.lower()
     # theme-aware token system present
     assert "--bg:" in page
-    assert 'data-theme="dark"' in page and "prefers-color-scheme:dark" in page
+    assert 'data-theme="light"' in page and "prefers-color-scheme:light" in page  # dark by default, like the site
     # self-contained: no external resource loads
     for bad in ("http://", "https://", "src=", "<link", "cdn.", "//fonts"):
         assert bad not in page
