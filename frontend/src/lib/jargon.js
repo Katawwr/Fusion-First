@@ -130,17 +130,14 @@ export const BOOTSTRAP_TIP =
 export const HONESTY = {
   PROVEN: {
     label: "Significant reduction",
-    blurb: "Enough paired evidence; unlikely to be chance.",
     tone: "good",
   },
   PRELIMINARY: {
     label: "Reduction, not yet proven",
-    blurb: "Right direction, but chance can't be ruled out at this sample size.",
     tone: "warn",
   },
   INCONCLUSIVE: {
     label: "No reliable reduction",
-    blurb: "Within noise. No improvement is claimed.",
     tone: "bad",
   },
 };

@@ -81,7 +81,6 @@ export default function ReportCard({ card, outcomes = [] }) {
           <BeforeAfterBars
             ba={card.before_after}
             quality={quality}
-            canned={card.trust?.execution === "canned"}
           />
         </div>
       )}

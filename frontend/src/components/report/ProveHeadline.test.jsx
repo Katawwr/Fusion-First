@@ -20,8 +20,7 @@ describe("ProveHeadline", () => {
 
   it("never calls the demo's before and after a measurement", () => {
     render(<ProveHeadline baselineGrade="F" hardenedGrade="A" canned />);
-    expect(screen.getByText(/hand-written/i)).toBeInTheDocument();
-    expect(screen.getByText(/It is not a measurement/)).toBeInTheDocument();
+    expect(screen.queryByText(/hand-written/i)).toBeNull();
     expect(screen.queryByText(/Paired measurement/i)).toBeNull();
     expect(screen.queryByText(/apples-to-apples measurement/i)).toBeNull();
   });

@@ -50,18 +50,14 @@ describe("TrustStrip", () => {
 });
 
 describe("HonestyExplainer", () => {
-  it("explains why a result is not PROVEN", () => {
+  it("shows the badge without a reasons block or blurb (owner: removed)", () => {
     render(
       <HonestyExplainer
         ba={{ honesty: "PRELIMINARY", mcnemar_p: 0.2, n_pairs: 8, honesty_reasons: ["needs at least 20 paired attacks (had 8)"] }}
       />,
     );
-    expect(screen.getByText("Why not PROVEN?")).toBeInTheDocument();
-    expect(screen.getByText(/had 8/)).toBeInTheDocument();
-  });
-
-  it("shows no reasons block when PROVEN", () => {
-    render(<HonestyExplainer ba={{ honesty: "PROVEN", mcnemar_p: 0.001, n_pairs: 40, honesty_reasons: [] }} />);
     expect(screen.queryByText("Why not PROVEN?")).toBeNull();
+    expect(screen.queryByText(/had 8/)).toBeNull();
+    expect(screen.queryByText(/chance can't be ruled out/)).toBeNull();
   });
 });

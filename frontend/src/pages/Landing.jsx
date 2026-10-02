@@ -90,7 +90,7 @@ function HeadlineStats({ stats, models }) {
         ))}
       </dl>
       <figcaption>
-        Pre-registered, scored once on fresh attacks against {models?.join(" and ")}. <Link to="/trust">Evidence</Link>
+        Pre-registered, scored once on fresh attacks against {models?.join(" and ")}.
       </figcaption>
     </figure>
   );
@@ -194,14 +194,14 @@ export default function Landing() {
         </DocSection>
 
         <DocSection id="results" title="Results">
-          <ResultsTable groups={groups} />
           {facts.length > 0 && (
-            <ol className="mt-6 flex list-decimal flex-col gap-2 pl-5 text-[0.95rem] leading-relaxed text-app-text marker:text-app-subtle">
+            <ol className="mb-6 flex list-decimal flex-col gap-2 pl-5 text-[0.95rem] leading-relaxed text-app-text marker:text-app-subtle">
               {facts.map((f) => (
                 <li key={f}>{f}</li>
               ))}
             </ol>
           )}
+          <ResultsTable groups={groups} />
         </DocSection>
 
         <DocSection id="limitations" title="Limitations">

@@ -40,7 +40,6 @@ test.describe("desktop", () => {
     await page.getByRole("button", { name: "Run the scan" }).click();
     await expect(page.getByText("Your report card")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/Example report — your prompt was not run/)).toBeVisible();
-    await expect(page.getByText(/Illustration only/).first()).toBeVisible();
     // Guard: the guard snippet and the hardened prompt come back through the token-locked API.
     await page.getByRole("button", { name: "Guard it" }).click();
     await expect(page.getByRole("heading", { name: "Runtime guard" })).toBeVisible();
@@ -49,7 +48,7 @@ test.describe("desktop", () => {
     await expect(page.getByText(/in-sample replay needs a live scan/)).toBeVisible();
     await page.getByRole("button", { name: "See the example before/after" }).click();
     // The fix's before/after: the demo's is labelled an example, never a measurement.
-    await expect(page.getByText(/It is not a measurement/)).toBeVisible();
+    await expect(page.getByText(/Paired measurement on your model/)).toHaveCount(0);
     await expect(page.getByText(/apples-to-apples measurement/)).toHaveCount(0);
     expect(errors).toEqual([]);
   });

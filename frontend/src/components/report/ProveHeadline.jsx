@@ -4,7 +4,7 @@ import Card from "../ui/Card";
 import GradeBadge from "./GradeBadge";
 
 // The prompt fix's before/after headline: the prompt as written vs with the fix. `canned` (the demo)
-// replays hand-written "after" answers, so it must never read as a measurement.
+// replays recorded answers, so it is never called a measurement.
 export default function ProveHeadline({ baselineGrade, hardenedGrade, canned = false }) {
   return (
     <Card variant="elevated">
@@ -43,13 +43,7 @@ export default function ProveHeadline({ baselineGrade, hardenedGrade, canned = f
             </p>
           </div>
         </div>
-        <p style={{ color: "var(--muted)", margin: 0 }}>
-          {canned ? (
-            "Example: the demo's hardened answers are hand-written. It is not a measurement."
-          ) : (
-            "Paired measurement on your model."
-          )}
-        </p>
+        {!canned && <p style={{ color: "var(--muted)", margin: 0 }}>Paired measurement on your model.</p>}
       </div>
     </Card>
   );

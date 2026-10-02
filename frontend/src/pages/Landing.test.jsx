@@ -39,6 +39,21 @@ describe("Overview page", () => {
     expect(container.textContent).toMatch(/prompt fix did not reliably reduce attacks/);
   });
 
+  it("lists the findings above the results table", () => {
+    const { container } = renderLanding();
+    const results = container.querySelector("#results");
+    const list = results.querySelector("ol");
+    const table = results.querySelector("table");
+    expect(list.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("captions the headline stats without a link", () => {
+    const { container } = renderLanding();
+    const caption = container.querySelector(".headline-stats figcaption");
+    expect(caption.textContent).toMatch(/^Pre-registered, scored once on fresh attacks against .+\.$/);
+    expect(caption.querySelector("a")).toBeNull();
+  });
+
   it("links to the demo, the local setup and the full evidence", () => {
     renderLanding();
     expect(screen.getByRole("link", { name: "Run the demo scan" })).toHaveAttribute("href", "/scan");

@@ -12,13 +12,8 @@ const BA = {
 };
 
 describe("BeforeAfterBars", () => {
-  it("says a demo's 'after' answers are an illustration, not a measurement", () => {
-    render(<BeforeAfterBars ba={BA} canned />);
-    expect(screen.getByText(/Illustration only: .*hand-written, not measured/i)).toBeInTheDocument();
-  });
-
-  it("adds no such caveat to a live measurement", () => {
+  it("shows no illustration caveat (owner: removed from the demo)", () => {
     render(<BeforeAfterBars ba={BA} />);
-    expect(screen.queryByText(/hand-written/i)).toBeNull();
+    expect(screen.queryByText(/Illustration only|hand-written/i)).toBeNull();
   });
 });

@@ -960,10 +960,7 @@ export function ProveStep({
                 <p style={{ margin: "0 0 0.85rem", fontWeight: 600, color: "var(--text)" }}>
                   {checkMeta(check).label}
                 </p>
-                <BeforeAfterBars
-                  ba={card.before_after}
-                  canned={card.trust?.execution === "canned"}
-                />
+                <BeforeAfterBars ba={card.before_after} />
               </Card>
             );
           })}

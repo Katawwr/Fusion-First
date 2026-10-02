@@ -61,9 +61,7 @@ function Bar({ label, rate, tone, ink = "var(--muted)" }) {
 // The screenshot moment: the prompt as written over the fixed prompt, with the honest delta + badge.
 // Safety: issue = an attack got through. Quality: issue = an answer with a defect (fix cost).
 // The prompt as written is the comparator (grey); the fix is purple, or pink when it costs (more issues).
-// `canned`: the card replays recorded example answers (the demo). Its "after" answers were written
-// to show how a report reads, so the delta must never read as evidence that the fix works.
-export default function BeforeAfterBars({ ba, quality = false, canned = false }) {
+export default function BeforeAfterBars({ ba, quality = false }) {
   if (!ba) return null;
   const red = ba.absolute_reduction || {};
   const costs = ba.hardened_issue_rate > ba.baseline_issue_rate;
@@ -90,11 +88,6 @@ export default function BeforeAfterBars({ ba, quality = false, canned = false })
           </Term>
         </p>
       </div>
-      {canned && (
-        <p className="text-sm text-app-muted">
-          Illustration only: the “with fix” answers are hand-written, not measured.
-        </p>
-      )}
       <HonestyExplainer ba={ba} />
     </div>
   );
