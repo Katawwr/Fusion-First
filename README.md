@@ -60,11 +60,6 @@ if outcome.blocked: ...
 **MCP**: `{ "mcpServers": { "fusion": { "command": "fusion-mcp" } } }` exposes the run engine and the guard's
 `guardrail_snippet` / `check_tool_call` tools.
 
-## Built with
-
-Python 3.11 · FastAPI · React 19 / Vite / Tailwind · MCP · Modal · Vercel · pytest, vitest, Playwright.
-Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
 ## License
 
 [MIT](LICENSE)
