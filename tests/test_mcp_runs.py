@@ -85,7 +85,10 @@ async def test_through_the_fastmcp_server(tmp_path):
 
     async def call(name, **args):
         out = await server.call_tool(name, args)
-        blocks = out[0] if isinstance(out, tuple) else out
+        if hasattr(out, "content"):  # mcp 2.x returns a CallToolResult
+            blocks = out.content
+        else:  # mcp 1.x: a list of blocks, or (blocks, structured)
+            blocks = out[0] if isinstance(out, tuple) else out
         return json.loads(blocks[0].text)
 
     st = await call("start_run", system_prompt=PROMPT, target="ollama:m", checks=["direct_prompt_injection"])
