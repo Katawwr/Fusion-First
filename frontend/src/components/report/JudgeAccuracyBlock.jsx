@@ -1,8 +1,7 @@
 import React from "react";
-import Term from "../ui/Term";
-import { pct, STATS } from "../../lib/jargon";
+import { pct } from "../../lib/jargon";
 
-function Stat({ value, label, term, tip }) {
+function Stat({ value, label }) {
   return (
     <div style={{ minWidth: 0 }}>
       <div
@@ -26,18 +25,14 @@ function Stat({ value, label, term, tip }) {
           color: "var(--subtle)",
         }}
       >
-        <Term term={term} tip={tip}>
-          {label}
-        </Term>
+        {label}
       </div>
     </div>
   );
 }
 
-// "How much can you trust this grade?", Bar A, framed as the examiner's track record on our
-// known-answer set (a property of the judge, never a per-user-prompt accuracy claim).
-// Presented as a compact stat row: the numbers are the point, so they read at a glance
-// instead of being buried in a paragraph of underlined phrases.
+// Bar A: the grader's track record on the known-answer set (a property of the grader, never a
+// per-prompt accuracy claim).
 export default function JudgeAccuracyBlock({ acc, note }) {
   if (!acc) {
     return (
@@ -71,24 +66,9 @@ export default function JudgeAccuracyBlock({ acc, note }) {
           background: "var(--surface-2)",
         }}
       >
-        <Stat
-          value={pct(acc.recall?.point)}
-          label="recall"
-          term="recall"
-          tip={STATS.recall.tip}
-        />
-        <Stat
-          value={pct(acc.precision?.point)}
-          label="precision"
-          term="precision"
-          tip={STATS.precision.tip}
-        />
-        <Stat
-          value={acc.cohen_kappa?.toFixed(2)}
-          label="kappa"
-          term="Cohen's kappa"
-          tip={STATS.kappa.tip}
-        />
+        <Stat value={pct(acc.recall?.point)} label="recall" />
+        <Stat value={pct(acc.precision?.point)} label="precision" />
+        <Stat value={acc.cohen_kappa?.toFixed(2)} label="kappa" />
       </div>
       <p
         style={{

@@ -1,7 +1,6 @@
 import React from "react";
 
-// The harden diff is always "your prompt, unchanged + our guard block appended", so we render the
-// original dim and the added guardrail block highlighted, no diff library needed.
+// Harden only appends, so the diff is the original (dim) plus the added block (highlighted).
 export default function DiffView({ original, guardBlock }) {
   return (
     <div
@@ -33,7 +32,6 @@ export default function DiffView({ original, guardBlock }) {
             display: "block",
             borderRadius: "0.5rem",
             padding: "0.5rem 0.6rem",
-            // Readable in both themes: tinted ground, full-strength text.
             background: "var(--accent-soft)",
             color: "var(--text)",
           }}

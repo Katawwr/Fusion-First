@@ -2,9 +2,7 @@ import React from "react";
 import { Check } from "lucide-react";
 import { isQualityCheck, metaFor } from "../../lib/jargon";
 
-// A test framed as a plain question. Selection is quiet: a hairline accent border and a small
-// filled check, never a saturated slab, so four selected cards do not shout over the page.
-export default function CheckToggleCard({ check, enabled, onToggle, disabled = false, disabledReason = "" }) {
+export default function CheckToggleCard({ check, enabled, onToggle, disabled = false }) {
   const meta = metaFor(check);
   const on = enabled && !disabled;
   return (
@@ -14,7 +12,6 @@ export default function CheckToggleCard({ check, enabled, onToggle, disabled = f
       aria-pressed={on}
       aria-disabled={disabled}
       disabled={disabled}
-      title={disabled ? disabledReason : undefined}
       style={{
         display: "grid",
         gridTemplateColumns: "1fr auto",
@@ -77,11 +74,6 @@ export default function CheckToggleCard({ check, enabled, onToggle, disabled = f
         >
           {meta.scenario}
         </span>
-        {disabled && disabledReason && (
-          <span style={{ display: "block", marginTop: "0.4rem", fontSize: "0.8125rem", color: "var(--subtle)" }}>
-            {disabledReason}
-          </span>
-        )}
       </span>
 
       <span

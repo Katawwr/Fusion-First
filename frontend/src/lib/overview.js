@@ -15,8 +15,6 @@ const CHECK_LABELS = {
   system_prompt_leakage: "system-prompt leakage",
 };
 
-const shortGrader = graderName;
-
 const count = (k, n) => `${k} of ${n}`;
 
 // Groups of rows: { id, title, note, rows: [{ label, n, est, scale, tone, detail }] }.
@@ -104,7 +102,7 @@ export function resultGroups(ev) {
       rows: judges.map((j) => {
         const below = floor && j.grader === floor.grader && !floor.meets_floor;
         return {
-          label: `${shortGrader(j.grader)}, ${CHECK_LABELS[j.check]}`,
+          label: `${graderName(j.grader)}, ${CHECK_LABELS[j.check]}`,
           n: j.n,
           est: j.accuracy,
           scale: "rate",
@@ -150,7 +148,7 @@ export function resultGroups(ev) {
   return groups;
 }
 
-export function fixModels(ev) {
+function fixModels(ev) {
   return [...new Set((ev.fix_efficacy || []).map((c) => c.model))].sort();
 }
 

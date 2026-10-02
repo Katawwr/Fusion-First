@@ -1,6 +1,5 @@
-// A small, pure Server-Sent Events parser (testable without a network).
-// Handles chunk boundaries anywhere, CRLF or LF line endings, ":" comment/heartbeat lines, and
-// multi-line data. Calls onEvent(name, data) per complete event; malformed JSON is reported via
+// Pure Server-Sent Events parser: chunk boundaries anywhere, CRLF or LF, ":" heartbeat lines, multi-line
+// data. Calls onEvent(name, data) per complete event; malformed JSON is reported as
 // onEvent("parse_error", raw) rather than thrown.
 
 export function createSseParser(onEvent) {

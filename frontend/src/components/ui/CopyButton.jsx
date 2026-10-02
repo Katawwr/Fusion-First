@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-// Copy-to-clipboard button with a brief "Copied" confirmation.
 export default function CopyButton({ text, label = "Copy", className = "" }) {
   const [copied, setCopied] = useState(false);
 
@@ -9,7 +8,7 @@ export default function CopyButton({ text, label = "Copy", className = "" }) {
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      // Fallback for older/insecure contexts.
+      // Older or insecure contexts.
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-// Fusion has no accounts and no billing: the legacy backend (fusion-quality-tester), Supabase auth
-// and LemonSqueezy checkout were retired from the UI (recoverable from the `legacy-billing-ui` tag).
-// This guard fails if any of them creeps back into shipped source.
+// No accounts and no billing: fails if the retired backend, auth or checkout creeps back into shipped source.
 const sources = import.meta.glob(["./**/*.{js,jsx}", "!./**/*.test.{js,jsx}"], {
   query: "?raw",
   import: "default",

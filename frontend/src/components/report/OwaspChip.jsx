@@ -1,7 +1,6 @@
 import React from "react";
 
-// OWASP crosswalk reference: LLM01 / ASI01. Signals rigor without demanding the reader know the
-// codes, so it is set as a quiet micro-label rather than a boxed chip that competes with the title.
+// OWASP crosswalk codes (LLM01 · ASI01) as a quiet micro-label.
 export default function OwaspChip({ tag }) {
   const codes = [tag?.llm, tag?.asi].filter(Boolean).join(" · ");
   if (!codes) return null;

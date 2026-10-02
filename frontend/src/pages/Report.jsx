@@ -57,8 +57,6 @@ export default function Report() {
       <Helmet>
         <title>Safety Report: {result.target_name} | Fusion First</title>
       </Helmet>
-      {/* Same centred header treatment as the scan steps, so a shared report link
-          does not land on a page that looks unlike the rest of the product. */}
       <header style={{ textAlign: "center", marginBottom: "0.5rem" }}>
         <h1
           style={{

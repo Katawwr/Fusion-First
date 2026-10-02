@@ -24,16 +24,16 @@ describe("API origin", () => {
     vi.stubEnv("VITE_API_URL", "http://localhost:8000");
     document.head.innerHTML = '<meta name="fusion-token" content="abc123">';
     const f = stubFetch();
-    const { getCapabilities } = await freshScanApi();
-    await getCapabilities();
-    expect(f.mock.calls[0][0]).toBe("/api/version");
+    const { getScan } = await freshScanApi();
+    await getScan("s1");
+    expect(f.mock.calls[0][0]).toBe("/api/scan/s1");
   });
 
   it("any other page keeps using VITE_API_URL (hosted deploys)", async () => {
     vi.stubEnv("VITE_API_URL", "https://api.example.com");
     const f = stubFetch();
-    const { getCapabilities } = await freshScanApi();
-    await getCapabilities();
-    expect(f.mock.calls[0][0]).toBe("https://api.example.com/api/version");
+    const { getScan } = await freshScanApi();
+    await getScan("s1");
+    expect(f.mock.calls[0][0]).toBe("https://api.example.com/api/scan/s1");
   });
 });

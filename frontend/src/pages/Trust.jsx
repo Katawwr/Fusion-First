@@ -6,9 +6,8 @@ import { DataTable, Doc, DocHeader } from "../components/doc";
 import { DiscordantPairs, FixChanges, GraderVsBaselines, GuardTradeoff, StoppedBars } from "../components/trust/charts";
 import { EXPERIMENT_NAMES, pShort } from "../components/trust/format";
 
-// Every number on this page comes from frontend/src/content/evidence.json, which is GENERATED from
-// committed evidence files (python -m fusion_first.validate.trust_report) and checked by a test: the
-// page can't show a number the evidence doesn't back.
+// Every number comes from content/evidence.json, generated from committed evidence
+// (python -m fusion_first.validate.trust_report) and checked by a test.
 
 const CHECK_NAMES = {
   direct_prompt_injection: "Prompt injection",
@@ -47,18 +46,14 @@ const PRIOR_VERDICT = {
   no_significant_difference: "no significant difference.",
 };
 
-// The current rules' pre-registered measurement: fresh 7-8B transcripts, scored once against the
-// previous rules and Llama Guard 3 on the same transcripts. fig = the number of its first figure.
+// fig = the number of the section's first figure.
 export function Step2Section({ s, fig = 1 }) {
   const rows = ["fusion", "fusion_prior", "llama_guard_a", "llama_guard_b", "union_fusion_b"].map((k) => s.systems[k]);
   const c = s.comparisons;
   const b = s.benign_heldout;
-  // The external-recipient rule's count on the same held-out actions: a field once the generator emits it,
-  // else the registered finding's own words.
-  const dest =
-    b.blocked_by_destination_rule ??
-    Number((s.findings || []).join(" ").match(/external-recipient rule[^.]*?blocked (\d+) of/)?.[1] ?? NaN);
-  const pair =(label, cmp, key) => cmp?.[key] && { label, left: cmp[key].other_only, right: cmp[key].fusion_only, p: cmp[key].mcnemar_p };
+  // The external-recipient rule's count, read from the registered finding's own words.
+  const dest = Number((s.findings || []).join(" ").match(/external-recipient rule[^.]*?blocked (\d+) of/)?.[1] ?? NaN);
+  const pair = (label, cmp, key) => cmp?.[key] && { label, left: cmp[key].other_only, right: cmp[key].fusion_only, p: cmp[key].mcnemar_p };
   const pairs = (key, tone) =>
     [
       pair("Previous rules", c.previous_rules, key),
@@ -112,8 +107,7 @@ export function Step2Section({ s, fig = 1 }) {
   );
 }
 
-// Same rules with and without the tool results. The McNemar counts are one sentence, not a chart: the
-// arms disagree on a handful of transcripts, all in one direction.
+// The McNemar counts are one sentence, not a chart: the arms disagree on a handful of transcripts.
 export function Step4Section({ s }) {
   const u = s.utility_benign;
   const at = s.attack_success_in_scope;

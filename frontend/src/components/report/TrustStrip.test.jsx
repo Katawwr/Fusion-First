@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import TrustStrip from "./TrustStrip";
 import { scoredSentence } from "../../lib/trust";
-import HonestyExplainer from "./HonestyExplainer";
+import BeforeAfterBars from "./BeforeAfterBars";
 
 describe("TrustStrip", () => {
   it("says a canned demo did not run your prompt", () => {
@@ -49,13 +49,14 @@ describe("TrustStrip", () => {
   });
 });
 
-describe("HonestyExplainer", () => {
-  it("shows the badge without a reasons block or blurb (owner: removed)", () => {
+describe("honesty badge", () => {
+  it("shows the badge without a reasons block or blurb", () => {
     render(
-      <HonestyExplainer
-        ba={{ honesty: "PRELIMINARY", mcnemar_p: 0.2, n_pairs: 8, honesty_reasons: ["needs at least 20 paired attacks (had 8)"] }}
+      <BeforeAfterBars
+        ba={{ baseline_issue_rate: 0.5, hardened_issue_rate: 0.25, honesty: "PRELIMINARY", mcnemar_p: 0.2, n_pairs: 8, honesty_reasons: ["needs at least 20 paired attacks (had 8)"] }}
       />,
     );
+    expect(screen.getByText("PRELIMINARY")).toBeInTheDocument();
     expect(screen.queryByText("Why not PROVEN?")).toBeNull();
     expect(screen.queryByText(/had 8/)).toBeNull();
     expect(screen.queryByText(/chance can't be ruled out/)).toBeNull();

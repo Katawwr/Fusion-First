@@ -8,7 +8,7 @@ import { HelmetProvider } from "react-helmet-async";
 const env = vi.hoisted(() => ({ backends: null, starts: [] }));
 
 vi.mock("../hooks", () => ({
-  useScanQuota: () => ({ backends: env.backends, loading: false }),
+  useBackends: () => ({ backends: env.backends, loading: false }),
   useScanStream: () => ({
     result: null, scanId: null, lanes: {}, feed: [], completed: 0, total: 0, message: "", error: null,
     demonstration: false,

@@ -1,7 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-// Minimal by owner decision: Privacy & Terms and the copyright line only.
 export default function Footer() {
   return (
     <footer className="mt-auto border-t border-app-border">

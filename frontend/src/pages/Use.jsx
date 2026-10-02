@@ -5,8 +5,7 @@ import content from "../content/integrations.json";
 import { Doc, DocHeader } from "../components/doc";
 import { Steps, TargetsTable } from "../components/doc/RunLocally";
 
-// How to run Fusion for real: every command here is parse-tested against the CLI
-// (tests/test_docs_commands.py reads this same JSON), so the page can't drift from the tool.
+// Every command here is parse-tested against the CLI (tests/test_docs_commands.py reads the same JSON).
 export default function Use() {
   return (
     <Doc>

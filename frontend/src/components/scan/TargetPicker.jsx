@@ -25,12 +25,10 @@ const FIELD_LABEL = { display: "block", fontSize: "0.8125rem", color: "var(--mut
 const HINT = { margin: "0.25rem 0 0", fontSize: "0.875rem", color: "var(--muted)", lineHeight: 1.7 };
 const SPEND_ENV = "FUSION_ALLOW_API_SPEND=1";
 
-// Inline code with a space either side, so it never runs into the words around it.
 function Code({ children }) {
   return <code className="inline-code">{children}</code>;
 }
 
-// Text with the spend variable set as code.
 function WithCode({ text }) {
   const [before, after] = text.split(SPEND_ENV);
   if (after === undefined) return text;
@@ -43,8 +41,8 @@ function WithCode({ text }) {
   );
 }
 
-// Only graders that can run here. One built-in grader is stated, several are a choice, and hosted
-// providers (which need a model name) make it a typed spec with the runnable ones suggested.
+// Only graders that can run here: one is stated, several are a choice, and hosted providers (which
+// need a model name) make it a typed spec.
 function GraderField({ capabilities, graderSpec, setGraderSpec }) {
   const graders = graderOptions(capabilities);
   const hosted = hostedProviders(capabilities);
@@ -190,7 +188,6 @@ export default function TargetPicker({
               </div>
             )}
 
-            {/* Listed only once Ollama reports at least one pulled model. */}
             {opt.id === "ollama" && on && models.length > 0 && (
               <div style={{ padding: "0.75rem 0 0.25rem 2.6rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 <select

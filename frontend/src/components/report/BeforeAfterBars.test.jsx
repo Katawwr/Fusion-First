@@ -12,7 +12,7 @@ const BA = {
 };
 
 describe("BeforeAfterBars", () => {
-  it("shows no illustration caveat (owner: removed from the demo)", () => {
+  it("shows no illustration caveat", () => {
     render(<BeforeAfterBars ba={BA} />);
     expect(screen.queryByText(/Illustration only|hand-written/i)).toBeNull();
   });

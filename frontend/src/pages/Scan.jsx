@@ -29,7 +29,7 @@ import ProveHeadline from "../components/report/ProveHeadline";
 import DiffView from "../components/fix/DiffView";
 import CodeSnippet from "../components/fix/CodeSnippet";
 import CopyButton from "../components/ui/CopyButton";
-import { useScanStream, useScanQuota } from "../hooks";
+import { useScanStream, useBackends } from "../hooks";
 import {
   harden as apiHarden,
   guardrailSnippet,
@@ -43,6 +43,13 @@ const ALL_CHECKS = Object.keys(CHECKS);
 const QUALITY = Object.keys(QUALITY_CHECKS);
 const QUALITY_NEEDS_LIVE = "Run on a live target.";
 // The prompt fix's before/after ("prove") opens from the Guard step and is not a step of its own.
+const TITLES = {
+  setup: "Scan your agent",
+  run: "Running the attack suite",
+  report: "Your report card",
+  guard: "Guard your agent",
+  prove: "Prompt fix: before and after",
+};
 const STEPS = [
   ["setup", "Paste"],
   ["run", "Attack"],
@@ -62,12 +69,10 @@ const EXAMPLES = {
 
 /* ---------------------------------------------------------------- shell bits */
 
-// The same title treatment as the document pages, so the tool reads as part of one product.
-function PageHeader({ title, lead }) {
+function PageHeader({ title }) {
   return (
     <header style={{ marginBottom: "2rem" }}>
       <h1 className="doc-title">{title}</h1>
-      {lead && <p className="doc-lead">{lead}</p>}
     </header>
   );
 }
@@ -194,7 +199,6 @@ export function StepBar({ step }) {
   );
 }
 
-// A quiet text button for back / secondary navigation.
 function QuietButton({ onClick, children, icon: Icon, iconRight = false }) {
   return (
     <button
@@ -226,7 +230,7 @@ function QuietButton({ onClick, children, icon: Icon, iconRight = false }) {
 
 export default function Scan({ scanState, setScanState }) {
   const scan = useScanStream();
-  const { backends, loading: checkingBackends } = useScanQuota();
+  const { backends, loading: checkingBackends } = useBackends();
   // A report restored from the session opens where the user left it.
   const [step, setStep] = useState(scanState?.result ? "report" : "setup");
   const [tier, setTier] = useState("quick");
@@ -290,7 +294,6 @@ export default function Scan({ scanState, setScanState }) {
         ...extra,
       },
       {
-        // Advance to the report the moment the scan completes (no effect → no render cascade).
         onCompleted: (finished) => {
           setStep(nextStep);
           setScanState?.((s) => ({ ...s, systemPrompt, result: finished }));
@@ -341,13 +344,6 @@ export default function Scan({ scanState, setScanState }) {
     (result?.outcomes || []).filter((o) => o.check === check);
   const canned = Boolean(result?.cards?.some((c) => c.trust?.execution === "canned"));
 
-  const HEADERS = {
-    setup: { title: "Scan your agent" },
-    run: { title: "Running the attack suite" },
-    report: { title: "Your report card" },
-    guard: { title: "Guard your agent" },
-    prove: { title: "Prompt fix: before and after" },
-  };
 
   return (
     <div
@@ -361,7 +357,7 @@ export default function Scan({ scanState, setScanState }) {
         <title>Scan your agent | Fusion First</title>
       </Helmet>
 
-      <PageHeader {...HEADERS[step]} />
+      <PageHeader title={TITLES[step]} />
       <StepBar step={step} />
 
       {step === "setup" && (
@@ -394,17 +390,12 @@ export default function Scan({ scanState, setScanState }) {
         <RunStep
           scan={scan}
           checks={checks}
-          onCancel={() => {
-            scan.reset();
-            forgetResult();
-            forgetGuard();
-            setStep("setup");
-          }}
+          onCancel={restart}
         />
       )}
 
       {step === "report" && result && (
-        // paddingBottom keeps the sticky action bar from covering the last card
+        // paddingBottom keeps the sticky action bar off the last card
         <div
           style={{
             display: "flex",
@@ -796,9 +787,8 @@ function StepError({ message, onRetry }) {
 const GUARD_SCOPE =
   "Redacts secrets and personal data, blocks system-prompt dumps, and blocks non-read tool calls the user's request does not cover.";
 
-// The runtime guard leads (the measured protection); the prompt fix is optional and re-tested per
-// model. `measured` is the adopted rules' pre-registered result from the committed evidence. Each
-// section loads and fails on its own.
+// `measured`: the adopted rules' pre-registered result from the committed evidence. The snippet and the
+// fix each load and fail on their own.
 export function GuardStep({
   systemPrompt,
   hardened,
@@ -818,7 +808,6 @@ export function GuardStep({
       <section>
         <SectionTitle hint={GUARD_SCOPE}>Runtime guard</SectionTitle>
         <Card>
-          {/* The pre-registered measurement first; this scan's own (in-sample) replay after it. */}
           {measured && (
             <p style={{ margin: "0 0 1rem", fontSize: "0.9375rem", color: "var(--muted)" }}>
               {measured}{" "}
@@ -926,8 +915,7 @@ export function ProveStep({
 }) {
   const [edited, setEdited] = useState(hardenedPrompt);
   const live = result.cards.some((c) => c.trust?.execution === "live");
-  // Both grades are derived from their own arm. `overall_grade` is the BASELINE headline
-  // (the prompt as written), so using it for the "hardened" badge would show no improvement.
+  // Each grade comes from its own arm: `overall_grade` is the baseline's, so it can't stand for the fix.
   const baselineGrade = worstGrade(
     result.cards.map((c) => c.grade || "?"),
   );

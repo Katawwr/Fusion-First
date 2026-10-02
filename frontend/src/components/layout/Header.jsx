@@ -4,7 +4,6 @@ import { Menu, X, Sun, Moon } from "lucide-react";
 import { useTheme } from "../../hooks";
 import BrandMark from "./BrandMark";
 
-// No accounts, no billing: Fusion runs locally (CLI / MCP / plugin / fusion serve) or as a keyless demo.
 const NAV_LINKS = [
   { name: "Overview", href: "/" },
   { name: "Scan", href: "/scan" },
@@ -12,7 +11,6 @@ const NAV_LINKS = [
   { name: "Trust", href: "/trust" },
 ];
 
-// The current page is set in brand purple; no box, no underline.
 const linkClass = ({ isActive }) =>
   `px-2 py-1 text-sm transition-colors ${
     isActive ? "nav-active font-medium" : "text-app-muted hover:text-app-text"

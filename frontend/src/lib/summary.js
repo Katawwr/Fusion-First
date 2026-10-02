@@ -1,10 +1,7 @@
-// The report's headline sentence: derived from what was actually measured, never a canned boast.
+// The report's headline sentence, derived from what was actually measured.
 import { pct } from "./jargon";
 
-// The scan's in-sample guard replay: a mirror of fusion_first/engine/guard_replay.py (in_sample_payload), kept
-// in step by the shared guardInSample.fixture.json. Null when nothing was replayed (demo scans: their
-// replies are canned; results from before the replay existed; only withheld grades).
-export const REPLAY_SETUP =
+const REPLAY_SETUP =
   "Guard set up as the snippet: your system prompt, the code-shaped values it marks secret (like OVR-4471), no domain allowlist; secrets you would list yourself are not included.";
 
 const plural = (n, word, many = `${word}s`) => (n === 1 ? word : many);
@@ -43,6 +40,9 @@ function replaySentence(s) {
   return line;
 }
 
+// The scan's in-sample guard replay: mirrors fusion_first/engine/guard_replay.py (in_sample_payload), kept
+// in step by the shared guardInSample.fixture.json. Null when nothing was replayed (demo scans, results
+// from before the replay existed, only withheld grades).
 export function guardInSample(result) {
   const withheld = [...new Set((result?.cards || []).filter((c) => c.grade === "?").map((c) => c.check))].sort();
   const judged = (result?.outcomes || []).filter(
@@ -88,7 +88,6 @@ export function summarize(result) {
   const proven = measured.filter((c) => c.before_after?.honesty === "PROVEN");
   const partial = measured.length < cards.length;
 
-  // The measurement leads; the optional prompt fix's paired result follows it.
   const worse = ` Warning: the prompt fix made ${regressed.length === 1 ? "one check" : `${regressed.length} checks`} worse.`;
   let sentence;
   if (worstBaseline === 0) {

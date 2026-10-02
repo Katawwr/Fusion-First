@@ -1,16 +1,14 @@
 import React from "react";
-import { HONESTY } from "../../lib/jargon";
 
 const TONE = {
-  good: "var(--ok)",
-  warn: "var(--warn)",
-  bad: "var(--subtle)",
+  PROVEN: "var(--ok)",
+  PRELIMINARY: "var(--warn)",
+  INCONCLUSIVE: "var(--subtle)",
 };
 
 // The badge word (PROVEN/PRELIMINARY/INCONCLUSIVE), toned; a PROVEN result adds its p and pair count.
 export default function HonestyPill({ badge, p, nPairs }) {
-  const meta = HONESTY[badge] || HONESTY.INCONCLUSIVE;
-  const tone = TONE[meta.tone] || TONE.bad;
+  const tone = TONE[badge] || TONE.INCONCLUSIVE;
   const stat =
     badge === "PROVEN" && typeof p === "number"
       ? ` (p=${p.toFixed(3)}${nPairs ? `, ${nPairs} paired attacks` : ""})`

@@ -1,4 +1,3 @@
-// Plain-language coverage line for a card's trust block (shared by the UI and its tests).
 import { ERROR_KINDS, pct } from "./jargon";
 
 export function scoredSentence(trust) {

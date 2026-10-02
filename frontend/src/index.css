@@ -3,13 +3,9 @@
 /* ------------------------------------------------------------------ *
  * Fusion First, semantic design tokens.
  *
- * The brand is purple (#504d9a); pink (#f38f95/#db418b) marks costs only. Cyan was dropped (owner, 2026-10-01). They are
- * fixed, but here they are demoted from big saturated fills to precise
- * accents. Everything is driven by semantic CSS variables so the whole UI
- * re-themes from one place and supports a calm dark AND a soft light mode.
- * Dark is the default; `[data-theme="light"]` (set by the theme toggle) or a
- * light OS preference switches it. Neither theme is harsh: no pure black, no
- * pure white.
+ * The brand is purple (#504d9a), used as precise accents; pink marks costs
+ * only. Dark is the default; `[data-theme="light"]` (set by the theme toggle)
+ * or a light OS preference switches it.
  * ------------------------------------------------------------------ */
 
 :root {
@@ -34,7 +30,7 @@
   --subtle: #7c8190;
 
   /* brand, as accents */
-  --accent: #8b86d6; /* brand purple: fills, focus, active (owner: purple only, no cyan) */
+  --accent: #8b86d6; /* brand purple: fills, focus, active */
   --accent-ink: #aba7ea; /* brand purple, legible text/links on dark */
   --brand: #8b86d6; /* purple, legible on dark */
   --primary: #8b86d6; /* the one solid action colour: brand purple */
@@ -49,29 +45,14 @@
   /* status, gentle, desaturated */
   --ok: #6cc79a;
   --warn: #e2b45f;
-  --orange: #e79a63;
   --danger: #e88a8a;
 
   --ring: rgba(139, 134, 214, 0.55);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3);
-
-  /* the one reserved brand-gradient moment (wordmark, hero hairline) */
-  --brand-gradient: linear-gradient(90deg, #8b86d6, #504d9a);
-  --brand-gradient-soft: linear-gradient(
-    135deg,
-    rgba(139, 134, 214, 0.14),
-    rgba(80, 77, 154, 0.12)
-  );
 }
 
-/* explicit light choice, or light OS preference when the user hasn't chosen */
-:root[data-theme="light"],
-:root:not([data-theme="dark"]) {
-  /* placeholder to keep specificity parity; real values below */
-}
-
-.light-tokens,
+/* explicit light choice; the media query below covers a light OS preference */
 :root[data-theme="light"] {
   color-scheme: light;
 
@@ -99,7 +80,6 @@
 
   --ok: #1f9d63;
   --warn: #a9761b;
-  --orange: #c26a2a;
   --danger: #cf4b4b;
 
   --ring: rgba(80, 77, 154, 0.45);
@@ -128,10 +108,9 @@
     --pink-ink: #b81f6a;
     --accent-soft: rgba(80, 77, 154, 0.08);
     --pink-soft: rgba(207, 47, 125, 0.08);
-  --chart-grey: #a3a8b3;
+    --chart-grey: #a3a8b3;
     --ok: #1f9d63;
     --warn: #a9761b;
-    --orange: #c26a2a;
     --danger: #cf4b4b;
     --ring: rgba(80, 77, 154, 0.45);
     --shadow-sm: 0 1px 2px rgba(30, 27, 60, 0.06);
@@ -140,11 +119,9 @@
   }
 }
 
-/* Map semantic + legacy brand tokens onto Tailwind utilities. `inline` so the
- * generated classes emit the raw var() and stay live when the theme flips. */
+/* Semantic tokens as Tailwind utilities. `inline` so the generated classes emit
+ * the raw var() and stay live when the theme flips. */
 @theme inline {
-  --color-app-bg: var(--bg);
-  --color-app-elev: var(--bg-elev);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-app-border: var(--border);
@@ -154,49 +131,15 @@
   --color-app-subtle: var(--subtle);
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
-  --color-brand: var(--brand);
+  --color-accent-soft: var(--accent-soft);
+  --color-fusion-accent: var(--accent);
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
-  --color-pink: var(--pink);
-  --color-pink-ink: var(--pink-ink);
-  --color-ok: var(--ok);
-  --color-warn: var(--warn);
-  --color-orange: var(--orange);
-  --color-danger: var(--danger);
 
-  /* legacy fusion-* utilities kept working, now theme-aware */
-  --color-fusion-purple: var(--brand);
-  --color-fusion-purple-light: var(--surface);
-  --color-fusion-purple-medium: var(--surface-2);
-  --color-fusion-accent: var(--accent);
-  /* an accent wash (not --border, a near-black translucent that made selected cards read as dark
-     slabs on the light theme) */
-  --color-fusion-accent-light: var(--accent-soft);
-  --color-fusion-accent-medium: var(--border-strong);
-  --color-accent-soft: var(--accent-soft);
-  --color-pink-soft: var(--pink-soft);
-  --color-fusion-pink: var(--pink);
-  --color-fusion-dark-pink: var(--pink-ink);
-
-  --color-severity-critical: var(--danger);
-  --color-severity-high: var(--orange);
-  --color-severity-medium: var(--warn);
-  --color-severity-low: var(--ok);
-
-  --background-image-fusion-gradient: var(--brand-gradient);
-  --background-image-fusion-pink-gradient: linear-gradient(
-    to right,
-    var(--pink),
-    var(--pink-ink)
-  );
-
-  /* soft, layered depth (theme-aware via the vars) */
   --shadow-soft: var(--shadow-sm);
   --shadow-card: var(--shadow);
 
-  /* friendlier, more modern corner softness */
   --radius-lg: 0.85rem;
-  --radius-xl: 1.1rem;
   --radius-2xl: 1.4rem;
 }
 
@@ -228,7 +171,7 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   color: var(--text);
-  background-color: var(--bg); /* flat: no decorative wash */
+  background-color: var(--bg);
 }
 
 #root {
@@ -267,7 +210,7 @@ code,
   background: color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
-/* One calm, accessible focus ring everywhere, comfort + keyboard access. */
+/* One accessible focus ring everywhere. */
 :where(
   a,
   button,
@@ -283,7 +226,6 @@ code,
   border-radius: 0.5rem;
 }
 
-/* Gentle default transitions so hovers feel soft, not abrupt. */
 a,
 button {
   transition:
@@ -295,7 +237,6 @@ button {
     opacity 0.18s ease;
 }
 
-/* Calm, theme-aware scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -330,7 +271,6 @@ button {
   animation: spin 1s linear infinite;
 }
 
-/* Respect reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -367,13 +307,11 @@ button {
   color: var(--subtle);
 }
 
-/* The FF monogram (friendly fire): an inline SVG, white on brand purple (BrandMark.jsx, public/ff.svg). */
 .brand-mark {
   display: block;
   flex: none;
 }
 
-/* The wordmark uses the title face (owner, 2026-10-01). */
 .brand-wordmark {
   font-family: var(--font-display);
   font-weight: 600;
@@ -430,22 +368,12 @@ button {
   color: var(--text);
 }
 
-.prose {
-  color: var(--text);
-  font-size: 0.975rem;
-  line-height: 1.7;
-}
-.prose > * + * {
-  margin-top: 0.85rem;
-}
-.prose a,
 a.text-link {
   color: var(--accent-ink);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
-.prose code,
 .inline-code {
   font-size: 0.85em;
   padding: 0.1em 0.35em;
@@ -453,9 +381,6 @@ a.text-link {
   background: var(--surface-2);
   border: 1px solid var(--border);
   overflow-wrap: anywhere;
-}
-.muted {
-  color: var(--muted);
 }
 
 /* definition list: term on the left, description on the right (stacks on phones) */
@@ -670,25 +595,12 @@ a.text-link {
   filter: brightness(1.08);
 }
 
-/* target list (Run it locally): one row per target, stacks cleanly at any width */
-.target-list {
-  list-style: none;
-  border-top: 1px solid var(--border-strong);
-  border-bottom: 1px solid var(--border-strong);
-}
-.target-list li {
-  padding: 0.85rem 0;
-}
-.target-list li + li {
-  border-top: 1px solid var(--border);
-}
-
-/* Header: the current page is set in brand purple (no box, no underline). */
+/* Header: the current page in brand purple. */
 .nav-active {
   color: var(--accent-ink);
 }
 
-/* Overview: the headline result, large (owner: the guard's result should be obvious). */
+/* Overview: the headline result, large. */
 .headline-stats {
   margin: 2.25rem 0 0;
   padding-top: 2rem;

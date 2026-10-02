@@ -1,7 +1,8 @@
 // Client for the Fusion API (FastAPI + SSE).
-// Targets VITE_API_URL when set, else SAME-ORIGIN ('' → relative /api/... paths). Same-origin means
-// a misconfigured deploy 404s loudly against its own host instead of silently hitting the wrong app.
-// A page served by `fusion serve` is always same-origin, whatever the build baked in.
+// Targets VITE_API_URL when set, else same-origin ('' -> relative /api/... paths), so a misconfigured
+// deploy 404s loudly against its own host instead of silently hitting the wrong app. A page served by
+// `fusion serve` is always same-origin, whatever the build baked in.
+import { saveBlob } from "./download";
 import { ApiError, apiFetch, apiJson, servedByFusion } from "./http";
 import { createSseParser } from "./sse";
 
@@ -14,7 +15,7 @@ const json = (body) => ({
 });
 
 // Wake a possibly-cold container so the first real request isn't stuck on cold start.
-export async function wakeBackend() {
+async function wakeBackend() {
   try {
     const r = await fetch(`${API_URL}/api/health`);
     return r.ok;
@@ -23,26 +24,16 @@ export async function wakeBackend() {
   }
 }
 
-// What this server can actually run (demo / cli / ollama / api) plus installed Ollama models.
-export async function getCapabilities() {
-  return apiJson(`${API_URL}/api/version`);
-}
-
 export async function getScan(scanId) {
   return apiJson(`${API_URL}/api/scan/${encodeURIComponent(scanId)}`);
 }
 
-// The HTML report, rendered by the API from the result the page holds (no server state), saved as a file.
-// The report takes the theme the site shows (the toggle sets <html data-theme>).
+// The HTML report, rendered by the API from the result the page holds (no server state), in the
+// theme the site shows.
 export async function downloadReportHtml(result, filename = "fusion-report.html") {
   const theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
   const resp = await apiFetch(`${API_URL}/api/report.html?theme=${theme}`, json(result));
-  const url = URL.createObjectURL(await resp.blob());
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveBlob(await resp.blob(), filename);
 }
 
 export async function harden(systemPrompt, checks = null) {
@@ -53,7 +44,6 @@ export async function guardrailSnippet(checks = null) {
   return apiJson(`${API_URL}/api/guardrail-snippet`, json({ checks }));
 }
 
-// Grade the agent's QUALITY (correctness / instruction-following) on normal test inputs.
 // Live-only: needs a real backend on this server.
 export async function gradeQuality(systemPrompt, { targetModel = null, backend = null } = {}) {
   return apiJson(

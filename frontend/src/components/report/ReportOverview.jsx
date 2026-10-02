@@ -3,8 +3,7 @@ import GradeBadge from "./GradeBadge";
 import DemoBanner from "../ui/DemoBanner";
 import { summarize } from "../../lib/summary";
 
-// One plain sentence + the overall grade, derived from what was actually measured. An example
-// report's headline already says the prompt was not run, so it carries no second demo banner.
+// An example report's headline already says the prompt was not run, so it gets no demo banner.
 export default function ReportOverview({ result }) {
   const s = summarize(result);
   const example = s.kind === "example";

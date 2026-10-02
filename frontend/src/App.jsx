@@ -15,19 +15,16 @@ function ScrollToTop() {
   return null;
 }
 
-// Pages
 import Landing from "./pages/Landing";
 import Scan from "./pages/Scan";
 import Report from "./pages/Report";
 import Privacy from "./pages/Privacy";
-import Terms from "./pages/Terms";
 import Use from "./pages/Use";
 import Trust from "./pages/Trust";
 
 export default function App() {
   const location = useLocation();
-  // Scan state lifted to App so a report survives navigation, and kept in sessionStorage so it
-  // survives a refresh.
+  // Lifted to App so a report survives navigation; sessionStorage keeps it across a refresh.
   const [scanState, setScanState] = useState(loadScanState);
   useEffect(() => saveScanState(scanState), [scanState]);
 
@@ -45,12 +42,11 @@ export default function App() {
             element={<Scan scanState={scanState} setScanState={setScanState} />}
           />
           <Route path="/report/:scanId" element={<Report />} />
-          {/* Preserve inbound links/SEO from the old tool route. */}
           <Route path="/test" element={<Navigate to="/scan" replace />} />
           <Route path="/use" element={<Use />} />
           <Route path="/trust" element={<Trust />} />
           <Route path="/privacy" element={<Privacy />} />
-          <Route path="/terms" element={<Terms />} />
+          <Route path="/terms" element={<Navigate to="/privacy" replace />} />
 
           <Route
             path="*"

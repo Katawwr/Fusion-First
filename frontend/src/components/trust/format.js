@@ -1,5 +1,4 @@
-// Formatting shared by the Trust page and its charts (kept out of charts.jsx so that file exports only
-// components).
+// Kept out of charts.jsx so that file exports only components (fast refresh).
 
 // A p-value as a reader scans it: p<0.001, p=0.008, p=0.049, p=0.50; with ns, anything >= 0.05 is "n.s.".
 export function pShort(p, { ns = false } = {}) {

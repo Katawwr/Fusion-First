@@ -1,7 +1,7 @@
-// Which targets the scan page offers, from what this server says it can run (/api/version → backends;
-// null while unknown or unreachable). An option is listed only when a scan with it can start AND be
-// graded here right now; nothing is shown disabled. A server without local backends (the hosted demo,
-// `fusion serve --demo-only`) offers the demo, plus a hosted scan when its operator enabled one.
+// Which targets the scan page offers, from what this server can run (/api/version -> backends; null
+// while unknown). An option is listed only when a scan with it can start AND be graded here now; nothing
+// is shown disabled. A server without local backends (the hosted demo, `fusion serve --demo-only`)
+// offers the demo, plus a hosted scan when its operator enabled one.
 
 const DEMO = {
   id: "demo",
@@ -9,7 +9,7 @@ const DEMO = {
 };
 
 // True when this server can run live models itself (`fusion serve`), false on the hosted demo.
-export const runsLocalModels = (capabilities) => Boolean(capabilities?.local_backends_enabled);
+const runsLocalModels = (capabilities) => Boolean(capabilities?.local_backends_enabled);
 
 // Built-in graders a web scan can run now, best first (claude-cli, ollama-prob:<qualified model>).
 export const graderOptions = (capabilities) =>
@@ -19,11 +19,11 @@ export const graderOptions = (capabilities) =>
 export const hostedProviders = (capabilities) =>
   runsLocalModels(capabilities) ? capabilities.hosted_providers || [] : [];
 
-export const hasGrader = (capabilities) =>
+const hasGrader = (capabilities) =>
   graderOptions(capabilities).length > 0 || hostedProviders(capabilities).length > 0;
 
 // The grader a scan starts with: the best built-in one, else none (a hosted grader needs a model name).
-export const defaultGrader = (capabilities) => graderOptions(capabilities)[0] || "";
+const defaultGrader = (capabilities) => graderOptions(capabilities)[0] || "";
 
 // The grader actually sent: the user's choice when it can run here, else the default. With hosted
 // providers the grader is typed (`<provider>:<model>`), so any non-empty value is kept.
@@ -34,7 +34,7 @@ export function effectiveGrader(capabilities, chosen) {
 }
 
 // Spec prefixes a local page can run as the target, for the Any-model hint and placeholder.
-export function specExamples(capabilities) {
+function specExamples(capabilities) {
   const hosted = hostedProviders(capabilities).map((p) => `${p}:<model>`);
   return [
     ...hosted,

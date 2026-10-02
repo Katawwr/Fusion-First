@@ -2,8 +2,8 @@ import React from "react";
 import content from "../../content/integrations.json";
 import { Code, Inline } from "./index";
 
-// "Run it locally": the web app on your machine, then the target you point it at. The commands and
-// spec strings come from integrations.json, which tests/test_docs_commands.py parses with the real CLI.
+// Commands and spec strings come from integrations.json, which tests/test_docs_commands.py parses with
+// the real CLI.
 
 export function Steps({ steps }) {
   return steps.map((step) => (
@@ -16,7 +16,6 @@ export function Steps({ steps }) {
   ));
 }
 
-// Two columns: what the target is | its spec string, with the one-line note under the spec.
 export function TargetsTable() {
   return (
     <>
@@ -42,11 +41,12 @@ export function TargetsTable() {
   );
 }
 
-export default function RunLocally({ compact = false }) {
+// The first local step and the targets table (the overview's short form of /use#local).
+export default function RunLocally() {
   const local = content.sections.find((s) => s.id === "local");
   return (
     <div className="flex flex-col gap-5">
-      <Steps steps={compact ? local.steps.slice(0, 1) : local.steps} />
+      <Steps steps={local.steps.slice(0, 1)} />
       <TargetsTable />
     </div>
   );

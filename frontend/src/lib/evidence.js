@@ -25,8 +25,7 @@ export function fixVerdict(cell) {
   return { text: "No change", tone: "muted" };
 }
 
-// The evidence describes graders in full ("Claude Sonnet (Claude Code subagent, host-as-judge, ...)"); pages
-// show the model and, for a local grader, that it runs locally.
+// "Claude Sonnet (Claude Code subagent, ...)" -> the model, plus ", local" for a local grader.
 export function graderName(g) {
   if (!g) return g;
   const local = /probability judge/.test(g);

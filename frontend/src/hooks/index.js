@@ -1,3 +1,3 @@
 export { useScanStream } from "./useScanStream";
-export { useScanQuota } from "./useScanQuota";
+export { useBackends } from "./useBackends";
 export { default as useTheme } from "./useTheme";

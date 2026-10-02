@@ -8,8 +8,7 @@ import RunLocally from "../components/doc/RunLocally";
 import { interval, points } from "../lib/evidence";
 import { findings, headlineStats, limitations, resultGroups } from "../lib/overview";
 
-// The overview reads like a paper's abstract and results table. Every number is rendered from the
-// generated evidence (content/evidence.json); the page source carries none.
+// Every number is rendered from the generated evidence (content/evidence.json); the page source carries none.
 
 const TITLE = "Fusion First: Measure and guard AI agents";
 const SUMMARY =
@@ -73,7 +72,6 @@ export function ResultsTable({ groups }) {
   );
 }
 
-// The guard's pre-registered result, large: the first thing a reader sees after the abstract.
 function HeadlineStats({ stats }) {
   if (!stats.length) return null;
   return (

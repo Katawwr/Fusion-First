@@ -1,8 +1,7 @@
 import React from "react";
 
-// The FF monogram (owner, 2026-10-01): "FF" = friendly fire, as a pixel sprite. Two colours: white pixels on
-// brand purple. The first F's middle bar runs into the second F's stem; one pixel is knocked out of that stem
-// below the junction so both letters still read. Same grid as public/ff.svg.
+// The FF ("friendly fire") pixel monogram: white on brand purple. One pixel is knocked out of the second F's
+// stem below the junction so both letters still read. Same grid as public/ff.svg.
 const FF_GRID = [
   "##########",
   "##########",

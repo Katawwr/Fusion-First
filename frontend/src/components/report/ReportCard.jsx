@@ -53,8 +53,6 @@ function AttackList({ outcomes, quality = false }) {
   );
 }
 
-// One check's card: grade, title, OWASP codes, what got through, trust block, grader accuracy, then the
-// optional prompt fix's before/after. No scenario line: the setup step already showed it.
 export default function ReportCard({ card, outcomes = [] }) {
   const meta = metaFor(card.check);
   const quality = card.kind === "quality" || isQualityCheck(card.check);
@@ -83,7 +81,6 @@ export default function ReportCard({ card, outcomes = [] }) {
         acc={card.judge_accuracy}
         note={card.judge_accuracy_note}
       />
-      {/* The measurement comes first; the optional prompt fix's paired result follows it. */}
       {card.before_after && (
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium text-app-text">Prompt fix (optional)</p>

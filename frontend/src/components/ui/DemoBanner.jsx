@@ -1,8 +1,7 @@
 import React from "react";
 import { Info } from "lucide-react";
 
-// Non-dismissable ribbon shown wherever a card carries demonstration=true (the schema flag drives
-// it, never inferred client-side). Neutral, not a status colour: the demo is not a result.
+// Shown only when the server marks a result demonstration=true; never inferred client-side.
 export default function DemoBanner({ className = "" }) {
   return (
     <div

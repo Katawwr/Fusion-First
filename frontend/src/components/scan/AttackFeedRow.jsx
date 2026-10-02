@@ -1,9 +1,7 @@
 import React from "react";
 import { isQualityCheck, metaFor } from "../../lib/jargon";
 
-// Newest-first stream of graded items on the baseline arm (the prompt as written): attacks read
-// "Resisted" / "Got through"; quality requests read "OK" / "Defect". Only a failure takes a status
-// colour; a pass stays neutral, so the red marks are the ones to read.
+// One graded item on the prompt as written. Only a failure takes a status colour.
 export default function AttackFeedRow({ outcome }) {
   const fooled = outcome.baseline_issue;
   const tone = fooled ? "var(--danger)" : "var(--subtle)";

@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import Button from "../ui/Button";
 import { downloadReportHtml } from "../../lib/scanApi";
 
-// Saves the HTML report rendered from the result the page already holds, so it works whichever API
-// container answers (the hosted API keeps scans in memory per container).
+// Renders the report from the result the page holds, so it works whichever API container answers
+// (the hosted API keeps scans in memory per container).
 export default function DownloadReportButton({ result, filename = "fusion-report.html", children = "Download report" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

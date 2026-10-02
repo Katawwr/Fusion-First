@@ -1,11 +1,9 @@
 import React from "react";
 import CopyButton from "../ui/CopyButton";
 
-// Shared building blocks for the document-style pages (overview, Use, Trust, Privacy). Styling lives
-// in index.css (.doc, .doc-title, .data-table ...) so every page reads with the same scale.
+// Building blocks for the document-style pages; styling lives in index.css (.doc, .data-table, ...).
 
-// Copy from JSON with `backticks` around code: the code is set inline, and the text around it keeps
-// its own spaces (JSX would otherwise eat the space between a word and a <code>).
+// Text with `backticks` around code: the code is set inline and the surrounding spaces are kept.
 export function Inline({ text }) {
   return String(text || "")
     .split(/(`[^`]+`)/)
@@ -24,10 +22,9 @@ export function Doc({ wide = false, children }) {
   return <article className={`doc${wide ? " doc--wide" : ""}`}>{children}</article>;
 }
 
-export function DocHeader({ eyebrow, title, children }) {
+export function DocHeader({ title, children }) {
   return (
     <header>
-      {eyebrow && <p className="eyebrow">{eyebrow}</p>}
       <h1 className="doc-title">{title}</h1>
       {children && <div className="doc-lead">{children}</div>}
     </header>
@@ -78,15 +75,13 @@ export function DataTable({ head, rows, numeric = [], caption }) {
   );
 }
 
-export function Code({ code, label, copy = true }) {
+export function Code({ code, label }) {
   return (
     <div className="code-block">
-      {(label || copy) && (
-        <div className="flex items-center justify-between gap-3 border-b border-app-border px-3 py-1.5">
-          <span className="font-mono text-xs text-app-subtle">{label || ""}</span>
-          {copy && <CopyButton text={code} label="Copy" />}
-        </div>
-      )}
+      <div className="flex items-center justify-between gap-3 border-b border-app-border px-3 py-1.5">
+        <span className="font-mono text-xs text-app-subtle">{label || ""}</span>
+        <CopyButton text={code} label="Copy" />
+      </div>
       <pre>
         <code>{code}</code>
       </pre>
@@ -95,8 +90,7 @@ export function Code({ code, label, copy = true }) {
 }
 
 // A forest-plot strip: the 95% interval as a bar, the estimate as a tick. "rate" spans 0–100%;
-// "diff" spans −50 to +50 points around a zero line. Tone colours the mark: good outcomes in
-// brand purple, costs (wrong blocks, refusals) in the brand pink, comparators in grey.
+// "diff" spans −50 to +50 points around zero. Tone: good in purple, costs in pink, comparators in grey.
 export function IntervalStrip({ est, scale = "rate", tone = "good", label }) {
   if (!est || est.point === undefined) return null;
   const [lo, hi] = scale === "diff" ? [-0.5, 0.5] : [0, 1];

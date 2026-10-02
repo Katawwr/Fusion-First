@@ -6,8 +6,7 @@ import GradeBadge from "../report/GradeBadge";
 import { gradeQuality } from "../../lib/scanApi";
 import { qualityMeta } from "../../lib/jargon";
 
-// Quality grading is a LIVE-only operation (it runs the agent on normal inputs and judges the
-// answers). A 402 means no live backend, we say so honestly and point to the free local path.
+// Live-only: a 402/403 means this server has no live backend, so point to the local path.
 export default function QualityPanel({ systemPrompt }) {
   const [state, setState] = useState("idle"); // idle | loading | done | unavailable | error
   const [data, setData] = useState(null);

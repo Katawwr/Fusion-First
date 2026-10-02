@@ -2,9 +2,8 @@ import React from "react";
 import { Helmet } from "react-helmet-async";
 import { Doc, DocHeader, DocSection } from "../components/doc";
 
-// Describes the REAL data flows (no accounts, no payments, no analytics). Keep this page in sync
-// with fusion_first/web (in-memory scan store), app/ (the hosted demo attaches no provider keys),
-// fusion_first/backends (local-only live backends) and the browser storage in src/hooks + src/lib/session.js.
+// Keep in sync with the real data flows: fusion_first/web (in-memory scan store), app/ (the hosted demo
+// attaches no provider keys), fusion_first/backends (local-only live backends), src/lib/session.js.
 
 export default function Privacy() {
   return (

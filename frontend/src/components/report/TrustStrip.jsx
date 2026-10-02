@@ -2,8 +2,6 @@ import React from "react";
 import { INDEPENDENCE } from "../../lib/jargon";
 import { scoredSentence } from "../../lib/trust";
 
-// "How far to trust this card" in one glance: what actually ran, who graded it, how independent
-// that grader is, and how many attacks were really scored. Driven entirely by card.trust.
 function Row({ label, children }) {
   return (
     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "baseline" }}>

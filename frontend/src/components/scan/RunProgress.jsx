@@ -1,6 +1,5 @@
 import React from "react";
 
-// Overall progress bar + phase line.
 export default function RunProgress({ completed, total, message }) {
   const pctDone = total ? Math.round((completed / total) * 100) : 0;
   return (
