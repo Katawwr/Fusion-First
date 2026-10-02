@@ -38,7 +38,7 @@ function Stat({ value, label, term, tip }) {
 // known-answer set (a property of the judge, never a per-user-prompt accuracy claim).
 // Presented as a compact stat row: the numbers are the point, so they read at a glance
 // instead of being buried in a paragraph of underlined phrases.
-export default function JudgeAccuracyBlock({ acc, note, source }) {
+export default function JudgeAccuracyBlock({ acc, note }) {
   if (!acc) {
     return (
       <p className="text-sm text-app-muted">
@@ -99,14 +99,8 @@ export default function JudgeAccuracyBlock({ acc, note, source }) {
         }}
       >
         {note ? <strong className="text-app-text">{note} </strong> : null}
-        Measured on {acc.n} known-answer cases
-        {acc.n_unscored ? ` (${acc.n_unscored} unscored)` : ""}
-        {source ? `, ${source}` : ""}. Precision:{" "}
-        {pct(acc.precision?.low)} to {pct(acc.precision?.high)} (
-        <Term term="Wilson 95% CI" tip={STATS.wilson_ci.tip}>
-          95% CI
-        </Term>
-        ).
+        {acc.n} known-answer cases{acc.n_unscored ? `, ${acc.n_unscored} unscored` : ""}. Precision 95% CI:{" "}
+        {pct(acc.precision?.low)}–{pct(acc.precision?.high)}.
       </p>
     </div>
   );

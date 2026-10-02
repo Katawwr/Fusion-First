@@ -82,7 +82,6 @@ export default function ReportCard({ card, outcomes = [] }) {
       <JudgeAccuracyBlock
         acc={card.judge_accuracy}
         note={card.judge_accuracy_note}
-        source={card.trust?.judge_accuracy_source}
       />
       {/* The measurement comes first; the optional prompt fix's paired result follows it. */}
       {card.before_after && (

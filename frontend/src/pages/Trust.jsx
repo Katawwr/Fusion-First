@@ -92,7 +92,7 @@ export function Step2Section({ s, fig = 1 }) {
           { title: "Attacks stopped", rows: pairs("attacks", "fusion") },
           { title: "Clean transcripts wrongly blocked", rows: pairs("clean", "cost") },
         ]}
-        caption="Transcripts where only one guard acted: the pairs McNemar tests (n.s.: p≥0.05). Purple: Fusion alone stopped the attack; pink: Fusion alone wrongly blocked; grey: the other guard alone."
+        caption="Transcripts where only one guard acted: the pairs McNemar tests. Purple: Fusion alone stopped the attack; pink: Fusion alone wrongly blocked; grey: the other guard alone."
       />
       <p className="text-xs text-app-subtle">
         Previous rules: {PRIOR_VERDICT[c.previous_rules.decision]} (McNemar {pShort(c.previous_rules.attacks.mcnemar_p)})
