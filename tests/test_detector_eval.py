@@ -110,6 +110,15 @@ def test_operating_threshold_at_fpr_needs_negatives():
         operating_threshold_at_fpr([], fpr=0.01)
 
 
+@pytest.mark.parametrize("bad", [float("nan"), math.inf, -math.inf])
+def test_operating_threshold_at_fpr_refuses_a_non_finite_negative_score(bad):
+    # a NaN used to stall the descending pass forever (NaN != NaN, so the index never advanced)
+    with pytest.raises(ValueError, match="finite"):
+        operating_threshold_at_fpr([0.1, 0.2, bad], fpr=0.5)
+    with pytest.raises(ValueError, match="finite"):
+        operating_threshold_at_fpr([0.1, bad], fpr=0.5)
+
+
 def _brute_force_threshold(neg_scores: list[float], fpr: float) -> float:
     """The registered definition, literally: the lowest observed score t with mean(s >= t) <= fpr, else +inf."""
     neg = np.asarray(neg_scores, dtype=float)
@@ -242,9 +251,9 @@ def test_distinct_n_counts_distinct_texts_per_source():
 def test_loso_table_scores_each_held_out_source_with_its_own_fold_only():
     rows = [_row("a1", "A", 1), _row("a2", "A", 0), _row("b1", "B", 1), _row("b2", "B", 0)]
     folds = {
-        # fold A's model (threshold 0.5) is right on A and wrong on B
-        "A": {"rows": rows, "scores": {"a1": 0.9, "a2": 0.1, "b1": 0.1, "b2": 0.9}, "threshold": 0.5},
-        # fold B's model (threshold 0.3) is right on B and wrong on A; under fold A's 0.5 it would miss b1
+        # fold A (threshold 0.5): right on A, wrong on B; at fold B's 0.3 the negative a2 (0.4) would flag
+        "A": {"rows": rows, "scores": {"a1": 0.6, "a2": 0.4, "b1": 0.1, "b2": 0.9}, "threshold": 0.5},
+        # fold B (threshold 0.3): right on B, wrong on A; at fold A's 0.5 the positive b1 (0.4) would be missed
         "B": {"rows": rows, "scores": {"a1": 0.2, "a2": 0.4, "b1": 0.4, "b2": 0.2}, "threshold": 0.3},
     }
     out = loso_table(folds)
@@ -258,11 +267,22 @@ def test_loso_table_scores_each_held_out_source_with_its_own_fold_only():
     assert rates(rows[2:], folds["A"]["scores"], 0.5)["pooled"]["tp"] == 0
     assert rates(rows[:2], folds["B"]["scores"], 0.3)["pooled"]["tp"] == 0
     assert rates(rows[2:], folds["B"]["scores"], 0.5)["pooled"]["tp"] == 0
+    # ... and it can tell the thresholds apart: swapping them changes each fold's own-source result
+    assert rates(rows[:2], folds["A"]["scores"], 0.3)["pooled"]["fp"] == 1
+    assert rates(rows[2:], folds["B"]["scores"], 0.5)["pooled"]["fn"] == 1
 
 
 def test_loso_table_rejects_a_fold_without_its_held_out_source():
     with pytest.raises(ValueError, match="C"):
         loso_table({"C": {"rows": [_row("a1", "A", 1)], "scores": {"a1": 0.9}, "threshold": 0.5}})
+
+
+# _jsonable
+
+
+@pytest.mark.parametrize("bad", [np.float32("nan"), np.float32("inf"), np.float16("-inf"), np.float64("nan")])
+def test_jsonable_maps_a_non_finite_numpy_float_to_none(bad):
+    assert detector_eval._jsonable({"x": [bad]}) == {"x": [None]}
 
 
 # seal gate and score_report

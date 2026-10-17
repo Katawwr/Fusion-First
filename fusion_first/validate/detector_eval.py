@@ -71,10 +71,16 @@ def operating_threshold_at_fpr(neg_scores: list[float], fpr: float = 0.01) -> fl
     of the negatives. Tied scores flag together, so the realised FPR can sit below `fpr`.
 
     One descending pass: after the last copy of each distinct score t, the running count is the number
-    of negatives >= t; the flagged share only grows as t falls, so the last t within `fpr` is the lowest."""
+    of negatives >= t; the flagged share only grows as t falls, so the last t within `fpr` is the lowest.
+    Every score must be finite: a NaN has no place in the order (and would stall the pass), and an inf
+    would pin the threshold to a value no detector produced."""
     if not neg_scores:
         raise ValueError("operating_threshold_at_fpr needs at least one negative score")
-    neg = sorted((float(s) for s in neg_scores), reverse=True)
+    values = [float(s) for s in neg_scores]
+    if not all(math.isfinite(s) for s in values):
+        raise ValueError("operating_threshold_at_fpr needs finite negative scores (drop NaN / inf "
+                         "scores as unscored first)")
+    neg = sorted(values, reverse=True)
     n, best, i = len(neg), math.inf, 0
     while i < n:
         t = neg[i]
@@ -212,7 +218,7 @@ def _jsonable(obj: object) -> object:
     """Plain JSON values; a non-finite float (NaN, +/-inf) becomes None, so `allow_nan=False` holds."""
     if isinstance(obj, Interval):
         return _jsonable(obj.model_dump())
-    if isinstance(obj, float) and not math.isfinite(obj):
+    if isinstance(obj, float | np.floating) and not math.isfinite(obj):
         return None
     if isinstance(obj, dict):
         return {k: _jsonable(v) for k, v in obj.items()}
