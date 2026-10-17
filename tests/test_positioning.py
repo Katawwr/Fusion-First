@@ -58,16 +58,39 @@ def test_the_docs_describe_the_in_sample_guard_replay():
     assert "guard_in_sample" in audit and "in-sample" in audit
 
 
+DETECTOR_EVIDENCE = "evals/validation/v1/detector/detector_v1.json"
+
+
 @pytest.mark.unit
-def test_the_detector_doc_claims_no_number_before_its_registered_result():
-    """docs/DETECTOR.md keeps its registered-result section a placeholder until the evidence is committed, labels the
-    phrase-list re-run as diagnostic, and states the adaptive, in-distribution and dev-only limits."""
-    text = (ROOT / "docs" / "DETECTOR.md").read_text(encoding="utf-8")
+def test_the_detector_doc_quotes_only_its_registered_result():
+    """docs/DETECTOR.md's registered-result section is a placeholder until the evidence is committed; once it is, the
+    section cites the evidence file, states the registered verdict, carries the per-arm table exactly as generated from
+    the evidence, and every number it quotes in prose is a registered claim. The phrase-list re-run stays labelled
+    diagnostic, and the adaptive, in-distribution, dev-only and in-source limits stay stated."""
+    import json
+
+    from fusion_first.validate.claims import load_registry
+    from fusion_first.validate.prereg import detector_decision
+    from fusion_first.validate.trust_report import detector_doc_table
+
+    text = (ROOT / "docs" / "DETECTOR.md").read_text(encoding="utf-8").replace("\r\n", "\n")
     result = text.split("## Registered result")[1].split("\n## ")[0]
-    if not (ROOT / "evals" / "validation" / "v1" / "detector" / "detector_v1.json").is_file():
-        assert "Filled when `evals/validation/v1/detector/detector_v1.json` is committed" in result
+    if not (ROOT / DETECTOR_EVIDENCE).is_file():
+        assert f"Filled when `{DETECTOR_EVIDENCE}` is committed" in result
         assert "%" not in result and " of " not in result and not re.search(r"\b0\.\d", result)  # no rate, no count
-    for phrase in ("diagnostic, not registered", "adaptive", "in-distribution", "dev-only"):
+    else:
+        envelope = json.loads((ROOT / DETECTOR_EVIDENCE).read_text(encoding="utf-8"))
+        assert f"[`{DETECTOR_EVIDENCE}`](../{DETECTOR_EVIDENCE})" in result and "Filled when" not in result
+        verdict = ("adopted as an observe-only `guard_input` signal" if detector_decision(envelope)["adopt"]
+                   else "not adopted; the detector stays dev-only")
+        assert f"Registered decision: {verdict}." in result
+        assert detector_doc_table(envelope) in result
+        claims = [c for c in load_registry().claims if "docs/DETECTOR.md" in (c.get("files") or [])]
+        assert {c["evidence"] for c in claims} == {DETECTOR_EVIDENCE}
+        prose = [line for line in result.splitlines() if not line.startswith("|")]
+        quoted = [c["text"] for c in claims if any(c["text"] in line for line in prose)]
+        assert len(quoted) == len(claims) == 4  # the two primaries, the phrase list on the same rows, the decision
+    for phrase in ("diagnostic, not registered", "adaptive", "in-distribution", "dev-only", "in-source"):
         assert phrase in text
     assert chr(0x2014) not in text and "DETECTOR.md" in (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
 

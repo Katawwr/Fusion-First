@@ -13,8 +13,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - Model layer: native tool calls. `ModelRequest.tools` offers function schemas and `ModelResponse.tool_calls`
   returns the calls (Ollama and OpenAI-compatible providers); cassettes record and replay them. Requests without
   tools keep their cassette keys.
-- A registered study of a tool-result injection detector, sealed before scoring:
-  [Trust Report Q5](TRUST_REPORT.md#q5-does-a-trained-detector-beat-the-phrase-list-on-injected-tool-results) and
+- A registered study of a tool-result injection detector, sealed before scoring and scored once (not adopted; the
+  detector stays dev-only): [Trust Report Q5](TRUST_REPORT.md#q5-does-a-trained-detector-beat-the-phrase-list-on-injected-tool-results) and
   [docs/DETECTOR.md](docs/DETECTOR.md). The study code and data are development-only and not in the package.
   `Guardrail(detector=...)` takes an optional scorer whose result is recorded as an observe-only event; it never
   changes a decision.

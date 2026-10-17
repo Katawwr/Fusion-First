@@ -82,6 +82,59 @@ claims:
       checks.system_prompt_leakage.grader.accuracy.point: {value: 0.9167, n_path: checks.system_prompt_leakage.grader.n, min_n: 50}
     demonstration_ok: false
 
+  # Detector v1 (PREREG_detector_v1.md), scored once on the sealed confirmatory rows; docs/DETECTOR.md quotes these.
+  - id: detector_v1_primary_injecagent_recall
+    text: "flagged 0 of 744 never-seen InjecAgent injections, recall 0.0% (95% CI 0.0% to 0.5%)"
+    qualifier: "primary (1): arm E (frozen bge-small embedding + logistic regression) under the hold-out-InjecAgent fold, on the 744 unspent InjecAgent positives"
+    files: [docs/DETECTOR.md]
+    evidence: evals/validation/v1/detector/detector_v1.json
+    metrics:
+      primary.injecagent_recall.tp: {value: 0, n_path: primary.injecagent_recall.n, min_n: 50}
+      primary.injecagent_recall.point: {value: 0.0, n_path: primary.injecagent_recall.n, min_n: 50}
+      primary.injecagent_recall.low: {value: 0.0, n_path: primary.injecagent_recall.n, min_n: 50}
+      primary.injecagent_recall.high: {value: 0.0051, n_path: primary.injecagent_recall.n, min_n: 50}
+    n_path: primary.injecagent_recall.n
+    min_n: 50
+    demonstration_ok: false
+
+  - id: detector_v1_shipped_fpr
+    text: "flagged 4 of 961 distinct benign tool results, false-positive rate 0.4% (95% CI 0.2% to 1.1%)"
+    qualifier: "primary (2): the shipped all-sources embedding model on the 961 distinct confirmatory tool-result negatives (InjecAgent minimal pairs, blind, BIPIA carrier controls)"
+    files: [docs/DETECTOR.md]
+    evidence: evals/validation/v1/detector/detector_v1.json
+    metrics:
+      primary.shipped_fpr.fp: {value: 4, n_path: primary.shipped_fpr.n, min_n: 50}
+      primary.shipped_fpr.point: {value: 0.0042, n_path: primary.shipped_fpr.n, min_n: 50}
+      primary.shipped_fpr.low: {value: 0.0016, n_path: primary.shipped_fpr.n, min_n: 50}
+      primary.shipped_fpr.high: {value: 0.0107, n_path: primary.shipped_fpr.n, min_n: 50}
+    n_path: primary.shipped_fpr.n
+    min_n: 50
+    demonstration_ok: false
+
+  - id: detector_v1_phrase_list_injecagent_recall
+    text: "The phrase list flagged 0 of 744 on the same InjecAgent rows"
+    qualifier: "B1, guard_input's shipped phrase list over normalized views, on the same 744 InjecAgent positives (its first registered number)"
+    files: [docs/DETECTOR.md]
+    evidence: evals/validation/v1/detector/detector_v1.json
+    metrics:
+      arms.b1_phrase_list.per_source.injecagent.tp: {value: 0, n_path: arms.b1_phrase_list.per_source.injecagent.n_pos, min_n: 50}
+      arms.b1_phrase_list.per_source.injecagent.recall.point: {value: 0.0, n_path: arms.b1_phrase_list.per_source.injecagent.n_pos, min_n: 50}
+    n_path: arms.b1_phrase_list.per_source.injecagent.n_pos
+    min_n: 50
+    demonstration_ok: false
+
+  - id: detector_v1_decision
+    text: "Registered decision: not adopted; the detector stays dev-only."
+    qualifier: "prereg.detector_decision on the envelope: primary recall below the 0.60 floor; the shipped FPR within the 0.05 ceiling (tests/test_positioning.py checks the verdict)"
+    files: [docs/DETECTOR.md]
+    evidence: evals/validation/v1/detector/detector_v1.json
+    metrics:
+      decision.primary_recall: {value: 0.0, n_path: decision.primary_recall_n, min_n: 50}
+      decision.shipped_fpr: {value: 0.0042, n_path: decision.shipped_fpr_n, min_n: 50}
+    n_path: decision.primary_recall_n
+    min_n: 50
+    demonstration_ok: false
+
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.
 allowlist:
   - file: fusion_first/engine/report_html.py

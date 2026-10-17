@@ -276,6 +276,12 @@ def _detector_envelope(adopt: bool) -> dict:
     shipped = scores(lambda r: r["label"] == 1 or (r["source"] == "blind" and nth(r) < (1 if adopt else 4)))
     native = {"threshold": 1.0, "threshold_rule": "native_binary"}
     lg3_ids = [r["id"] for r in rows if nth(r) < 3]
+    sources = ("injecagent", "bipia", "deepset", "blind")
+    # arm F as registered: one hold-out-InjecAgent fold scores every confirmatory source (in-source outside InjecAgent)
+    ft = scores(lambda r: (r["label"] == 1 and (r["source"] != "injecagent" or nth(r) < 5))
+                or (r["source"] == "injecagent" and r["label"] == 0 and nth(r) < 1))
+    ft_fold = {"folds": dict.fromkeys(sources, "finetune_holdout_injecagent"),
+               "fold_thresholds": dict.fromkeys(sources, 0.5)}
     arms = {
         "b0_always_negative": {"scores": dict.fromkeys(ids, 0.0), "thresholds": dict.fromkeys(ids, 1.0),
                                "label": "B0 always-negative", "note": "never flags", **native},
@@ -286,13 +292,22 @@ def _detector_envelope(adopt: bool) -> dict:
                   "threshold_rule": "fpr", "note": "n"},
         "embed_all": {"scores": shipped, "thresholds": dict.fromkeys(ids, 0.5), "label": "E all", "threshold": 0.5,
                       "threshold_rule": "fpr", "note": "n", "latency_ms": [12.0, 14.0, 30.0]},
+        "finetune": {"scores": ft, "thresholds": dict.fromkeys(ids, 0.5), "label": "F folds", "threshold": None,
+                     "threshold_rule": "fpr", "note": "n", **ft_fold},
+        "finetune_all": {"scores": scores(lambda r: r["label"] == 1), "thresholds": dict.fromkeys(ids, 0.5),
+                         "label": "F all", "threshold": 0.5, "threshold_rule": "fpr", "note": "n",
+                         "latency_ms": [40.0, 44.0, 50.0]},
         "llama_guard3_configured": {"ids": lg3_ids, "scores": {i: (None if i == lg3_ids[0] else 1.0) for i in lg3_ids},
                                     "thresholds": dict.fromkeys(lg3_ids, 1.0), "label": "B2 LG3 configured",
-                                    "note": "n", "latency_ms": [2400.0] * 5, **native},
+                                    "note": "n", "latency_ms": [2400.0] * 5, "subsample_n": len(lg3_ids), **native},
+        # a run that returned no parseable reply: n_scored 0, so no table row and every row counted unscored
+        "llama_guard3_default": {"ids": lg3_ids, "scores": dict.fromkeys(lg3_ids), "label": "B2 LG3 default",
+                                 "thresholds": dict.fromkeys(lg3_ids, 1.0), "note": "n", "subsample_n": len(lg3_ids),
+                                 **native},
         "zeta_arm": {"scores": shipped, "thresholds": dict.fromkeys(ids, 0.5), "label": "Z an arm added later",
                      "threshold": 0.5, "threshold_rule": "fpr", "note": "n"},
     }
-    absent = {"protectai_deberta": "needs the owner's approval", "finetune": "not trained"}
+    absent = {"protectai_deberta": "needs the owner's approval"}
     env, _ = build_envelope(rows, arms, digest=DIGEST, absent=absent,
                             meta={"measured": "2026-10-18", "git_sha": "0" * 40, "frame": "[REQUEST] [TOOL] [RESULT]"})
     return json.loads(json.dumps(env))
@@ -336,42 +351,105 @@ def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, a
     # sources in the registered order, and every arm present under each source it scored
     assert [r[0] for r in rows] == sorted((r[0] for r in rows), key=["InjecAgent (unspent)", "BIPIA in carriers",
                                           "deepset test (in-distribution)", "Blind negatives"].index)
+    ft, ft_in, ft_all = "F fine-tune, hold-out-InjecAgent fold", "F fine-tune, hold-out-InjecAgent fold (in-source)", \
+        "F fine-tune, all sources (in-source)"
+    shipped = "E embedding, all sources, shipped (in-source)"
+    # an arm the report does not know keeps its own label; an arm with no scored row has no table row
     assert {a for _, a in by} == {"B0 always negative", "B1 phrase list (shipped)", "E embedding, leave-one-source-out",
-                                  "E embedding, all sources (shipped model)", "B2 Llama Guard 3, configured",
-                                  "Z an arm added later"}  # an arm the report does not know: its own label
+                                  shipped, ft, ft_in, ft_all, "B2 Llama Guard 3, configured", "Z an arm added later"}
+    assert not [a for _, a in by if "off the shelf" in a]
+    # in-source marks: every all-sources row; arm F everywhere but InjecAgent (its hold-out-InjecAgent fold scores
+    # every source); never the leave-one-source-out arm
+    assert {s for s, a in by if a == ft} == {"InjecAgent (unspent)"}
+    assert {s for s, a in by if a == ft_in} == {"BIPIA in carriers", "deepset test (in-distribution)", "Blind negatives"}
+    assert len([1 for _, a in by if a in (shipped, ft_all)]) == 8
+    assert by[("InjecAgent (unspent)", ft)][2].startswith("5 of 20, ") and by[("InjecAgent (unspent)", ft)][3].startswith(
+        "1 of 20, ")
+    assert by[("InjecAgent (unspent)", ft_all)][6] == "44 ms"
     loso = by[("InjecAgent (unspent)", "E embedding, leave-one-source-out")]
     assert loso[2].startswith(f"{16 if adopt else 8} of 20, ")
     assert by[("InjecAgent (unspent)", "B1 phrase list (shipped)")][2].startswith("2 of 20, ")
     assert by[("InjecAgent (unspent)", "B1 phrase list (shipped)")][6] == "<0.01 ms"
-    assert by[("InjecAgent (unspent)", "E embedding, all sources (shipped model)")][6] == "14 ms"
+    assert by[("InjecAgent (unspent)", shipped)][6] == "14 ms"
     lg3 = by[("InjecAgent (unspent)", "B2 Llama Guard 3, configured")]
     assert lg3[2].startswith("2 of 2, ") and lg3[6] == "2.4 s"  # its own subsample; the unscored row is excluded
-    blind = by[("Blind negatives", "E embedding, all sources (shipped model)")]
+    blind = by[("Blind negatives", shipped)]
     assert blind[2] == "–" and blind[3].startswith(f"{1 if adopt else 4} of 12, ") and blind[4] == "12"
     assert blind[5] == "–"  # no positives, no AUROC
-    decision = next(line for line in q5.splitlines() if line.startswith("- Registered decision:"))
+    bullets = [line for line in q5.splitlines() if line.startswith("- ")]
+    decision = next(line for line in bullets if line.startswith("- Registered decision:"))
     verdict = "adopted as an observe-only `guard_input` signal" if adopt else "not adopted: the detector stays dev-only"
     assert f"**{verdict}**" in decision
     assert f"{(16 if adopt else 8) / 20 * 100:.1f}%" in decision and "at least 0.60" in decision
     assert "on the 38 distinct benign tool results" in decision and "at most 0.05" in decision
-    assert "- Registered arms not run: F fine-tune, B3 ProtectAI deberta-v3." in q5
-    limits = next(line for line in q5.splitlines() if line.startswith("- Limits registered before data:"))
+    unseen = next(line for line in bullets if line.startswith("- Never-seen InjecAgent injections"))
+    assert f"E leave-one-source-out {16 if adopt else 8} of 20 flagged ({(16 if adopt else 8) * 5:.1f}%)" in unseen
+    assert "F hold-out-InjecAgent fold 5 of 20 flagged (25.0%), 1 of 20 false alarms (5.0%)" in unseen
+    assert "B2 Llama Guard 3 configured, on its subsample, 2 of 2 flagged" in unseen
+    assert "all-sources" not in unseen and "B0" not in unseen
+    seen = next(line for line in bullets if line.startswith("- In-source InjecAgent rows:"))
+    assert "the E all-sources model 20 of 20 flagged (100.0%); the F all-sources model 20 of 20 flagged" in seen
+    assert "62 attacker instructions and 17 tool-result templates" in seen
+    unscored = next(line for line in bullets if line.startswith("- Unscored rows"))
+    assert ("B2 Llama Guard 3, configured 1 of 21; B2 Llama Guard 3, off the shelf 21 of 21; a source with no scored "
+            "text has no table row.") in unscored
+    assert "- Registered arms not run: B3 ProtectAI deberta-v3." in q5
+    limits = next(line for line in bullets if line.startswith("- Limits registered before data:"))
     for word in ("adaptive", "in-distribution", "dev-only"):
         assert word in limits
+    assert ("the E all-sources model and the F all-sources model on every source; F hold-out-InjecAgent fold on BIPIA, "
+            "deepset and blind (`finetune_holdout_injecagent` trained on their dev rows)") in limits
     bottom = out.split("## Q1")[0]
     line = next(x for x in bottom.splitlines() if x.startswith("- **Trained detector for injected tool results?**"))
-    assert f"it flagged {16 if adopt else 8} of 20" in line and "the phrase list flagged 2 of 20" in line
+    assert f"it flagged {16 if adopt else 8} of 20, {(16 if adopt else 8) * 5:.1f}% (" in line
+    assert "the phrase list flagged 2 of 20" in line
     assert ("Registered decision: adopted as an observe-only" if adopt else "not adopted: the detector stays dev-only") \
         in line
     site = evidence_json(tmp_path)["detector"]
     assert site["decision"]["adopt"] is adopt and site["seal_digest"] == DIGEST
     assert site["preregistration"] == "evals/validation/v1/PREREG_detector_v1.md"
     assert site["primary"]["injecagent_recall"]["n"] == 20 and site["primary"]["shipped_fpr"]["n"] == 38
-    assert [a["arm"] for a in site["absent"]] == ["finetune", "protectai_deberta"]
+    assert [a["arm"] for a in site["absent"]] == ["protectai_deberta"]
     rows = {(r["source"], r["arm"]): r for r in site["rows"]}
     assert rows[("injecagent", "embed")]["recall"]["point"] == pytest.approx((16 if adopt else 8) / 20)
     assert set(rows[("blind", "embed_all")]["fpr"]) >= {"point", "low", "high"}
     assert rows[("blind", "embed_all")]["recall"] is None  # no positives: no rate, not a 0% (0%–100%)
+    assert [k for k, r in rows.items() if r["in_source"] and k[1] == "finetune"] == [
+        ("bipia", "finetune"), ("deepset", "finetune"), ("blind", "finetune")]
+    assert not rows[("injecagent", "finetune")]["in_source"] and rows[("injecagent", "finetune_all")]["in_source"]
+    assert not any(arm == "llama_guard3_default" for _, arm in rows)
+    unsc = {u["arm"]: (u["unscored"], u["n_rows"]) for u in site["unscored"]}
+    assert unsc["llama_guard3_default"] == (21, 21) and unsc["llama_guard3_configured"] == (1, 21)
+    assert unsc["finetune"] == (0, 84) and unsc["finetune_all"] == (0, 84)
+
+
+@pytest.mark.unit
+def test_q5_says_when_no_arm_left_a_row_unscored(tmp_path):
+    env = _detector_envelope(False)
+    for key in ("llama_guard3_configured", "llama_guard3_default"):
+        del env["arms"][key]
+    (tmp_path / "evals/validation/v1/detector").mkdir(parents=True)
+    (tmp_path / "evals/validation/v1/detector/detector_v1.json").write_text(json.dumps(env), encoding="utf-8")
+    q5 = _q5_section(render(tmp_path))
+    assert "- Unscored rows (no finite score; excluded from that arm's rates): none in any arm." in q5
+    assert "Llama Guard" not in q5  # no subsample clause without a Llama Guard arm
+
+
+@pytest.mark.unit
+def test_the_detector_doc_table_is_one_row_per_arm_scored_on_injecagent():
+    """docs/DETECTOR.md's summary: InjecAgent recall, false positives on the tool-result negatives (InjecAgent, blind,
+    BIPIA; never deepset), InjecAgent AUROC and p50, in-source marked; an arm without a scored InjecAgent row is out."""
+    from fusion_first.validate.trust_report import detector_doc_table
+
+    lines = detector_doc_table(_detector_envelope(False)).splitlines()
+    assert lines[0].startswith("| Arm | InjecAgent injections flagged | Benign tool results flagged |")
+    by = {line.split(" | ")[0][2:]: line for line in lines[2:]}
+    assert "B2 Llama Guard 3, off the shelf" not in by
+    assert by["E embedding, all sources, shipped (in-source)"] == \
+        "| E embedding, all sources, shipped (in-source) | 20 of 20 (100.0%) | 4 of 38 (10.5%) | 1.00 | 14 ms |"
+    assert by["F fine-tune, hold-out-InjecAgent fold"].startswith(
+        "| F fine-tune, hold-out-InjecAgent fold | 5 of 20 (25.0%) | 1 of 38 (2.6%) |")
+    assert by["B2 Llama Guard 3, configured"].split(" | ")[2] == "9 of 9 (100.0%)"  # its subsample's tool-result rows
 
 
 @pytest.mark.unit

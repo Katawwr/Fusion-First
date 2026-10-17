@@ -183,29 +183,36 @@ describe("Trust page", () => {
 
   it.each([true, false])("shows every arm by source with the registered decision (adopt=%s)", (adopt) => {
     const iv = (k, n) => ({ point: k / n, low: Math.max(0, k / n - 0.1), high: Math.min(1, k / n + 0.1) });
-    const row = (source_label, arm_label, tp, n_pos, fp, n_neg, auroc, p50_ms) => ({
-      source_label, arm_label, tp, n_pos, recall: n_pos ? iv(tp, n_pos) : null, fp, n_neg,
-      fpr: n_neg ? iv(fp, n_neg) : null, distinct_neg: n_neg, auroc, p50_ms,
+    const row = (source_label, arm_label, tp, n_pos, fp, n_neg, auroc, p50_ms, in_source = false) => ({
+      source_label, arm_label, in_source, tp, n_pos, recall: n_pos ? iv(tp, n_pos) : null, fp, n_neg,
+      fpr: n_neg ? iv(fp, n_neg) : null, distinct_neg: n_neg, auroc, p50_ms, unscored: 0,
     });
+    const caught = adopt ? 600 : 300;
     const d = {
       seal_digest: "3a311e023f34bccb9533b52e60078f037a6d7dccc4e3922a522667384c1ca85c",
       rows: [
         row("InjecAgent (unspent)", "B1 phrase list (shipped)", 3, 744, 0, 744, 0.5, 0.004),
-        row("InjecAgent (unspent)", "E embedding, leave-one-source-out", adopt ? 600 : 300, 744, 7, 744, 0.91, null),
+        row("InjecAgent (unspent)", "E embedding, leave-one-source-out", caught, 744, 7, 744, 0.91, null),
         row("InjecAgent (unspent)", "B2 Llama Guard 3, configured", 20, 25, 4, 25, 0.62, 2400),
-        row("Blind negatives", "E embedding, all sources (shipped model)", 0, 0, 2, 148, null, 14),
+        row("Blind negatives", "E embedding, all sources, shipped", 0, 0, 2, 148, null, 14, true),
       ],
       primary: {
-        injecagent_recall: { ...iv(adopt ? 600 : 300, 744), n: 744 },
-        shipped_fpr: { ...iv(adopt ? 9 : 90, 961), n: 961 },
+        injecagent_recall: { ...iv(caught, 744), n: 744, tp: caught },
+        shipped_fpr: { point: 0.004162, low: 0.00162, high: 0.010653, n: 961, fp: 4 },
       },
       decision: { adopt, min_recall: 0.6, max_fpr: 0.05, rule: "r" },
-      absent: [{ arm: "finetune", label: "F fine-tune", reason: "not trained" }],
+      unscored: [
+        { arm: "embed", label: "E embedding, leave-one-source-out", unscored: 0, n_rows: 1946 },
+        { arm: "llama_guard3_default", label: "B2 Llama Guard 3, off the shelf", unscored: 100, n_rows: 100 },
+      ],
+      absent: [{ arm: "protectai_deberta", label: "B3 ProtectAI deberta-v3", reason: "not run" }],
     };
     render(<DetectorSection d={d} />);
     expect(screen.getAllByRole("cell", { name: "InjecAgent (unspent)" }).length).toBe(3);
-    expect(screen.getByRole("cell", { name: `${adopt ? 600 : 300} of 744, ${interval(iv(adopt ? 600 : 300, 744))}` })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: `${caught} of 744, ${interval(iv(caught, 744))}` })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "B2 Llama Guard 3, configured" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "E embedding, all sources, shipped (in-source)" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "E embedding, leave-one-source-out" })).toBeInTheDocument(); // not marked
     expect(screen.getByRole("cell", { name: "2.4 s" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "<0.01 ms" })).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "2 of 148, 1% (0%–11%)" })).toBeInTheDocument();
@@ -213,11 +220,27 @@ describe("Trust page", () => {
     expect(screen.getByText(/seal 3a311e023f34\)/)).toBeInTheDocument();
     const decision = screen.getByText(/^Decision:/).textContent;
     expect(decision).toContain(adopt ? "adopted as an observe-only signal" : "not adopted; the detector stays dev-only");
-    expect(decision).toContain("of 744 flagged (bar at least 60%)");
-    expect(decision).toContain("Shipped model on 961 distinct benign tool results");
-    expect(decision).toContain("(bar at most 5%)");
-    expect(screen.getByText("Registered arms not run: F fine-tune.")).toBeInTheDocument();
-    expect(screen.getByText(/No adaptive-attack evaluation\. deepset is in-distribution; AgentDojo is dev-only/)).toBeInTheDocument();
+    // the two primary numbers to one decimal: 0.4% never rounds to 0%, a value under its bar never reads as at it
+    const r = caught / 744;
+    expect(decision).toContain(
+      `${caught} of 744 flagged, ${(r * 100).toFixed(1)}% (${((r - 0.1) * 100).toFixed(1)}%–${((r + 0.1) * 100).toFixed(1)}%) (bar at least 60%)`,
+    );
+    expect(decision).toContain("Shipped model on 961 distinct benign tool results: 4 of 961 flagged, 0.4% (0.2%–1.1%) (bar at most 5%).");
+    expect(screen.getByText(/^Unscored rows/)).toHaveTextContent(
+      "Unscored rows (no finite score, excluded from rates): B2 Llama Guard 3, off the shelf 100 of 100.",
+    );
+    expect(screen.getByText("Registered arms not run: B3 ProtectAI deberta-v3.")).toBeInTheDocument();
+    expect(screen.getByText(/No adaptive-attack evaluation\. deepset is in-distribution; AgentDojo is dev-only/)).toHaveTextContent(
+      "Only leave-one-source-out rows are claimed",
+    );
     expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014)); // no em dashes in the copy
+  });
+
+  it("renders a detector block without its primary sub-block, and says when nothing is unscored", () => {
+    const d = { rows: [], decision: { adopt: false, min_recall: 0.6, max_fpr: 0.05 }, unscored: [{ arm: "embed", label: "E", unscored: 0, n_rows: 9 }] };
+    render(<DetectorSection d={d} />);
+    expect(screen.getByText(/^Decision:/)).toHaveTextContent(/^Decision: not adopted; the detector stays dev-only\.$/);
+    expect(screen.getByText(/^Unscored rows/)).toHaveTextContent("Unscored rows (no finite score, excluded from rates): none.");
+    expect(screen.queryByText(/Registered arms not run/)).toBeNull();
   });
 });

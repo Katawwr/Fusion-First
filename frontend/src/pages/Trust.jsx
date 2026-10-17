@@ -205,6 +205,10 @@ function ms(x) {
 
 const flagged = (k, n, iv) => (n ? `${k} of ${n}, ${interval(iv)}` : "–");
 
+// A primary outcome to one decimal, so a value just under its bar never reads as meeting it.
+const pct1 = (x) => (x === null || x === undefined ? "–" : `${(x * 100).toFixed(1)}%`);
+const interval1 = (iv) => `${pct1(iv.point)} (${pct1(iv.low)}–${pct1(iv.high)})`;
+
 // Q5 of the Trust Report. A null block means the registered study is not scored yet.
 export function DetectorSection({ d }) {
   const title = "Trained detector vs the phrase list";
@@ -218,23 +222,26 @@ export function DetectorSection({ d }) {
       </Section>
     );
   }
-  const r = d.primary.injecagent_recall;
-  const f = d.primary.shipped_fpr;
+  const r = d.primary?.injecagent_recall;
+  const f = d.primary?.shipped_fpr;
+  const dec = d.decision || {};
   const absent = d.absent || [];
+  const unscored = (d.unscored || []).filter((u) => u.unscored > 0);
   return (
     <Section title={title}>
       <p className="mb-3 text-sm text-app-muted">
-        A small CPU classifier given the request, the tool name and the tool result in one frame. Each source is scored
-        by the fold model trained without it. Pre-registered, scored once on sealed rows
+        A small CPU classifier given the request, the tool name and the tool result in one frame. The
+        leave-one-source-out arm scores each source with the fold model trained without it; a row marked in-source
+        was scored by a model that trained on that source. Pre-registered, scored once on sealed rows
         {d.seal_digest ? ` (seal ${d.seal_digest.slice(0, 12)})` : ""}.
       </p>
       {/* Every count, rate and latency column in mono, including the "–" of a source without positives. */}
       <DataTable
         numeric={[2, 3, 4, 5, 6]}
         head={["Source", "Arm", "Injected texts flagged", "Benign texts flagged", "Distinct benign", "AUROC", "p50 latency"]}
-        rows={d.rows.map((x) => [
+        rows={(d.rows || []).map((x) => [
           x.source_label,
-          x.arm_label,
+          x.in_source ? `${x.arm_label} (in-source)` : x.arm_label,
           flagged(x.tp, x.n_pos, x.recall),
           flagged(x.fp, x.n_neg, x.fpr),
           x.n_neg ? x.distinct_neg : "–",
@@ -243,16 +250,23 @@ export function DetectorSection({ d }) {
         ])}
       />
       <p className="mt-3 text-xs text-app-subtle">
-        Decision: {d.decision.adopt ? "adopted as an observe-only signal" : "not adopted; the detector stays dev-only"}.
-        Unspent InjecAgent results, fold that never saw InjecAgent: {interval(r)} of {r.n} flagged (bar at least{" "}
-        {pct(d.decision.min_recall)}). Shipped model on {f.n} distinct benign tool results: {interval(f)} flagged (bar at
-        most {pct(d.decision.max_fpr)}).
+        Decision: {dec.adopt ? "adopted as an observe-only signal" : "not adopted; the detector stays dev-only"}.
+        {r &&
+          ` Unspent InjecAgent results, fold that never saw InjecAgent: ${r.tp} of ${r.n} flagged, ${interval1(r)} (bar at least ${pct(dec.min_recall)}).`}
+        {f &&
+          ` Shipped model on ${f.n} distinct benign tool results: ${f.fp} of ${f.n} flagged, ${interval1(f)} (bar at most ${pct(dec.max_fpr)}).`}
+      </p>
+      <p className="mt-1 text-xs text-app-subtle">
+        Unscored rows (no finite score, excluded from rates):{" "}
+        {unscored.length ? unscored.map((u) => `${u.label} ${u.unscored} of ${u.n_rows}`).join("; ") : "none"}.
       </p>
       {absent.length > 0 && (
         <p className="mt-1 text-xs text-app-subtle">Registered arms not run: {absent.map((a) => a.label).join(", ")}.</p>
       )}
       <p className="mt-1 text-xs text-app-subtle">
-        No adaptive-attack evaluation. deepset is in-distribution; AgentDojo is dev-only and not scored here.
+        No adaptive-attack evaluation. deepset is in-distribution; AgentDojo is dev-only and not scored here. Only
+        leave-one-source-out rows are claimed; InjecAgent's 62 attacker instructions and 17 tool-result templates
+        appear in both the training and the scored rows.
       </p>
     </Section>
   );

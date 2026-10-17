@@ -799,13 +799,26 @@ def _step4_site(root: pathlib.Path) -> dict | None:
 _DETECTOR_SOURCES = (("injecagent", "InjecAgent (unspent)"), ("bipia", "BIPIA in carriers"),
                      ("deepset", "deepset test (in-distribution)"), ("blind", "Blind negatives"))
 _DETECTOR_ARMS = (("b0_always_negative", "B0 always negative"), ("b1_phrase_list", "B1 phrase list (shipped)"),
-                  ("embed", "E embedding, leave-one-source-out"), ("embed_all", "E embedding, all sources (shipped model)"),
-                  ("finetune", "F fine-tune"), ("finetune_all", "F fine-tune, all sources"),
+                  ("embed", "E embedding, leave-one-source-out"), ("embed_all", "E embedding, all sources, shipped"),
+                  ("finetune", "F fine-tune, hold-out-InjecAgent fold"), ("finetune_all", "F fine-tune, all sources"),
                   ("llama_guard3_configured", "B2 Llama Guard 3, configured"),
                   ("llama_guard3_default", "B2 Llama Guard 3, off the shelf"),
                   ("protectai_deberta", "B3 ProtectAI deberta-v3"))
 _DETECTOR_ARM_NAMES = dict(_DETECTOR_ARMS)
+# Comma-free names for the arms inside a sentence that lists several of them.
+_DETECTOR_ARM_SHORT = {"b0_always_negative": "B0", "b1_phrase_list": "B1 phrase list",
+                       "embed": "E leave-one-source-out", "embed_all": "the E all-sources model",
+                       "finetune": "F hold-out-InjecAgent fold", "finetune_all": "the F all-sources model",
+                       "llama_guard3_configured": "B2 Llama Guard 3 configured",
+                       "llama_guard3_default": "B2 Llama Guard 3 off the shelf", "protectai_deberta": "B3 ProtectAI"}
 _DETECTOR_SOURCE_NAMES = dict(_DETECTOR_SOURCES)
+_DETECTOR_SOURCE_SHORT = {"injecagent": "InjecAgent", "bipia": "BIPIA", "deepset": "deepset", "blind": "blind"}
+# Trained on every dev source before the confirmatory pass: every row they score is in-source.
+_DETECTOR_ALL_SOURCES = ("embed_all", "finetune_all")
+# What the dev and confirmatory InjecAgent rows share (PREREG_detector_v1.md, "Sources, labels and splits": 17
+# tool-result templates x 62 attacker instructions, split by id).
+_INJECAGENT_SHARED = "62 attacker instructions and 17 tool-result templates"
+_TOOL_RESULT_NEGATIVES = ("injecagent", "blind", "bipia")  # outcome (2)'s sources; deepset negatives are prompts
 
 
 def _seal_digest(root: pathlib.Path) -> str | None:
@@ -834,8 +847,19 @@ def _ms(x: float | None) -> str:
     return f"{x:.1f} ms" if x >= 1 else ("<0.01 ms" if x < 0.01 else f"{x:.2f} ms")
 
 
+def _in_source(key: str, arm: dict, src: str) -> bool:
+    """True when the model that scored this arm's `src` rows trained on `src`'s dev rows: an all-sources model on
+    every source, and a fold arm on a source its scoring fold did not hold out (arm F registers only the
+    hold-out-InjecAgent and hold-out-AgentDojo folds, so its BIPIA, deepset and blind rows are in-source)."""
+    if key in _DETECTOR_ALL_SOURCES:
+        return True
+    fold = (arm.get("folds") or {}).get(src)
+    return bool(fold) and not fold.endswith(f"holdout_{src}")
+
+
 def _detector_rows(d: dict) -> list[dict]:
-    """One row per source x arm present in the envelope, sources first (InjecAgent, BIPIA, deepset, blind)."""
+    """One row per source x arm with at least one scored text, sources first (InjecAgent, BIPIA, deepset, blind).
+    A source x arm whose texts are all unscored has no rate to show: it is left out and counted in the unscored line."""
     arms = d.get("arms") or {}
     sources = {s for a in arms.values() for s in (a.get("per_source") or {})}
     out = []
@@ -843,16 +867,120 @@ def _detector_rows(d: dict) -> list[dict]:
         for key in _ordered(_DETECTOR_ARMS, set(arms)):
             arm = arms[key]
             s = (arm.get("per_source") or {}).get(src)
-            if s is None:
+            if s is None or not (s["n_pos"] or s["n_neg"]):
                 continue
             out.append({"source": src, "source_label": _DETECTOR_SOURCE_NAMES.get(src, src),
-                        "arm": key, "arm_label": _arm_name(key, arm),
+                        "arm": key, "arm_label": _arm_name(key, arm), "in_source": _in_source(key, arm, src),
                         "tp": s["tp"], "n_pos": s["n_pos"], "recall": s["recall"] if s["n_pos"] else None,
                         "fp": s["fp"], "n_neg": s["n_neg"], "fpr": s["fpr"] if s["n_neg"] else None,
-                        "distinct_neg": s.get("distinct_neg"),
+                        "distinct_neg": s.get("distinct_neg"), "unscored": s.get("unscored", 0),
                         "auroc": (arm.get("auroc_per_source") or {}).get(src),
                         "p50_ms": (arm.get("latency") or {}).get("p50_ms")})
     return out
+
+
+def _detector_unscored(d: dict) -> list[dict]:
+    """Per arm, in the registered order: rows without a finite score (excluded from that arm's rates, never counted
+    as caught) out of the rows the arm scores, and the sources left without any scored text."""
+    out = []
+    for key in _ordered(_DETECTOR_ARMS, set(d.get("arms") or {})):
+        arm = d["arms"][key]
+        n_rows = int(arm.get("n_rows") or 0)
+        empty = [src for src in _ordered(_DETECTOR_SOURCES, set(arm.get("per_source") or {}))
+                 if not (arm["per_source"][src]["n_pos"] or arm["per_source"][src]["n_neg"])]
+        out.append({"arm": key, "label": _arm_name(key, arm), "unscored": n_rows - int(arm.get("n_scored", n_rows)),
+                    "n_rows": n_rows, "sources_without_scores": empty})
+    return out
+
+
+def _unscored_sentence(d: dict) -> str:
+    head = "Unscored rows (no finite score; excluded from that arm's rates): "
+    rows = [u for u in _detector_unscored(d) if u["unscored"]]
+    if not rows:
+        return head + "none in any arm."
+    parts = [f"{u['label']} {u['unscored']} of {u['n_rows']}" for u in rows]
+    dropped = any(u["sources_without_scores"] for u in rows)
+    return head + "; ".join(parts) + ("; a source with no scored text has no table row." if dropped else ".")
+
+
+def _arm_cell(r: dict) -> str:
+    return r["arm_label"] + (" (in-source)" if r["in_source"] else "")
+
+
+def _rate1(k: int, n: int) -> str:
+    return f"{k / n * 100:.1f}%" if n else "–"
+
+
+def _short(key: str, arm: dict | None = None) -> str:
+    return _DETECTOR_ARM_SHORT.get(key) or _arm_name(key, arm)
+
+
+def _and(items: list[str]) -> str:
+    return ", ".join(items[:-1]) + " and " + items[-1] if len(items) > 1 else "".join(items)
+
+
+def _detector_findings(d: dict) -> list[str]:
+    """The InjecAgent rows in words: what flagged never-seen injections, and what the in-source rows measure."""
+    arms = d.get("arms") or {}
+    rows = [r for r in _detector_rows(d) if r["source"] == "injecagent" and r["n_pos"]]
+    unseen = [r for r in rows if not r["in_source"] and r["arm"] != "b0_always_negative"]
+    seen = [r for r in rows if r["in_source"]]
+    out = []
+    if unseen:
+        out.append("- Never-seen InjecAgent injections flagged, and false alarms on their benign minimal pairs (no arm "
+                   "here trained on InjecAgent): " + "; ".join(
+                       _short(r["arm"], arms.get(r["arm"]))
+                       + (", on its subsample," if (arms.get(r["arm"]) or {}).get("subsample_n") else "")
+                       + f" {r['tp']} of {r['n_pos']} flagged ({_rate1(r['tp'], r['n_pos'])}), {r['fp']} of {r['n_neg']}"
+                       f" false alarms ({_rate1(r['fp'], r['n_neg'])})" for r in unseen) + ".")
+    if seen:
+        out.append("- In-source InjecAgent rows: " + "; ".join(
+            f"{_short(r['arm'], arms.get(r['arm']))} {r['tp']} of {r['n_pos']} flagged ({_rate1(r['tp'], r['n_pos'])})"
+            for r in seen)
+            + f". These models trained on the dev InjecAgent rows, which share the {_INJECAGENT_SHARED} with the "
+            "confirmatory rows; the registration states that in-source numbers flatter any model and claims only the "
+            "leave-one-source-out numbers.")
+    return out
+
+
+def _in_source_limit(d: dict) -> str:
+    """Which rows are in-source, in words, from the envelope's own arms and folds."""
+    arms = d.get("arms") or {}
+    every = [_short(k, arms[k]) for k in _ordered(_DETECTOR_ARMS, set(arms)) if k in _DETECTOR_ALL_SOURCES]
+    parts = [f"{_and(every)} on every source"] if every else []
+    for key in _ordered(_DETECTOR_ARMS, set(arms)):
+        arm = arms[key]
+        srcs = [s for s in _ordered(_DETECTOR_SOURCES, set(arm.get("per_source") or {}))
+                if key not in _DETECTOR_ALL_SOURCES and _in_source(key, arm, s)]
+        if srcs:
+            folds = sorted({arm["folds"][s] for s in srcs})
+            parts.append(f"{_short(key, arm)} on {_and([_DETECTOR_SOURCE_SHORT.get(s, s) for s in srcs])} "
+                         f"(`{'`, `'.join(folds)}` trained on their dev rows)")
+    return "; rows marked in-source come from a model that trained on that source's dev rows: " + "; ".join(parts) \
+        if parts else ""
+
+
+def detector_doc_table(d: dict) -> str:
+    """The per-arm summary docs/DETECTOR.md quotes (a test checks it there verbatim): InjecAgent recall, false
+    positives on the tool-result negatives (InjecAgent minimal pairs, blind, BIPIA carrier controls), InjecAgent
+    AUROC and p50 latency, counts first."""
+    arms = d.get("arms") or {}
+    lines = ["| Arm | InjecAgent injections flagged | Benign tool results flagged | InjecAgent AUROC | p50 latency |",
+             "|---|---|---|---|---|"]
+    for key in _ordered(_DETECTOR_ARMS, set(arms)):
+        arm = arms[key]
+        per = arm.get("per_source") or {}
+        ia = per.get("injecagent") or {}
+        if not (ia.get("n_pos") or ia.get("n_neg")):
+            continue
+        fp = sum((per.get(s) or {}).get("fp", 0) for s in _TOOL_RESULT_NEGATIVES)
+        n = sum((per.get(s) or {}).get("n_neg", 0) for s in _TOOL_RESULT_NEGATIVES)
+        auroc = (arm.get("auroc_per_source") or {}).get("injecagent")
+        label = _arm_name(key, arm) + (" (in-source)" if _in_source(key, arm, "injecagent") else "")
+        lines.append(f"| {label} | {ia['tp']} of {ia['n_pos']} ({_rate1(ia['tp'], ia['n_pos'])}) | "
+                     f"{fp} of {n} ({_rate1(fp, n)}) | {'–' if auroc is None else format(auroc, '.2f')} | "
+                     f"{_ms((arm.get('latency') or {}).get('p50_ms'))} |")
+    return "\n".join(lines)
 
 
 def _flagged(k: int, n: int, iv: dict | None) -> str:
@@ -895,8 +1023,8 @@ def _detector_bottom_line(root: pathlib.Path) -> str:
     b1 = rows.get(("injecagent", "b1_phrase_list"))
     phrase = f", where the phrase list flagged {b1['tp']} of {b1['n_pos']}" if b1 and b1["n_pos"] else ""
     return (head + f"On unspent InjecAgent tool results from a source it never trained on, it flagged "
-            f"{r.get('tp', '–')} of {r.get('n', '–')}, {_iv(r)}{phrase}; the shipped model flagged {f.get('fp', '–')} of "
-            f"{f.get('n', '–')} distinct benign tool results, {_iv(f)}. Registered decision: "
+            f"{r.get('tp', '–')} of {r.get('n', '–')}, {_iv1(r)}{phrase}; the shipped model flagged {f.get('fp', '–')} of "
+            f"{f.get('n', '–')} distinct benign tool results, {_iv1(f)}. Registered decision: "
             f"{_detector_verdict(detector_decision(d)['adopt'])}.")
 
 
@@ -910,16 +1038,17 @@ def _q5(root: pathlib.Path) -> list[str]:
                        "is committed."), ""]
     arms = d.get("arms") or {}
     out += [(f"A small CPU classifier given the request, the tool name and the tool result in one frame, scored once on "
-             "the sealed confirmatory rows (each source by the fold model trained without it) beside the shipped phrase "
-             f"list and the other baselines below. Registered in {_registration(root, d)}; evidence: "
-             f"`{DETECTOR_EVIDENCE}`."), "",
+             "the sealed confirmatory rows beside the shipped phrase list and the other baselines below. The "
+             "leave-one-source-out arm scores each source with the fold model trained without it; a row marked "
+             "in-source was scored by a model that trained on that source's dev rows. Registered in "
+             f"{_registration(root, d)}; evidence: `{DETECTOR_EVIDENCE}`."), "",
             ("| Source | Arm | Injected texts flagged (recall) | Benign texts flagged (false-positive rate) "
              "| Distinct benign texts | AUROC | p50 latency |"), "|---|---|---|---|---|---|---|"]
     for r in _detector_rows(d):
-        out.append(f"| {r['source_label']} | {r['arm_label']} | {_flagged(r['tp'], r['n_pos'], r['recall'])} | "
+        out.append(f"| {r['source_label']} | {_arm_cell(r)} | {_flagged(r['tp'], r['n_pos'], r['recall'])} | "
                    f"{_flagged(r['fp'], r['n_neg'], r['fpr'])} | {r['distinct_neg'] if r['n_neg'] else '–'} | "
                    f"{'–' if r['auroc'] is None else format(r['auroc'], '.2f')} | {_ms(r['p50_ms'])} |")
-    out += ["", f"- {_detector_decision_sentence(d)}"]
+    out += ["", f"- {_detector_decision_sentence(d)}", *_detector_findings(d), f"- {_unscored_sentence(d)}"]
     absent = d.get("absent_arms") or {}
     if absent:
         out.append("- Registered arms not run: " + ", ".join(_arm_name(k) for k in _ordered(_DETECTOR_ARMS, set(absent)))
@@ -929,8 +1058,7 @@ def _q5(root: pathlib.Path) -> list[str]:
              "agent loop; no adaptive-attack evaluation, so a static result is expected to degrade against an attacker "
              "who adapts to the detector; the deepset test rows are in-distribution with respect to deepset's own "
              "training split; AgentDojo is dev-only (its held-out set is spent for the guard), so no AgentDojo row is "
-             "scored here; only the leave-one-source-out numbers are claimed (the shipped model saw every source in "
-             "training, so its recall rows are in-source)"
+             "scored here; only the leave-one-source-out numbers are claimed" + _in_source_limit(d)
              + ("; each Llama Guard 3 arm runs on its own stratified subsample with its own n." if lg3 else ".")), ""]
     return out
 
@@ -946,6 +1074,7 @@ def _detector_site(root: pathlib.Path) -> dict | None:
             "primary": {k: {f: v[f] for f in keep if f in v} for k, v in (d.get("primary") or {}).items()},
             "decision": {"adopt": dec["adopt"], "rule": dec["rule"], "min_recall": DETECTOR_MIN_RECALL,
                          "max_fpr": DETECTOR_MAX_FPR},
+            "unscored": [{k: u[k] for k in ("arm", "label", "unscored", "n_rows")} for u in _detector_unscored(d)],
             "absent": [{"arm": k, "label": _arm_name(k), "reason": (d.get("absent_arms") or {})[k]}
                        for k in _ordered(_DETECTOR_ARMS, set(d.get("absent_arms") or {}))]}
 

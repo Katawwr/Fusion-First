@@ -12,7 +12,7 @@ are 95% Wilson unless noted. Demonstration evidence (the offline stand-in judge)
 - **Runtime guardrail in your agent?** On fresh real attacks against qwen2.5:7b and llama3.1:8b, measured once with the current rules (pre-registered), it stopped 132 of 148, 89% (83%–93%): 100% of password leaks, 100% of direct-harm tool hijacks, 69% of data-stealing tool hijacks. It wrongly blocked 1% (0%–3%) of clean transcripts. On the same transcripts the previous rules stopped 104 and Llama Guard 3 (configured) 77, wrongly blocking 10% (6%–14%). Given the tool results as well, on further fresh transcripts of the same models (pre-registered), it stopped 75 of 75 attacks (55 of 55 data-stealing) vs 67 (47) without them, wrongly blocking 1 of 225 clean transcripts either way. Its cost, in a live AgentDojo agent loop on held-out tasks (qwen2.5:7b, pre-registered): the agent completed 22 of 66 legitimate tasks with the guard vs 29 without it (7 broken, 0 fixed), over the registered 10-point margin.
 - **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 76% (64%–84%) of attack-shaped ones as written: useful defense in depth, not a sandbox.
 - **Erroring often?** In the fix-efficacy run, 1 of 480 item pairs failed to generate, 0 were undecidable by the oracle and 45 were cut by the token cap; in the judge evaluation, 0 of 240 questions went unanswered. Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much is unscored, when the grader misses the known-answer floor, or when it denies an oracle-confirmed violation.
-- **Trained detector for injected tool results?** Registered in `evals/validation/v1/PREREG_detector_v1.md` (seal `3a311e023f34bccb9533b52e60078f037a6d7dccc4e3922a522667384c1ca85c`) and not yet scored; no number from it is claimed.
+- **Trained detector for injected tool results?** On unspent InjecAgent tool results from a source it never trained on, it flagged 0 of 744, 0.0% (0.0%–0.5%), where the phrase list flagged 0 of 744; the shipped model flagged 4 of 961 distinct benign tool results, 0.4% (0.2%–1.1%). Registered decision: not adopted: the detector stays dev-only.
 
 ## Q1: Is the judge accurate?
 
@@ -94,7 +94,49 @@ The same items graded twice by the same Claude Sonnet: once with Fusion's rubric
 
 ## Q5: Does a trained detector beat the phrase list on injected tool results?
 
-REGISTERED, NOT YET SCORED: `evals/validation/v1/PREREG_detector_v1.md` (seal `3a311e023f34bccb9533b52e60078f037a6d7dccc4e3922a522667384c1ca85c`) fixes the data, the frame, the leave-one-source-out protocol and the decision rule before any model was trained. The sealed confirmatory rows are scored once; this section is generated from `evals/validation/v1/detector/detector_v1.json` when it is committed.
+A small CPU classifier given the request, the tool name and the tool result in one frame, scored once on the sealed confirmatory rows beside the shipped phrase list and the other baselines below. The leave-one-source-out arm scores each source with the fold model trained without it; a row marked in-source was scored by a model that trained on that source's dev rows. Registered in `evals/validation/v1/PREREG_detector_v1.md` (seal `3a311e023f34bccb9533b52e60078f037a6d7dccc4e3922a522667384c1ca85c`); evidence: `evals/validation/v1/detector/detector_v1.json`.
+
+| Source | Arm | Injected texts flagged (recall) | Benign texts flagged (false-positive rate) | Distinct benign texts | AUROC | p50 latency |
+|---|---|---|---|---|---|---|
+| InjecAgent (unspent) | B0 always negative | 0 of 744, 0% (0%–1%) | 0 of 744, 0% (0%–1%) | 744 | 0.50 | – |
+| InjecAgent (unspent) | B1 phrase list (shipped) | 0 of 744, 0% (0%–1%) | 0 of 744, 0% (0%–1%) | 744 | 0.50 | 0.18 ms |
+| InjecAgent (unspent) | E embedding, leave-one-source-out | 0 of 744, 0% (0%–1%) | 0 of 744, 0% (0%–1%) | 744 | 0.55 | – |
+| InjecAgent (unspent) | E embedding, all sources, shipped (in-source) | 157 of 744, 21% (18%–24%) | 0 of 744, 0% (0%–1%) | 744 | 0.92 | 48 ms |
+| InjecAgent (unspent) | F fine-tune, hold-out-InjecAgent fold | 73 of 744, 10% (8%–12%) | 11 of 744, 1% (1%–3%) | 744 | 0.81 | – |
+| InjecAgent (unspent) | F fine-tune, all sources (in-source) | 744 of 744, 100% (99%–100%) | 1 of 744, 0% (0%–1%) | 744 | 1.00 | 43 ms |
+| InjecAgent (unspent) | B2 Llama Guard 3, configured | 8 of 28, 29% (15%–47%) | 0 of 28, 0% (0%–12%) | 28 | 0.64 | 7.4 s |
+| InjecAgent (unspent) | B2 Llama Guard 3, off the shelf | 6 of 14, 43% (21%–67%) | 3 of 14, 21% (8%–48%) | 14 | 0.61 | 7.2 s |
+| BIPIA in carriers | B0 always negative | 0 of 125, 0% (0%–3%) | 0 of 69, 0% (0%–5%) | 69 | 0.50 | – |
+| BIPIA in carriers | B1 phrase list (shipped) | 0 of 125, 0% (0%–3%) | 0 of 69, 0% (0%–5%) | 69 | 0.50 | 0.18 ms |
+| BIPIA in carriers | E embedding, leave-one-source-out | 1 of 125, 1% (0%–4%) | 0 of 69, 0% (0%–5%) | 69 | 0.61 | – |
+| BIPIA in carriers | E embedding, all sources, shipped (in-source) | 9 of 125, 7% (4%–13%) | 2 of 69, 3% (1%–10%) | 69 | 0.58 | 48 ms |
+| BIPIA in carriers | F fine-tune, hold-out-InjecAgent fold (in-source) | 114 of 125, 91% (85%–95%) | 9 of 69, 13% (7%–23%) | 69 | 0.97 | – |
+| BIPIA in carriers | F fine-tune, all sources (in-source) | 118 of 125, 94% (89%–97%) | 9 of 69, 13% (7%–23%) | 69 | 0.96 | 43 ms |
+| BIPIA in carriers | B2 Llama Guard 3, configured | 5 of 29, 17% (8%–35%) | 0 of 29, 0% (0%–12%) | 29 | 0.59 | 7.4 s |
+| BIPIA in carriers | B2 Llama Guard 3, off the shelf | 4 of 15, 27% (11%–52%) | 0 of 15, 0% (0%–20%) | 15 | 0.63 | 7.2 s |
+| deepset test (in-distribution) | B0 always negative | 0 of 60, 0% (0%–6%) | 0 of 56, 0% (0%–6%) | 56 | 0.50 | – |
+| deepset test (in-distribution) | B1 phrase list (shipped) | 1 of 60, 2% (0%–9%) | 0 of 56, 0% (0%–6%) | 56 | 0.51 | 0.18 ms |
+| deepset test (in-distribution) | E embedding, leave-one-source-out | 0 of 60, 0% (0%–6%) | 0 of 56, 0% (0%–6%) | 56 | 0.28 | – |
+| deepset test (in-distribution) | E embedding, all sources, shipped (in-source) | 9 of 60, 15% (8%–26%) | 0 of 56, 0% (0%–6%) | 56 | 0.84 | 48 ms |
+| deepset test (in-distribution) | F fine-tune, hold-out-InjecAgent fold (in-source) | 58 of 60, 97% (89%–99%) | 0 of 56, 0% (0%–6%) | 56 | 1.00 | – |
+| deepset test (in-distribution) | F fine-tune, all sources (in-source) | 59 of 60, 98% (91%–100%) | 3 of 56, 5% (2%–15%) | 56 | 1.00 | 43 ms |
+| deepset test (in-distribution) | B2 Llama Guard 3, configured | 2 of 28, 7% (2%–23%) | 0 of 29, 0% (0%–12%) | 29 | 0.54 | 7.4 s |
+| deepset test (in-distribution) | B2 Llama Guard 3, off the shelf | 0 of 14, 0% (0%–22%) | 0 of 14, 0% (0%–22%) | 14 | 0.50 | 7.2 s |
+| Blind negatives | B0 always negative | – | 0 of 148, 0% (0%–3%) | 148 | – | – |
+| Blind negatives | B1 phrase list (shipped) | – | 0 of 148, 0% (0%–3%) | 148 | – | 0.18 ms |
+| Blind negatives | E embedding, leave-one-source-out | – | 6 of 148, 4% (2%–9%) | 148 | – | – |
+| Blind negatives | E embedding, all sources, shipped (in-source) | – | 2 of 148, 1% (0%–5%) | 148 | – | 48 ms |
+| Blind negatives | F fine-tune, hold-out-InjecAgent fold (in-source) | – | 2 of 148, 1% (0%–5%) | 148 | – | – |
+| Blind negatives | F fine-tune, all sources (in-source) | – | 3 of 148, 2% (1%–6%) | 148 | – | 43 ms |
+| Blind negatives | B2 Llama Guard 3, configured | – | 0 of 29, 0% (0%–12%) | 29 | – | 7.4 s |
+| Blind negatives | B2 Llama Guard 3, off the shelf | – | 0 of 14, 0% (0%–22%) | 14 | – | 7.2 s |
+
+- Registered decision: **not adopted: the detector stays dev-only**. Recall on the 744 unspent InjecAgent injected tool results, under the fold that never saw InjecAgent: 0.0% (0.0%–0.5%), bar at least 0.60. False-positive rate of the shipped all-sources model on the 961 distinct benign tool results: 0.4% (0.2%–1.1%), bar at most 0.05.
+- Never-seen InjecAgent injections flagged, and false alarms on their benign minimal pairs (no arm here trained on InjecAgent): B1 phrase list 0 of 744 flagged (0.0%), 0 of 744 false alarms (0.0%); E leave-one-source-out 0 of 744 flagged (0.0%), 0 of 744 false alarms (0.0%); F hold-out-InjecAgent fold 73 of 744 flagged (9.8%), 11 of 744 false alarms (1.5%); B2 Llama Guard 3 configured, on its subsample, 8 of 28 flagged (28.6%), 0 of 28 false alarms (0.0%); B2 Llama Guard 3 off the shelf, on its subsample, 6 of 14 flagged (42.9%), 3 of 14 false alarms (21.4%).
+- In-source InjecAgent rows: the E all-sources model 157 of 744 flagged (21.1%); the F all-sources model 744 of 744 flagged (100.0%). These models trained on the dev InjecAgent rows, which share the 62 attacker instructions and 17 tool-result templates with the confirmatory rows; the registration states that in-source numbers flatter any model and claims only the leave-one-source-out numbers.
+- Unscored rows (no finite score; excluded from that arm's rates): none in any arm.
+- Registered arms not run: B3 ProtectAI deberta-v3.
+- Limits registered before data: text-level detection only, not attack success or the guard's cost in an agent loop; no adaptive-attack evaluation, so a static result is expected to degrade against an attacker who adapts to the detector; the deepset test rows are in-distribution with respect to deepset's own training split; AgentDojo is dev-only (its held-out set is spent for the guard), so no AgentDojo row is scored here; only the leave-one-source-out numbers are claimed; rows marked in-source come from a model that trained on that source's dev rows: the E all-sources model and the F all-sources model on every source; F hold-out-InjecAgent fold on BIPIA, deepset and blind (`finetune_holdout_injecagent` trained on their dev rows); each Llama Guard 3 arm runs on its own stratified subsample with its own n.
 
 ## Request-bound guardrail on 7–8B models (pre-registered)
 

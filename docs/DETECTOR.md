@@ -1,9 +1,9 @@
 # Tool-result injection detector (v1)
 
 A small CPU classifier that scores one untrusted text, such as a tool result, for injected instructions. It is
-registered in [`evals/validation/v1/PREREG_detector_v1.md`](../evals/validation/v1/PREREG_detector_v1.md) and is
-dev-only until its registered result is committed. If the registered rule is met it becomes an observe-only
-`guard_input` signal: it adds an event and never changes a guard decision.
+registered in [`evals/validation/v1/PREREG_detector_v1.md`](../evals/validation/v1/PREREG_detector_v1.md). The
+registered rule was not met (see [Registered result](#registered-result)), so it stays dev-only. Had it been met, the
+detector would have become an observe-only `guard_input` signal: an event that never changes a guard decision.
 
 ## Why train one
 
@@ -87,9 +87,39 @@ time per reply.
 
 ## Registered result
 
-Filled when `evals/validation/v1/detector/detector_v1.json` is committed. Until then no number from this study is
-claimed. The Trust Report (Q5) and the site's Trust page are generated from that file, and any number quoted here
-will be registered in `evals/claims.yaml`.
+Scored once on the sealed confirmatory rows at git `90b4cc7`. Evidence:
+[`evals/validation/v1/detector/detector_v1.json`](../evals/validation/v1/detector/detector_v1.json). The Trust
+Report (Q5) and the site's Trust page show every arm by source with 95% Wilson intervals.
+
+Registered decision: not adopted; the detector stays dev-only.
+
+- Primary (1), arm E under the fold that never saw InjecAgent, against a bar of at least 0.60:
+  flagged 0 of 744 never-seen InjecAgent injections, recall 0.0% (95% CI 0.0% to 0.5%).
+- Primary (2), the shipped all-sources model, against a bar of at most 0.05:
+  flagged 4 of 961 distinct benign tool results, false-positive rate 0.4% (95% CI 0.2% to 1.1%).
+- The phrase list flagged 0 of 744 on the same InjecAgent rows.
+
+| Arm | InjecAgent injections flagged | Benign tool results flagged | InjecAgent AUROC | p50 latency |
+|---|---|---|---|---|
+| B0 always negative | 0 of 744 (0.0%) | 0 of 961 (0.0%) | 0.50 | – |
+| B1 phrase list (shipped) | 0 of 744 (0.0%) | 0 of 961 (0.0%) | 0.50 | 0.18 ms |
+| E embedding, leave-one-source-out | 0 of 744 (0.0%) | 6 of 961 (0.6%) | 0.55 | – |
+| E embedding, all sources, shipped (in-source) | 157 of 744 (21.1%) | 4 of 961 (0.4%) | 0.92 | 48 ms |
+| F fine-tune, hold-out-InjecAgent fold | 73 of 744 (9.8%) | 22 of 961 (2.3%) | 0.81 | – |
+| F fine-tune, all sources (in-source) | 744 of 744 (100.0%) | 13 of 961 (1.4%) | 1.00 | 43 ms |
+| B2 Llama Guard 3, configured | 8 of 28 (28.6%) | 0 of 86 (0.0%) | 0.64 | 7.4 s |
+| B2 Llama Guard 3, off the shelf | 6 of 14 (42.9%) | 3 of 43 (7.0%) | 0.61 | 7.2 s |
+
+The table is generated from the evidence (`fusion_first.validate.trust_report.detector_doc_table`) and a test checks
+it here. Benign tool results are the 961 tool-result negatives (744 InjecAgent minimal pairs, 148 blind, 69 carrier
+controls); a Llama Guard 3 arm counts those in its own stratified subsample. The fold arms have no latency of their
+own in the evidence, which gives it as the matching all-sources model's.
+
+On never-seen InjecAgent injections the registered embedding arm and the phrase list flag none; the fine-tune fold
+and Llama Guard 3 flag some, Llama Guard 3 on small subsamples. The all-sources models trained on the dev InjecAgent
+rows, which share the 62 attacker instructions and 17 tool-result templates with the confirmatory rows: that is the
+in-source caveat the registration states, and their rows are not claimed. B3 (ProtectAI) was not run: its model
+download needs the owner's approval.
 
 ## Limits
 
@@ -97,8 +127,11 @@ will be registered in `evals/claims.yaml`.
   loop. The AgentDojo cost result in the Trust Report stands.
 - No adaptive-attack evaluation. A static result is expected to degrade against an attacker who adapts to the
   detector.
-- InjecAgent shares 62 attacker instructions across its rows and AgentDojo one wrapper, so in-source numbers flatter
-  any model. Only leave-one-source-out numbers are claimed.
+- InjecAgent's 62 attacker instructions and 17 tool-result templates appear in both the dev and the confirmatory
+  rows, and AgentDojo shares one wrapper, so in-source numbers flatter any model. Only leave-one-source-out numbers
+  are claimed.
+- Arm F registers only the hold-out-InjecAgent and hold-out-AgentDojo folds, so its BIPIA, deepset and blind rows are
+  scored by the hold-out-InjecAgent fold, which trained on those sources: they are in-source.
 - deepset is in-distribution with respect to its own training split. Its German rows are the only non-English data,
   so there is no multilingual claim.
 - AgentDojo is dev-only: its held-out set is spent for the guard.
@@ -109,8 +142,8 @@ will be registered in `evals/claims.yaml`.
 
 ## What is and is not claimed
 
-Claimed once committed: the registered decision and the numbers in `detector_v1.json`, quoted only through
-`evals/claims.yaml`.
+Claimed: the registered decision and the numbers quoted under Registered result, each registered in
+`evals/claims.yaml` against `detector_v1.json`.
 
 Not claimed: any development number, any in-source number as generalisation, robustness to adaptive attacks,
 multilingual detection, fewer successful attacks, or that the detector blocks anything. It is observe-only; the guard's
@@ -118,7 +151,10 @@ rules keep the decision.
 
 ## Files
 
-- `evals/validation/v1/PREREG_detector_v1.md`: the registration.
+- `evals/validation/v1/PREREG_detector_v1.md`: the registration; `evals/validation/v1/PREREG_LEDGER.md` shows its
+  commit preceding every evidence file.
+- `evals/validation/v1/detector/detector_v1.json`: the registered result, with the per-row `scores.jsonl` and Llama
+  Guard 3's `lg3_raw.jsonl` and `lg3_subsample.json`; `dev_loso.json` is diagnostic.
 - `scripts/detector_data.py`, `scripts/detector_train.py`, `scripts/detector_lg3.py`, `scripts/detector_score.py`:
   build the rows, train, run Llama Guard 3, score the confirmatory rows once (dev-only).
 - `fusion_first/validate/detector_*.py`: the systems, the evaluation and the confirmatory scorer;
