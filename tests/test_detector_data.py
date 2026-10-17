@@ -4,6 +4,7 @@ registered split rules, minimal pairs and dedup. Synthetic fixtures for the rule
 from __future__ import annotations
 
 import ast
+import datetime
 import json
 import pathlib
 import runpy
@@ -12,8 +13,10 @@ import shutil
 import pytest
 
 from fusion_first.validate import detector_data as dd
+from fusion_first.validate.seal import load_seal, load_seal_meta, seal_digest, verify_seal
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+INTACT = {"changed": [], "missing": [], "added": []}
 EXTERNAL = ROOT / "datasets/external"
 HELDOUT = ROOT / "evals/validation/v1/agentdojo/heldout"
 KEYS = ["id", "source", "split", "technique", "request", "tool", "text", "label", "provenance"]
@@ -469,3 +472,123 @@ def test_real_build_without_the_blind_dir(tmp_path):
     assert manifest["counts"]["agentdojo"]["dev"]["1"] > 0 and "confirmatory" not in manifest["counts"]["agentdojo"]
     assert manifest["skipped"]["agentdojo"]["guard_message"] > 0  # the held-out arms ran with the guard on
     assert not [r for r in rows if "Blocked by the runtime guard" in r["text"]]
+
+
+
+# ---------------------------------------------------------------- the seal
+
+
+SEAL = ROOT / "evals/validation/v1/detector/confirmatory.seal.json"
+CONFIRMATORY_ROWS = ROOT / "datasets/detector/v1/confirmatory.jsonl"
+SEAL_META_KEYS = {"sources", "blind_files", "git_sha", "built", "preregistration", "frame"}
+
+
+@pytest.mark.unit
+def test_frame_constant_is_what_render_frame_renders():
+    assert dd.FRAME == "[REQUEST] {request} [TOOL] {tool} [RESULT] {text}"
+    assert dd.render_frame({"request": "{request}", "tool": "{tool}", "text": "{text}"}) == dd.FRAME
+
+
+def _built(tmp_path):
+    """The CLI module and a dataset it built from the synthetic tree."""
+    tree = _write_tree(tmp_path)
+    cli = runpy.run_path(str(ROOT / "scripts/detector_data.py"), run_name="detector_data")
+    out = tmp_path / "out"
+    assert cli["main"](["build", "--out", str(out), "--blind", str(tree["blind_dir"]),
+                        "--agentdojo-heldout", str(tree["agentdojo_dirs"][0]), "--agentdojo-dev", str(tmp_path / "nope"),
+                        "--external", str(tree["external_dir"])]) == 0
+    return cli, out, tree["blind_dir"]
+
+
+@pytest.mark.unit
+def test_cli_seal_writes_a_loadable_seal_of_the_confirmatory_rows_with_its_meta(tmp_path, capsys):
+    cli, out, blind = _built(tmp_path)
+    seal_path = tmp_path / "seal" / "confirmatory.seal.json"
+    capsys.readouterr()
+    assert cli["main"](["seal", "--out", str(out), "--seal", str(seal_path), "--blind", str(blind)]) == 0
+    conf = dd.read_jsonl(out / "confirmatory.jsonl")
+    seal = load_seal(seal_path)
+    assert len(seal) == len(conf) and verify_seal(conf, seal, split="confirmatory") == INTACT
+    printed = json.loads(capsys.readouterr().out)
+    assert (printed["n_rows"], printed["digest"]) == (len(conf), seal_digest(seal))
+
+    meta = load_seal_meta(seal_path)
+    assert set(meta) == SEAL_META_KEYS
+    assert meta["frame"] == dd.FRAME
+    assert meta["preregistration"] == "evals/validation/v1/PREREG_detector_v1.md"
+    assert len(meta["git_sha"]) == 40 and meta["built"] == datetime.date.today().isoformat()
+    assert meta["blind_files"] == {"fillers_c.jsonl": len(FILLERS), "carriers_c.jsonl": 10,
+                                   "author_a.jsonl": len(AUTHORS)}
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert "agentdojo" not in meta["sources"]  # never confirmatory
+    for source, block in meta["sources"].items():
+        counts = manifest["counts"][source]["confirmatory"]
+        distinct = manifest["distinct_texts"][source]["confirmatory"]
+        assert block == {"pos": counts["1"], "neg": counts["0"], "distinct_pos": distinct["1"],
+                         "distinct_neg": distinct["0"]}
+        mine = [r for r in conf if r["source"] == source]
+        assert block == {"pos": sum(r["label"] == 1 for r in mine), "neg": sum(r["label"] == 0 for r in mine),
+                         "distinct_pos": len({r["text"] for r in mine if r["label"] == 1}),
+                         "distinct_neg": len({r["text"] for r in mine if r["label"] == 0})}
+    assert sum(b["pos"] + b["neg"] for b in meta["sources"].values()) == len(conf)
+
+
+@pytest.mark.unit
+def test_cli_seal_refuses_to_overwrite_a_seal_without_force(tmp_path, capsys):
+    cli, out, blind = _built(tmp_path)
+    seal_path = tmp_path / "confirmatory.seal.json"
+    args = ["seal", "--out", str(out), "--seal", str(seal_path), "--blind", str(blind)]
+    assert cli["main"](args) == 0
+    sealed = seal_path.read_bytes()
+    capsys.readouterr()
+    assert cli["main"](args) != 0
+    assert "--force" in capsys.readouterr().err
+    assert seal_path.read_bytes() == sealed
+    assert cli["main"]([*args, "--force"]) == 0
+
+
+@pytest.mark.unit
+def test_cli_seal_refuses_a_manifest_that_does_not_describe_the_rows(tmp_path, capsys):
+    cli, out, blind = _built(tmp_path)
+    manifest_path = out / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["counts"]["deepset"]["confirmatory"]["1"] += 1
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    seal_path = tmp_path / "confirmatory.seal.json"
+    capsys.readouterr()
+    assert cli["main"](["seal", "--out", str(out), "--seal", str(seal_path), "--blind", str(blind)]) != 0
+    assert "manifest" in capsys.readouterr().err and not seal_path.exists()
+
+
+@pytest.mark.unit
+def test_cli_seal_refuses_a_blind_file_changed_since_the_build(tmp_path, capsys):
+    cli, out, blind = _built(tmp_path)
+    _jsonl(blind / "author_a.jsonl", [*AUTHORS, dict(AUTHORS[0], id="auth-late", text="Added after the build.")])
+    seal_path = tmp_path / "confirmatory.seal.json"
+    capsys.readouterr()
+    assert cli["main"](["seal", "--out", str(out), "--seal", str(seal_path), "--blind", str(blind)]) != 0
+    assert "author_a.jsonl" in capsys.readouterr().err and not seal_path.exists()
+
+
+@pytest.mark.unit
+def test_cli_seal_refuses_a_dev_row_in_the_confirmatory_file(tmp_path, capsys):
+    cli, out, blind = _built(tmp_path)
+    conf = out / "confirmatory.jsonl"
+    rows = dd.read_jsonl(conf)
+    rows[0]["split"] = "dev"
+    _jsonl(conf, rows)
+    seal_path = tmp_path / "confirmatory.seal.json"
+    capsys.readouterr()
+    assert cli["main"](["seal", "--out", str(out), "--seal", str(seal_path), "--blind", str(blind)]) != 0
+    assert "confirmatory rows only" in capsys.readouterr().err and not seal_path.exists()
+
+
+@pytest.mark.integration
+def test_confirmatory_seal_intact():
+    """The committed confirmatory rows are exactly the rows the registration sealed."""
+    if not SEAL.is_file():
+        pytest.skip(f"no committed seal yet ({SEAL.relative_to(ROOT).as_posix()}); written by "
+                    "`python scripts/detector_data.py seal` when the registration is committed")
+    assert CONFIRMATORY_ROWS.is_file(), "the seal is committed but the confirmatory rows it seals are not"
+    diff = verify_seal(dd.read_jsonl(CONFIRMATORY_ROWS), load_seal(SEAL), split="confirmatory")
+    assert diff == INTACT, diff

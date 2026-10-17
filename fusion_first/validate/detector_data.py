@@ -54,10 +54,13 @@ def span_unreliable(span: list[int], text: str) -> bool:
     n = span[1] - span[0]
     return n > MAX_RELIABLE_SPAN_CHARS or n > MAX_RELIABLE_SPAN_SHARE * len(text)
 
+FILLERS_FILE = "fillers_c.jsonl"  # the InjecAgent minimal-pair fillers in the blind dir
+FRAME = "[REQUEST] {request} [TOOL] {tool} [RESULT] {text}"  # registered; the seal records it verbatim
+
 
 def render_frame(row: dict) -> str:
     """The single input frame for every row and every system."""
-    return f"[REQUEST] {row.get('request') or NONE} [TOOL] {row.get('tool') or NONE} [RESULT] {row['text']}"
+    return FRAME.format(request=row.get("request") or NONE, tool=row.get("tool") or NONE, text=row["text"])
 
 
 def read_jsonl(path: pathlib.Path) -> list[dict]:
@@ -387,7 +390,7 @@ def _dropped(before: dict, after: dict) -> dict:
 
 
 def _blind_inputs(blind_dir: pathlib.Path) -> tuple[pathlib.Path | None, list, list]:
-    fillers = blind_dir / "fillers_c.jsonl"
+    fillers = blind_dir / FILLERS_FILE
     return (fillers if fillers.is_file() else None, sorted(blind_dir.glob("carriers_*.jsonl")),
             sorted(blind_dir.glob("author_*.jsonl")))
 
