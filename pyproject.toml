@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fusion-safety"
-version = "0.1.0"
+version = "0.1.1"
 description = "Measure and guard AI agents: safety and quality evaluation with a runtime guardrail"
 readme = "PYPI.md"  # the PyPI page; README.md is the repository page
 requires-python = ">=3.11"
@@ -12,8 +12,12 @@ license = { text = "MIT" }
 authors = [{ name = "Fusion First" }]
 keywords = ["llm", "ai-safety", "agentic", "owasp", "prompt-injection", "guardrail", "red-team", "mcp"]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Security",
     "Topic :: Software Development :: Quality Assurance",
 ]
@@ -32,6 +36,8 @@ fusion-mcp = "fusion_first.integrations.mcp_server:main"
 Homepage = "https://fusion-first-testing.com"
 Documentation = "https://fusion-first-testing.com/use"
 "Trust Report" = "https://fusion-first-testing.com/trust"
+Source = "https://github.com/Katawwr/Fusion-First"
+Issues = "https://github.com/Katawwr/Fusion-First/issues"
 
 [project.optional-dependencies]
 # METERED provider SDKs: only reachable with `--backend api` AND FUSION_ALLOW_API_SPEND=1.

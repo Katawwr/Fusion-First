@@ -417,6 +417,31 @@ def test_one_version_for_the_package_the_app_and_the_plugin_pin():
 
 
 @pytest.mark.unit
+def test_the_published_metadata_says_mit_and_links_the_source():
+    """PyPI shows these: 0.1.0 shipped a Proprietary classifier while the repository is MIT."""
+    import re
+    import tomllib
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    classifiers = project["classifiers"]
+    assert "License :: OSI Approved :: MIT License" in classifiers
+    assert not [c for c in classifiers if "Proprietary" in c]
+    assert "MIT" in str(project["license"]) and (ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License")
+    pythons = [c.rsplit(" ", 1)[1] for c in classifiers if re.fullmatch(r"Programming Language :: Python :: 3\.\d+", c)]
+    assert pythons == ["3.11", "3.12", "3.13"] and project["requires-python"] == ">=3.11"
+    assert project["urls"]["Source"] == "https://github.com/Katawwr/Fusion-First"
+    assert project["urls"]["Issues"] == "https://github.com/Katawwr/Fusion-First/issues"
+
+
+@pytest.mark.unit
+def test_the_changelog_has_an_entry_for_this_release():
+    import fusion_first
+
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert f"## [{fusion_first.__version__}]" in text and chr(0x2014) not in text
+
+
+@pytest.mark.unit
 def test_a_pip_installed_web_app_reports_its_release_not_dev(monkeypatch):
     """Modal sets VERSION; a `fusion serve` from a pip install has none, and "dev" names no release."""
     pytest.importorskip("pydantic_settings")

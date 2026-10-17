@@ -13,7 +13,8 @@
   <a href="https://fusion-first-testing.com">Site</a> ·
   <a href="https://fusion-first-testing.com/trust">Evidence</a> ·
   <a href="docs/RUN_LOCALLY.md">Run Locally</a> ·
-  <a href="https://pypi.org/project/fusion-safety/">PyPI</a>
+  <a href="https://pypi.org/project/fusion-safety/">PyPI</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center">

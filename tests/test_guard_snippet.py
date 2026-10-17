@@ -113,6 +113,22 @@ def test_tool_calls_are_checked_against_the_users_own_request_after_untrusted_co
     assert re.search(r"guard_tool_call\([^)]*user_request=user_message[^)]*untrusted_context=True", code, re.S)
 
 
+@pytest.mark.unit
+def test_the_pypi_page_shows_the_readmes_guard_call_on_the_current_signature():
+    """PYPI.md is a separate file from the README: both show one call, with keywords the real method takes."""
+    import inspect
+
+    from fusion_first.guardrail.guard import Guardrail
+
+    def call(doc: str) -> str:
+        text = (ROOT / doc).read_text(encoding="utf-8")
+        return " ".join(re.search(r"guard\.guard_tool_call\((.*?)\)", text, re.S).group(1).split())
+
+    assert call("PYPI.md") == call("README.md")
+    keywords = set(re.findall(r"(\w+)=", call("README.md")))
+    assert "untrusted_text" in keywords and keywords <= set(inspect.signature(Guardrail.guard_tool_call).parameters)
+
+
 def _guard_docs() -> dict[str, str]:
     docs = {p: (ROOT / p).read_text(encoding="utf-8") for p in (
         "README.md", "integrations/README.md", "plugins/fusion/README.md", "plugins/fusion/skills/guard/SKILL.md")}
