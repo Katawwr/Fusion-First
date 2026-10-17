@@ -83,7 +83,8 @@ fusion_first = ["model/models.yaml",  # the model registry (roles, allowlist)
 testpaths = ["tests"]
 asyncio_mode = "auto"
 # Live tests spend real (subscription) model calls: opt in explicitly with `-m live`.
-addopts = "-m 'not live'"
+# Slow tests load a real local model from the Hugging Face cache: opt in with `-m slow`.
+addopts = "-m 'not live and not slow'"
 markers = [
     "unit: fast, pure, no I/O",
     "integration: cross-module, still offline (cassette-replayed)",

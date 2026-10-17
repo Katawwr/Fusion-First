@@ -2,16 +2,25 @@
 
     python scripts/detector_train.py --arm embed --loso [--data datasets/detector/v1/dev.jsonl]
         [--out evals/validation/v1/detector/dev_loso.json] [--models .fusion/detector-models]
+        [--cache .fusion/detector-cache]
     python scripts/detector_train.py --arm b0 --loso      # always-negative
     python scripts/detector_train.py --arm b1 --loso      # the shipped phrase list (raw text)
 
 One fold per source present in the dev file. For each held-out source the embed arm trains on the other sources'
-dev rows, fixes the threshold at 1% false-positive rate on those training sources' dev negatives
-(`operating_threshold_at_fpr`), scores the held-out source's rows and saves the fold model to
-`<models>/holdout_<source>/`; it also trains the all-sources model on every dev row (threshold at 1% FPR on all dev
-negatives) and saves it to `<models>/all/`. The baselines train nothing and keep their own fixed decision (flag on a
-score of 1.0: a phrase-list match; always-negative never flags). Each arm is written into the one JSON under
-`arms.<arm>`, keeping the other arms. Everything there is DIAGNOSTIC and never quoted.
+dev rows (chunk labels per PREREG "Long texts"; a long positive without a reliable span is left out of training and
+counted per source in `excluded_unreliable_span_positives`), fixes the threshold at 1% false-positive rate on those
+training sources' dev negatives (`operating_threshold_at_fpr`; threshold_rule "fpr_0.01_on_training_dev_negatives"),
+scores every held-out row text-level (max over chunks) and saves the fold model to `<models>/holdout_<source>/`; it
+also trains the all-sources model on every dev row (threshold at 1% FPR on all dev negatives) and saves it to
+`<models>/all/`. The baselines train nothing and keep their native binary decision (PREREG "Operating points";
+threshold_rule "native_binary": flag on a score of 1.0, a phrase-list match; always-negative never flags): the FPR
+rule is never applied to them.
+
+The JSON (schema "dev_loso/v1"): {schema, demonstration: true, diagnostic: true, note, git_sha, built, seed,
+fpr_target, arms: {<arm>: {label, threshold_rule, folds: {<source>: rates + auroc + threshold + n_train},
+pooled_auroc, all: {threshold, ...}, ...}}}. A run rewrites its own arm and keeps the other arms of a file with the
+same schema. Everything there is DIAGNOSTIC and never quoted. Relative paths resolve from the repository root, never
+the working directory; the real embedder caches its vectors in a per-model subdirectory of `--cache`.
 
 This script never reads the confirmatory split: it refuses a path naming it and any row outside `dev`.
 """
@@ -49,17 +58,22 @@ from fusion_first.validate.detector_eval import (  # noqa: E402
     operating_threshold_at_fpr,
 )
 
-DATA = "datasets/detector/v1/dev.jsonl"
+SCHEMA = "dev_loso/v1"
+DATA = "datasets/detector/v1/dev.jsonl"  # relative paths resolve from the repository root (ROOT), not the cwd
 OUT = "evals/validation/v1/detector/dev_loso.json"
 MODELS = ".fusion/detector-models"
-CACHE = ".fusion/detector-cache"
+CACHE = ".fusion/detector-cache"  # a root: the real embedder's vectors go to ds.embedding_cache_dir under it
 FPR = 0.01
 NOTE = "dev LOSO readout; never quote"
 BASELINES = {
     "b0": ("B0 always-negative", ds.always_negative_score),
     "b1": ("B1 shipped phrase list over normalized views (raw text)", ds.phrase_list_score),
 }
-BASELINE_THRESHOLD = 1.0  # the baselines' own decision: a phrase match scores 1.0; always-negative never does
+# PREREG "Operating points": the baselines keep their native binary decision (a phrase match scores 1.0;
+# always-negative never does); the 1%-FPR rule is for the learned arms only.
+BASELINE_THRESHOLD = 1.0
+NATIVE_RULE = "native_binary"
+FPR_RULE = f"fpr_{FPR}_on_training_dev_negatives"
 
 
 def _git_sha() -> str:
@@ -105,39 +119,56 @@ def baseline_arm(rows: list[dict], sources: list[str], arm: str) -> dict:
     folds = {s: {"rows": rows, "scores": scores, "threshold": BASELINE_THRESHOLD} for s in sources}
     meta = {s: {"n_train": sum(r["source"] != s for r in rows)} for s in sources}
     table, pooled = _folds(rows, folds, meta)
-    return {"label": label, "threshold_rule": "fixed: the system's own decision (score 1.0)", "folds": table,
-            "pooled_auroc": pooled}
+    return {"label": label, "threshold_rule": NATIVE_RULE, "folds": table, "pooled_auroc": pooled,
+            "all": {"threshold": BASELINE_THRESHOLD}}
 
 
-def _train(rows: list[dict], embed, tokenizer, threshold_rows: list[dict]) -> ds.EmbeddingLogistic:
-    texts, labels = ds.training_examples(rows, tokenizer)
-    model = ds.EmbeddingLogistic(embed_fn=embed, tokenizer=tokenizer).fit(texts, labels)
+def _train(rows: list[dict], embed, tokenizer, threshold_rows: list[dict],
+           embedder_name: str) -> tuple[ds.EmbeddingLogistic, ds.TrainingExamples]:
+    ex = ds.training_examples(rows, tokenizer)
+    model = ds.EmbeddingLogistic(embed_fn=embed, tokenizer=tokenizer, embedder_name=embedder_name)
+    model.fit(ex.texts, ex.labels)
     model.threshold = operating_threshold_at_fpr(model.scores([render_frame(r) for r in threshold_rows]), FPR)
-    return model
+    return model, ex
 
 
-def embed_arm(rows: list[dict], sources: list[str], models_dir: pathlib.Path, embed, tokenizer) -> dict:
+def _per_source(rows: list[dict], ids: list[str], sources: list[str]) -> dict[str, int]:
+    chosen = set(ids)
+    return {s: sum(r["id"] in chosen for r in rows if r["source"] == s) for s in sources}
+
+
+def embed_arm(rows: list[dict], sources: list[str], models_dir: pathlib.Path, embed, tokenizer,
+              embedder_name: str = ds.INJECTED) -> dict:
     folds, meta = {}, {}
     for held in sources:
         train = [r for r in rows if r["source"] != held]
-        model = _train(train, embed, tokenizer, [r for r in train if not r["label"]])
+        model, ex = _train(train, embed, tokenizer, [r for r in train if not r["label"]], embedder_name)
         model.save(models_dir / f"holdout_{held}")
-        held_rows = [r for r in rows if r["source"] == held]
+        held_rows = [r for r in rows if r["source"] == held]  # every held-out row is scored, excluded or not
         folds[held] = {"rows": rows, "threshold": model.threshold,
                        "scores": dict(zip([r["id"] for r in held_rows],
                                           model.scores([render_frame(r) for r in held_rows]), strict=True))}
-        meta[held] = {"n_train": len(train), "n_train_examples": model.n_train}
+        meta[held] = {"n_train": len(train), "n_train_examples": model.n_train,
+                      "n_train_excluded": len(ex.excluded)}
     table, pooled = _folds(rows, folds, meta)
-    everything = _train(rows, embed, tokenizer, [r for r in rows if not r["label"]])
+    everything, ex_all = _train(rows, embed, tokenizer, [r for r in rows if not r["label"]], embedder_name)
     everything.save(models_dir / "all")
-    return {"label": f"E embedding ({ds.EMBED_MODEL}, frozen) + balanced logistic regression",
-            "threshold_rule": f"{FPR:.0%} FPR on the training sources' dev negatives",
-            "embedder": {"model": ds.EMBED_MODEL, "normalize_embeddings": True, "max_seq_length": ds.MAX_TOKENS,
-                         "batch_size": ds.BATCH_SIZE},
-            "chunking": {"max_tokens": ds.MAX_TOKENS, "stride": ds.STRIDE, "text_score": "max over chunks"},
+    real = embedder_name == ds.EMBED_MODEL
+    return {"label": f"E embedding ({embedder_name}, frozen) + balanced logistic regression",
+            "threshold_rule": FPR_RULE,
+            "embedder": {"model": embedder_name, "normalize_embeddings": True if real else None,
+                         "max_seq_length": ds.MAX_TOKENS if real else None,
+                         "batch_size": ds.BATCH_SIZE if real else None},
+            "chunking": {"max_tokens": ds.MAX_TOKENS, "stride": ds.STRIDE, "text_score": "max over chunks",
+                         "training_labels": "PREREG Long texts: positive when the chunk contains the whole span; "
+                                            "a span wider than one window: inside it or at least half the "
+                                            "chunk's tokens over it"},
+            # per source, over every dev row: excluded from each fold that trains on that source and from `all`
+            "excluded_unreliable_span_positives": _per_source(rows, ex_all.excluded, sources),
+            "positives_without_a_positive_chunk": _per_source(rows, ex_all.uncovered, sources),
             "folds": table, "pooled_auroc": pooled,
             "all": {"threshold": everything.threshold, "n_train": len(rows),
-                    "n_train_examples": everything.n_train}}
+                    "n_train_examples": everything.n_train, "n_train_excluded": len(ex_all.excluded)}}
 
 
 def main(argv: list[str] | None = None, *, embed_fn=None, tokenizer=None) -> int:
@@ -147,7 +178,9 @@ def main(argv: list[str] | None = None, *, embed_fn=None, tokenizer=None) -> int
     ap.add_argument("--data", default=DATA)
     ap.add_argument("--out", default=OUT)
     ap.add_argument("--models", default=MODELS)
-    ap.add_argument("--cache", default=None, help=f"embedding cache (default {CACHE} for the real embedder)")
+    ap.add_argument("--cache", default=None,
+                    help=f"embedding cache root (default {CACHE} for the real embedder; vectors go to a "
+                         "per-model subdirectory)")
     a = ap.parse_args(argv)
 
     paths = [a.data, a.out, a.models, a.cache or ""]
@@ -163,13 +196,17 @@ def main(argv: list[str] | None = None, *, embed_fn=None, tokenizer=None) -> int
 
     ds.seed_everything(ds.SEED)
     if a.arm == "embed":
+        if (embed_fn is None) != (tokenizer is None):
+            raise ValueError("inject embed_fn together with its tokenizer (chunking needs the embedder's own "
+                             "tokenizer); with neither, the local bge-small and its tokenizer are loaded")
         if embed_fn is None:
-            embed_fn, real_tokenizer = ds.bge_embedder(seed=ds.SEED)
-            tokenizer = tokenizer or real_tokenizer
-            cache = _path(a.cache or CACHE)
+            embed_fn, tokenizer = ds.bge_embedder(seed=ds.SEED)
+            name = ds.EMBED_MODEL
+            cache = ds.embedding_cache_dir(ds.EMBED_MODEL, ds.MAX_TOKENS, root=_path(a.cache or CACHE))
         else:
-            cache = _path(a.cache) if a.cache else None
-        result = embed_arm(rows, sources, _path(a.models), ds.CachedEmbedder(embed_fn, cache), tokenizer)
+            name = ds.INJECTED
+            cache = ds.embedding_cache_dir(name, ds.MAX_TOKENS, root=_path(a.cache)) if a.cache else None
+        result = embed_arm(rows, sources, _path(a.models), ds.CachedEmbedder(embed_fn, cache), tokenizer, name)
     else:
         result = baseline_arm(rows, sources, a.arm)
 
@@ -178,10 +215,13 @@ def main(argv: list[str] | None = None, *, embed_fn=None, tokenizer=None) -> int
     result.update(data=logical_path(data), data_sha256=hashlib.sha256(data.read_bytes()).hexdigest(),
                   git_sha=git_sha, built=built)
     out = _path(a.out)
-    report = json.loads(out.read_text(encoding="utf-8")) if out.is_file() else {}
-    report.update(demonstration=True, diagnostic=True, note=NOTE, git_sha=git_sha, built=built, seed=ds.SEED,
-                  fpr_target=FPR)
-    report["arms"] = {**report.get("arms", {}), a.arm: result}
+    prior = json.loads(out.read_text(encoding="utf-8")) if out.is_file() else {}
+    if prior and prior.get("schema") != SCHEMA:
+        print(f"{out}: schema {prior.get('schema')!r} is not {SCHEMA!r}; its arms are not kept", file=sys.stderr)
+        prior = {}
+    report = {"schema": SCHEMA, "demonstration": True, "diagnostic": True, "note": NOTE, "git_sha": git_sha,
+              "built": built, "seed": ds.SEED, "fpr_target": FPR,
+              "arms": {**prior.get("arms", {}), a.arm: result}}
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(_clean(report), indent=2, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps({"out": str(out), "arm": a.arm, "folds": sources,
