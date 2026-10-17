@@ -14,8 +14,9 @@ detector (PREREG_detector_v1.md).
 
 Training labels follow PREREG "Long texts" (`training_examples`): a frame that fits one window is one example with its
 row's label; a long negative's chunks are all 0; a long positive with a reliable span has a chunk labelled 1 when the
-chunk contains the whole injected span, or, when the span is wider than one window, when the chunk lies inside the
-span or overlaps it by at least half the chunk's tokens; every other chunk is 0. A long positive whose span is
+chunk contains the whole injected span, or, when no chunk contains it (the span is wider than one window, or
+straddles every window edge), when the chunk lies inside the span, overlaps it by at least half the chunk's tokens or
+holds at least half of the span's tokens; every other chunk is 0. A long positive whose span is
 missing or flagged unreliable by the builder (`provenance.span_unreliable`) is excluded from training and reported;
 every row is still scored text-level, max over chunks.
 
@@ -181,21 +182,26 @@ def _span_tokens(offsets, lo: int, hi: int) -> tuple[int, int] | None:
     return (hit[0], hit[-1] + 1) if hit else None
 
 
-def _chunk_labels(windows: list[tuple[int, int]], span: tuple[int, int], width: int) -> list[int]:
-    """PREREG "Long texts", on token ranges: a chunk is positive when it contains the whole span; when the span is
-    wider than one window, a chunk is positive when it lies inside the span or overlaps it by at least half of the
-    chunk's own tokens. Every other chunk is negative."""
+def _chunk_labels(windows: list[tuple[int, int]], span: tuple[int, int]) -> list[int]:
+    """PREREG "Long texts", on token ranges: a chunk is positive when it contains the whole span. When no chunk
+    does (the span is wider than one window, or straddles every window edge), a chunk is positive when it lies
+    inside the span, overlaps it by at least half of the chunk's own tokens, or holds at least half of the span's
+    tokens. Every other chunk is negative."""
     ts, te = span
-    if te - ts <= width:
+    if any(s <= ts and te <= e for s, e in windows):
         return [int(s <= ts and te <= e) for s, e in windows]
-    return [int((ts <= s and e <= te) or 2 * max(0, min(e, te) - max(s, ts)) >= e - s) for s, e in windows]
+    labels = []
+    for s, e in windows:
+        held = max(0, min(e, te) - max(s, ts))
+        labels.append(int((ts <= s and e <= te) or 2 * held >= e - s or 2 * held >= te - ts))
+    return labels
 
 
 class TrainingExamples(NamedTuple):
     texts: list[str]
     labels: list[int]
     excluded: list[str]  # ids: long positives without a reliable span, left out of training (PREREG)
-    uncovered: list[str]  # ids: long positives that no chunk contains, so every chunk is labelled 0 (diagnostic)
+    uncovered: list[str]  # ids: long positives left with no positive chunk (a guard: the registered rule leaves none)
 
 
 def training_examples(rows: Iterable[dict], tokenizer, max_tokens: int = MAX_TOKENS,
@@ -204,12 +210,12 @@ def training_examples(rows: Iterable[dict], tokenizer, max_tokens: int = MAX_TOK
     its row's label, whatever its span. A long frame is chunked: a negative's chunks are all 0; a positive's chunks
     follow `_chunk_labels` over its injected span. A long positive without a reliable span (none, one flagged
     `provenance.span_unreliable`, or one covering no token) is excluded and its id listed in `excluded`; a long
-    positive whose span no window contains (a span narrower than a window can straddle every window edge) keeps its
-    all-0 chunk labels and its id is listed in `uncovered`."""
+    positive that the rule leaves without a positive chunk would keep all-0 chunk labels and be listed in
+    `uncovered`; the rule leaves none, so the list is expected to stay empty (a guard)."""
     texts, labels, excluded, uncovered = [], [], [], []
     for row in rows:
         frame = render_frame(row)
-        offsets, windows, width = _windows(frame, tokenizer, max_tokens, stride)
+        offsets, windows, _ = _windows(frame, tokenizer, max_tokens, stride)
         label = int(row["label"])
         if len(windows) == 1:
             texts.append(frame)
@@ -223,7 +229,7 @@ def training_examples(rows: Iterable[dict], tokenizer, max_tokens: int = MAX_TOK
             if tokens is None:
                 excluded.append(row["id"])
                 continue
-            chunk_labels = _chunk_labels(windows, tokens, width)
+            chunk_labels = _chunk_labels(windows, tokens)
             if not any(chunk_labels):
                 uncovered.append(row["id"])
         texts.extend(frame[a:b] for a, b in _char_bounds(frame, offsets, windows))

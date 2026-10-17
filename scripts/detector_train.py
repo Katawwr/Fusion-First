@@ -161,8 +161,8 @@ def embed_arm(rows: list[dict], sources: list[str], models_dir: pathlib.Path, em
                          "batch_size": ds.BATCH_SIZE if real else None},
             "chunking": {"max_tokens": ds.MAX_TOKENS, "stride": ds.STRIDE, "text_score": "max over chunks",
                          "training_labels": "PREREG Long texts: positive when the chunk contains the whole span; "
-                                            "a span wider than one window: inside it or at least half the "
-                                            "chunk's tokens over it"},
+                                            "when none does: inside it, at least half the chunk's tokens "
+                                            "over it, or holding at least half the span's tokens"},
             # per source, over every dev row: excluded from each fold that trains on that source and from `all`
             "excluded_unreliable_span_positives": _per_source(rows, ex_all.excluded, sources),
             "positives_without_a_positive_chunk": _per_source(rows, ex_all.uncovered, sources),

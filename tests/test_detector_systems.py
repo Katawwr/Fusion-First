@@ -248,11 +248,46 @@ def test_a_span_wider_than_a_window_labels_the_chunks_inside_it_or_at_least_half
 
 
 @pytest.mark.unit
-def test_a_narrow_span_no_window_contains_leaves_every_chunk_negative_and_is_reported():
+def test_a_narrow_span_no_window_contains_labels_the_chunks_over_half_of_it_or_over_half_of_themselves():
     pos = _long_positive((3, 8))  # frame tokens 8..12: fits one window, but none starts <= 8 and ends >= 13
     ex = ds.training_examples([pos], FakeTokenizer(), max_tokens=6, stride=3)
-    assert ex.labels == [0] * 6
-    assert ex.uncovered == ["p"] and ex.excluded == []
+    # span tokens held per window [0,6) [3,9) [6,12) [9,15) [12,18) [15,20): 0, 1, 4, 4, 1, 0 of five
+    assert ex.labels == [0, 0, 1, 1, 0, 0]
+    assert ex.uncovered == [] and ex.excluded == []
+
+
+@pytest.mark.unit
+def test_a_200_token_span_across_a_256_128_window_edge_labels_the_chunks_holding_half_of_it():
+    pos = _long_positive((95, 295), n_words=700)  # frame tokens 100..299 (wrapper is five tokens)
+    ex = ds.training_examples([pos], FakeTokenizer(), max_tokens=256, stride=128)
+    frame = render_frame(pos)
+    bounds = ds.chunk_bounds(frame, FakeTokenizer(), max_tokens=256, stride=128)
+    assert len(bounds) == 5 and ex.texts == [frame[a:b] for a, b in bounds]
+    offset = len(frame) - len(pos["text"])
+    lo, hi = (x + offset for x in pos["provenance"]["span"])
+    assert not any(a <= lo and hi <= b for a, b in bounds)  # tokens [0,256) and [128,384) each cut the span
+    # span tokens held per window [0,256) [128,384) [256,512) [384,640) [512,705): 156, 172, 44, 0, 0 of 200
+    assert ex.labels == [1, 1, 0, 0, 0]
+    assert ex.uncovered == [] and ex.excluded == []
+
+
+@pytest.mark.unit
+def test_a_chunk_holding_exactly_half_of_the_span_is_positive_even_when_it_is_a_small_share_of_the_chunk():
+    pos = _long_positive((0, 2))  # frame tokens 5..6 over tiling windows [0,6) [6,12) ...: one token in each
+    ex = ds.training_examples([pos], FakeTokenizer(), max_tokens=6, stride=6)
+    assert ex.labels == [1, 1, 0, 0]  # one of two span tokens is half of the span, one of six is under half the chunk
+    assert ex.uncovered == [] and ex.excluded == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("max_tokens,stride", [(6, 6), (6, 3), (6, 2), (6, 1), (5, 2), (7, 3)])
+def test_a_positive_with_a_reliable_span_always_has_a_positive_chunk(max_tokens, stride):
+    n_words = 15
+    for i, j in itertools.combinations(range(n_words + 1), 2):
+        pos = _long_positive((i, j), n_words=n_words)
+        ex = ds.training_examples([pos], FakeTokenizer(), max_tokens=max_tokens, stride=stride)
+        assert ex.uncovered == [] and ex.excluded == [], (i, j)
+        assert 1 in ex.labels, (i, j)
 
 
 @pytest.mark.unit
