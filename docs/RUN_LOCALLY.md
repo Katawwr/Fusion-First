@@ -68,7 +68,24 @@ fixes (the runtime guardrail first, the optional prompt fix second), and a prove
 judge, gold-set, crosswalk and verification hashes. `eval` prints one `[eval:PASS]` or `[eval:FAIL]`
 line per check and exits non-zero on a failure.
 
-## 4. Local web app
+## 4. Verify the committed example run
+
+**Verified.** `examples/verified-run` holds a real run: `llama3.2:1b` on Ollama, graded by Claude Code
+host subagents. From a checkout (`pip install -e .`):
+
+```bash
+fusion run verify --workspace examples/verified-run latest
+```
+
+```text
+verified: result re-derived exactly (in-sample guard verdicts excluded)
+```
+
+Verify replays the card offline from the committed plan, prompt and recordings, checks their commitment
+hash, and exits 1 on drift. It cannot detect a recording that was edited and then re-finalized. CI runs it
+on every push.
+
+## 5. Local web app
 
 ```bash
 npm --prefix frontend ci && npm --prefix frontend run build   # from a checkout; the wheel ships it built
@@ -100,7 +117,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Content-Type: application/j
 A foreign Host header is refused (400), and a state-changing call without the per-launch token is
 refused (403). The served page carries the token in `<meta name="fusion-token">`.
 
-## 5. Test your own agent with the run engine
+## 6. Test your own agent with the run engine
 
 A run has three phases: collect (test the target), grade, finalize. The grader can be the agent
 that called Fusion (`host`, the default), the `claude` CLI, or any chat model.
@@ -217,7 +234,7 @@ fusion run start --prompt agent.txt --target openai:gpt-4o-mini --grader claude-
 A hosted model can also grade (`--grader openai:<model>`); grade a target with a model from a
 different family, and a model grading itself is refused unless `--allow-self-grading` is passed.
 
-## 6. Claude Code and MCP
+## 7. Claude Code and MCP
 
 **Verified:** `fusion plugin-dir` prints the marketplace path (the checkout in a source tree, the
 bundled copy in an installed wheel).
@@ -232,7 +249,7 @@ MCP clients start the server with:
 { "mcpServers": { "fusion": { "command": "fusion-mcp" } } }
 ```
 
-## 7. Develop
+## 8. Develop
 
 ```bash
 python -m pytest -q                              # offline suite

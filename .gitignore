@@ -59,6 +59,12 @@ datasets/external/raw/
 
 # Local run store (fusion run / MCP start_run), caches and proofs: all local state.
 .fusion/
+# Except the committed example run CI verifies; its run-local key, leases, heartbeat and lock stay out.
+!examples/verified-run/.fusion/
+examples/verified-run/.fusion/**/.secret
+examples/verified-run/.fusion/**/leases.json
+examples/verified-run/.fusion/**/heartbeat.json
+examples/verified-run/.fusion/**/.lock
 
 # Claude Code agent worktrees (harness-managed)
 .claude/worktrees/

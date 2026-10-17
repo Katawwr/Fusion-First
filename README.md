@@ -30,6 +30,16 @@
   </a>
 </p>
 
+## Verify a real run
+
+```bash
+pip install -e .
+fusion run verify --workspace examples/verified-run latest
+```
+
+Re-derives a real llama3.2:1b run, graded by Claude Code host subagents, offline from its committed recordings;
+exits non-zero on drift.
+
 ## Use
 
 ```bash

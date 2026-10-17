@@ -20,6 +20,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev,mcp,serve]"
+      - name: The committed example run re-derives exactly
+        run: fusion run verify --workspace examples/verified-run latest
       - run: python -m ruff check fusion_first tests scripts app setup.py
       - run: python -m pytest -q
       - name: Accuracy gate (committed baselines)

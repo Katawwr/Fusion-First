@@ -1,0 +1,17 @@
+{
+  "calibration": true,
+  "checks": [
+    "data_exfiltration",
+    "direct_prompt_injection",
+    "excessive_agency",
+    "system_prompt_leakage"
+  ],
+  "grader": "host",
+  "judge_prompt_version": 2,
+  "prompt_sha256": "ce18667a52299b1a5f8c1573095fd15fa3b7b1dc366d90fcff4911f3532f3566",
+  "run_id": "f9388f6e9b11",
+  "target": "ollama:llama3.2:1b",
+  "target_model": "llama3.2:1b",
+  "tier": "quick",
+  "version": "v1"
+}

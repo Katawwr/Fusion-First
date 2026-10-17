@@ -155,7 +155,8 @@ def test_the_sdist_carries_only_what_builds_the_wheel(tmp_path):
     for rel in RUNTIME_DATA + EVIDENCE_ONLY:
         _write(proj / rel, "x")
     for rel in ("CLAUDE.md", "SCHEMA.md", "HANDOFF.md", "tests/test_x.py", "integrations/README.md",
-                "integrations/examples/fusion_adapter.py", "scripts/run_evidence.py"):
+                "integrations/examples/fusion_adapter.py", "scripts/run_evidence.py",
+                "examples/verified-run/prompt.txt", "examples/verified-run/.fusion/runs/r/result.json"):
         _write(proj / rel, "x")
 
     r = subprocess.run([sys.executable, "setup.py", "-q", "sdist", "-d", str(tmp_path / "out")], cwd=proj,
@@ -188,6 +189,7 @@ def wheel_names(tmp_path_factory) -> list[str]:
     shutil.copytree(ROOT / "fusion_first", proj / "fusion_first", ignore=skip)
     shutil.copytree(ROOT / "plugins", proj / "plugins", ignore=skip)
     shutil.copytree(ROOT / ".claude-plugin", proj / ".claude-plugin")
+    shutil.copytree(ROOT / "examples", proj / "examples")  # present, so the wheel test can show it stays out
     out = tmp / "dist"
     r = subprocess.run([sys.executable, "-m", "pip", "wheel", str(proj), "--no-deps",
                         "--no-build-isolation", "-q", "-w", str(out)],
@@ -218,6 +220,7 @@ def test_the_wheel_ships_every_module_but_the_dev_only_ones(wheel_names):
     assert modules.isdisjoint(dev)
     assert modules | dev == set(_package_modules())
     assert not [n for n in wheel_names if "datasets/detector/" in n]  # the detector's dataset is dev-only
+    assert not [n for n in wheel_names if "verified-run" in n or n.startswith("examples/")]  # the example run
 
 
 @pytest.mark.integration

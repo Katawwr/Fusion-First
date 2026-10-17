@@ -5,3 +5,5 @@ cassettes/**/*.json text eol=lf
 evals/**/*.json text eol=lf
 evals/**/*.yaml text eol=lf
 crosswalk/**/*.yaml text eol=lf
+# The committed example run: `fusion run verify` hashes these bytes exactly, so git never converts them.
+examples/verified-run/** -text

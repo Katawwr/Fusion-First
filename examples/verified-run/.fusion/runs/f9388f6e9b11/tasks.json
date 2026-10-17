@@ -1,0 +1,492 @@
+[
+  {
+    "check": "direct_prompt_injection",
+    "key": "4bf3c0659a0c825435799ee2dfaaa5127d1e24ba2e2c00c2440e77e2257b30a1",
+    "task_id": "t_03123b0346ea56"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "894af37c2358b5d935e2b5d69742f7963f23cc305fb60f14aa262a4d5c4978c7",
+    "task_id": "t_0408a065ad04f0"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "162125d728c5134e75e25b7d7df8e52f3dc375ebe5819e53b9381de14ea529df",
+    "task_id": "t_041a4156484f67"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "4eef8f50c61c91d7560beaf7483feba0342cf5ec10856a93550a2c0c83066048",
+    "task_id": "t_06a41191b0cd55"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "e876bdb56f5dc38039bcfcd888618310410d445983893c7d9e95f8786e1225bc",
+    "task_id": "t_079f06afdbb455"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "c7803f31c83ced0b02fa3cb2fb8aac2016b552866dd12103661d061adcc2023b",
+    "task_id": "t_088e8d7e9a6bc7"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "da0bb99cdfc36677618a70b89784d2142900d49d4b3e91bdab9651a6e366adfe",
+    "task_id": "t_09000995308e96"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "41deb2a8422bb1ba89cc93bb84e6620e6a92ba0e6a4fa87a9e174499b66c8658",
+    "task_id": "t_0adec7b9bcf827"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "95f2d0aff6ea5d344ce98c60437e23d5bf9eba1eb135b9ad4f3ef051eac8bf18",
+    "task_id": "t_0b9c6c03b3598f"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "a64bf57e455858434168bbb7ed80cdbe271bdf642a764961d1330dfa1fe709f8",
+    "task_id": "t_0d8facd6bae847"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "4aab324849e9fd71f5e8b7592c46dedf63a9ae09a544b168c8734d273070aad7",
+    "task_id": "t_0ee950ed3d8b53"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "85b7d72488f089b69ad815b19288e9c2e6c30fb93f068792a57e387bbeeccf84",
+    "task_id": "t_1068dee662b812"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "8d9aae0397d21b99b1b529e2bb68e3ad672af21f74abb9acc03438e767ede21d",
+    "task_id": "t_12c6d80e8ca45d"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "0d5e45fd385bd2348cbdf68d9c621a707ddb91c6de582fbfc65a6a8a8c14b3aa",
+    "task_id": "t_13a8dc1644ef0c"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "b8200cb8f97e782de21f09ac5b9b657bc6a1d823b83c21e63d5673d1905edfed",
+    "task_id": "t_13df1a2384f027"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "7f0673a235c2912c900d4d6aea4ecb51facd3dfc597972c9c5fa379e28dc9d1f",
+    "task_id": "t_198aa39b48cd22"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "fdc17b71437ac499fd2ef7611fedb7d526706be08574d6a742209e6eb61a6755",
+    "task_id": "t_198c45d17b79d4"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "6e0b63aa4def62835cfc96f67bf3c9b5b18bb4bbce48984a8a4aaed55694fe85",
+    "task_id": "t_1c4e4092e9a45e"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "cf33d2e726bdced18fde11b04d487b98d73f4984ebe9a6936e5b72254c70848f",
+    "task_id": "t_1ce0c1b1babf58"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "d261392b6d67b6347a907375c7266106a5a9a3fb32de0caf85c928c8155d2bf1",
+    "task_id": "t_1d8c750053e7e3"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "fda2bbc504292df1d2a49c6b7d09e9d227a854798e1c2b03d7c579e0b7b5814d",
+    "task_id": "t_1fcce98783ce42"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "3b7a466728c54ce068a85780573dd1cae8aea8421135d46c71a386d1d918269d",
+    "task_id": "t_24ac4b544ef2d7"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "e3cd0b38f7d1a77d6986dce77d2f3eb4a01c8b33e5b88d672e70deec6b6bf67f",
+    "task_id": "t_2727389759ce23"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "d20313207137523d2e893cebe068c5645a03ec50a703c7f7a4b531b5d217b70b",
+    "task_id": "t_2751b8a918d7c9"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "37b3db5a9beb728f825cecc635b5645fbd3221bac26a0ff9ec12f59af56a3659",
+    "task_id": "t_29284cc3ebb1bd"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "2754f3d3395d3759a68919a3ed50aadb964e6fbd80581a3b44f7c7dccdd0525e",
+    "task_id": "t_3062ca6acd304b"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "941d5c91a1133a6808163b47c2ed78d4a01f8e1c44d4f3e3f7dfec2a50c8afa7",
+    "task_id": "t_3195db01045193"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "276e029d2e3a4411c120621480b0530c00162f54e797ecdd518c0f3554a51a76",
+    "task_id": "t_31e8f85f2586bb"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "141e777852adfb0257be44713a1920c7396bb718e8d5bc75d243cd5a849ed203",
+    "task_id": "t_35ee772e1acbaf"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "3859f3416a173371bb5de4b1ce6e9ef5e36aa3ef90aa48601c8b99df155ce3c4",
+    "task_id": "t_3ffb51c183c79b"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "2f8b377da3eb7788310bf7bad73cf7b91ab4d358fb780dd45111bf4cf3077804",
+    "task_id": "t_43d8f151a63354"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "599da9fee94d86d97ecfd83e9335f93c789a9a878f7f5663dfd9aef7464e63e6",
+    "task_id": "t_44e51beeab8421"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "d04775a4476fdf9a7207379060e635f5fe5ca0fcd5180e5e0cc7b2613a0a4956",
+    "task_id": "t_4b904ec69ed052"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "3f9226a5371535e020b2c074f1d578dd50db830429e64f3103b88ed70bb1763a",
+    "task_id": "t_4db9dd67caec9b"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "77b2ae3feae4c31e880e8ac28dac8807cebbab20a633d25a4e04d073d114b0ee",
+    "task_id": "t_50d0329716429f"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "d902c086a5235aec4667db743ff0ff3730e2f5f67facd633a376bf353610ad3f",
+    "task_id": "t_53c24a6c82cab7"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "fc917bb136aa0fe48bde0ec9d2941dc6a39785922080bb8f4ad508b36f62747f",
+    "task_id": "t_56b561604823d3"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "c14b51d00aebc95c9de96882a53d61fbbade6614bb7c77271ba195348f620bdf",
+    "task_id": "t_59c71ea9382631"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "c6ff772483d44fa7e7d84507f4df608520559283a7f7c20e3066478b5c66b32d",
+    "task_id": "t_61a3164aec3ea3"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "757dd531d19bac034de4b729bf29c748d33a297a3e4da1ee9e9bf3ecc99909cf",
+    "task_id": "t_64381654559210"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "e4ffcd0fe211188019b2009404cf9121c6a38ac882abbdec42fee3575817a658",
+    "task_id": "t_66d3bfc10f7752"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "3cd6bef06766a1facda2b0c39fab1784a98d461117146479520f9fe1a3aba102",
+    "task_id": "t_6792bbd04652a3"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "f21f2295cd7d0805692e79de60642520197617d5c60a58ffd5edcd9b0aea436c",
+    "task_id": "t_68df2f09c35fd0"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "5db537047201931d7d3d01d28759d66dd4e9243ff5dfc18c7d13a51adaec2eb3",
+    "task_id": "t_707911511e4497"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "2ef201970fe544de0090cd4aa4506656c5fe8ec67dc754a85c4fcba3abfce42d",
+    "task_id": "t_75197c9503b720"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "ea439566b92c8cbedebf4f99cbd226838d4fadadf4d7d620973445eacace6d5c",
+    "task_id": "t_7f1e5c54072359"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "cb5c6e959820a385b2f8d969751ef60640a24ab8dd1600546b8cf9a3c074ad8f",
+    "task_id": "t_7f4eae20ced4ae"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "6bb7b78cea8a40553303ed01ccc8933851d8b8b7185e8cabdc9477ef4def0a58",
+    "task_id": "t_7fe9509099cf23"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "9d5def3e53b51eca7bb1260cb3f9f35c87ea0e4dd9d59e4376b5cabce3aca311",
+    "task_id": "t_873ad4e11da870"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "ed01c3327ebd97fc7746d0f0dddad13ae0957d248e2175db585dfa23a257f4e6",
+    "task_id": "t_89879f47adbe04"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "a8f7bf5d5eb8d17c6aee4d019ec6f3def8783f569d7be1945c2ad95c4a7fe7bf",
+    "task_id": "t_8fc74aa3b1a018"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "2e7d8d8420455f246de07f334c84c74153eb379026e7b4666672337fceb84726",
+    "task_id": "t_90d9f44bfff52d"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "ebbda025c3aa919c16ecf3af57523ea2261f722ae1cbb72276866cae68982306",
+    "task_id": "t_92c81239cb5420"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "907309791c865f80e3a4fc191b9ec8471f25ceab527187617971063cf206385e",
+    "task_id": "t_9368abaed185f7"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "e3535f9c0401e3085099c927b84726e78907154739a27c001dac74e8c5dab566",
+    "task_id": "t_9444893afad34b"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "1da6cd18626e2c9285df87286f5fe15643e0dd6ecf64bde6f006adf2ecb9e246",
+    "task_id": "t_95ce867f91dbbf"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "228cc490873055ce2113177f971aa13e5b276248416f77b150a20e59e39ccdee",
+    "task_id": "t_95f1522388a632"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "fb019ee5034ecf12114ca47d1a7ebd19b3f1a0384385936eb36661ed3575ad50",
+    "task_id": "t_98c648ec3448aa"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "578051aad71d3418c9c7e6d4aba5af41cd085d043830c42c2d31882240753ddc",
+    "task_id": "t_991add9be5b7ad"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "616ef3fd4fed0f428c67f1bf8dc870bfbc59b5f238a6946f22d07ceee318d352",
+    "task_id": "t_9e8e642746a291"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "c03543146b54ddd3a546df6f54364407678a2d8ef713c88b4f09d819c94e15b2",
+    "task_id": "t_a12aae0dbd18c0"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "974b573940d0aca81285cb431ffaff62030047a56ac7fa4635da0dd8967b0f67",
+    "task_id": "t_a1cc5bb36d2504"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "dd26720f0faaee0ed1c417dc7a3762ab8c6ea9ae8fb3c0206aaebc60bcdf2bea",
+    "task_id": "t_a22f52a29d27e0"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "a8800429729109a28dd25292b416d5099900b63f8435b112f5c210ffa413a8a7",
+    "task_id": "t_a3f1db30e2c1aa"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "298049ffca9f232ab9a03927720d60f0357a3a1672bb2b2d765d4605038273de",
+    "task_id": "t_a8d42ef7ac0b8d"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "57ec9fb3c87d94b82ca89ae73ae0048b1261c4af96566a3fe762a743f32a5b34",
+    "task_id": "t_aa288443daad16"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "a3a8b9dd384c649873f195af267d87b08050e5c3dff0eb50bb7907885c9889a9",
+    "task_id": "t_b0030eaa852840"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "5aa89b574333913d3243208698580e25e229b690d11e2ff9d7d2060623565e69",
+    "task_id": "t_b0a52bf3bc85c8"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "b8c0212a8c8a10514a28878c9e91e3a57c32702e1783649ddb5cbedc3231c1bb",
+    "task_id": "t_b328d151d1e959"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "eabc16e52c267406312d0ace1b52107a47db89bdf73c11715bb67d3a1c09de3d",
+    "task_id": "t_b3e8c4a5aa45c5"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "7b1037523ff74f6518c760f414f79ef68fe553a8dd4d54909abe55fd1dbcbb39",
+    "task_id": "t_b71b7c0e866bd4"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "64740fe18ddd7b001667001052505e5949c02c124ef264630ca48d14b0437714",
+    "task_id": "t_bb16cd14b67f9f"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "e543e98e6c5d369ec330993709c418175331f2ff7133b547dd796f089c042529",
+    "task_id": "t_c14b28b8379812"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "990b4a057963b2993db174f126b652a57a422cb7182241318f2d7cec29cda07c",
+    "task_id": "t_c7d711dae4cc68"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "541cdac9b8d19e4d68cb9a1d1f15714949eb5d325c83e748c8ca9feff174a591",
+    "task_id": "t_c9f8b0127910e9"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "04a0a87da3617803d75f35342754931afde43815431f97250d0b59b3883ed6d2",
+    "task_id": "t_d4b0312cf305c6"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "4d6698b81585bae4c147ddf4490554ae78875d696ecc37d7642fb0b8a52fb9e0",
+    "task_id": "t_d6803407f73f3c"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "d433ffdc81b4d21a437f68e25d9b534b5bb0d501fa1f9b3496f06e471fb547b7",
+    "task_id": "t_d80c62e1a1ff0c"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "8f4581211231b7cd77f6320667a7913fff474811c6544154e0c2d34362fc2249",
+    "task_id": "t_dac316ff6b31b4"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "65c75d45729adf615308b113ca95bc4f02d0be6d55ee255eb0330acfea17527c",
+    "task_id": "t_db41a0b2d0076a"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "f0551a338d82eb3eb47dc6c571e3ec6ab5bd5a0d7ea89c6c438d2a244c001692",
+    "task_id": "t_dbb187e93abe73"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "e1e58c23ab2a8a0dda284c4e6dddf8b78af8b1101d680ff26192e7490618165f",
+    "task_id": "t_dc852ce148cf42"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "19e8192f223c7e65dd6641e52e902926c5f9295a6613eb1508dd9c9a498be0db",
+    "task_id": "t_df371076c979ff"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "875c26611b84cd50c2e368c353459db4c4bc87b66241f4cb825ac2f488e6c5fe",
+    "task_id": "t_e0b031bfbf4062"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "d6186ae58696061cfc8c23004374e384bd662c7aa2ce5b89763a5a7041a326d2",
+    "task_id": "t_e240cafb516e4b"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "0701106a0734c03456db8918ed9c14bc25f3ff1d5cf659e86ba863d735e80bc9",
+    "task_id": "t_e2830f8d9f17d3"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "fdeb4f22614da71fdb2873e9e2e9bc4d84335f1faf5e621dd60f3f3fdf47c05e",
+    "task_id": "t_e3dae851233133"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "517ff263f35b81430bb59aaf0c4244a21fa1ff6b0e889ddedd012ef860dc9b4e",
+    "task_id": "t_e410c0abe835b5"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "34a0a7ea3a2518755dc6721b6436e63505e4826b9f5791bc153824c81d1a0a9d",
+    "task_id": "t_e57dd548a7a15c"
+  },
+  {
+    "check": "data_exfiltration",
+    "key": "3e445bba5414da0e02e2cbc76330aebbb1e6081946699dc0eab8b07d09772e78",
+    "task_id": "t_e804e8834d620f"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "0e755f1ceb9325e4254476b7494b6234f4eab72a741e7d64384deced4506a0f8",
+    "task_id": "t_e875312ee62eb6"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "1f14dd4d03b230cfce0bea4dd397c1c684b00900a691af2fa72771c06a78c7ea",
+    "task_id": "t_ea2ce23281b7f2"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "bcc533259cbe09f55990edd7d9be810780bf85861c1eaa436c3e7a733bb412c0",
+    "task_id": "t_ec1de25ee5731f"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "fc661735b049cb6bf907e29370abfae212958b32afd4e440e1d8b09a38f08db1",
+    "task_id": "t_ecb49322dca282"
+  },
+  {
+    "check": "system_prompt_leakage",
+    "key": "39d7ebb34142858169fd737218dc87dfc5966f3d663c29fd3437a9bf096d1b93",
+    "task_id": "t_ed481fbd879855"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "1e1a22b448cf307b1e0cdd3a8ad70cb1ef06403e1812a5e7b3649e035543cf9b",
+    "task_id": "t_eeb1a724352b9b"
+  },
+  {
+    "check": "excessive_agency",
+    "key": "fea65784b6bb3a1cdea7d2c49b3cd55a2db111d9fb98ee569b395453f991f720",
+    "task_id": "t_f3eea7b2663053"
+  },
+  {
+    "check": "direct_prompt_injection",
+    "key": "edb39238b63d1bf1a6e8ed97c0be90720fff9e7c256ef96d9f8bde03ef56dd5a",
+    "task_id": "t_fc578cc717e232"
+  }
+]
