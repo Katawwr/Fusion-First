@@ -4,12 +4,13 @@
     python scripts/detector_lg3.py probe [--n 5] [--arm configured] [--force]
     python scripts/detector_lg3.py run --arm configured|default [--n N] [--force]
 
-PREREG_detector_v1.md (arm B2): Llama Guard 3 (`llama-guard3:8b`) on a stratified subsample of the CONFIRMATORY
-rows, prompted in raw mode exactly as `scripts/guard_vs_llama_guard.py::ask` (POST /api/generate, raw, no stream,
-temperature 0) with Meta's format: the request and the tool result in the User turn, the Agent turn empty, the last
+PREREG_detector_v1.md (arm B2): Llama Guard 3 (`llama-guard3:8b`, the registered comparator: any other `--model` is
+refused) on a stratified subsample of the CONFIRMATORY rows, prompted in raw mode exactly as
+`scripts/guard_vs_llama_guard.py::ask` (POST /api/generate, raw, no stream, temperature 0) with Meta's format: the
+request and the tool result in the User turn, the conversation ending with that User turn (no Agent line), the last
 User message assessed (`fusion_first.validate.llama_guard.tool_result_prompt`). Any "unsafe" first line is a
 positive. `configured` adds S16 (prompt injection) to Meta's 14 categories; `default` is Meta's 14 and runs on the
-first rows of the subsample (`--n`) if the timing probe leaves room.
+first 100 rows of the subsample (its registered size: `--n` defaults to 100, and a larger value needs --force).
 
 - `subsample` verifies the seal, draws `--n` ids balanced over source x label (seeded; ids only) and writes
   evals/validation/v1/detector/lg3_subsample.json; it refuses to replace a different subsample without --force.
@@ -18,7 +19,8 @@ first rows of the subsample (`--n`) if the timing probe leaves room.
 - `run` appends one record per row to evals/validation/v1/detector/lg3_raw.jsonl ({id, arm, model_digest,
   prompt_sha256, output, verdict, seconds}) and skips rows already recorded for the arm, so it resumes.
 
-`probe` and `run` refuse while Ollama has another model loaded (one Ollama job at a time) unless --force.
+`probe` and `run` refuse while Ollama has another model loaded (one Ollama job at a time) unless --force; --force
+never lifts the model restriction.
 Relative paths resolve from the repository root.
 """
 
@@ -171,13 +173,25 @@ def _recorded(raw: pathlib.Path, arm: str) -> set[str]:
     return {r["id"] for r in recs if r["arm"] == arm}
 
 
+def _run_n(a) -> int | None:
+    """Rows to run: all of the subsample for `configured`; for `default` the registered first 100 (a larger `--n`
+    needs --force)."""
+    if a.arm != "default":
+        return a.n
+    n = DEFAULT_ARM_N if a.n is None else a.n
+    if n > DEFAULT_ARM_N and not a.force:
+        raise ValueError(f"the default arm is registered on the first {DEFAULT_ARM_N} rows; --n {n} needs --force")
+    return n
+
+
 def cmd_run(a, transport) -> int:
+    n = _run_n(a)
     rows, ids = _plan(a)
     digest = _ready(a, transport)
     by_id = {r["id"]: r for r in rows}
     raw = _path(a.raw)
     done = _recorded(raw, a.arm)
-    todo = [rid for rid in ids[:a.n] if rid not in done]
+    todo = [rid for rid in ids[:n] if rid not in done]
     raw.parent.mkdir(parents=True, exist_ok=True)
     for k, rid in enumerate(todo, 1):
         prompt = dc.lg3_prompt(by_id[rid], a.arm)
@@ -211,9 +225,12 @@ def main(argv: list[str] | None = None, *, transport=None) -> int:
     p.add_argument("--arm", choices=TOOL_RESULT_ARMS, default="configured")
     r = sub.add_parser("run", parents=[common], help="record Llama Guard's replies (resumable)")
     r.add_argument("--arm", choices=TOOL_RESULT_ARMS, required=True)
-    r.add_argument("--n", type=int, default=None, help="the first N subsample rows (default: all)")
+    r.add_argument("--n", type=int, default=None,
+                   help=f"the first N subsample rows (default: all; the default arm: {DEFAULT_ARM_N}, the registered size)")
     a = ap.parse_args(argv)
     try:
+        if a.model != MODEL:
+            raise ValueError(f"--model {a.model!r} is refused: the registered comparator is {MODEL!r}")
         if a.cmd == "subsample":
             return cmd_subsample(a)
         transport = transport or http_transport(a.ollama)
