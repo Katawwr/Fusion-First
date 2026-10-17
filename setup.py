@@ -45,6 +45,7 @@ DEV_ONLY_MODULES = frozenset({
     "fusion_first.validate.baselines",
     "fusion_first.validate.benign_actions",
     "fusion_first.validate.claims",
+    "fusion_first.validate.detector_data",
     "fusion_first.validate.experiments",
     "fusion_first.validate.guard_heldout",
     "fusion_first.validate.guard_on_transcripts",

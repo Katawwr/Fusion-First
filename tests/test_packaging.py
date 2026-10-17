@@ -101,7 +101,8 @@ EVIDENCE_ONLY = ["datasets/external/injecagent.v1.jsonl", "datasets/external/ATT
                  "datasets/guard_bench/PREREG_heldout_v3.md", "evals/claims.yaml",
                  "evals/guard_bench/claude_code_heldout_v1.json", "evals/validation/v1/step2_guard.json",
                  "evals/validation/v1/PREREG_step2_guard.md", "evals/validation/v1/judge_eval_prob_qwen7b/items.json",
-                 "evals/validation/v1/transcripts/llama.jsonl"]
+                 "evals/validation/v1/transcripts/llama.jsonl", "datasets/detector/v1/dev.jsonl",
+                 "datasets/detector/v1/manifest.json", "datasets/detector/v1/blind/fillers_c.jsonl"]
 
 
 @pytest.mark.unit
@@ -216,6 +217,7 @@ def test_the_wheel_ships_every_module_but_the_dev_only_ones(wheel_names):
     dev = set(_load_setup().DEV_ONLY_MODULES)
     assert modules.isdisjoint(dev)
     assert modules | dev == set(_package_modules())
+    assert not [n for n in wheel_names if "datasets/detector/" in n]  # the detector's dataset is dev-only
 
 
 @pytest.mark.integration
