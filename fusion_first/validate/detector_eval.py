@@ -3,9 +3,11 @@ pre-registered protocol.
 
 Rows: dicts with `id, source, split, technique, request, tool, text, label (0|1), provenance`.
 Scores: {system: {row id: float}}, higher = more likely injected (binary systems give 0.0 / 1.0).
-A row is flagged when `score >= threshold`. A missing, None or NaN score is counted as `unscored`
-and excluded from the rates, never guessed. The confirmatory split is only scored while its rows
-match the committed seal (`fusion_first.validate.seal`). numpy only; no model calls.
+A row is flagged when `score >= threshold`. A missing, None or non-finite (NaN, +/-inf) score is
+counted as `unscored` and excluded from the rates, never guessed. The confirmatory split is only
+scored while its rows match the committed seal (`fusion_first.validate.seal`); only `score_report`
+applies that gate. The report is strict JSON: non-finite floats are written as null. numpy only; no
+model calls.
 """
 
 from __future__ import annotations
@@ -26,7 +28,7 @@ CONFIRMATORY = "confirmatory"
 
 def _score(scores: Mapping[str, float | None], rid: str) -> float | None:
     s = scores.get(rid)
-    if s is None or math.isnan(s := float(s)):
+    if s is None or not math.isfinite(s := float(s)):
         return None
     return s
 
@@ -50,25 +52,38 @@ def distinct_n(rows: Iterable[dict]) -> dict[str, dict[str, int]]:
     return out
 
 
-def verify_rows_sealed(rows: Iterable[dict], seal_path: str | os.PathLike,
-                       split: str = CONFIRMATORY) -> None:
-    """Raise ValueError naming every changed, missing and added id if `split` no longer matches the seal."""
-    diff = verify_seal(rows, load_seal(seal_path), split=split)
+def _check_sealed(rows: Iterable[dict], seal: Mapping[str, str], seal_path: str | os.PathLike,
+                  split: str) -> None:
+    diff = verify_seal(rows, seal, split=split)
     if any(diff.values()):
         detail = "; ".join(f"{k}: {', '.join(v)}" for k, v in diff.items() if v)
         raise ValueError(f"{split} rows do not match the seal {seal_path} ({detail})")
 
 
+def verify_rows_sealed(rows: Iterable[dict], seal_path: str | os.PathLike,
+                       split: str = CONFIRMATORY) -> None:
+    """Raise ValueError naming every changed, missing and added id if `split` no longer matches the seal."""
+    _check_sealed(rows, load_seal(seal_path), seal_path, split)
+
+
 def operating_threshold_at_fpr(neg_scores: list[float], fpr: float = 0.01) -> float:
     """The lowest threshold among the observed negative scores (plus +inf) that flags at most `fpr`
-    of the negatives. Tied scores flag together, so the realised FPR can sit below `fpr`."""
+    of the negatives. Tied scores flag together, so the realised FPR can sit below `fpr`.
+
+    One descending pass: after the last copy of each distinct score t, the running count is the number
+    of negatives >= t; the flagged share only grows as t falls, so the last t within `fpr` is the lowest."""
     if not neg_scores:
         raise ValueError("operating_threshold_at_fpr needs at least one negative score")
-    neg = np.asarray(neg_scores, dtype=float)
-    for t in sorted(set(neg.tolist())):
-        if float(np.mean(neg >= t)) <= fpr:
-            return float(t)
-    return math.inf
+    neg = sorted((float(s) for s in neg_scores), reverse=True)
+    n, best, i = len(neg), math.inf, 0
+    while i < n:
+        t = neg[i]
+        while i < n and neg[i] == t:
+            i += 1
+        if not i / n <= fpr:
+            break
+        best = t
+    return best
 
 
 def _average_ranks(x: np.ndarray) -> np.ndarray:
@@ -89,10 +104,14 @@ def _auroc(y: np.ndarray, s: np.ndarray) -> float:
 
 
 def auroc(y_true: list[bool], y_score: list[float]) -> float:
-    """Rank-based AUROC (Mann-Whitney U, average ranks for ties); NaN if a class is empty."""
+    """Rank-based AUROC (Mann-Whitney U, average ranks for ties); NaN if a class is empty. Every score
+    must be finite (a NaN or inf has no rank to trust); `score_report` drops them as unscored first."""
     if len(y_true) != len(y_score):
         raise ValueError("y_true and y_score must be the same length")
-    return _auroc(np.asarray(y_true, dtype=bool), np.asarray(y_score, dtype=float))
+    s = np.asarray(y_score, dtype=float)
+    if not np.isfinite(s).all():
+        raise ValueError("auroc needs finite scores (drop NaN / inf scores as unscored first)")
+    return _auroc(np.asarray(y_true, dtype=bool), s)
 
 
 def bootstrap_auroc_ci(y_true: list[bool], y_score: list[float], n_boot: int = 2000, seed: int = 42,
@@ -130,7 +149,8 @@ def _block(rows: list[dict], scores: Mapping[str, float | None], threshold: floa
 
 def rates(rows: list[dict], scores_for_system: Mapping[str, float | None], threshold: float) -> dict:
     """Confusion counts, Wilson recall / FPR and precision: pooled, per source and per technique.
-    Precision is 0.0 when nothing is flagged; `distinct_neg` counts distinct scored negative texts."""
+    Precision is 0.0 when nothing is flagged; `distinct_neg` counts distinct scored negative texts.
+    No seal gate here: only `score_report` refuses an unsealed confirmatory split."""
     return {
         "pooled": _block(rows, scores_for_system, threshold),
         "per_source": {k: _block(g, scores_for_system, threshold)
@@ -157,7 +177,8 @@ def _paired(rows: list[dict], sys_scores: Mapping, sys_t: float, ref_scores: Map
 
 def mcnemar_vs_reference(rows: list[dict], scores: Mapping[str, Mapping[str, float | None]],
                          thresholds: Mapping[str, float], system: str, reference: str) -> dict:
-    """Paired exact McNemar of `system` vs `reference` on the rows both scored: pooled and per source."""
+    """Paired exact McNemar of `system` vs `reference` on the rows both scored: pooled and per source.
+    No seal gate here: only `score_report` refuses an unsealed confirmatory split."""
     args = (scores[system], thresholds[system], scores[reference], thresholds[reference])
     return {
         "pooled": _paired(rows, *args),
@@ -176,7 +197,8 @@ def latency_summary(ms: list[float]) -> dict:
 
 def loso_table(folds: Mapping[str, Mapping]) -> dict:
     """Leave-one-source-out: per held-out source, `rates` from that fold's scores and threshold on that
-    source's rows only (the fold's other rows are its training sources and are ignored)."""
+    source's rows only (the fold's other rows are its training sources and are ignored).
+    No seal gate here: only `score_report` refuses an unsealed confirmatory split."""
     out = {}
     for held_out, fold in sorted(folds.items()):
         rows = [r for r in fold["rows"] if r["source"] == held_out]
@@ -187,8 +209,11 @@ def loso_table(folds: Mapping[str, Mapping]) -> dict:
 
 
 def _jsonable(obj: object) -> object:
+    """Plain JSON values; a non-finite float (NaN, +/-inf) becomes None, so `allow_nan=False` holds."""
     if isinstance(obj, Interval):
-        return obj.model_dump()
+        return _jsonable(obj.model_dump())
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
     if isinstance(obj, dict):
         return {k: _jsonable(v) for k, v in obj.items()}
     if isinstance(obj, list | tuple):
@@ -206,8 +231,9 @@ def score_report(rows: list[dict], scores: Mapping[str, Mapping[str, float | Non
         raise ValueError("the confirmatory split is scored only against its seal: pass seal_path")
     digest = None
     if seal_path is not None:
-        verify_rows_sealed(rows, seal_path, split=split)
-        digest = seal_digest(load_seal(seal_path))
+        seal = load_seal(seal_path)  # once: the digest names exactly the mapping that was verified
+        _check_sealed(rows, seal, seal_path, split)
+        digest = seal_digest(seal)
     if reference not in scores:
         raise ValueError(f"reference system '{reference}' has no scores")
     missing = sorted(set(scores) - set(thresholds))

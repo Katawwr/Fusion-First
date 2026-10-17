@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import pathlib
+import re
 from collections import Counter
 
 from fusion_first.validate.experiments import SPENT_THROUGH_STEP2, build_items
@@ -40,6 +41,18 @@ OPEN_TAG, CLOSE_TAG = "<INFORMATION>", "</INFORMATION>"
 TAGGED_ATTACKS = frozenset({"important_instructions", "tool_knowledge"})
 DEFAULT_ATTACK = "important_instructions"  # scripts/agentdojo_guard.py: files without a __<attack> suffix
 SOURCE_SPLITS = {"train": "dev", "test": "confirmatory"}  # deepset and BIPIA keep their own split
+# What Fusion's runtime guard returns in place of a blocked tool call: Fusion's text, not an environment tool's.
+GUARD_PREFIX, GUARD_MARKER = "Error: Blocked by the runtime guard", "Blocked by the runtime guard:"
+# Two results that differ only in these (digits, time separators, ISO 'T'/'Z', whitespace) differ only in a clock.
+_CLOCK_CHARS = re.compile(r"[0-9:.\-TZ\s]")
+# A positive's span locates the injection only when it is short in absolute and relative terms.
+MAX_RELIABLE_SPAN_CHARS, MAX_RELIABLE_SPAN_SHARE = 1500, 0.6
+
+
+def span_unreliable(span: list[int], text: str) -> bool:
+    """True when the span is longer than 1,500 chars or than 60% of the text (chunk labels must ignore it)."""
+    n = span[1] - span[0]
+    return n > MAX_RELIABLE_SPAN_CHARS or n > MAX_RELIABLE_SPAN_SHARE * len(text)
 
 
 def render_frame(row: dict) -> str:
@@ -68,6 +81,8 @@ def logical_path(path: pathlib.Path) -> str:
 
 
 def _row(id_, source, split, technique, request, tool, text, label, provenance) -> dict:
+    if label == 1 and provenance.get("span") and span_unreliable(provenance["span"], text):
+        provenance = {**provenance, "span_unreliable": True}
     return {"id": id_, "source": source, "split": split, "technique": technique, "request": request or NONE,
             "tool": tool or NONE, "text": text, "label": label, "provenance": provenance}
 
@@ -224,11 +239,28 @@ def diff_span(attacked: str, clean: str) -> list[int]:
     return [p, len(attacked) - s]
 
 
+def is_nonsemantic_diff(attacked: str, clean: str) -> bool:
+    """The texts differ in no letter (the differing middle has none) or only in a clock (equal once digits,
+    ':', '.', '-', 'T', 'Z' and whitespace are removed): environment variation, not an injection."""
+    start, end = diff_span(attacked, clean)
+    if not any(ch.isalpha() for ch in attacked[start:end]):
+        return True
+    return _CLOCK_CHARS.sub("", attacked) == _CLOCK_CHARS.sub("", clean)
+
+
+def is_guard_message(text: str) -> bool:
+    """A Fusion runtime-guard refusal standing in for a blocked call (Fusion's text, not a tool's)."""
+    return text.startswith(GUARD_PREFIX) or GUARD_MARKER in text
+
+
 def _label(pos: int, name: str, text: str, call, attack, rec: dict, clean: dict | None):
-    """(label, span, skip reason) for one tool result of an episode. A tagged result is positive; an attacked
-    result is compared with the same model's clean run of the same user task at the same position: equal is
-    negative, a differing untagged result of a tagged attack or of a different call is skipped (the difference is
-    not the injection), otherwise the differing middle is the injected span."""
+    """(label, span, skip reason) for one tool result of an episode. A Fusion guard message is skipped; a tagged
+    result is positive; an attacked result is compared with the same model's clean run of the same user task at
+    the same position: equal is negative, a differing untagged result of a tagged attack or of a different call is
+    skipped (the difference is not the injection), as is a difference in no letter or only in a clock; otherwise
+    the differing middle is the injected span."""
+    if is_guard_message(text):
+        return None, None, "guard_message"
     if OPEN_TAG in text:
         return 1, tag_span(text), None
     if rec.get("injection_task") is None:
@@ -245,11 +277,16 @@ def _label(pos: int, name: str, text: str, call, attack, rec: dict, clean: dict 
     if results[pos][3] != call:
         return None, None, "different_call"
     span = diff_span(text, results[pos][2])
-    return (1, span, None) if span[1] > span[0] else (None, None, "empty_diff")
+    if span[1] <= span[0]:
+        return None, None, "empty_diff"
+    if is_nonsemantic_diff(text, results[pos][2]):
+        return None, None, "nonsemantic_diff"
+    return 1, span, None
 
 
 def agentdojo_rows(paths: list[pathlib.Path]) -> tuple[list[dict], Counter, int]:
-    """Every tool result of every episode, labelled; (rows, skipped by reason, guarded replays dropped)."""
+    """Every tool result of every episode, labelled (Fusion guard messages are not tool results: skipped as
+    `guard_message`); (rows, skipped by reason, guarded replays dropped)."""
     episodes = [(pathlib.Path(p), n, rec) for p in paths for n, rec in enumerate(read_jsonl(p))]
     clean_runs: dict[tuple, dict] = {}
     for _, _, rec in episodes:
@@ -337,6 +374,18 @@ def _tally(rows: list[dict], distinct: bool) -> dict:
     return out
 
 
+def _dropped(before: dict, after: dict) -> dict:
+    """Per source x split x label, how many rows the global dedup dropped (only cells that lost any)."""
+    out: dict = {}
+    for source, splits in before.items():
+        for split, cell in splits.items():
+            kept = after.get(source, {}).get(split, {})
+            lost = {lab: n - kept.get(lab, 0) for lab, n in cell.items()}
+            if any(lost.values()):
+                out.setdefault(source, {})[split] = lost
+    return out
+
+
 def _blind_inputs(blind_dir: pathlib.Path) -> tuple[pathlib.Path | None, list, list]:
     fillers = blind_dir / "fillers_c.jsonl"
     return (fillers if fillers.is_file() else None, sorted(blind_dir.glob("carriers_*.jsonl")),
@@ -363,8 +412,11 @@ def build(*, external_dir: pathlib.Path, blind_dir: pathlib.Path, agentdojo_dirs
         rows += bipia_rows(read_jsonl(external_dir / "bipia.v1.jsonl"), _load_carriers(carrier_paths))
     ad_rows, skipped, replays = agentdojo_rows(ad_paths)
     rows += ad_rows + blind_rows(author_paths)
+    # distinct texts per cell BEFORE the global dedup (after it every cell is distinct by construction)
+    distinct, before = _tally(rows, distinct=True), _tally(rows, distinct=False)
     rows, dropped = dedup(rows)
     check(rows)
+    counts = _tally(rows, distinct=False)
 
     inputs = [external_dir / f"{n}.v1.jsonl" for n in ("injecagent", "deepset", "bipia")]
     inputs += ([fillers_path] if fillers_path else []) + carrier_paths + author_paths + ad_paths
@@ -381,12 +433,13 @@ def build(*, external_dir: pathlib.Path, blind_dir: pathlib.Path, agentdojo_dirs
         "agentdojo_files": [logical_path(p) for p in ad_paths],
         "inputs": {logical_path(p): _sha_file(p) for p in inputs},
         "injecagent_spent_ids": len(spent),
-        "counts": _tally(rows, distinct=False),
-        "distinct_texts": _tally(rows, distinct=True),
+        "counts": counts,
+        "distinct_texts": distinct,  # before the global dedup
         "totals": {s: {str(lab): sum(r["split"] == s and r["label"] == lab for r in rows) for lab in (0, 1)}
                    for s in SPLITS},
         "skipped": {"agentdojo": dict(sorted(skipped.items()))},
-        "deduped": {"agentdojo_replay": replays, "global": dict(dropped)},
+        "deduped": {"agentdojo_replay": replays, "global": dict(dropped),
+                    "global_by_split_label": _dropped(before, counts)},
     }
     return rows, manifest
 

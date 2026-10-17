@@ -70,7 +70,7 @@ class ModelResponse(BaseModel):
     # Per output token: {"token": str, "logprob": float, "top": [{"token","logprob"}...]}.
     top_logprobs: list[dict] | None = None
     # Native tool calls the model asked for: [{"name": str, "arguments": dict}], plus "arguments_raw"
-    # (the undecodable text) when the provider's arguments were not valid JSON. None = no calls.
+    # (the provider's text) when its string arguments did not decode to a JSON object. None = no calls.
     tool_calls: list[dict] | None = None
 
 

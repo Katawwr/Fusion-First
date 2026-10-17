@@ -8,8 +8,10 @@ from __future__ import annotations
 import json
 import math
 
+import numpy as np
 import pytest
 
+import fusion_first.validate.detector_eval as detector_eval
 from fusion_first.schemas import Interval
 from fusion_first.stats.metrics import mcnemar_classifiers, wilson_interval
 from fusion_first.validate.detector_eval import (
@@ -61,6 +63,12 @@ def test_auroc_with_an_empty_class_is_nan(y):
     assert math.isnan(auroc(y, [0.3] * len(y)))
 
 
+@pytest.mark.parametrize("bad", [float("nan"), math.inf, -math.inf])
+def test_auroc_refuses_a_non_finite_score(bad):
+    with pytest.raises(ValueError, match="finite"):
+        auroc([True, False, True], [0.9, bad, 0.4])
+
+
 def test_bootstrap_auroc_ci_is_deterministic_and_brackets_the_point():
     y = [True, False] * 15
     s = [0.6 + 0.01 * i if t else 0.4 + 0.015 * i for i, t in enumerate(y)]
@@ -100,6 +108,25 @@ def test_operating_threshold_at_fpr_ties_cannot_be_split():
 def test_operating_threshold_at_fpr_needs_negatives():
     with pytest.raises(ValueError):
         operating_threshold_at_fpr([], fpr=0.01)
+
+
+def _brute_force_threshold(neg_scores: list[float], fpr: float) -> float:
+    """The registered definition, literally: the lowest observed score t with mean(s >= t) <= fpr, else +inf."""
+    neg = np.asarray(neg_scores, dtype=float)
+    for t in sorted(set(neg.tolist())):
+        if float(np.mean(neg >= t)) <= fpr:
+            return float(t)
+    return math.inf
+
+
+def test_operating_threshold_at_fpr_matches_the_brute_force_definition_on_random_inputs():
+    rng = np.random.default_rng(20261017)
+    for _ in range(400):
+        n = int(rng.integers(1, 80))
+        # half the draws on a coarse grid, so ties are common
+        neg = (rng.integers(0, 12, size=n) / 11 if rng.random() < 0.5 else rng.random(n)).tolist()
+        for fpr in (0.0, 0.01, 0.05, 0.1, 0.25, 0.5, 0.99, 1.0, float(rng.random())):
+            assert operating_threshold_at_fpr(neg, fpr) == _brute_force_threshold(neg, fpr), (neg, fpr)
 
 
 # rates
@@ -149,10 +176,10 @@ def test_rates_with_nothing_flagged_has_zero_precision_and_open_interval():
     assert p["recall"] == wilson_interval(0, 0)
 
 
-def test_rates_treat_none_and_nan_scores_as_unscored():
-    rows = [_row("x1", "A", 1), _row("x2", "A", 0), _row("x3", "A", 0)]
-    p = rates(rows, {"x1": None, "x2": float("nan"), "x3": 0.1}, 0.5)["pooled"]
-    assert p["unscored"] == 2
+def test_rates_treat_none_and_non_finite_scores_as_unscored():
+    rows = [_row("x1", "A", 1), _row("x2", "A", 0), _row("x3", "A", 0), _row("x4", "A", 1), _row("x5", "A", 0)]
+    p = rates(rows, {"x1": None, "x2": float("nan"), "x3": 0.1, "x4": math.inf, "x5": -math.inf}, 0.5)["pooled"]
+    assert p["unscored"] == 4
     assert (p["n_pos"], p["n_neg"], p["tn"]) == (0, 1, 1)
 
 
@@ -215,17 +242,22 @@ def test_distinct_n_counts_distinct_texts_per_source():
 def test_loso_table_scores_each_held_out_source_with_its_own_fold_only():
     rows = [_row("a1", "A", 1), _row("a2", "A", 0), _row("b1", "B", 1), _row("b2", "B", 0)]
     folds = {
-        # fold A's model is right on A and would be wrong on B (B rows must be ignored)
+        # fold A's model (threshold 0.5) is right on A and wrong on B
         "A": {"rows": rows, "scores": {"a1": 0.9, "a2": 0.1, "b1": 0.1, "b2": 0.9}, "threshold": 0.5},
-        # fold B's model is wrong on B and right on A (A rows must be ignored)
-        "B": {"rows": rows, "scores": {"a1": 0.9, "a2": 0.1, "b1": 0.1, "b2": 0.9}, "threshold": 0.5},
+        # fold B's model (threshold 0.3) is right on B and wrong on A; under fold A's 0.5 it would miss b1
+        "B": {"rows": rows, "scores": {"a1": 0.2, "a2": 0.4, "b1": 0.4, "b2": 0.2}, "threshold": 0.3},
     }
     out = loso_table(folds)
     assert set(out) == {"A", "B"}
-    a, b = out["A"]["pooled"], out["B"]["pooled"]
-    assert (a["tp"], a["fp"], a["tn"], a["fn"]) == (1, 0, 1, 0)
-    assert (b["tp"], b["fp"], b["tn"], b["fn"]) == (0, 1, 0, 1)
-    assert set(out["A"]["per_source"]) == {"A"}
+    # each held-out source is right only when scored by its own fold's scores AND threshold, on its own rows
+    for held_out in ("A", "B"):
+        p = out[held_out]["pooled"]
+        assert (p["tp"], p["fp"], p["tn"], p["fn"], p["unscored"]) == (1, 0, 1, 0, 0), held_out
+        assert set(out[held_out]["per_source"]) == {held_out}
+    # the fixture can tell the folds apart: either fold's scores on the other source are wrong
+    assert rates(rows[2:], folds["A"]["scores"], 0.5)["pooled"]["tp"] == 0
+    assert rates(rows[:2], folds["B"]["scores"], 0.3)["pooled"]["tp"] == 0
+    assert rates(rows[2:], folds["B"]["scores"], 0.5)["pooled"]["tp"] == 0
 
 
 def test_loso_table_rejects_a_fold_without_its_held_out_source():
@@ -291,7 +323,40 @@ def test_score_report_on_dev_needs_no_seal(tmp_path):
     rep = score_report(rows, scores, {"det": 0.5, "ref": 0.5}, "ref", split="dev")
     assert rep["n_rows"] == 1
     assert rep["seal_digest"] is None
-    assert math.isnan(rep["per_system"]["det"]["auroc"])  # no negatives in the dev split
+    assert rep["per_system"]["det"]["auroc"] is None  # no negatives in the dev split: NaN, written as null
+
+
+def test_score_report_is_strict_json_non_finite_values_become_null(tmp_path):
+    rows, _, scores = _sealed(tmp_path)
+    rep = score_report(rows, scores, {"det": math.inf, "ref": 0.5}, "ref", split="dev")
+    json.loads(json.dumps(rep, allow_nan=False))  # no NaN / Infinity tokens anywhere
+    det = rep["per_system"]["det"]
+    assert det["threshold"] is None  # +inf (flag nothing) has no JSON number
+    assert det["auroc_ci"] == {"point": None, "low": None, "high": None}
+    assert det["pooled"]["n_pos"] == 1
+
+
+def test_score_report_counts_non_finite_scores_as_unscored(tmp_path):
+    rows, path, scores = _sealed(tmp_path)
+    det = {**scores["det"], "c0": float("nan"), "c1": math.inf, "c2": -math.inf}
+    rep = score_report(rows, {**scores, "det": det}, {"det": 0.5, "ref": 0.5}, "ref", seal_path=path)
+    pooled = rep["per_system"]["det"]["pooled"]
+    assert pooled["unscored"] == 3 and pooled["n_pos"] + pooled["n_neg"] == 3
+    assert rep["per_system"]["det"]["auroc"] == 1.0  # on the three finite scores
+
+
+def test_score_report_loads_the_seal_once_and_digests_what_it_verified(tmp_path, monkeypatch):
+    rows, path, scores = _sealed(tmp_path)
+    loads = []
+
+    def counting_load(p):
+        loads.append(p)
+        return load_seal(p)
+
+    monkeypatch.setattr(detector_eval, "load_seal", counting_load)
+    rep = score_report(rows, scores, {"det": 0.5, "ref": 0.5}, "ref", seal_path=path)
+    assert len(loads) == 1
+    assert rep["seal_digest"] == seal_digest(load_seal(path))
 
 
 def test_score_report_needs_a_threshold_and_the_reference(tmp_path):

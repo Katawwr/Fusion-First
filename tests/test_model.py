@@ -106,7 +106,8 @@ PINNED_KEY = "c3f720dd02ecd69c4a6ed9d46318c79faff26b5cdf5f02e7b9a25f794b1aa6f5"
 
 # ---- native tool calls (ModelRequest.tools / ModelResponse.tool_calls) -----------------------------
 
-# cache_key() of _target_req(), computed on the base commit (2b5cad2) before `tools` existed.
+# cache_key() of _target_req(), computed before `tools` existed on 76ff0e3, the parent the change was written on
+# (its tree is identical to 2b5cad2, this change's parent on post-0.1.0, so the key is the same on both).
 PINNED_TARGET_KEY = "1f571288f3f9e8960a0e64437ecb757cd01cdd8a677c4b9c7a57dd11a3d91eda"
 
 TOOLS = [{"type": "function", "function": {

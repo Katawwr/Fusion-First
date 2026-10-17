@@ -254,8 +254,29 @@ async def test_non_dict_arguments_become_empty_and_nameless_calls_are_skipped(mo
         {"function": {"name": "read_inbox"}}]}
     resp, _ = await _complete_with(monkeypatch, msg, tools=TOOLS)
     assert resp.tool_calls == [{"name": "send_email", "arguments": {}},
-                               {"name": "send_email", "arguments": {}},
+                               {"name": "send_email", "arguments": {}, "arguments_raw": '"just a string"'},
                                {"name": "read_inbox", "arguments": {}}]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("raw", ['["b@x.org"]', '"b@x.org"', "42", "null", "true"])
+def test_json_string_arguments_that_are_not_an_object_keep_the_raw_text(raw):
+    from fusion_first.model.providers._common import normalize_tool_calls
+
+    assert normalize_tool_calls([{"function": {"name": "send_email", "arguments": raw}}]) == [
+        {"name": "send_email", "arguments": {}, "arguments_raw": raw}]
+
+
+@pytest.mark.unit
+def test_object_arguments_carry_no_raw_text():
+    from fusion_first.model.providers._common import normalize_tool_calls
+
+    calls = [{"function": {"name": "a", "arguments": '{"to": "b@x.org"}'}},
+             {"function": {"name": "b", "arguments": {"to": "c@x.org"}}},
+             {"function": {"name": "c", "arguments": ["not", "a", "string"]}}]  # a non-string: nothing raw to keep
+    assert normalize_tool_calls(calls) == [{"name": "a", "arguments": {"to": "b@x.org"}},
+                                           {"name": "b", "arguments": {"to": "c@x.org"}},
+                                           {"name": "c", "arguments": {}}]
 
 
 @pytest.mark.unit

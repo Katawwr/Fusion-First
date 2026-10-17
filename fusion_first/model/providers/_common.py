@@ -10,9 +10,10 @@ from fusion_first.model.registry import ModelRegistry
 
 def normalize_tool_calls(raw: object) -> list[dict] | None:
     """Provider tool calls (OpenAI or Ollama shape, `[{"function": {"name", "arguments"}}]`) as
-    `[{"name": str, "arguments": dict}]`. String arguments are JSON-decoded; undecodable text gives
-    `arguments = {}` plus `"arguments_raw"`; other non-dict arguments give `{}`; a call without a name
-    is skipped. None when there is no usable call."""
+    `[{"name": str, "arguments": dict}]`. String arguments are JSON-decoded; text that does not decode
+    to a JSON object (undecodable, or a list, string, number, ...) gives `arguments = {}` plus the text
+    as `"arguments_raw"`; other non-dict arguments give `{}`; a call without a name is skipped. None
+    when there is no usable call."""
     if not isinstance(raw, list):
         return None
     out: list[dict] = []
@@ -23,10 +24,13 @@ def normalize_tool_calls(raw: object) -> list[dict] | None:
         args = fn.get("arguments")
         entry: dict = {"name": fn["name"], "arguments": {}}
         if isinstance(args, str):
+            text = args
             try:
-                args = json.loads(args)
+                args = json.loads(text)
             except json.JSONDecodeError:
-                entry["arguments_raw"] = args
+                args = None
+            if not isinstance(args, dict):
+                entry["arguments_raw"] = text
         if isinstance(args, dict):
             entry["arguments"] = args
         out.append(entry)
