@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import pathlib
 
 import pytest
@@ -230,11 +231,147 @@ def test_website_evidence_matches_its_sources():
 
 @pytest.mark.unit
 def test_every_question_in_the_header_has_its_section():
-    """The header promises four questions; each one is answered by a Q section (Q2: does it error?)."""
+    """The header promises five questions; each one is answered by a Q section (Q2: does it error?)."""
     out = render()
-    for q in ("## Q1: ", "## Q2: ", "## Q3: ", "## Q4: "):
+    assert "Five questions about Fusion itself" in out.split("## Bottom line")[0]
+    for q in ("## Q1: ", "## Q2: ", "## Q3: ", "## Q4: ", "## Q5: "):
         assert q in out
     assert "rules_git_sha" not in out and "`fusion/guardrail`" not in out
+
+
+# ---------------------------------------------------------------- Q5: the trained detector (PREREG_detector_v1.md)
+
+DIGEST = "ab" * 32
+Q5 = "## Q5: Does a trained detector beat the phrase list on injected tool results?"
+
+
+def _q5_section(out: str) -> str:
+    return out.split(Q5)[1].split("\n## ")[0]
+
+
+def _seal(root):
+    seal = root / "evals/validation/v1/detector/confirmatory.seal.json"
+    seal.parent.mkdir(parents=True, exist_ok=True)
+    seal.write_text(json.dumps({"digest": DIGEST, "format": "fusion.seal/v1", "rows": {}}), encoding="utf-8")
+
+
+def _detector_envelope(adopt: bool) -> dict:
+    """A synthetic envelope written by the scorer's own `build_envelope` (no model is called)."""
+    from fusion_first.validate.detector_confirmatory import build_envelope
+
+    rows = []
+    for source, n_pos, n_neg in (("injecagent", 20, 20), ("bipia", 10, 6), ("deepset", 8, 8), ("blind", 0, 12)):
+        rows += [{"id": f"{source}-{lab}-{i}", "source": source, "label": lab, "technique": f"{source}:t",
+                  "text": f"{source} text {lab} {i}"} for lab, n in ((1, n_pos), (0, n_neg)) for i in range(n)]
+    ids = [r["id"] for r in rows]
+
+    def scores(flag) -> dict:
+        return {r["id"]: (0.9 if flag(r) else 0.1) for r in rows}
+
+    def nth(r) -> int:
+        return int(r["id"].rsplit("-", 1)[1])
+
+    caught = 16 if adopt else 8  # of the 20 InjecAgent positives, under the fold that never saw InjecAgent
+    loso = scores(lambda r: r["label"] == 1 and (r["source"] != "injecagent" or nth(r) < caught))
+    shipped = scores(lambda r: r["label"] == 1 or (r["source"] == "blind" and nth(r) < (1 if adopt else 4)))
+    native = {"threshold": 1.0, "threshold_rule": "native_binary"}
+    lg3_ids = [r["id"] for r in rows if nth(r) < 3]
+    arms = {
+        "b0_always_negative": {"scores": dict.fromkeys(ids, 0.0), "thresholds": dict.fromkeys(ids, 1.0),
+                               "label": "B0 always-negative", "note": "never flags", **native},
+        "b1_phrase_list": {"scores": {r["id"]: float(r["label"] == 1 and nth(r) < 2) for r in rows},
+                           "thresholds": dict.fromkeys(ids, 1.0), "label": "B1 phrase list", "note": "n",
+                           "latency_ms": [0.004] * len(ids), **native},
+        "embed": {"scores": loso, "thresholds": dict.fromkeys(ids, 0.5), "label": "E LOSO", "threshold": None,
+                  "threshold_rule": "fpr", "note": "n"},
+        "embed_all": {"scores": shipped, "thresholds": dict.fromkeys(ids, 0.5), "label": "E all", "threshold": 0.5,
+                      "threshold_rule": "fpr", "note": "n", "latency_ms": [12.0, 14.0, 30.0]},
+        "llama_guard3_configured": {"ids": lg3_ids, "scores": {i: (None if i == lg3_ids[0] else 1.0) for i in lg3_ids},
+                                    "thresholds": dict.fromkeys(lg3_ids, 1.0), "label": "B2 LG3 configured",
+                                    "note": "n", "latency_ms": [2400.0] * 5, **native},
+        "zeta_arm": {"scores": shipped, "thresholds": dict.fromkeys(ids, 0.5), "label": "Z an arm added later",
+                     "threshold": 0.5, "threshold_rule": "fpr", "note": "n"},
+    }
+    absent = {"protectai_deberta": "needs the owner's approval", "finetune": "not trained"}
+    env, _ = build_envelope(rows, arms, digest=DIGEST, absent=absent,
+                            meta={"measured": "2026-10-18", "git_sha": "0" * 40, "frame": "[REQUEST] [TOOL] [RESULT]"})
+    return json.loads(json.dumps(env))
+
+
+@pytest.mark.unit
+def test_q5_says_the_registered_study_is_not_yet_scored_without_its_evidence(tmp_path):
+    from fusion_first.validate.trust_report import evidence_json
+
+    _seal(tmp_path)
+    out = render(tmp_path)
+    q5 = _q5_section(out)
+    assert "REGISTERED, NOT YET SCORED" in q5 and "`evals/validation/v1/PREREG_detector_v1.md`" in q5
+    assert f"(seal `{DIGEST}`)" in q5 and "| Source |" not in q5
+    bottom = out.split("## Q1")[0]
+    assert "**Trained detector for injected tool results?** Registered in" in bottom and "not yet scored" in bottom
+    assert evidence_json(tmp_path)["detector"] is None
+    # demonstration evidence is not trust evidence: still registered, not scored
+    env = {**_detector_envelope(True), "demonstration": True}
+    (tmp_path / "evals/validation/v1/detector/detector_v1.json").write_text(json.dumps(env), encoding="utf-8")
+    assert "REGISTERED, NOT YET SCORED" in _q5_section(render(tmp_path))
+    assert evidence_json(tmp_path)["detector"] is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("adopt", [True, False])
+def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, adopt):
+    from fusion_first.validate.trust_report import evidence_json
+
+    _seal(tmp_path)
+    env = _detector_envelope(adopt)
+    assert env["decision"]["adopt"] is adopt
+    (tmp_path / "evals/validation/v1/detector/detector_v1.json").write_text(json.dumps(env), encoding="utf-8")
+    out = render(tmp_path)
+    q5 = _q5_section(out)
+    assert "`evals/validation/v1/detector/detector_v1.json`" in q5 and f"(seal `{DIGEST}`)" in q5
+    rows = [[c.strip() for c in line.split("|")[1:-1]] for line in q5.splitlines() if line.startswith("| ")]
+    head, rows = rows[0], rows[1:]
+    assert head[:3] == ["Source", "Arm", "Injected texts flagged (recall)"] and "p50 latency" in head
+    by = {(r[0], r[1]): r for r in rows}
+    # sources in the registered order, and every arm present under each source it scored
+    assert [r[0] for r in rows] == sorted((r[0] for r in rows), key=["InjecAgent (unspent)", "BIPIA in carriers",
+                                          "deepset test (in-distribution)", "Blind negatives"].index)
+    assert {a for _, a in by} == {"B0 always negative", "B1 phrase list (shipped)", "E embedding, leave-one-source-out",
+                                  "E embedding, all sources (shipped model)", "B2 Llama Guard 3, configured",
+                                  "Z an arm added later"}  # an arm the report does not know: its own label
+    loso = by[("InjecAgent (unspent)", "E embedding, leave-one-source-out")]
+    assert loso[2].startswith(f"{16 if adopt else 8} of 20, ")
+    assert by[("InjecAgent (unspent)", "B1 phrase list (shipped)")][2].startswith("2 of 20, ")
+    assert by[("InjecAgent (unspent)", "B1 phrase list (shipped)")][6] == "<0.01 ms"
+    assert by[("InjecAgent (unspent)", "E embedding, all sources (shipped model)")][6] == "14 ms"
+    lg3 = by[("InjecAgent (unspent)", "B2 Llama Guard 3, configured")]
+    assert lg3[2].startswith("2 of 2, ") and lg3[6] == "2.4 s"  # its own subsample; the unscored row is excluded
+    blind = by[("Blind negatives", "E embedding, all sources (shipped model)")]
+    assert blind[2] == "–" and blind[3].startswith(f"{1 if adopt else 4} of 12, ") and blind[4] == "12"
+    assert blind[5] == "–"  # no positives, no AUROC
+    decision = next(line for line in q5.splitlines() if line.startswith("- Registered decision:"))
+    verdict = "adopted as an observe-only `guard_input` signal" if adopt else "not adopted: the detector stays dev-only"
+    assert f"**{verdict}**" in decision
+    assert f"{(16 if adopt else 8) / 20 * 100:.1f}%" in decision and "at least 0.60" in decision
+    assert "on the 38 distinct benign tool results" in decision and "at most 0.05" in decision
+    assert "- Registered arms not run: F fine-tune, B3 ProtectAI deberta-v3." in q5
+    limits = next(line for line in q5.splitlines() if line.startswith("- Limits registered before data:"))
+    for word in ("adaptive", "in-distribution", "dev-only"):
+        assert word in limits
+    bottom = out.split("## Q1")[0]
+    line = next(x for x in bottom.splitlines() if x.startswith("- **Trained detector for injected tool results?**"))
+    assert f"it flagged {16 if adopt else 8} of 20" in line and "the phrase list flagged 2 of 20" in line
+    assert ("Registered decision: adopted as an observe-only" if adopt else "not adopted: the detector stays dev-only") \
+        in line
+    site = evidence_json(tmp_path)["detector"]
+    assert site["decision"]["adopt"] is adopt and site["seal_digest"] == DIGEST
+    assert site["preregistration"] == "evals/validation/v1/PREREG_detector_v1.md"
+    assert site["primary"]["injecagent_recall"]["n"] == 20 and site["primary"]["shipped_fpr"]["n"] == 38
+    assert [a["arm"] for a in site["absent"]] == ["finetune", "protectai_deberta"]
+    rows = {(r["source"], r["arm"]): r for r in site["rows"]}
+    assert rows[("injecagent", "embed")]["recall"]["point"] == pytest.approx((16 if adopt else 8) / 20)
+    assert set(rows[("blind", "embed_all")]["fpr"]) >= {"point", "low", "high"}
+    assert rows[("blind", "embed_all")]["recall"] is None  # no positives: no rate, not a 0% (0%–100%)
 
 
 @pytest.mark.unit

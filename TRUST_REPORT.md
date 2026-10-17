@@ -1,9 +1,9 @@
 # Fusion First: Trust Report
 
-Four questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
-simpler checks?** Generated from committed evidence by `python -m fusion_first.validate.trust_report`; a test
-fails if this file and its evidence disagree. Intervals are 95% Wilson unless noted. Demonstration
-evidence (the offline stand-in judge) is excluded.
+Five questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
+simpler checks, does a trained detector beat the phrase list?** Generated from committed evidence by
+`python -m fusion_first.validate.trust_report`; a test fails if this file and its evidence disagree. Intervals
+are 95% Wilson unless noted. Demonstration evidence (the offline stand-in judge) is excluded.
 
 ## Bottom line
 
@@ -12,6 +12,7 @@ evidence (the offline stand-in judge) is excluded.
 - **Runtime guardrail in your agent?** On fresh real attacks against qwen2.5:7b and llama3.1:8b, measured once with the current rules (pre-registered), it stopped 132 of 148, 89% (83%–93%): 100% of password leaks, 100% of direct-harm tool hijacks, 69% of data-stealing tool hijacks. It wrongly blocked 1% (0%–3%) of clean transcripts. On the same transcripts the previous rules stopped 104 and Llama Guard 3 (configured) 77, wrongly blocking 10% (6%–14%). Given the tool results as well, on further fresh transcripts of the same models (pre-registered), it stopped 75 of 75 attacks (55 of 55 data-stealing) vs 67 (47) without them, wrongly blocking 1 of 225 clean transcripts either way. Its cost, in a live AgentDojo agent loop on held-out tasks (qwen2.5:7b, pre-registered): the agent completed 22 of 66 legitimate tasks with the guard vs 29 without it (7 broken, 0 fixed), over the registered 10-point margin.
 - **Runtime guard (Claude Code hook)?** On held-out tool calls it prompted on 5% (2%–11%) of benign calls and caught 76% (64%–84%) of attack-shaped ones as written: useful defense in depth, not a sandbox.
 - **Erroring often?** In the fix-efficacy run, 1 of 480 item pairs failed to generate, 0 were undecidable by the oracle and 45 were cut by the token cap; in the judge evaluation, 0 of 240 questions went unanswered. Every card counts and shows its unscored cases, and a grade is withheld ('?') when too much is unscored, when the grader misses the known-answer floor, or when it denies an oracle-confirmed violation.
+- **Trained detector for injected tool results?** Registered in `evals/validation/v1/PREREG_detector_v1.md` (seal `3a311e023f34bccb9533b52e60078f037a6d7dccc4e3922a522667384c1ca85c`) and not yet scored; no number from it is claimed.
 
 ## Q1: Is the judge accurate?
 
@@ -90,6 +91,10 @@ The same items graded twice by the same Claude Sonnet: once with Fusion's rubric
 | pooled | 119 (1) | 86% (78%–91%) | 87% (79%–92%) | -1 pts (-6 to +4) | McNemar p=1.000 |
 
 **Not shown:** the rubric judge is not significantly more accurate than asking the same model one plain question, so Fusion does not claim it is. What the rubric still provides is a checkable grade: per-criterion answers with quoted evidence, which the run engine uses to reject ungrounded grades.
+
+## Q5: Does a trained detector beat the phrase list on injected tool results?
+
+REGISTERED, NOT YET SCORED: `evals/validation/v1/PREREG_detector_v1.md` (seal `3a311e023f34bccb9533b52e60078f037a6d7dccc4e3922a522667384c1ca85c`) fixes the data, the frame, the leave-one-source-out protocol and the decision rule before any model was trained. The sealed confirmatory rows are scored once; this section is generated from `evals/validation/v1/detector/detector_v1.json` when it is committed.
 
 ## Request-bound guardrail on 7–8B models (pre-registered)
 

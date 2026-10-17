@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { Step2Section, Step3Section, Step4Section } from "./Trust";
+import Trust, { DetectorSection, Step2Section, Step3Section, Step4Section } from "./Trust";
 import { EXPERIMENT_NAMES } from "../components/trust/format";
 import { fixVerdict, graderName, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
@@ -163,5 +163,61 @@ describe("Trust page", () => {
     const u = s.utility_benign;
     expect(screen.getByText(new RegExp(`^${u.none.k} of ${u.none.n}`))).toBeInTheDocument();
     expect(screen.getByText(s.comparisons.cost_none_vs_v3.non_inferior ? /within the margin/ : /over the margin/)).toBeInTheDocument();
+  });
+
+  it("says the trained detector study is registered and not yet scored until its evidence is committed", () => {
+    render(<DetectorSection d={null} />);
+    expect(screen.getByRole("heading", { name: "Trained detector vs the phrase list" })).toBeInTheDocument();
+    expect(screen.getByText(/Registered before training/)).toHaveTextContent(
+      "Registered before training (evals/validation/v1/PREREG_detector_v1.md), not yet scored.",
+    );
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("renders the committed detector block, or its not-yet-scored line", () => {
+    renderTrust();
+    expect(screen.getByRole("heading", { name: "Trained detector vs the phrase list" })).toBeInTheDocument();
+    if (evidence.detector === null) expect(screen.getByText(/not yet scored/)).toBeInTheDocument();
+    else expect(screen.getAllByRole("cell", { name: evidence.detector.rows[0].arm_label }).length).toBeGreaterThan(0);
+  });
+
+  it.each([true, false])("shows every arm by source with the registered decision (adopt=%s)", (adopt) => {
+    const iv = (k, n) => ({ point: k / n, low: Math.max(0, k / n - 0.1), high: Math.min(1, k / n + 0.1) });
+    const row = (source_label, arm_label, tp, n_pos, fp, n_neg, auroc, p50_ms) => ({
+      source_label, arm_label, tp, n_pos, recall: n_pos ? iv(tp, n_pos) : null, fp, n_neg,
+      fpr: n_neg ? iv(fp, n_neg) : null, distinct_neg: n_neg, auroc, p50_ms,
+    });
+    const d = {
+      seal_digest: "3a311e023f34bccb9533b52e60078f037a6d7dccc4e3922a522667384c1ca85c",
+      rows: [
+        row("InjecAgent (unspent)", "B1 phrase list (shipped)", 3, 744, 0, 744, 0.5, 0.004),
+        row("InjecAgent (unspent)", "E embedding, leave-one-source-out", adopt ? 600 : 300, 744, 7, 744, 0.91, null),
+        row("InjecAgent (unspent)", "B2 Llama Guard 3, configured", 20, 25, 4, 25, 0.62, 2400),
+        row("Blind negatives", "E embedding, all sources (shipped model)", 0, 0, 2, 148, null, 14),
+      ],
+      primary: {
+        injecagent_recall: { ...iv(adopt ? 600 : 300, 744), n: 744 },
+        shipped_fpr: { ...iv(adopt ? 9 : 90, 961), n: 961 },
+      },
+      decision: { adopt, min_recall: 0.6, max_fpr: 0.05, rule: "r" },
+      absent: [{ arm: "finetune", label: "F fine-tune", reason: "not trained" }],
+    };
+    render(<DetectorSection d={d} />);
+    expect(screen.getAllByRole("cell", { name: "InjecAgent (unspent)" }).length).toBe(3);
+    expect(screen.getByRole("cell", { name: `${adopt ? 600 : 300} of 744, ${interval(iv(adopt ? 600 : 300, 744))}` })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "B2 Llama Guard 3, configured" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "2.4 s" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "<0.01 ms" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "2 of 148, 1% (0%–11%)" })).toBeInTheDocument();
+    expect(screen.getAllByRole("cell", { name: "–" }).length).toBe(3); // no positives: no recall, no AUROC; no latency
+    expect(screen.getByText(/seal 3a311e023f34\)/)).toBeInTheDocument();
+    const decision = screen.getByText(/^Decision:/).textContent;
+    expect(decision).toContain(adopt ? "adopted as an observe-only signal" : "not adopted; the detector stays dev-only");
+    expect(decision).toContain("of 744 flagged (bar at least 60%)");
+    expect(decision).toContain("Shipped model on 961 distinct benign tool results");
+    expect(decision).toContain("(bar at most 5%)");
+    expect(screen.getByText("Registered arms not run: F fine-tune.")).toBeInTheDocument();
+    expect(screen.getByText(/No adaptive-attack evaluation\. deepset is in-distribution; AgentDojo is dev-only/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014)); // no em dashes in the copy
   });
 });

@@ -3,6 +3,7 @@ live on the site and in the Trust Report."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,20 @@ def test_the_docs_describe_the_in_sample_guard_replay():
     assert "in-sample" in arch
     audit = (ROOT / "plugins" / "fusion" / "skills" / "audit" / "SKILL.md").read_text(encoding="utf-8")
     assert "guard_in_sample" in audit and "in-sample" in audit
+
+
+@pytest.mark.unit
+def test_the_detector_doc_claims_no_number_before_its_registered_result():
+    """docs/DETECTOR.md keeps its registered-result section a placeholder until the evidence is committed, labels the
+    phrase-list re-run as diagnostic, and states the adaptive, in-distribution and dev-only limits."""
+    text = (ROOT / "docs" / "DETECTOR.md").read_text(encoding="utf-8")
+    result = text.split("## Registered result")[1].split("\n## ")[0]
+    if not (ROOT / "evals" / "validation" / "v1" / "detector" / "detector_v1.json").is_file():
+        assert "Filled when `evals/validation/v1/detector/detector_v1.json` is committed" in result
+        assert "%" not in result and " of " not in result and not re.search(r"\b0\.\d", result)  # no rate, no count
+    for phrase in ("diagnostic, not registered", "adaptive", "in-distribution", "dev-only"):
+        assert phrase in text
+    assert chr(0x2014) not in text and "DETECTOR.md" in (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.unit

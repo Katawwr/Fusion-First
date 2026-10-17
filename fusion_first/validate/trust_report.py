@@ -9,14 +9,23 @@ import json
 import pathlib
 
 from fusion_first._data import data_root
-from fusion_first.validate.prereg import LOCAL_GRADER_EVIDENCE, local_grader_decision
+from fusion_first.validate.detector_confirmatory import EVIDENCE as DETECTOR_EVIDENCE
+from fusion_first.validate.detector_confirmatory import PREREGISTRATION as DETECTOR_PREREG
+from fusion_first.validate.detector_confirmatory import SEAL as DETECTOR_SEAL
+from fusion_first.validate.prereg import (
+    DETECTOR_MAX_FPR,
+    DETECTOR_MIN_RECALL,
+    LOCAL_GRADER_EVIDENCE,
+    detector_decision,
+    local_grader_decision,
+)
 
 HEADER = """# Fusion First: Trust Report
 
-Four questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
-simpler checks?** Generated from committed evidence by `python -m fusion_first.validate.trust_report`; a test
-fails if this file and its evidence disagree. Intervals are 95% Wilson unless noted. Demonstration
-evidence (the offline stand-in judge) is excluded.
+Five questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
+simpler checks, does a trained detector beat the phrase list?** Generated from committed evidence by
+`python -m fusion_first.validate.trust_report`; a test fails if this file and its evidence disagree. Intervals
+are 95% Wilson unless noted. Demonstration evidence (the offline stand-in judge) is excluded.
 """
 
 
@@ -192,6 +201,7 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
     counts = _error_counts(fix, judge)
     out.append("- **Erroring often?** " + ("; ".join(counts).capitalize() + ". " if counts else "")
                + _WITHHELD)
+    out.append(_detector_bottom_line(root))
     return out + [""]
 
 
@@ -516,6 +526,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "local_grader": local_grader,
             "step2_guard": _step2_site(root), "step3_guard": _step3_site(root), "step4_agentdojo": _step4_site(root),
+            "detector": _detector_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
 
@@ -783,9 +794,165 @@ def _step4_site(root: pathlib.Path) -> dict | None:
             "decision": d["decision"]}
 
 
+# Q5: the trained detector for injected tool results (PREREG_detector_v1.md). Known arms and sources get short names
+# and a fixed order; an arm or source the envelope adds later is listed after them under its own label.
+_DETECTOR_SOURCES = (("injecagent", "InjecAgent (unspent)"), ("bipia", "BIPIA in carriers"),
+                     ("deepset", "deepset test (in-distribution)"), ("blind", "Blind negatives"))
+_DETECTOR_ARMS = (("b0_always_negative", "B0 always negative"), ("b1_phrase_list", "B1 phrase list (shipped)"),
+                  ("embed", "E embedding, leave-one-source-out"), ("embed_all", "E embedding, all sources (shipped model)"),
+                  ("finetune", "F fine-tune"), ("finetune_all", "F fine-tune, all sources"),
+                  ("llama_guard3_configured", "B2 Llama Guard 3, configured"),
+                  ("llama_guard3_default", "B2 Llama Guard 3, off the shelf"),
+                  ("protectai_deberta", "B3 ProtectAI deberta-v3"))
+_DETECTOR_ARM_NAMES = dict(_DETECTOR_ARMS)
+_DETECTOR_SOURCE_NAMES = dict(_DETECTOR_SOURCES)
+
+
+def _seal_digest(root: pathlib.Path) -> str | None:
+    """The committed seal's digest (the seal carries no demonstration flag: it is a hash list, not a measurement)."""
+    p = root / DETECTOR_SEAL
+    if not p.is_file():
+        return None
+    return json.loads(p.read_text(encoding="utf-8")).get("digest")
+
+
+def _arm_name(key: str, arm: dict | None = None) -> str:
+    return _DETECTOR_ARM_NAMES.get(key) or (arm or {}).get("label") or key
+
+
+def _ordered(known: tuple[tuple[str, str], ...], present: set[str]) -> list[str]:
+    return [k for k, _ in known if k in present] + sorted(present - {k for k, _ in known})
+
+
+def _ms(x: float | None) -> str:
+    if x is None:
+        return "–"
+    if x >= 1000:
+        return f"{x / 1000:.1f} s"
+    if x >= 10:
+        return f"{x:.0f} ms"
+    return f"{x:.1f} ms" if x >= 1 else ("<0.01 ms" if x < 0.01 else f"{x:.2f} ms")
+
+
+def _detector_rows(d: dict) -> list[dict]:
+    """One row per source x arm present in the envelope, sources first (InjecAgent, BIPIA, deepset, blind)."""
+    arms = d.get("arms") or {}
+    sources = {s for a in arms.values() for s in (a.get("per_source") or {})}
+    out = []
+    for src in _ordered(_DETECTOR_SOURCES, sources):
+        for key in _ordered(_DETECTOR_ARMS, set(arms)):
+            arm = arms[key]
+            s = (arm.get("per_source") or {}).get(src)
+            if s is None:
+                continue
+            out.append({"source": src, "source_label": _DETECTOR_SOURCE_NAMES.get(src, src),
+                        "arm": key, "arm_label": _arm_name(key, arm),
+                        "tp": s["tp"], "n_pos": s["n_pos"], "recall": s["recall"] if s["n_pos"] else None,
+                        "fp": s["fp"], "n_neg": s["n_neg"], "fpr": s["fpr"] if s["n_neg"] else None,
+                        "distinct_neg": s.get("distinct_neg"),
+                        "auroc": (arm.get("auroc_per_source") or {}).get(src),
+                        "p50_ms": (arm.get("latency") or {}).get("p50_ms")})
+    return out
+
+
+def _flagged(k: int, n: int, iv: dict | None) -> str:
+    return f"{k} of {n}, {_iv(iv)}" if n else "–"
+
+
+def _iv1(d: dict) -> str:
+    """A primary outcome to one decimal, so a value just under its bar never reads as meeting it."""
+    if not d or d.get("point") is None:
+        return "–"
+    return f"{d['point'] * 100:.1f}% ({d['low'] * 100:.1f}%–{d['high'] * 100:.1f}%)"
+
+
+def _detector_verdict(adopt: bool) -> str:
+    return "adopted as an observe-only `guard_input` signal" if adopt else "not adopted: the detector stays dev-only"
+
+
+def _detector_decision_sentence(d: dict) -> str:
+    dec = detector_decision(d)
+    r, f = (d.get("primary") or {}).get("injecagent_recall") or {}, (d.get("primary") or {}).get("shipped_fpr") or {}
+    return (f"Registered decision: **{_detector_verdict(dec['adopt'])}**. Recall on the {r.get('n', '–')} unspent "
+            f"InjecAgent injected tool results, under the fold that never saw InjecAgent: {_iv1(r)}, bar at least "
+            f"{DETECTOR_MIN_RECALL:.2f}. False-positive rate of the shipped all-sources model on the {f.get('n', '–')} "
+            f"distinct benign tool results: {_iv1(f)}, bar at most {DETECTOR_MAX_FPR:.2f}.")
+
+
+def _registration(root: pathlib.Path, d: dict | None) -> str:
+    digest = (d or {}).get("seal_digest") or _seal_digest(root)
+    return f"`{(d or {}).get('preregistration') or DETECTOR_PREREG}`" + (f" (seal `{digest}`)" if digest else "")
+
+
+def _detector_bottom_line(root: pathlib.Path) -> str:
+    head = "- **Trained detector for injected tool results?** "
+    d = _load(root, DETECTOR_EVIDENCE)
+    if not d:
+        return head + f"Registered in {_registration(root, None)} and not yet scored; no number from it is claimed."
+    rows = {(r["source"], r["arm"]): r for r in _detector_rows(d)}
+    primary = d.get("primary") or {}
+    r, f = primary.get("injecagent_recall") or {}, primary.get("shipped_fpr") or {}
+    b1 = rows.get(("injecagent", "b1_phrase_list"))
+    phrase = f", where the phrase list flagged {b1['tp']} of {b1['n_pos']}" if b1 and b1["n_pos"] else ""
+    return (head + f"On unspent InjecAgent tool results from a source it never trained on, it flagged "
+            f"{r.get('tp', '–')} of {r.get('n', '–')}, {_iv(r)}{phrase}; the shipped model flagged {f.get('fp', '–')} of "
+            f"{f.get('n', '–')} distinct benign tool results, {_iv(f)}. Registered decision: "
+            f"{_detector_verdict(detector_decision(d)['adopt'])}.")
+
+
+def _q5(root: pathlib.Path) -> list[str]:
+    out = ["## Q5: Does a trained detector beat the phrase list on injected tool results?", ""]
+    d = _load(root, DETECTOR_EVIDENCE)
+    if not d:
+        return out + [(f"REGISTERED, NOT YET SCORED: {_registration(root, None)} fixes the data, the frame, the "
+                       "leave-one-source-out protocol and the decision rule before any model was trained. The sealed "
+                       f"confirmatory rows are scored once; this section is generated from `{DETECTOR_EVIDENCE}` when it "
+                       "is committed."), ""]
+    arms = d.get("arms") or {}
+    out += [(f"A small CPU classifier given the request, the tool name and the tool result in one frame, scored once on "
+             "the sealed confirmatory rows (each source by the fold model trained without it) beside the shipped phrase "
+             f"list and the other baselines below. Registered in {_registration(root, d)}; evidence: "
+             f"`{DETECTOR_EVIDENCE}`."), "",
+            ("| Source | Arm | Injected texts flagged (recall) | Benign texts flagged (false-positive rate) "
+             "| Distinct benign texts | AUROC | p50 latency |"), "|---|---|---|---|---|---|---|"]
+    for r in _detector_rows(d):
+        out.append(f"| {r['source_label']} | {r['arm_label']} | {_flagged(r['tp'], r['n_pos'], r['recall'])} | "
+                   f"{_flagged(r['fp'], r['n_neg'], r['fpr'])} | {r['distinct_neg'] if r['n_neg'] else '–'} | "
+                   f"{'–' if r['auroc'] is None else format(r['auroc'], '.2f')} | {_ms(r['p50_ms'])} |")
+    out += ["", f"- {_detector_decision_sentence(d)}"]
+    absent = d.get("absent_arms") or {}
+    if absent:
+        out.append("- Registered arms not run: " + ", ".join(_arm_name(k) for k in _ordered(_DETECTOR_ARMS, set(absent)))
+                   + ".")
+    lg3 = any(k.startswith("llama_guard") for k in arms)
+    out += [("- Limits registered before data: text-level detection only, not attack success or the guard's cost in an "
+             "agent loop; no adaptive-attack evaluation, so a static result is expected to degrade against an attacker "
+             "who adapts to the detector; the deepset test rows are in-distribution with respect to deepset's own "
+             "training split; AgentDojo is dev-only (its held-out set is spent for the guard), so no AgentDojo row is "
+             "scored here; only the leave-one-source-out numbers are claimed (the shipped model saw every source in "
+             "training, so its recall rows are in-source)"
+             + ("; each Llama Guard 3 arm runs on its own stratified subsample with its own n." if lg3 else ".")), ""]
+    return out
+
+
+def _detector_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, DETECTOR_EVIDENCE)
+    if not d:
+        return None
+    dec = detector_decision(d)
+    keep = ("point", "low", "high", "n", "tp", "fp")
+    return {"evidence": DETECTOR_EVIDENCE, "preregistration": d.get("preregistration") or DETECTOR_PREREG,
+            "seal_digest": d.get("seal_digest"), "rows": _detector_rows(d),
+            "primary": {k: {f: v[f] for f in keep if f in v} for k, v in (d.get("primary") or {}).items()},
+            "decision": {"adopt": dec["adopt"], "rule": dec["rule"], "min_recall": DETECTOR_MIN_RECALL,
+                         "max_fpr": DETECTOR_MAX_FPR},
+            "absent": [{"arm": k, "label": _arm_name(k), "reason": (d.get("absent_arms") or {})[k]}
+                       for k in _ordered(_DETECTOR_ARMS, set(d.get("absent_arms") or {}))]}
+
+
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
-    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root),
+    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root),
              *_step2(root), *_step3(root), *_step4(root), *_guard(root),
              *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"

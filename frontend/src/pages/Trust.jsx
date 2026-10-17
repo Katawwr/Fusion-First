@@ -1,7 +1,7 @@
 import React from "react";
 import { Helmet } from "react-helmet-async";
 import evidence from "../content/evidence.json";
-import { fixVerdict, graderName, interval, points as signedPoints, significanceByGrader } from "../lib/evidence";
+import { fixVerdict, graderName, interval, pct, points as signedPoints, significanceByGrader } from "../lib/evidence";
 import { DataTable, Doc, DocHeader } from "../components/doc";
 import { DiscordantPairs, FixChanges, GraderVsBaselines, GuardTradeoff, StoppedBars } from "../components/trust/charts";
 import { EXPERIMENT_NAMES, pShort } from "../components/trust/format";
@@ -194,6 +194,70 @@ export function Step3Section({ s, fig = 1 }) {
   );
 }
 
+// Per-decision latency as a reader scans it: <0.01 ms, 0.04 ms, 14 ms, 2.4 s.
+function ms(x) {
+  if (x === null || x === undefined) return "–";
+  if (x >= 1000) return `${(x / 1000).toFixed(1)} s`;
+  if (x >= 10) return `${Math.round(x)} ms`;
+  if (x >= 1) return `${x.toFixed(1)} ms`;
+  return x < 0.01 ? "<0.01 ms" : `${x.toFixed(2)} ms`;
+}
+
+const flagged = (k, n, iv) => (n ? `${k} of ${n}, ${interval(iv)}` : "–");
+
+// Q5 of the Trust Report. A null block means the registered study is not scored yet.
+export function DetectorSection({ d }) {
+  const title = "Trained detector vs the phrase list";
+  if (!d) {
+    return (
+      <Section title={title}>
+        <p className="border-l-2 border-app-border-strong pl-3 text-sm text-app-muted">
+          Registered before training (<code className="inline-code">evals/validation/v1/PREREG_detector_v1.md</code>),
+          not yet scored.
+        </p>
+      </Section>
+    );
+  }
+  const r = d.primary.injecagent_recall;
+  const f = d.primary.shipped_fpr;
+  const absent = d.absent || [];
+  return (
+    <Section title={title}>
+      <p className="mb-3 text-sm text-app-muted">
+        A small CPU classifier given the request, the tool name and the tool result in one frame. Each source is scored
+        by the fold model trained without it. Pre-registered, scored once on sealed rows
+        {d.seal_digest ? ` (seal ${d.seal_digest.slice(0, 12)})` : ""}.
+      </p>
+      {/* Every count, rate and latency column in mono, including the "–" of a source without positives. */}
+      <DataTable
+        numeric={[2, 3, 4, 5, 6]}
+        head={["Source", "Arm", "Injected texts flagged", "Benign texts flagged", "Distinct benign", "AUROC", "p50 latency"]}
+        rows={d.rows.map((x) => [
+          x.source_label,
+          x.arm_label,
+          flagged(x.tp, x.n_pos, x.recall),
+          flagged(x.fp, x.n_neg, x.fpr),
+          x.n_neg ? x.distinct_neg : "–",
+          x.auroc === null || x.auroc === undefined ? "–" : x.auroc.toFixed(2),
+          ms(x.p50_ms),
+        ])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        Decision: {d.decision.adopt ? "adopted as an observe-only signal" : "not adopted; the detector stays dev-only"}.
+        Unspent InjecAgent results, fold that never saw InjecAgent: {interval(r)} of {r.n} flagged (bar at least{" "}
+        {pct(d.decision.min_recall)}). Shipped model on {f.n} distinct benign tool results: {interval(f)} flagged (bar at
+        most {pct(d.decision.max_fpr)}).
+      </p>
+      {absent.length > 0 && (
+        <p className="mt-1 text-xs text-app-subtle">Registered arms not run: {absent.map((a) => a.label).join(", ")}.</p>
+      )}
+      <p className="mt-1 text-xs text-app-subtle">
+        No adaptive-attack evaluation. deepset is in-distribution; AgentDojo is dev-only and not scored here.
+      </p>
+    </Section>
+  );
+}
+
 function NotYet({ what }) {
   return (
     <p className="border-l-2 border-app-border-strong pl-3 text-sm text-app-muted">
@@ -300,6 +364,8 @@ export default function Trust() {
       {evidence.step3_guard && <Step3Section s={evidence.step3_guard} fig={step3Fig} />}
 
       {evidence.step4_agentdojo && <Step4Section s={evidence.step4_agentdojo} />}
+
+      <DetectorSection d={evidence.detector} />
 
       <Section title="Prompt fix: effect and cost">
         {evidence.fix_pooled && (
