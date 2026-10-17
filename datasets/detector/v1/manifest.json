@@ -1,0 +1,174 @@
+{
+  "builder_version": "v1",
+  "build_date": "2026-10-17",
+  "git_sha": "5c534a5a7ad11a4c76ada2fbc9f9ebf9a4a71f19",
+  "blind_present": true,
+  "blind_inputs": {
+    "fillers": true,
+    "carriers": [
+      "carriers_c.jsonl",
+      "carriers_d.jsonl"
+    ],
+    "authors": [
+      "author_a.jsonl",
+      "author_b.jsonl"
+    ]
+  },
+  "skipped_without_blind": [],
+  "agentdojo_files": [
+    "evals/validation/v1/agentdojo/heldout/qwen2.5-7b.jsonl",
+    "evals/validation/v1/agentdojo/dev/llama3.1-8b.jsonl",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b.jsonl",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b__ignore_previous.jsonl",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b__injecagent.jsonl",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b__system_message.jsonl",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b__tool_knowledge.jsonl"
+  ],
+  "inputs": {
+    "datasets/external/injecagent.v1.jsonl": "e7563a270d4e39f3e80a34a7ec77c8d02da534ae442b9b67bea68a71eb5a911c",
+    "datasets/external/deepset.v1.jsonl": "cdc17bf7e9c410b96f0a8d5552b7895897ab69364525be2de0ef56b0205cc78c",
+    "datasets/external/bipia.v1.jsonl": "f4d44ad814467ab001418c849db887975fced094f6b9e0bc3f563e0586e163c6",
+    "datasets/detector/v1/blind/fillers_c.jsonl": "e3ed9449bfbe97fa15b8d6d35d5b0bad01006ea0c5a44a6599ed0fe1ecb49882",
+    "datasets/detector/v1/blind/carriers_c.jsonl": "d1decbd487b094e5d408f18f7b8b12601c34dda64210b103cbf742855596ae0f",
+    "datasets/detector/v1/blind/carriers_d.jsonl": "a635871f2d184b97552d5ddce0e8bbffb956bfbaa2c65af36dd342816d62aeab",
+    "datasets/detector/v1/blind/author_a.jsonl": "a8cd02022e75cf5697e35477b07f2dd999a0b53befda3896f67f2669371cb2db",
+    "datasets/detector/v1/blind/author_b.jsonl": "a2a1db154f2365da7cca1eb8459a8ca50b1fbef43d2b5cb5388c8b3f2be33be4",
+    "evals/validation/v1/agentdojo/heldout/qwen2.5-7b.jsonl": "d01ff397d166ef871e71b6cf60ffafd2d1c075ea3d4f3e041a274a3119ced331",
+    "evals/validation/v1/agentdojo/dev/llama3.1-8b.jsonl": "350a37f36bb4c32da1f118b5f8717055971d1323510be044b13d36aa9ed51d66",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b.jsonl": "b31d365ca4e93ee48b33598cffc5e5fe4f5770f0b6148472f82d4f39a6261a75",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b__ignore_previous.jsonl": "a57220be8630de676e6c4821f9ffccc53a21be2604d05fc2bfe9612794cd2ebb",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b__injecagent.jsonl": "195cf1176384134706f334dd68c862d537059061c33973475d5cbd707cd655fc",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b__system_message.jsonl": "a6f07971c6cbef2fcda5cabc7bb60847156bdbae48c967f7091a39a3dee3afe6",
+    "evals/validation/v1/agentdojo/dev/qwen2.5-7b__tool_knowledge.jsonl": "e63bdc0fa372efd77996bcd2ca5cc2ad9f6aa5c90089d7e931d5991df2361a98"
+  },
+  "injecagent_spent_ids": 310,
+  "counts": {
+    "injecagent": {
+      "dev": {
+        "0": 310,
+        "1": 310
+      },
+      "confirmatory": {
+        "0": 744,
+        "1": 744
+      }
+    },
+    "deepset": {
+      "dev": {
+        "0": 343,
+        "1": 203
+      },
+      "confirmatory": {
+        "0": 56,
+        "1": 60
+      }
+    },
+    "bipia": {
+      "dev": {
+        "0": 61,
+        "1": 75
+      },
+      "confirmatory": {
+        "0": 69,
+        "1": 125
+      }
+    },
+    "agentdojo": {
+      "dev": {
+        "0": 234,
+        "1": 166
+      }
+    },
+    "blind": {
+      "dev": {
+        "0": 150,
+        "1": 0
+      },
+      "confirmatory": {
+        "0": 148,
+        "1": 0
+      }
+    }
+  },
+  "distinct_texts": {
+    "injecagent": {
+      "dev": {
+        "0": 310,
+        "1": 310
+      },
+      "confirmatory": {
+        "0": 744,
+        "1": 744
+      }
+    },
+    "deepset": {
+      "dev": {
+        "0": 343,
+        "1": 203
+      },
+      "confirmatory": {
+        "0": 56,
+        "1": 60
+      }
+    },
+    "bipia": {
+      "dev": {
+        "0": 61,
+        "1": 75
+      },
+      "confirmatory": {
+        "0": 69,
+        "1": 125
+      }
+    },
+    "agentdojo": {
+      "dev": {
+        "0": 234,
+        "1": 166
+      }
+    },
+    "blind": {
+      "dev": {
+        "0": 151,
+        "1": 0
+      },
+      "confirmatory": {
+        "0": 148,
+        "1": 0
+      }
+    }
+  },
+  "totals": {
+    "dev": {
+      "0": 1098,
+      "1": 754
+    },
+    "confirmatory": {
+      "0": 1017,
+      "1": 929
+    }
+  },
+  "skipped": {
+    "agentdojo": {
+      "different_call": 5,
+      "guard_message": 575,
+      "no_counterpart_result": 586,
+      "nonsemantic_diff": 6,
+      "untagged_diff_in_tagged_attack": 149
+    }
+  },
+  "deduped": {
+    "agentdojo_replay": 5849,
+    "global": {
+      "blind": 2
+    },
+    "global_by_split_label": {
+      "blind": {
+        "dev": {
+          "0": 2,
+          "1": 0
+        }
+      }
+    }
+  }
+}
