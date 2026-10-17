@@ -50,6 +50,11 @@ serve = [
 mcp = [
     "mcp>=1.2,<3",  # the server runs on 1.x and 2.x; a new major may rename things again
 ]
+# The tool-result injection detector's trained arm (dev-only; CPU; bge-small from the local HF cache).
+detector = [
+    "sentence-transformers>=3",
+    "scikit-learn>=1.5",
+]
 dev = [
     "pytest>=8.0",
     "scipy>=1.13",  # only to cross-check the exact McNemar implementation in tests
@@ -84,6 +89,7 @@ markers = [
     "integration: cross-module, still offline (cassette-replayed)",
     "live: requires real provider API keys (skipped in CI/offline gate)",
     "benchmark: public-benchmark record/replay (may be slow)",
+    "slow: loads a real local model from the Hugging Face cache (skipped when it is absent)",
 ]
 filterwarnings = ["ignore::DeprecationWarning"]
 
