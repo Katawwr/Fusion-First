@@ -6,17 +6,20 @@ a fake Ollama): no test opens the real confirmatory rows, and no model is called
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import pathlib
 import random
 import re
 import runpy
+import shutil
 
 import numpy as np
 import pytest
 
 from fusion_first.stats.metrics import wilson_interval
 from fusion_first.validate import detector_confirmatory as dc
+from fusion_first.validate import detector_finetune as ft
 from fusion_first.validate import detector_systems as ds
 from fusion_first.validate.detector_data import FRAME, SOURCES, render_frame
 from fusion_first.validate.detector_eval import (
@@ -42,6 +45,8 @@ from fusion_first.validate.seal import compute_seal, load_seal, seal_digest, wri
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SIGNAL = "EVIL"
 LG3 = "llama-guard3:8b"
+HAVE_TORCH = all(importlib.util.find_spec(m) is not None for m in ("torch", "transformers"))
+needs_torch = pytest.mark.skipif(not HAVE_TORCH, reason="the detector extra (torch, transformers) is not installed")
 
 
 # ---------------------------------------------------------------- the committed envelope re-derives
@@ -572,13 +577,24 @@ def test_score_refuses_a_fold_model_that_dev_loso_did_not_choose_the_threshold_f
 
 
 @pytest.mark.integration
-def test_score_refuses_a_fine_tune_arm_it_cannot_load(scorer, study, tmp_path):
+def test_a_fine_tune_arm_without_folds_or_models_is_unscored_with_a_note_not_refused(scorer, study, tmp_path):
     loso = json.loads(study["dev_loso"].read_text(encoding="utf-8"))
     loso["arms"]["finetune"] = {"folds": {}}
     study["dev_loso"] = tmp_path / "dev_loso.json"
     study["dev_loso"].write_text(json.dumps(loso), encoding="utf-8")
-    assert _score(scorer, study) == 1
-    assert not study["out"].exists()
+    assert _score(scorer, study) == 0
+    env = check_envelope(study["out"], study["scores"], study["data"], study["seal"])
+    assert "finetune" not in env["absent_arms"]
+    fold, everything = env["arms"]["finetune"], env["arms"]["finetune_all"]
+    for arm in (fold, everything):
+        assert arm["n_rows"] == len(study["rows"]) and arm["n_scored"] == 0
+        assert arm["pooled"]["tp"] == 0 and arm["pooled"]["unscored"] == len(study["rows"])  # never caught
+        assert "unscored, never caught" in arm["note"]
+    assert fold["unscored_sources"] == dict.fromkeys(("bipia", "blind", "deepset", "injecagent"),
+                                                     "dev_loso.json has no arms.finetune.folds.injecagent")
+    assert "dev_loso.json has no arms.finetune.all" in everything["note"] and everything["latency"] is None
+    lines = [json.loads(x) for x in study["scores"].read_text(encoding="utf-8").splitlines()]
+    assert all(x["score"] is None and x["flagged"] is None for x in lines if x["arm"].startswith("finetune"))
 
 
 def _lg3_records(study, arm: str, ids: list[str]) -> list[dict]:
@@ -691,3 +707,200 @@ def test_score_runs_once_unless_forced_and_a_forced_rerun_is_logged(scorer, stud
     env = json.loads(study["out"].read_text(encoding="utf-8"))
     assert env["previous"]["sha256"] == hashlib.sha256(first).hexdigest()
     assert env["previous"]["measured"] == json.loads(first)["measured"]
+
+
+# ---------------------------------------------------------------- the optional fine-tune arm F (a tiny BERT)
+
+
+CONF_SOURCES = ("bipia", "blind", "deepset", "injecagent")
+FT_ALNUM = "abcdefghijklmnopqrstuvwxyz0123456789"
+FT_VOCAB = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "[", "]", "(", ")", ":", "_", ".", ",", "request", "tool",
+            "result", "check", "my", "inbox", "read", "email", "dev", "plain", "send", "it", SIGNAL.lower(), "calendar",
+            "forward", "the", "files", "lunch", "with", "sam", "forget", "rules", "what", "is", "weather", "wire",
+            "money", "see", "you", "soon", "report", "ignore", "previous", "instructions", "none", *SOURCES,
+            *FT_ALNUM, *(f"##{c}" for c in FT_ALNUM)]
+FT_HP = ["--epochs", "6", "--batch-size", "16", "--lr", "5e-3", "--max-len", "32"]
+
+
+def tiny_backbone(vocab_file: pathlib.Path):
+    """A 2-layer, 32-wide BERT with a 2-label head, randomly initialised from a fixed seed, and its fast tokenizer."""
+    import torch
+    from transformers import BertConfig, BertForSequenceClassification, BertTokenizerFast
+
+    tok = BertTokenizerFast(vocab_file=str(vocab_file))
+    torch.manual_seed(0)
+    config = BertConfig(vocab_size=len(tok), hidden_size=32, num_hidden_layers=2, num_attention_heads=2,
+                        intermediate_size=64, max_position_embeddings=64, num_labels=2)
+    return BertForSequenceClassification(config), tok
+
+
+@pytest.fixture(scope="module")
+def trained_ft(tmp_path_factory, trained):
+    """`trained` plus arm F on the same synthetic dev rows: both registered folds and the all-sources model, each
+    fine-tuned from a tiny BERT (dev_loso.json arms.finetune; <models>/finetune_holdout_<source>, finetune_all)."""
+    if not HAVE_TORCH:
+        pytest.skip("the detector extra (torch, transformers) is not installed")
+    tmp = tmp_path_factory.mktemp("trained_ft")
+    shutil.copytree(trained, tmp, dirs_exist_ok=True)
+    vocab = tmp / "vocab.txt"
+    vocab.write_text("\n".join(dict.fromkeys(FT_VOCAB)) + "\n", encoding="utf-8")
+    train = runpy.run_path(str(ROOT / "scripts/detector_train.py"), run_name="detector_train")  # sets HF offline
+    for holdout in ("injecagent", "agentdojo", "all"):
+        model, tok = tiny_backbone(vocab)
+        code = train["main"](["--arm", "finetune", "--holdout", holdout, "--data", str(tmp / "dev" / "dev.jsonl"),
+                              "--out", str(tmp / "dev_loso.json"), "--models", str(tmp / "models"), *FT_HP],
+                             backbone=model, tokenizer=tok)
+        assert code == 0
+    return tmp
+
+
+def _with_f(study: dict, trained_ft: pathlib.Path, tmp_path: pathlib.Path, edit=None, drop: str | None = None) -> dict:
+    """The study scored with arm F: dev_loso.json edited by `edit` (a copy), the models without `drop` (a copy)."""
+    out = {**study, "dev_loso": trained_ft / "dev_loso.json", "models": trained_ft / "models"}
+    if edit is not None:
+        loso = json.loads(out["dev_loso"].read_text(encoding="utf-8"))
+        edit(loso["arms"]["finetune"])
+        out["dev_loso"] = tmp_path / "edited_dev_loso.json"
+        out["dev_loso"].write_text(json.dumps(loso), encoding="utf-8")
+    if drop is not None:
+        out["models"] = tmp_path / "models"
+        shutil.copytree(trained_ft / "models", out["models"], ignore=shutil.ignore_patterns(drop))
+    return out
+
+
+def _lines(study: dict) -> dict[str, dict[str, dict]]:
+    out: dict[str, dict[str, dict]] = {}
+    for x in study["scores"].read_text(encoding="utf-8").splitlines():
+        rec = json.loads(x)
+        out.setdefault(rec["arm"], {})[rec["id"]] = rec
+    return out
+
+
+@pytest.mark.unit
+def test_arm_f_scores_a_source_by_its_own_registered_fold_or_else_the_hold_out_injecagent_fold():
+    assert dc.FINETUNE_FOLDS == ("injecagent", "agentdojo") and dc.FINETUNE_FALLBACK_FOLD == "injecagent"
+    assert {s: dc.finetune_fold(s) for s in SOURCES} == {
+        "injecagent": "injecagent", "agentdojo": "agentdojo", "deepset": "injecagent", "bipia": "injecagent",
+        "blind": "injecagent"}
+    train = runpy.run_path(str(ROOT / "scripts/detector_train.py"), run_name="detector_train")
+    assert train["FINETUNE_HOLDOUTS"] == (*dc.FINETUNE_FOLDS, "all")  # the folds the trainer can build
+
+
+@needs_torch
+@pytest.mark.integration
+def test_the_fine_tune_arms_score_by_the_registered_fold_and_leave_the_registered_arms_alone(
+        scorer, study, trained_ft, tmp_path):
+    without = {**study, "out": tmp_path / "without_f.json", "scores": tmp_path / "without_f.jsonl"}
+    assert _score(scorer, without) == 0
+    with_f = _with_f(study, trained_ft, tmp_path)
+    assert _score(scorer, with_f) == 0
+    env = check_envelope(with_f["out"], with_f["scores"], with_f["data"], with_f["seal"])
+    before = json.loads(without["out"].read_text(encoding="utf-8"))
+    assert set(env["arms"]) == set(before["arms"]) | {"finetune", "finetune_all"}
+    assert set(env["absent_arms"]) == set(before["absent_arms"]) - {"finetune"}
+    loso = json.loads(with_f["dev_loso"].read_text(encoding="utf-8"))["arms"]["finetune"]
+    rows = study["rows"]
+    frames, lines = [render_frame(r) for r in rows], _lines(with_f)
+
+    arm = env["arms"]["finetune"]
+    assert arm["folds"] == dict.fromkeys(CONF_SOURCES, "finetune_holdout_injecagent")
+    assert arm["fold_thresholds"] == dict.fromkeys(CONF_SOURCES, loso["folds"]["injecagent"]["threshold"])
+    assert arm["n_scored"] == arm["n_rows"] == len(rows) and arm["unscored_sources"] == {}
+    assert arm["threshold"] is None and arm["latency"] is None
+    assert arm["windows"] == {"finetune_holdout_injecagent": {"max_tokens": 32, "stride": 16}}
+    assert "bipia, blind, deepset rows are scored by finetune_holdout_injecagent" in arm["note"]
+    assert "in-source" in arm["note"] and "never caught" not in arm["note"]
+    fold = ft.FineTunedClassifier.load(with_f["models"] / "finetune_holdout_injecagent")
+    assert [lines["finetune"][r["id"]]["score"] for r in rows] == fold.scores(frames)
+    agentdojo = ft.FineTunedClassifier.load(with_f["models"] / "finetune_holdout_agentdojo")
+    assert agentdojo.scores(frames) != fold.scores(frames)  # so the fold that scored the rows is the one asserted
+
+    everything = env["arms"]["finetune_all"]
+    model = ft.FineTunedClassifier.load(with_f["models"] / "finetune_all")
+    assert [lines["finetune_all"][r["id"]]["score"] for r in rows] == model.scores(frames)
+    assert everything["threshold"] == loso["all"]["threshold"] and float(everything["threshold"]) == model.threshold
+    assert everything["n_scored"] == len(rows) and everything["latency"]["n"] == len(rows)
+    assert everything["model"] == "finetune_all" and everything["window"] == {"max_tokens": 32, "stride": 16}
+    assert "not the registered shipped arm" in everything["note"]
+    assert set(env["inputs"]["models"]) == set(before["inputs"]["models"]) | {"finetune_holdout_injecagent",
+                                                                              "finetune_all"}
+
+    # arm F changes nothing registered: the embed arms, the primary outcomes, the decision, McNemar
+    assert env["arms"]["embed"] == before["arms"]["embed"]
+    assert {**env["arms"]["embed_all"], "latency": None} == {**before["arms"]["embed_all"], "latency": None}
+    assert env["primary"] == before["primary"] and env["decision"] == before["decision"]
+    assert env["primary"]["shipped_fpr"]["arms_key"] == "embed_all" and env["primary"]["injecagent_recall"]["arm"] == "embed"
+    assert {k: env["mcnemar_vs_phrase_list"][k] for k in before["mcnemar_vs_phrase_list"]} == \
+        before["mcnemar_vs_phrase_list"]
+
+
+@needs_torch
+@pytest.mark.integration
+@pytest.mark.parametrize(("how", "reason"), [
+    ("no_fold", "dev_loso.json has no arms.finetune.folds.injecagent"),
+    ("null_threshold", "dev_loso.json arms.finetune.folds.injecagent.threshold is null"),
+    ("no_model", "no saved model at finetune_holdout_injecagent"),
+])
+def test_a_fold_that_cannot_score_leaves_its_rows_unscored_with_a_note(scorer, study, trained_ft, tmp_path, how,
+                                                                        reason):
+    def edit(arm):
+        if how == "no_fold":
+            del arm["folds"]["injecagent"]
+        else:
+            arm["folds"]["injecagent"]["threshold"] = None
+
+    with_f = _with_f(study, trained_ft, tmp_path, edit=None if how == "no_model" else edit,
+                     drop="finetune_holdout_injecagent" if how == "no_model" else None)
+    assert _score(scorer, with_f) == 0
+    env = check_envelope(with_f["out"], with_f["scores"], with_f["data"], with_f["seal"])
+    arm, n = env["arms"]["finetune"], len(study["rows"])
+    assert arm["n_rows"] == n and arm["n_scored"] == 0
+    assert arm["pooled"]["tp"] == 0 and arm["pooled"]["unscored"] == n  # reported, never caught
+    assert arm["unscored_sources"] == dict.fromkeys(CONF_SOURCES, reason)
+    assert arm["fold_thresholds"] == dict.fromkeys(CONF_SOURCES) and arm["windows"] == {}
+    assert f"unscored, never caught: bipia rows ({reason})" in arm["note"]
+    assert all(x["score"] is None and x["flagged"] is None for x in _lines(with_f)["finetune"].values())
+    assert env["arms"]["finetune_all"]["n_scored"] == n  # the all-sources model still scores
+    assert "finetune_holdout_injecagent" not in env["inputs"]["models"]
+    assert env["primary"]["injecagent_recall"]["n"] == 12 and env["primary"]["injecagent_recall"]["arm"] == "embed"
+
+
+@needs_torch
+@pytest.mark.integration
+@pytest.mark.parametrize(("how", "reason"), [
+    ("null_threshold", "dev_loso.json arms.finetune.all.threshold is null"),  # folds trained, `--holdout all` not yet
+    ("no_model", "no saved model at finetune_all"),
+])
+def test_an_all_sources_fine_tune_without_a_threshold_or_a_model_is_unscored(scorer, study, trained_ft, tmp_path,
+                                                                              how, reason):
+    def edit(arm):
+        arm["all"] = {"threshold": None}  # as merge_finetune writes it before the all-sources model is trained
+
+    with_f = _with_f(study, trained_ft, tmp_path, edit=edit if how == "null_threshold" else None,
+                     drop="finetune_all" if how == "no_model" else None)
+    assert _score(scorer, with_f) == 0
+    env = check_envelope(with_f["out"], with_f["scores"], with_f["data"], with_f["seal"])
+    everything, n = env["arms"]["finetune_all"], len(study["rows"])
+    assert everything["n_rows"] == n and everything["n_scored"] == 0
+    assert everything["pooled"]["tp"] == 0 and everything["pooled"]["unscored"] == n
+    assert everything["threshold"] is None and everything["latency"] is None and everything["window"] is None
+    assert f"every row unscored, never caught ({reason})" in everything["note"]
+    assert env["arms"]["finetune"]["n_scored"] == n  # the folds still score
+    assert "finetune_all" not in env["inputs"]["models"]
+
+
+@needs_torch
+@pytest.mark.integration
+def test_a_fine_tune_model_dev_loso_did_not_choose_the_threshold_for_or_another_backbone_is_refused(
+        scorer, study, trained_ft, tmp_path):
+    def edit(arm):
+        arm["folds"]["injecagent"]["threshold"] = 0.123
+
+    with_f = _with_f(study, trained_ft, tmp_path, edit=edit)
+    assert _score(scorer, with_f) == 1
+    assert not with_f["out"].exists() and not with_f["scores"].exists()
+    loso = json.loads((trained_ft / "dev_loso.json").read_text(encoding="utf-8"))["arms"]["finetune"]
+    load = scorer["_load_finetune"]
+    assert load(trained_ft / "models" / "finetune_all", float(loso["all"]["threshold"]), ft.INJECTED).fitted
+    with pytest.raises(ValueError, match="fine-tuned from 'injected'"):  # a real pass needs bge-small fine-tunes
+        load(trained_ft / "models" / "finetune_all", float(loso["all"]["threshold"]), ft.BACKBONE)

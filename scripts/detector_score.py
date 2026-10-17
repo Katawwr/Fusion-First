@@ -11,11 +11,21 @@ arm on the sealed rows with the dev-chosen decisions:
 - `embed`: each source scored by the fold model trained without it (`<models>/holdout_<source>`; blind negatives by
   `holdout_blind`) at that fold's threshold (1% FPR on the training sources' dev negatives, from dev_loso.json);
 - `embed_all`: the shipped all-sources model (`<models>/all`) at its own dev threshold;
+- `finetune` (optional arm F, when dev_loso.json has `arms.finetune`): each row scored by the fold model that held out
+  its source where arm F registers one (InjecAgent rows by `<models>/finetune_holdout_injecagent`); F registers only
+  the hold-out-InjecAgent and hold-out-AgentDojo folds and AgentDojo is never confirmatory, so deepset, BIPIA and
+  blind rows are scored by `finetune_holdout_injecagent` too (in-source for them; the arm's note says so), at the
+  fold's threshold from `arms.finetune.folds.<source>.threshold`;
+- `finetune_all`: F's all-sources model (`<models>/finetune_all`) at `arms.finetune.all.threshold`, an arm beside
+  embed_all (primary.shipped_fpr stays on embed_all, the registered shipped arm);
 - `llama_guard3_configured`, `llama_guard3_default`: Llama Guard 3's recorded replies (lg3_raw.jsonl, from
   scripts/detector_lg3.py) on the subsample rows they cover (unscored elsewhere); absent, and said so, without any.
 A fold model whose saved threshold differs from dev_loso.json is refused (it is not the model the threshold was chosen
-for). The optional fine-tune (F) and ProtectAI (B3) arms are listed as absent. Latency per decision (all chunks of a
-text) is measured on this CPU for b1 and embed_all; Llama Guard's is its recorded wall time.
+for), and so is an F model fine-tuned from another backbone than the embedder's (bge-small; "injected" for an
+injected embedder). An F fold or all-sources model without a dev_loso.json entry, with a null threshold or without a
+saved model leaves that arm's rows unscored (counted, never caught) and its note says why; it never stops the pass.
+Without `arms.finetune`, F is listed as absent; ProtectAI (B3) is listed as absent. Latency per decision (all chunks
+of a text) is measured on this CPU for b1, embed_all and finetune_all; Llama Guard's is its recorded wall time.
 
 It writes `scores.jsonl` (one line per row x arm: id, arm, score, flagged) and `detector_v1.json` (demonstration
 false; the decision from `prereg.detector_decision`). An existing `detector_v1.json` is never replaced without
@@ -38,11 +48,13 @@ import json  # noqa: E402
 import pathlib  # noqa: E402
 import subprocess  # noqa: E402
 import sys  # noqa: E402
+from collections.abc import Mapping  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from fusion_first.validate import detector_confirmatory as dc  # noqa: E402
+from fusion_first.validate import detector_finetune as ft  # noqa: E402
 from fusion_first.validate import detector_systems as ds  # noqa: E402
 from fusion_first.validate.detector_data import (  # noqa: E402
     FRAME,
@@ -80,6 +92,12 @@ def _fingerprint(directory: pathlib.Path) -> str:
     return _sha256((directory / "coef.npy").read_bytes() + (directory / "meta.json").read_bytes())
 
 
+def _tree_fingerprint(directory: pathlib.Path) -> str:
+    """sha256 over every file of a saved fine-tuned model (weights, config, tokenizer, meta.json): name and sha256."""
+    lines = [f"{f.name} {_sha256(f.read_bytes())}\n" for f in sorted(directory.iterdir()) if f.is_file()]
+    return _sha256("".join(lines).encode("utf-8"))
+
+
 def _baseline_threshold(loso: dict, key: str) -> float:
     arm = loso["arms"].get(key)
     t = dc.NATIVE_THRESHOLD if arm is None else float(arm["all"]["threshold"])
@@ -102,6 +120,95 @@ def _load(directory: pathlib.Path, embed, tokenizer, embedder: str, threshold: f
         raise ValueError(f"{directory} carries threshold {model.threshold!r}, dev_loso.json {threshold!r}: it is not "
                          "the model dev_loso.json chose that threshold for")
     return model
+
+
+def _load_finetune(directory: pathlib.Path, threshold: float, backbone: str) -> ft.FineTunedClassifier:
+    """A saved F model, refused unless it was fine-tuned from `backbone` and carries dev_loso.json's threshold."""
+    trained_from = json.loads((directory / "meta.json").read_text(encoding="utf-8")).get("backbone")
+    if trained_from != backbone:
+        raise ValueError(f"{directory} was fine-tuned from {trained_from!r}, not {backbone!r}")
+    model = ft.FineTunedClassifier.load(directory)
+    if model.threshold != threshold:
+        raise ValueError(f"{directory} carries threshold {model.threshold!r}, dev_loso.json {threshold!r}: it is not "
+                         "the model dev_loso.json chose that threshold for")
+    return model
+
+
+def _finetune_model(block: dict | None, key: str, directory: pathlib.Path, backbone: str,
+                    fingerprints: dict) -> tuple[ft.FineTunedClassifier | None, float | None, str | None]:
+    """(the F model, its dev threshold, None), or (None, None, why its rows are unscored) for a dev_loso.json entry
+    `key` that is missing or has a null threshold, or a model that was never saved."""
+    if block is None:
+        return None, None, f"dev_loso.json has no {key}"
+    if block.get("threshold") is None:
+        return None, None, f"dev_loso.json {key}.threshold is null"
+    if not (directory / "meta.json").is_file():
+        return None, None, f"no saved model at {directory.name}"
+    t = float(block["threshold"])  # "inf" (flags nothing) as dev_loso.json writes it
+    fingerprints[directory.name] = _tree_fingerprint(directory)
+    return _load_finetune(directory, t, backbone), t, None
+
+
+def finetune_arms(rows: list[dict], ft_arm: dict, models: pathlib.Path, frames: Mapping[str, str], backbone: str,
+                  fingerprints: dict) -> dict[str, dict]:
+    """Arm F's inputs for dc.build_envelope: `finetune` (each row by the fold `dc.finetune_fold` names for its source)
+    and `finetune_all`. A fold or model that cannot score leaves its rows unscored, the reason in the arm's note."""
+    ids = [r["id"] for r in rows]
+    sources = sorted({r["source"] for r in rows})
+    loaded = {held: _finetune_model((ft_arm.get("folds") or {}).get(held), f"arms.finetune.folds.{held}",
+                                    models / f"finetune_holdout_{held}", backbone, fingerprints)
+              for held in sorted({dc.finetune_fold(s) for s in sources})}
+    scores: dict[str, float | None] = {}
+    thresholds: dict[str, float | None] = {}
+    fold_thresholds, folds, windows, unscored = {}, {}, {}, {}
+    for source in sources:
+        held = dc.finetune_fold(source)
+        model, t, why = loaded[held]
+        mine = [r["id"] for r in rows if r["source"] == source]
+        folds[source], fold_thresholds[source] = f"finetune_holdout_{held}", dc.threshold_json(t)
+        thresholds.update(dict.fromkeys(mine, t))
+        if model is None:
+            scores.update(dict.fromkeys(mine))
+            unscored[source] = why
+            continue
+        scores.update(zip(mine, model.scores([frames[i] for i in mine]), strict=True))
+        windows[folds[source]] = {"max_tokens": model.max_len, "stride": model.stride}
+    borrowed = [s for s in sources if dc.finetune_fold(s) != s]
+    note = ("each row scored by the F fold model that held out its source where F registers one (InjecAgent rows by "
+            "finetune_holdout_injecagent, the fold that never saw InjecAgent) at that fold's dev threshold; F "
+            "registers only the hold-out-InjecAgent and hold-out-AgentDojo folds and AgentDojo is never confirmatory")
+    if borrowed:
+        note += (f", so {', '.join(borrowed)} rows are scored by finetune_holdout_{dc.FINETUNE_FALLBACK_FOLD}, which "
+                 "trained on their sources' dev rows (in-source, not leave-one-source-out)")
+    note += "; pooled AUROC ranks scores from different folds; latency as finetune_all"
+    if unscored:
+        note += "; unscored, never caught: " + "; ".join(f"{s} rows ({why})" for s, why in unscored.items())
+    arms = {dc.FINETUNE_ARM: {
+        "scores": scores, "thresholds": thresholds,
+        "label": f"F fine-tuned {backbone} (2-label classification head), registered folds",
+        "threshold": None, "threshold_rule": dc.FPR_RULE, "fold_thresholds": fold_thresholds, "folds": folds,
+        "windows": windows, "unscored_sources": unscored, "note": note}}
+
+    model, t, why = _finetune_model(ft_arm.get("all"), "arms.finetune.all", models / "finetune_all", backbone,
+                                    fingerprints)
+    note = ("F's all-sources model, trained on every dev source, at its own dev threshold: an all-sources arm beside "
+            f"{dc.SHIPPED_ARM}, not the registered shipped arm (primary.shipped_fpr stays on {dc.SHIPPED_ARM}); its "
+            "InjecAgent number is in-source and never primary")
+    all_scores: dict[str, float | None] = dict.fromkeys(ids)
+    latency = None
+    if model is None:
+        note += f"; every row unscored, never caught ({why})"
+    else:
+        got: list[float] = []  # each text scored on its own inside its timed decision
+        latency = ds.latency_ms(lambda f: got.extend(model.scores([f])), [frames[i] for i in ids])
+        all_scores = dict(zip(ids, got, strict=True))
+    arms[dc.FINETUNE_ALL_ARM] = {
+        "scores": all_scores, "thresholds": dict.fromkeys(ids, t),
+        "label": f"F fine-tuned {backbone} (2-label classification head), all-sources model",
+        "threshold": t, "threshold_rule": dc.FPR_RULE + " (all dev negatives)", "model": "finetune_all",
+        "window": None if model is None else {"max_tokens": model.max_len, "stride": model.stride},
+        "latency_ms": latency, "note": note}
+    return arms
 
 
 def collect(rows: list[dict], loso: dict, models: pathlib.Path, embed, timer_embed, tokenizer, embedder: str,
@@ -160,10 +267,11 @@ def collect(rows: list[dict], loso: dict, models: pathlib.Path, embed, timer_emb
         "note": f"the shipped model (tag {dc.DETECTOR_SHIPPED_ARM!r} in primary.shipped_fpr); trained on every "
                 "dev source, so its InjecAgent number is in-source and never primary"}
 
-    if "finetune" in loso["arms"]:
-        raise ValueError("dev_loso.json has a fine-tune arm, but this scorer has no fine-tune loader: add one (with "
-                         "tests) before the confirmatory pass, or drop the arm (dropping F is not a protocol change)")
-    absent["finetune"] = "optional arm F was not trained (dropping it is not a protocol change)"
+    if dc.FINETUNE_ARM in loso["arms"]:
+        backbone = ft.BACKBONE if embedder == ds.EMBED_MODEL else ft.INJECTED  # the embedder's own backbone
+        arms.update(finetune_arms(rows, loso["arms"][dc.FINETUNE_ARM], models, frames, backbone, fingerprints))
+    else:
+        absent[dc.FINETUNE_ARM] = "optional arm F was not trained (dropping it is not a protocol change)"
     absent["protectai_deberta"] = ("optional arm B3 was not run: its model download needs the owner's approval "
                                    "(absent, and said so, per the registration)")
 
