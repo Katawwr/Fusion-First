@@ -3,6 +3,8 @@ datasets/**/*.jsonl text eol=lf
 datasets/**/*.json text eol=lf
 cassettes/**/*.json text eol=lf
 evals/**/*.json text eol=lf
+# The detector study's per-row scores and Llama Guard replies: detector_v1.json records their sha256.
+evals/validation/v1/detector/*.jsonl text eol=lf
 evals/**/*.yaml text eol=lf
 crosswalk/**/*.yaml text eol=lf
 # The committed example run: `fusion run verify` hashes these bytes exactly, so git never converts them.

@@ -46,6 +46,7 @@ DEV_ONLY_MODULES = frozenset({
     "fusion_first.validate.benign_actions",
     "fusion_first.validate.claims",
     "fusion_first.validate.detector",
+    "fusion_first.validate.detector_confirmatory",
     "fusion_first.validate.detector_data",
     "fusion_first.validate.detector_eval",
     "fusion_first.validate.detector_systems",
