@@ -80,3 +80,5 @@ class GuardConfig(BaseModel):
     readonly_tools: list[str] = Field(default_factory=list)
     # The user's own addresses and handles: "email it to me" names them.
     user_identities: list[str] = Field(default_factory=list)
+    # With Guardrail(detector=...): a score at or above this adds an observe-only input event (never a decision).
+    detector_observe_threshold: float = 0.5

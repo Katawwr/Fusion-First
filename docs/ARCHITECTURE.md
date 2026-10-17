@@ -149,7 +149,8 @@ plain question to the same model; that was tested and not shown (Trust Report, Q
 
 `Guardrail` (`guardrail/guard.py`) has three stages:
 
-- `guard_input`: fences untrusted content and flags injection phrasing.
+- `guard_input`: fences untrusted content and flags injection phrasing; an optional learned detector
+  (`Guardrail(detector=...)`) adds an observe-only event and never changes the decision.
 - `guard_output`: redacts secrets, PII and configured secret values; blocks obfuscated secrets and
   replies that reproduce the system prompt.
 - `guard_tool_call`: with `require_authorization=True` (the published config), a tool call that is

@@ -10,6 +10,7 @@ Conservative by design: it errs toward flagging; GuardConfig decides block vs re
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 from fusion_first.guardrail.policy import Decision, GuardConfig, GuardEvent, GuardOutcome
 from fusion_first.security.normalize import normalized_views
@@ -648,8 +649,23 @@ def _provably_internal(text: str, allow: list[str]) -> bool:
 
 
 class Guardrail:
-    def __init__(self, config: GuardConfig | None = None):
+    def __init__(self, config: GuardConfig | None = None, *, detector: Callable[[str], float] | None = None):
+        """`detector(text) -> probability` scores untrusted input; it only adds an ALLOW event (observe-only)."""
         self.config = config or GuardConfig()
+        self.detector = detector
+
+    def _detector_event(self, content: str) -> GuardEvent | None:
+        """The learned detector's observe-only event: a score at or above the threshold, or its failure."""
+        try:
+            p = float(self.detector(content))
+        except Exception as exc:  # never raises into the agent loop
+            detail = f"learned detector failed: {type(exc).__name__}"
+        else:
+            if not p >= self.config.detector_observe_threshold:
+                return None
+            detail = f"learned detector p={p:.2f} (observe-only)"
+        return GuardEvent(stage="input", check="direct_prompt_injection", owasp=_OWASP["direct_prompt_injection"],
+                          decision=Decision.ALLOW, detail=detail)
 
     def guard_input(self, content: str, untrusted: bool = True) -> GuardOutcome:
         """Fence untrusted content and flag injection. Returns content safe to hand the model."""
@@ -675,6 +691,8 @@ class Guardrail:
                     detail=f"injection phrase in untrusted content: {hit!r}",
                 )
             )
+        if self.detector is not None and (event := self._detector_event(content)) is not None:
+            out.events.append(event)  # observe-only: appended directly, so the decision cannot move
         return out
 
     def guard_output(self, content: str) -> GuardOutcome:
