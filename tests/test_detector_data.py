@@ -522,15 +522,41 @@ def test_cli_seal_writes_a_loadable_seal_of_the_confirmatory_rows_with_its_meta(
     manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     assert "agentdojo" not in meta["sources"]  # never confirmatory
     for source, block in meta["sources"].items():
-        counts = manifest["counts"][source]["confirmatory"]
-        distinct = manifest["distinct_texts"][source]["confirmatory"]
-        assert block == {"pos": counts["1"], "neg": counts["0"], "distinct_pos": distinct["1"],
-                         "distinct_neg": distinct["0"]}
+        counts = manifest["counts"][source]["confirmatory"]  # after the global dedup, like the rows
+        assert (block["pos"], block["neg"]) == (counts["1"], counts["0"])
         mine = [r for r in conf if r["source"] == source]
         assert block == {"pos": sum(r["label"] == 1 for r in mine), "neg": sum(r["label"] == 0 for r in mine),
                          "distinct_pos": len({r["text"] for r in mine if r["label"] == 1}),
                          "distinct_neg": len({r["text"] for r in mine if r["label"] == 0})}
     assert sum(b["pos"] + b["neg"] for b in meta["sources"].values()) == len(conf)
+
+
+@pytest.mark.unit
+def test_cli_seal_derives_distinct_counts_from_the_rows_when_the_build_dropped_a_confirmatory_duplicate(tmp_path, capsys):
+    tree = _write_tree(tmp_path)
+    # author_a is read first and keeps auth-2 (dev); this confirmatory row repeats its text and is dropped by the dedup
+    assert (dd.parity_split("auth-2"), dd.parity_split("auth-dup0")) == ("dev", "confirmatory")
+    _jsonl(tree["blind_dir"] / "author_b.jsonl", [dict(AUTHORS[2], id="auth-dup0")])
+    cli = runpy.run_path(str(ROOT / "scripts/detector_data.py"), run_name="detector_data")
+    out = tmp_path / "out"
+    assert cli["main"](["build", "--out", str(out), "--blind", str(tree["blind_dir"]),
+                        "--agentdojo-heldout", str(tree["agentdojo_dirs"][0]), "--agentdojo-dev", str(tmp_path / "nope"),
+                        "--external", str(tree["external_dir"])]) == 0
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["deduped"]["global_by_split_label"]["blind"] == {"confirmatory": {"0": 1, "1": 0}}
+    assert manifest["counts"]["blind"]["confirmatory"] == {"0": 4, "1": 0}
+    assert manifest["distinct_texts"]["blind"]["confirmatory"] == {"0": 5, "1": 0}  # before the dedup: differs
+
+    seal_path = tmp_path / "confirmatory.seal.json"
+    capsys.readouterr()
+    assert cli["main"](["seal", "--out", str(out), "--seal", str(seal_path), "--blind", str(tree["blind_dir"])]) == 0
+    conf = dd.read_jsonl(out / "confirmatory.jsonl")
+    assert verify_seal(conf, load_seal(seal_path), split="confirmatory") == INTACT
+    blind_rows = [r for r in conf if r["source"] == "blind"]
+    expected = {"pos": 0, "neg": 4, "distinct_pos": 0, "distinct_neg": len({r["text"] for r in blind_rows})}
+    assert expected["distinct_neg"] == 4 and load_seal_meta(seal_path)["sources"]["blind"] == expected
+    # the deepset duplicate of the default fixture is in the same position: one negative dropped, none left
+    assert load_seal_meta(seal_path)["sources"]["deepset"] == {"pos": 1, "neg": 0, "distinct_pos": 1, "distinct_neg": 0}
 
 
 @pytest.mark.unit

@@ -55,15 +55,16 @@ def _source_counts(rows: list[dict]) -> dict:
     return out
 
 
-def _manifest_sources(manifest: dict) -> dict:
-    """The same block as `_source_counts`, read from the manifest's confirmatory counts."""
+def _manifest_counts(manifest: dict) -> dict:
+    """{source: {pos, neg}} read from the manifest's confirmatory counts, which are taken after the global dedup.
+
+    The manifest's `distinct_texts` is deliberately not read: it is counted before the dedup, so it differs from
+    the rows wherever a duplicate was dropped."""
     out: dict = {}
     for source in dd.SOURCES:
         counts = manifest["counts"].get(source, {}).get(CONFIRMATORY)
         if counts:
-            distinct = manifest["distinct_texts"][source][CONFIRMATORY]
-            out[source] = {"pos": counts["1"], "neg": counts["0"], "distinct_pos": distinct["1"],
-                           "distinct_neg": distinct["0"]}
+            out[source] = {"pos": counts["1"], "neg": counts["0"]}
     return out
 
 
@@ -84,8 +85,8 @@ def _blind_files(manifest: dict, blind_dir: pathlib.Path) -> dict[str, int]:
 
 def seal_meta(rows: list[dict], manifest: dict, blind_dir: pathlib.Path) -> dict:
     """The seal's meta block; raises ValueError if the manifest does not describe these rows."""
-    sources = _manifest_sources(manifest)
-    if sources != _source_counts(rows):
+    sources = _source_counts(rows)
+    if _manifest_counts(manifest) != {s: {"pos": b["pos"], "neg": b["neg"]} for s, b in sources.items()}:
         raise ValueError("manifest.json does not describe confirmatory.jsonl (per-source counts differ); rebuild")
     return {"sources": sources, "blind_files": _blind_files(manifest, blind_dir), "git_sha": _git_sha(),
             "built": _dt.date.today().isoformat(), "preregistration": PREREGISTRATION, "frame": dd.FRAME}
