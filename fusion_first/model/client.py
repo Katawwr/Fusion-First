@@ -31,6 +31,9 @@ class ModelRequest(BaseModel):
     logprobs: int | None = None
     # Sampling seed for providers that honour one (Ollama). None = provider default.
     seed: int | None = None
+    # Native tool calling: function schemas in the OpenAI/Ollama shape
+    # {"type": "function", "function": {"name", "description", "parameters"}}. None = no tools offered.
+    tools: list[dict] | None = None
 
     def cache_key(self) -> str:
         """Stable cassette key: includes everything that affects output."""
@@ -48,6 +51,8 @@ class ModelRequest(BaseModel):
             payload["logprobs"] = self.logprobs
         if self.seed is not None:
             payload["seed"] = self.seed
+        if self.tools is not None:
+            payload["tools"] = self.tools
         blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
         return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -64,6 +69,9 @@ class ModelResponse(BaseModel):
     latency_s: float | None = None
     # Per output token: {"token": str, "logprob": float, "top": [{"token","logprob"}...]}.
     top_logprobs: list[dict] | None = None
+    # Native tool calls the model asked for: [{"name": str, "arguments": dict}], plus "arguments_raw"
+    # (the undecodable text) when the provider's arguments were not valid JSON. None = no calls.
+    tool_calls: list[dict] | None = None
 
 
 @runtime_checkable

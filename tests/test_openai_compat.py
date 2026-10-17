@@ -93,6 +93,43 @@ async def test_an_unreachable_server_is_a_clear_error(monkeypatch):
         await OpenAICompatModelClient("http://127.0.0.1:8000/v1", "m").complete(_req())
 
 
+# ------------------------------------------------------------------ native tool calls
+
+TOOLS = [{"type": "function", "function": {
+    "name": "send_email", "description": "Send an email.",
+    "parameters": {"type": "object", "properties": {"to": {"type": "string"}}, "required": ["to"]}}}]
+
+
+@pytest.mark.unit
+async def test_tools_are_sent_and_tool_calls_parsed(monkeypatch):
+    sent = []
+    calls = {**REPLY, "choices": [{"finish_reason": "tool_calls", "message": {
+        "role": "assistant", "content": None, "tool_calls": [
+            {"id": "c1", "type": "function", "function": {"name": "send_email", "arguments": '{"to": "a@x.org"}'}},
+            {"id": "c2", "type": "function", "function": {"name": "send_email", "arguments": '{"to": '}},
+            {"id": "c3", "type": "function", "function": {"name": "read_inbox", "arguments": {"n": 2}}},
+            {"id": "c4", "type": "function", "function": {"arguments": "{}"}}]}}]}
+    _fake_server(monkeypatch, calls, sent)
+    resp = await OpenAICompatModelClient("http://127.0.0.1:8000/v1", "m").complete(_req(tools=TOOLS))
+    assert sent[0]["payload"]["tools"] == TOOLS
+    assert resp.text == ""
+    assert resp.tool_calls == [{"name": "send_email", "arguments": {"to": "a@x.org"}},
+                               {"name": "send_email", "arguments": {}, "arguments_raw": '{"to": '},
+                               {"name": "read_inbox", "arguments": {"n": 2}}]
+
+
+@pytest.mark.unit
+async def test_without_tools_nothing_is_sent_or_parsed(monkeypatch):
+    sent = []
+    _fake_server(monkeypatch, REPLY, sent)
+    client = OpenAICompatModelClient("http://127.0.0.1:8000/v1", "m")
+    resp = await client.complete(_req())
+    assert "tools" not in sent[0]["payload"]
+    assert resp.tool_calls is None
+    resp = await client.complete(_req(tools=TOOLS))  # tools offered, plain answer
+    assert (resp.text, resp.tool_calls) == ("Hello!", None)
+
+
 # ------------------------------------------------------------------ spec + zero-spend gate
 
 @pytest.mark.unit

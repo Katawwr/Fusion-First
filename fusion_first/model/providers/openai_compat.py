@@ -15,6 +15,7 @@ import urllib.request
 
 from fusion_first.errors import FusionProviderError
 from fusion_first.model.client import ModelRequest, ModelResponse
+from fusion_first.model.providers._common import normalize_tool_calls
 from fusion_first.offline import offline
 
 API_KEY_ENV = "FUSION_TARGET_API_KEY"
@@ -51,6 +52,8 @@ class OpenAICompatModelClient:
                          "temperature": request.temperature, "stream": False}
         if request.seed is not None:
             payload["seed"] = request.seed
+        if request.tools is not None:
+            payload["tools"] = request.tools
         return payload
 
     def _post(self, payload: dict) -> dict:
@@ -97,4 +100,5 @@ class OpenAICompatModelClient:
             input_tokens=int(usage.get("prompt_tokens") or 0), output_tokens=int(usage.get("completion_tokens") or 0),
             stop_reason=choice.get("finish_reason"), truncated=choice.get("finish_reason") == "length",
             latency_s=round(time.monotonic() - started, 3),
+            tool_calls=normalize_tool_calls(choice["message"].get("tool_calls")) if request.tools is not None else None,
         )

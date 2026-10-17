@@ -2,8 +2,35 @@
 
 from __future__ import annotations
 
+import json
+
 from fusion_first.model.client import ModelRequest, ModelRole
 from fusion_first.model.registry import ModelRegistry
+
+
+def normalize_tool_calls(raw: object) -> list[dict] | None:
+    """Provider tool calls (OpenAI or Ollama shape, `[{"function": {"name", "arguments"}}]`) as
+    `[{"name": str, "arguments": dict}]`. String arguments are JSON-decoded; undecodable text gives
+    `arguments = {}` plus `"arguments_raw"`; other non-dict arguments give `{}`; a call without a name
+    is skipped. None when there is no usable call."""
+    if not isinstance(raw, list):
+        return None
+    out: list[dict] = []
+    for call in raw:
+        fn = call.get("function") if isinstance(call, dict) else None
+        if not isinstance(fn, dict) or not isinstance(fn.get("name"), str) or not fn["name"]:
+            continue
+        args = fn.get("arguments")
+        entry: dict = {"name": fn["name"], "arguments": {}}
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError:
+                entry["arguments_raw"] = args
+        if isinstance(args, dict):
+            entry["arguments"] = args
+        out.append(entry)
+    return out or None
 
 
 def strictify_schema(schema: dict) -> dict:

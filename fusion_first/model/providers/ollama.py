@@ -15,6 +15,7 @@ import urllib.request
 
 from fusion_first.errors import FusionProviderError, PromptTooLong
 from fusion_first.model.client import ModelRequest, ModelResponse
+from fusion_first.model.providers._common import normalize_tool_calls
 from fusion_first.offline import offline
 
 # IPv4 loopback, not `localhost`: on Windows `localhost` tries ::1 first, a ~2 s fallback per request.
@@ -67,6 +68,8 @@ class OllamaModelClient:
 
     def _estimate_tokens(self, request: ModelRequest) -> int:
         chars = len(request.system) + sum(len(str(m.get("content", ""))) for m in request.messages)
+        if request.tools is not None:  # the schemas are rendered into the prompt too
+            chars += len(json.dumps(request.tools))
         return int(chars / _CHARS_PER_TOKEN) + 16 * (len(request.messages) + 1)
 
     def _check_context(self, request: ModelRequest) -> None:
@@ -97,6 +100,8 @@ class OllamaModelClient:
         if request.logprobs:
             payload["logprobs"] = True
             payload["top_logprobs"] = int(request.logprobs)
+        if request.tools is not None:
+            payload["tools"] = request.tools
         return payload
 
     def _post(self, path: str, payload: dict) -> dict:
@@ -163,6 +168,7 @@ class OllamaModelClient:
             truncated=done_reason == "length",
             latency_s=round(time.monotonic() - started, 3),
             top_logprobs=self._parse_logprobs(data.get("logprobs")) if request.logprobs else None,
+            tool_calls=normalize_tool_calls(message.get("tool_calls")) if request.tools is not None else None,
         )
 
 

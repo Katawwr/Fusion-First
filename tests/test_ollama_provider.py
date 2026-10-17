@@ -175,6 +175,107 @@ def test_seed_and_logprobs_change_the_cache_key_only_when_set():
     assert base.cache_key() != _r(logprobs=5).cache_key()
 
 
+# ---- native tool calls -------------------------------------------------------------------------
+
+TOOLS = [{"type": "function", "function": {
+    "name": "send_email", "description": "Send an email.",
+    "parameters": {"type": "object", "properties": {"to": {"type": "string"}}, "required": ["to"]}}}]
+
+
+@pytest.mark.unit
+def test_payload_carries_tools_when_set():
+    p = OllamaModelClient()._build_payload(_r(tools=TOOLS), "qwen2.5:3b")
+    assert p["tools"] == TOOLS
+
+
+@pytest.mark.unit
+def test_payload_without_tools_is_unchanged():
+    c = OllamaModelClient()
+    p = c._build_payload(_r(), "qwen2.5:3b")
+    assert "tools" not in p
+    assert p == c._build_payload(_r(tools=None), "qwen2.5:3b")
+
+
+@pytest.mark.unit
+def test_tool_schemas_count_toward_the_context_check():
+    c = OllamaModelClient()
+    assert c._estimate_tokens(_r(tools=None)) == c._estimate_tokens(_r())
+    assert c._estimate_tokens(_r(tools=TOOLS)) > c._estimate_tokens(_r())
+
+
+async def _complete_with(monkeypatch, message: dict, **kw):
+    monkeypatch.delenv("FUSION_OFFLINE", raising=False)  # _post is faked below; no real call
+    c = OllamaModelClient()
+    sent = []
+
+    def fake_post(path, payload):
+        sent.append(payload)
+        return {"model": "qwen2.5:3b", "message": message, "done_reason": "stop",
+                "prompt_eval_count": 20, "eval_count": 5}
+
+    monkeypatch.setattr(c, "_post", fake_post)
+    return await c.complete(_r(**kw)), sent
+
+
+@pytest.mark.unit
+async def test_tool_calls_with_dict_arguments_are_parsed(monkeypatch):
+    msg = {"role": "assistant", "content": "", "tool_calls": [
+        {"function": {"name": "send_email", "arguments": {"to": "a@example.com"}}},
+        {"function": {"name": "read_inbox", "arguments": {}}}]}
+    resp, sent = await _complete_with(monkeypatch, msg, tools=TOOLS)
+    assert sent[0]["tools"] == TOOLS
+    assert resp.tool_calls == [{"name": "send_email", "arguments": {"to": "a@example.com"}},
+                               {"name": "read_inbox", "arguments": {}}]
+    assert resp.text == ""
+
+
+@pytest.mark.unit
+async def test_string_arguments_are_decoded(monkeypatch):
+    msg = {"content": "", "tool_calls": [{"function": {"name": "send_email", "arguments": '{"to": "b@x.org"}'}}]}
+    resp, _ = await _complete_with(monkeypatch, msg, tools=TOOLS)
+    assert resp.tool_calls == [{"name": "send_email", "arguments": {"to": "b@x.org"}}]
+
+
+@pytest.mark.unit
+async def test_broken_string_arguments_keep_the_raw_text(monkeypatch):
+    msg = {"content": "", "tool_calls": [{"function": {"name": "send_email", "arguments": '{"to": "b@'}}]}
+    resp, _ = await _complete_with(monkeypatch, msg, tools=TOOLS)
+    assert resp.tool_calls == [{"name": "send_email", "arguments": {}, "arguments_raw": '{"to": "b@'}]
+
+
+@pytest.mark.unit
+async def test_non_dict_arguments_become_empty_and_nameless_calls_are_skipped(monkeypatch):
+    msg = {"content": "", "tool_calls": [
+        {"function": {"name": "send_email", "arguments": ["b@x.org"]}},
+        {"function": {"name": "send_email", "arguments": '"just a string"'}},
+        {"function": {"arguments": {"to": "c@x.org"}}},
+        {"function": {"name": "", "arguments": {}}},
+        "not a call",
+        {"function": {"name": "read_inbox"}}]}
+    resp, _ = await _complete_with(monkeypatch, msg, tools=TOOLS)
+    assert resp.tool_calls == [{"name": "send_email", "arguments": {}},
+                               {"name": "send_email", "arguments": {}},
+                               {"name": "read_inbox", "arguments": {}}]
+
+
+@pytest.mark.unit
+async def test_a_plain_answer_has_no_tool_calls(monkeypatch):
+    resp, _ = await _complete_with(monkeypatch, {"content": "Done."}, tools=TOOLS)
+    assert (resp.text, resp.tool_calls) == ("Done.", None)
+    resp, _ = await _complete_with(monkeypatch, {"content": "Done.", "tool_calls": []}, tools=TOOLS)
+    assert resp.tool_calls is None
+
+
+@pytest.mark.unit
+async def test_without_tools_the_response_is_unchanged(monkeypatch):
+    resp, sent = await _complete_with(monkeypatch, {"content": "hello"})
+    assert "tools" not in sent[0]
+    assert resp.tool_calls is None
+    assert resp.model_dump(exclude={"latency_s", "tool_calls"}) == {
+        "text": "hello", "model": "qwen2.5:3b", "input_tokens": 20, "output_tokens": 5, "stop_reason": "stop",
+        "served_model": "qwen2.5:3b", "truncated": False, "top_logprobs": None}
+
+
 @pytest.mark.unit
 def test_default_address_is_the_ipv4_loopback(monkeypatch):
     """`localhost` resolves to ::1 first on Windows and Ollama listens on IPv4 (a ~2 s fallback per
