@@ -882,12 +882,14 @@
           "arm": "b0_always_negative",
           "arm_label": "B0 always negative",
           "arm_right_list_wrong": 0,
+          "in_source_sources": [],
           "list_right_arm_wrong": 1,
           "n": 1946,
           "p": 1.0,
           "per_source": [
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 1488,
               "p": 1.0,
@@ -895,6 +897,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 194,
               "p": 1.0,
@@ -902,6 +905,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 1,
               "n": 116,
               "p": 1.0,
@@ -909,6 +913,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 148,
               "p": 1.0,
@@ -920,12 +925,14 @@
           "arm": "embed",
           "arm_label": "E embedding, leave-one-source-out",
           "arm_right_list_wrong": 1,
+          "in_source_sources": [],
           "list_right_arm_wrong": 7,
           "n": 1946,
           "p": 0.0703125,
           "per_source": [
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 1488,
               "p": 1.0,
@@ -933,6 +940,7 @@
             },
             {
               "arm_right_list_wrong": 1,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 194,
               "p": 1.0,
@@ -940,6 +948,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 1,
               "n": 116,
               "p": 1.0,
@@ -947,6 +956,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 6,
               "n": 148,
               "p": 0.03125,
@@ -958,12 +968,19 @@
           "arm": "embed_all",
           "arm_label": "E embedding, all sources, shipped (in-source)",
           "arm_right_list_wrong": 175,
+          "in_source_sources": [
+            "injecagent",
+            "bipia",
+            "deepset",
+            "blind"
+          ],
           "list_right_arm_wrong": 5,
           "n": 1946,
           "p": 1.999505318148365e-45,
           "per_source": [
             {
               "arm_right_list_wrong": 157,
+              "in_source": true,
               "list_right_arm_wrong": 0,
               "n": 1488,
               "p": 1.0947644252537633e-47,
@@ -971,6 +988,7 @@
             },
             {
               "arm_right_list_wrong": 9,
+              "in_source": true,
               "list_right_arm_wrong": 2,
               "n": 194,
               "p": 0.0654296875,
@@ -978,6 +996,7 @@
             },
             {
               "arm_right_list_wrong": 9,
+              "in_source": true,
               "list_right_arm_wrong": 1,
               "n": 116,
               "p": 0.021484375,
@@ -985,6 +1004,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": true,
               "list_right_arm_wrong": 2,
               "n": 148,
               "p": 0.5,
@@ -994,14 +1014,20 @@
         },
         {
           "arm": "finetune",
-          "arm_label": "F fine-tune, hold-out-InjecAgent fold",
+          "arm_label": "F fine-tune, hold-out-InjecAgent fold (in-source on BIPIA, deepset and blind)",
           "arm_right_list_wrong": 244,
+          "in_source_sources": [
+            "bipia",
+            "deepset",
+            "blind"
+          ],
           "list_right_arm_wrong": 22,
           "n": 1946,
           "p": 1.5017318497531166e-48,
           "per_source": [
             {
               "arm_right_list_wrong": 73,
+              "in_source": false,
               "list_right_arm_wrong": 11,
               "n": 1488,
               "p": 2.2490938201170897e-12,
@@ -1009,6 +1035,7 @@
             },
             {
               "arm_right_list_wrong": 114,
+              "in_source": true,
               "list_right_arm_wrong": 9,
               "n": 194,
               "p": 2.6829234621628104e-24,
@@ -1016,6 +1043,7 @@
             },
             {
               "arm_right_list_wrong": 57,
+              "in_source": true,
               "list_right_arm_wrong": 0,
               "n": 116,
               "p": 1.3877787807814457e-17,
@@ -1023,6 +1051,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": true,
               "list_right_arm_wrong": 2,
               "n": 148,
               "p": 0.5,
@@ -1034,12 +1063,19 @@
           "arm": "finetune_all",
           "arm_label": "F fine-tune, all sources (in-source)",
           "arm_right_list_wrong": 920,
+          "in_source_sources": [
+            "injecagent",
+            "bipia",
+            "deepset",
+            "blind"
+          ],
           "list_right_arm_wrong": 16,
           "n": 1946,
           "p": 5.109304639391098e-248,
           "per_source": [
             {
               "arm_right_list_wrong": 744,
+              "in_source": true,
               "list_right_arm_wrong": 1,
               "n": 1488,
               "p": 8.061614996996634e-222,
@@ -1047,6 +1083,7 @@
             },
             {
               "arm_right_list_wrong": 118,
+              "in_source": true,
               "list_right_arm_wrong": 9,
               "n": 194,
               "p": 2.2519524486033766e-25,
@@ -1054,6 +1091,7 @@
             },
             {
               "arm_right_list_wrong": 58,
+              "in_source": true,
               "list_right_arm_wrong": 3,
               "n": 116,
               "p": 3.2857397358476703e-14,
@@ -1061,6 +1099,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": true,
               "list_right_arm_wrong": 3,
               "n": 148,
               "p": 0.25,
@@ -1072,12 +1111,14 @@
           "arm": "llama_guard3_configured",
           "arm_label": "B2 Llama Guard 3, configured",
           "arm_right_list_wrong": 15,
+          "in_source_sources": [],
           "list_right_arm_wrong": 0,
           "n": 200,
           "p": 6.103515625e-05,
           "per_source": [
             {
               "arm_right_list_wrong": 8,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 56,
               "p": 0.0078125,
@@ -1085,6 +1126,7 @@
             },
             {
               "arm_right_list_wrong": 5,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 58,
               "p": 0.0625,
@@ -1092,6 +1134,7 @@
             },
             {
               "arm_right_list_wrong": 2,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 57,
               "p": 0.5,
@@ -1099,6 +1142,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 29,
               "p": 1.0,
@@ -1110,12 +1154,14 @@
           "arm": "llama_guard3_default",
           "arm_label": "B2 Llama Guard 3, off the shelf",
           "arm_right_list_wrong": 10,
+          "in_source_sources": [],
           "list_right_arm_wrong": 3,
           "n": 100,
           "p": 0.09228515625,
           "per_source": [
             {
               "arm_right_list_wrong": 6,
+              "in_source": false,
               "list_right_arm_wrong": 3,
               "n": 28,
               "p": 0.5078125,
@@ -1123,6 +1169,7 @@
             },
             {
               "arm_right_list_wrong": 4,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 30,
               "p": 0.125,
@@ -1130,6 +1177,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 28,
               "p": 1.0,
@@ -1137,6 +1185,7 @@
             },
             {
               "arm_right_list_wrong": 0,
+              "in_source": false,
               "list_right_arm_wrong": 0,
               "n": 14,
               "p": 1.0,
@@ -1185,7 +1234,8 @@
                 "n_pos": 377,
                 "tp": 0
               }
-            }
+            },
+            "in_source_sources": []
           },
           {
             "arm": "b1_phrase_list",
@@ -1207,7 +1257,8 @@
                 "n_pos": 377,
                 "tp": 0
               }
-            }
+            },
+            "in_source_sources": []
           },
           {
             "arm": "embed",
@@ -1229,7 +1280,8 @@
                 "n_pos": 377,
                 "tp": 0
               }
-            }
+            },
+            "in_source_sources": []
           },
           {
             "arm": "embed_all",
@@ -1251,11 +1303,17 @@
                 "n_pos": 377,
                 "tp": 110
               }
-            }
+            },
+            "in_source_sources": [
+              "injecagent",
+              "bipia",
+              "deepset",
+              "blind"
+            ]
           },
           {
             "arm": "finetune",
-            "arm_label": "F fine-tune, hold-out-InjecAgent fold",
+            "arm_label": "F fine-tune, hold-out-InjecAgent fold (in-source on BIPIA, deepset and blind)",
             "cells": {
               "bipia:*": {
                 "categories": 25,
@@ -1273,7 +1331,12 @@
                 "n_pos": 377,
                 "tp": 28
               }
-            }
+            },
+            "in_source_sources": [
+              "bipia",
+              "deepset",
+              "blind"
+            ]
           },
           {
             "arm": "finetune_all",
@@ -1295,7 +1358,13 @@
                 "n_pos": 377,
                 "tp": 377
               }
-            }
+            },
+            "in_source_sources": [
+              "injecagent",
+              "bipia",
+              "deepset",
+              "blind"
+            ]
           },
           {
             "arm": "llama_guard3_configured",
@@ -1317,7 +1386,8 @@
                 "n_pos": 18,
                 "tp": 6
               }
-            }
+            },
+            "in_source_sources": []
           },
           {
             "arm": "llama_guard3_default",
@@ -1339,7 +1409,8 @@
                 "n_pos": 11,
                 "tp": 6
               }
-            }
+            },
+            "in_source_sources": []
           }
         ]
       }

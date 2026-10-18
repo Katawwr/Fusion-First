@@ -146,7 +146,9 @@ def test_the_committed_envelope_carries_the_seal_digest_the_registration_quotes(
     """The registration's first lines quote the seal's digest (sealed text, never edited): the envelope, the committed
     seal and the Llama Guard 3 subsample all carry that digest, so the scored rows are the registered rows."""
     prereg = (ROOT / dc.PREREGISTRATION).read_text(encoding="utf-8")
-    quoted = re.search(r"digest\s+`([0-9a-f]{64})`", prereg).group(1)
+    match = re.search(r"digest\s+`([0-9a-f]{64})`", prereg)
+    assert match, "PREREG_detector_v1.md no longer quotes the seal digest in its header"
+    quoted = match.group(1)
     env = json.loads((ROOT / dc.EVIDENCE).read_text(encoding="utf-8"))
     assert env["seal_digest"] == quoted == seal_digest(load_seal(ROOT / dc.SEAL))
     assert json.loads((ROOT / dc.SUBSAMPLE).read_text(encoding="utf-8"))["seal_digest"] == quoted

@@ -953,8 +953,8 @@ def _detector_findings(d: dict) -> list[str]:
     return out
 
 
-def _in_source_limit(d: dict) -> str:
-    """Which rows are in-source, in words, from the envelope's own arms and folds."""
+def _in_source_note(d: dict) -> str:
+    """Which rows are in-source, in words, from the envelope's own arms and folds: a sentence, or nothing."""
     arms = d.get("arms") or {}
     every = [_short(k, arms[k]) for k in _ordered(_DETECTOR_ARMS, set(arms)) if k in _DETECTOR_ALL_SOURCES]
     parts = [f"{_and(every)} on every source"] if every else []
@@ -966,8 +966,8 @@ def _in_source_limit(d: dict) -> str:
             folds = sorted({arm["folds"][s] for s in srcs})
             parts.append(f"{_short(key, arm)} on {_and([_DETECTOR_SOURCE_SHORT.get(s, s) for s in srcs])} "
                          f"(`{'`, `'.join(folds)}` trained on their dev rows)")
-    return "; rows marked in-source come from a model that trained on that source's dev rows: " + "; ".join(parts) \
-        if parts else ""
+    return (" Rows marked in-source come from a model that trained on that source's dev rows: " + "; ".join(parts) + "."
+            if parts else "")
 
 
 # Registered secondaries (PREREG_detector_v1.md, "Secondary (reported, no decision)"): McNemar against the phrase list,
@@ -978,9 +978,19 @@ _DETECTOR_TECHNIQUES = (("injecagent_dh", "InjecAgent direct harm"), ("injecagen
 _DETECTOR_TECHNIQUE_NAMES = dict(_DETECTOR_TECHNIQUES)
 
 
+def _in_source_sources(key: str, arm: dict) -> list[str]:
+    """The sources whose rows this arm scored with a model that trained on them, in the registered order."""
+    return [s for s in _ordered(_DETECTOR_SOURCES, set(arm.get("per_source") or {})) if _in_source(key, arm, s)]
+
+
 def _per_arm_label(key: str, arm: dict) -> str:
-    """An arm's name in a per-arm table: an all-sources arm is in-source on every row it scores."""
-    return _arm_name(key, arm) + (" (in-source)" if key in _DETECTOR_ALL_SOURCES else "")
+    """An arm's name in a per-arm table, marked in-source: on every row for an all-sources arm, else naming the sources
+    its scoring fold trained on (arm F's hold-out-InjecAgent fold on BIPIA, deepset and blind)."""
+    if key in _DETECTOR_ALL_SOURCES:
+        return _arm_name(key, arm) + " (in-source)"
+    srcs = _in_source_sources(key, arm)
+    return _arm_name(key, arm) + (f" (in-source on {_and([_DETECTOR_SOURCE_SHORT.get(s, s) for s in srcs])})"
+                                  if srcs else "")
 
 
 def _paired_cells(t: dict) -> dict:
@@ -990,7 +1000,8 @@ def _paired_cells(t: dict) -> dict:
 
 def _detector_mcnemar(d: dict) -> list[dict]:
     """Exact McNemar of each arm against the phrase list (the reference arm has none), pooled and per source in the
-    registered order, for the arms with at least one paired row (a row both arms scored)."""
+    registered order, for the arms with at least one paired row (a row both arms scored); each source cell says whether
+    the arm is in-source there."""
     arms, tests = d.get("arms") or {}, d.get("mcnemar_vs_phrase_list") or {}
     out = []
     for key in _ordered(_DETECTOR_ARMS, set(tests) & set(arms)):
@@ -998,7 +1009,8 @@ def _detector_mcnemar(d: dict) -> list[dict]:
         if not pooled.get("n"):
             continue
         out.append({"arm": key, "arm_label": _per_arm_label(key, arms[key]), **_paired_cells(pooled),
-                    "per_source": [{"source": s, **_paired_cells(per[s])}
+                    "in_source_sources": _in_source_sources(key, arms[key]),
+                    "per_source": [{"source": s, **_paired_cells(per[s]), "in_source": _in_source(key, arms[key], s)}
                                    for s in _ordered(_DETECTOR_SOURCES, set(per)) if per[s].get("n")]})
     return out
 
@@ -1034,7 +1046,8 @@ def _detector_techniques(d: dict) -> dict:
     for key in _ordered(_DETECTOR_ARMS, set(arms)):
         cells = {c["key"]: _technique_cell(arms[key], c) for c in cols}
         if any(v is not None for v in cells.values()):
-            rows.append({"arm": key, "arm_label": _per_arm_label(key, arms[key]), "cells": cells})
+            rows.append({"arm": key, "arm_label": _per_arm_label(key, arms[key]),
+                         "in_source_sources": _in_source_sources(key, arms[key]), "cells": cells})
     return {"columns": cols, "rows": rows}
 
 
@@ -1086,7 +1099,8 @@ def _secondaries(d: dict) -> list[str]:
                  "vs list right (p) |"), "|---|---|---|---|---|---|"]
         for m in mc:
             per = "; ".join(f"{_DETECTOR_SOURCE_SHORT.get(s['source'], s['source'])} {s['arm_right_list_wrong']} vs "
-                            f"{s['list_right_arm_wrong']} ({_p(s['p'])})" for s in m["per_source"])
+                            f"{s['list_right_arm_wrong']} ({_p(s['p'])}{', in-source' if s['in_source'] else ''})"
+                            for s in m["per_source"])
             out.append(f"| {m['arm_label']} | {m['n']} | {m['arm_right_list_wrong']} | {m['list_right_arm_wrong']} | "
                        f"{_p(m['p'])} | {per} |")
         out.append("")
@@ -1209,13 +1223,16 @@ def _q5(root: pathlib.Path) -> list[str]:
         out.append("- Registered arms not run: " + ", ".join(_arm_name(k) for k in _ordered(_DETECTOR_ARMS, set(absent)))
                    + ".")
     lg3 = any(k.startswith("llama_guard") for k in arms)
+    # The registered list ends at the registration's own words; the reading and the table notes follow as this
+    # report's, in their own bullet, so nothing after the quote reads as registered (R24).
     out += [("- Limits registered before data: text-level detection only, not attack success or the guard's cost in an "
              "agent loop; no adaptive-attack evaluation, so a static result is expected to degrade against an attacker "
              "who adapts to the detector; the deepset test rows are in-distribution with respect to deepset's own "
              "training split; AgentDojo is dev-only (its held-out set is spent for the guard), so no AgentDojo row is "
-             f"scored here; the registration's own words on claim scope are {_REGISTRATION_SCOPE_CITED}, which this "
-             f"report reads as: {_GENERALISATION_CLAIM}; {_MEASURED_NOT_GENERALISED}" + _in_source_limit(d)
-             + ("; each Llama Guard 3 arm runs on its own stratified subsample with its own n." if lg3 else ".")), ""]
+             f"scored here; and, in the registration's words on claim scope, {_REGISTRATION_SCOPE_CITED}."),
+            (f"- This report's reading of that line, and its notes on the table: {_GENERALISATION_CLAIM}; "
+             f"{_MEASURED_NOT_GENERALISED}." + _in_source_note(d)
+             + (" Each Llama Guard 3 arm runs on its own stratified subsample with its own n." if lg3 else "")), ""]
     return out + _secondaries(d)
 
 

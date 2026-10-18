@@ -415,13 +415,22 @@ def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, a
     limits = next(line for line in bullets if line.startswith("- Limits registered before data:"))
     for word in ("adaptive", "in-distribution", "dev-only"):
         assert word in limits
-    assert ("so no AgentDojo row is scored here; the registration's own words on claim scope are \"only the LOSO "
-            "numbers are claimed\" (`evals/validation/v1/PREREG_detector_v1.md`, \"Limits, stated before data\"), which "
-            "this report reads as: leave-one-source-out recall is the only generalisation claim; the shipped model's "
-            "false-positive rate and the baselines' rows are registered measurements on the sealed rows and say nothing "
-            "about unseen sources; rows marked in-source") in limits
-    assert ("the E all-sources model and the F all-sources model on every source; F hold-out-InjecAgent fold on BIPIA, "
-            "deepset and blind (`finetune_holdout_injecagent` trained on their dev rows)") in limits
+    # the registered list ends at the registration's own words; the reading and the table notes are a separate bullet
+    # headed as this report's, so nothing after the quote reads as registered (R24)
+    assert limits.endswith("so no AgentDojo row is scored here; and, in the registration's words on claim scope, \"only "
+                           "the LOSO numbers are claimed\" (`evals/validation/v1/PREREG_detector_v1.md`, \"Limits, stated "
+                           "before data\").")
+    assert "generalisation" not in limits and "in-source" not in limits and "Llama Guard" not in limits
+    reading = next(line for line in bullets if line.startswith("- This report's reading of that line"))
+    assert bullets.index(reading) == bullets.index(limits) + 1
+    assert reading.startswith("- This report's reading of that line, and its notes on the table: leave-one-source-out "
+                              "recall is the only generalisation claim; the shipped model's false-positive rate and the "
+                              "baselines' rows are registered measurements on the sealed rows and say nothing about "
+                              "unseen sources. Rows marked in-source come from a model that trained on that source's dev "
+                              "rows: the E all-sources model and the F all-sources model on every source; F "
+                              "hold-out-InjecAgent fold on BIPIA, deepset and blind (`finetune_holdout_injecagent` "
+                              "trained on their dev rows). Each Llama Guard 3 arm runs on its own stratified subsample "
+                              "with its own n.")
     bottom = out.split("## Q1")[0]
     line = next(x for x in bottom.splitlines() if x.startswith("- **Trained detector for injected tool results?**"))
     assert f"it flagged {16 if adopt else 8} of 20, {(16 if adopt else 8) * 5:.1f}% (" in line
@@ -486,8 +495,15 @@ def test_q5_renders_the_registered_secondaries_from_the_envelope(tmp_path):
         "InjecAgent 0 vs 2 (p=0.5000); BIPIA 0 vs 2 (p=0.5000); deepset 0 vs 2 (p=0.5000); blind 0 vs 0 (p=1.0000)")]
     assert mcnemar["E embedding, leave-one-source-out"] == ["84", "20", "0", "p<0.0001", (
         "InjecAgent 6 vs 0 (p=0.0312); BIPIA 8 vs 0 (p=0.0078); deepset 6 vs 0 (p=0.0312); blind 0 vs 0 (p=1.0000)")]
-    assert mcnemar["E embedding, all sources, shipped (in-source)"][:4] == ["84", "32", "4", "p<0.0001"]
-    assert mcnemar["F fine-tune, hold-out-InjecAgent fold"][:4] == ["84", "17", "1", "p=0.0001"]
+    # in-source marks: an all-sources arm on its label and every per-source cell; the F fold on its label (the sources
+    # its scoring fold trained on) and on those cells only; never the leave-one-source-out arm or the baselines
+    shipped_mc = mcnemar["E embedding, all sources, shipped (in-source)"]
+    assert shipped_mc[:4] == ["84", "32", "4", "p<0.0001"] and shipped_mc[4].count(", in-source)") == 4
+    ft_mc = mcnemar["F fine-tune, hold-out-InjecAgent fold (in-source on BIPIA, deepset and blind)"]
+    assert ft_mc == ["84", "17", "1", "p=0.0001", ("InjecAgent 3 vs 1 (p=0.6250); BIPIA 8 vs 0 (p=0.0078, in-source); "
+                                                    "deepset 6 vs 0 (p=0.0312, in-source); blind 0 vs 0 (p=1.0000, in-source)")]
+    assert not [a for a in mcnemar if a.startswith("F fine-tune, hold-out-InjecAgent fold") and a != (
+        "F fine-tune, hold-out-InjecAgent fold (in-source on BIPIA, deepset and blind)")]
     # Llama Guard's rows are its subsample; its one unscored row is not paired
     assert mcnemar["B2 Llama Guard 3, configured"] == ["20", "3", "12", "p=0.0352", (
         "InjecAgent 1 vs 3 (p=0.6250); BIPIA 1 vs 3 (p=0.6250); deepset 1 vs 3 (p=0.6250); blind 0 vs 3 (p=0.2500)")]
@@ -499,8 +515,9 @@ def test_q5_renders_the_registered_secondaries_from_the_envelope(tmp_path):
     assert technique["B1 phrase list (shipped)"] == ["1 of 10 (10.0%)", "1 of 10 (10.0%)", "2 of 8 (25.0%)", "2 of 2"]
     assert technique["E embedding, leave-one-source-out"] == ["4 of 10 (40.0%)", "4 of 10 (40.0%)", "8 of 8 (100.0%)",
                                                               "2 of 2"]
-    assert technique["F fine-tune, hold-out-InjecAgent fold"] == ["3 of 10 (30.0%)", "2 of 10 (20.0%)",
-                                                                   "8 of 8 (100.0%)", "2 of 2"]
+    assert technique["F fine-tune, hold-out-InjecAgent fold (in-source on BIPIA, deepset and blind)"] == [
+        "3 of 10 (30.0%)", "2 of 10 (20.0%)", "8 of 8 (100.0%)", "2 of 2"]
+    assert not [a for a in technique if "in-source" in a and not a.startswith(("E embedding, all", "F fine-tune"))]
     assert technique["B2 Llama Guard 3, configured"] == ["1 of 1 (100.0%)", "1 of 1 (100.0%)", "3 of 3 (100.0%)",
                                                         "2 of 2"]
     assert "E embedding, all sources, shipped (in-source)" in technique and not [a for a in technique
@@ -521,7 +538,10 @@ def test_q5_renders_the_registered_secondaries_from_the_envelope(tmp_path):
     assert mc["embed"]["n"] == 84 and mc["embed"]["arm_right_list_wrong"] == 20 and mc["embed"]["list_right_arm_wrong"] == 0
     assert [s["source"] for s in mc["embed"]["per_source"]] == ["injecagent", "bipia", "deepset", "blind"]
     assert mc["embed"]["per_source"][1] == {"source": "bipia", "n": 16, "arm_right_list_wrong": 8,
-                                            "list_right_arm_wrong": 0, "p": pytest.approx(0.0078125)}
+                                            "list_right_arm_wrong": 0, "p": pytest.approx(0.0078125), "in_source": False}
+    assert [s["in_source"] for s in mc["finetune"]["per_source"]] == [False, True, True, True]
+    assert mc["finetune"]["in_source_sources"] == ["bipia", "deepset", "blind"] and mc["embed"]["in_source_sources"] == []
+    assert mc["embed_all"]["in_source_sources"] == ["injecagent", "bipia", "deepset", "blind"]
     assert sec["per_technique"]["columns"] == [{"key": "injecagent_dh", "label": "InjecAgent direct harm"},
                                                {"key": "injecagent_ds", "label": "InjecAgent data stealing"},
                                                {"key": "deepset", "label": "deepset"},
@@ -530,6 +550,8 @@ def test_q5_renders_the_registered_secondaries_from_the_envelope(tmp_path):
     assert by_arm["finetune"]["injecagent_ds"] == {"tp": 2, "n_pos": 10}
     assert by_arm["finetune"]["bipia:*"] == {"flagged": 2, "categories": 2}
     assert "llama_guard3_default" not in by_arm
+    assert {r["arm"]: r["in_source_sources"] for r in sec["per_technique"]["rows"] if r["arm"].startswith("finetune")} == {
+        "finetune": ["bipia", "deepset", "blind"], "finetune_all": ["injecagent", "bipia", "deepset", "blind"]}
     assert {la["arm"]: (la["p50_ms"], la["p95_ms"]) for la in sec["latency"]} == {
         "b1_phrase_list": (0.004, 0.004), "embed_all": (14.0, 28.4), "finetune_all": (44.0, 49.4),
         "llama_guard3_configured": (2400.0, 2400.0)}
@@ -545,8 +567,10 @@ def test_q5_quotes_the_registration_on_claim_scope_and_owns_its_reading():
     q5 = _q5_section(render(ROOT))
     assert q5.count(f'"{quote}"') == 2  # the in-source bullet and the limits bullet
     assert "this report reads that as: leave-one-source-out recall is the only generalisation claim" in q5
-    assert "which this report reads as: leave-one-source-out recall is the only generalisation claim" in q5
+    assert ("- This report's reading of that line, and its notes on the table: leave-one-source-out recall is the only "
+            "generalisation claim") in q5
     assert "registration states that in-source numbers flatter any model, and leave-one-source-out" not in q5
+    assert "which this report reads as" not in q5  # the reading no longer rides inside the registered-limits bullet
 
 
 @pytest.mark.unit

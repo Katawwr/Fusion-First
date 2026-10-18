@@ -99,7 +99,9 @@ def test_the_detector_doc_quotes_only_its_registered_result():
         assert {p.split(".")[3] for c in sealed for p in c["metrics"]} == {"injecagent", "deepset", "bipia"}
         assert all(p.startswith("arms.b1_phrase_list.per_source.") for c in sealed for p in c["metrics"])
         assert "On the sealed confirmatory rows the list flagged" in why and "re-run" not in why
-        assert "diagnostic, not registered" not in text and "1,054" not in text
+        assert "diagnostic, not registered" not in text
+        for recon in ("1,054", "8 of 263", "0 of 200"):  # the dev re-run's counts, which the claims scanner would miss
+            assert recon not in text
     for phrase in ("adaptive", "in-distribution", "dev-only", "in-source"):
         assert phrase in text
     assert chr(0x2014) not in text and "DETECTOR.md" in (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
