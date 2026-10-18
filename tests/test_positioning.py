@@ -65,8 +65,9 @@ DETECTOR_EVIDENCE = "evals/validation/v1/detector/detector_v1.json"
 def test_the_detector_doc_quotes_only_its_registered_result():
     """docs/DETECTOR.md's registered-result section is a placeholder until the evidence is committed; once it is, the
     section cites the evidence file, states the registered verdict, carries the per-arm table exactly as generated from
-    the evidence, and every number it quotes in prose is a registered claim. The phrase-list re-run stays labelled
-    diagnostic, and the adaptive, in-distribution, dev-only and in-source limits stay stated."""
+    the evidence, and every number it quotes in prose is a registered claim. The "why" quotes the phrase list's
+    registered numbers on the sealed rows (one claim per source), no longer the diagnostic re-run; the adaptive,
+    in-distribution, dev-only and in-source limits stay stated."""
     import json
 
     from fusion_first.validate.claims import load_registry
@@ -87,10 +88,19 @@ def test_the_detector_doc_quotes_only_its_registered_result():
         assert detector_doc_table(envelope) in result
         claims = [c for c in load_registry().claims if "docs/DETECTOR.md" in (c.get("files") or [])]
         assert {c["evidence"] for c in claims} == {DETECTOR_EVIDENCE}
+        assert all(c.get("min_n") == 50 and c.get("demonstration_ok") is False and c.get("n_path") for c in claims)
         prose = [line for line in result.splitlines() if not line.startswith("|")]
         quoted = [c["text"] for c in claims if any(c["text"] in line for line in prose)]
-        assert len(quoted) == len(claims) == 4  # the two primaries, the phrase list on the same rows, the decision
-    for phrase in ("diagnostic, not registered", "adaptive", "in-distribution", "dev-only", "in-source"):
+        assert len(quoted) == 4  # the two primaries, the phrase list on the same rows, the decision
+        # the "why": the phrase list's registered recall per sealed source, each its own claim on the B1 arm's rows
+        why = " ".join(text.split("## Why train one")[1].split("\n## ")[0].split())
+        sealed = [c for c in claims if c["text"] not in quoted]
+        assert len(sealed) == 3 and all(c["text"] in why for c in sealed)
+        assert {p.split(".")[3] for c in sealed for p in c["metrics"]} == {"injecagent", "deepset", "bipia"}
+        assert all(p.startswith("arms.b1_phrase_list.per_source.") for c in sealed for p in c["metrics"])
+        assert "On the sealed confirmatory rows the list flagged" in why and "re-run" not in why
+        assert "diagnostic, not registered" not in text and "1,054" not in text
+    for phrase in ("adaptive", "in-distribution", "dev-only", "in-source"):
         assert phrase in text
     assert chr(0x2014) not in text and "DETECTOR.md" in (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
 

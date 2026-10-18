@@ -12,10 +12,11 @@ detector would have become an observe-only `guard_input` signal: an event that n
 before this study (its first registered number is under [Registered result](#registered-result)), and the code
 leaves paraphrased and non-English injection to a judge that is not on the runtime path.
 
-A read-only development re-run of the list (diagnostic, not registered) matched 0 of 1,054 InjecAgent injected tool
-responses, 8 of 263 deepset positives and 0 of 200 BIPIA payloads. Injected tool results rarely use the phrases it
-looks for. The study asks whether a model given the request, the tool name and the tool result together does better
-on injected tool results from a source it never trained on, without more false alarms on benign tool results.
+On the sealed confirmatory rows the list flagged 0 of 744 InjecAgent injections, 1 of 60 deepset positives and
+0 of 125 BIPIA payloads in carriers (registered; see [Registered result](#registered-result)). Injected tool results
+rarely use the phrases it looks for. The study asks whether a model given the request, the tool name and the tool
+result together does better on injected tool results from a source it never trained on, without more false alarms on
+benign tool results.
 
 ## Data and labels
 

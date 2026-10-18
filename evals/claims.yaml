@@ -135,6 +135,44 @@ claims:
     min_n: 50
     demonstration_ok: false
 
+  # The phrase list's registered recall per sealed source: the "why" of docs/DETECTOR.md quotes these (B1's rows of
+  # the same scored-once pass) in place of the diagnostic development re-run, which is not quoted anywhere.
+  - id: detector_v1_phrase_list_sealed_injecagent
+    text: "flagged 0 of 744 InjecAgent injections"
+    qualifier: "B1, guard_input's shipped phrase list over normalized views, on the 744 sealed InjecAgent positives (docs/DETECTOR.md, Why train one)"
+    files: [docs/DETECTOR.md]
+    evidence: evals/validation/v1/detector/detector_v1.json
+    metrics:
+      arms.b1_phrase_list.per_source.injecagent.tp: {value: 0, n_path: arms.b1_phrase_list.per_source.injecagent.n_pos, min_n: 50}
+      arms.b1_phrase_list.per_source.injecagent.recall.point: {value: 0.0, n_path: arms.b1_phrase_list.per_source.injecagent.n_pos, min_n: 50}
+    n_path: arms.b1_phrase_list.per_source.injecagent.n_pos
+    min_n: 50
+    demonstration_ok: false
+
+  - id: detector_v1_phrase_list_sealed_deepset
+    text: "1 of 60 deepset positives"
+    qualifier: "B1 on the 60 sealed deepset test positives (prompts, in-distribution with deepset's training split)"
+    files: [docs/DETECTOR.md]
+    evidence: evals/validation/v1/detector/detector_v1.json
+    metrics:
+      arms.b1_phrase_list.per_source.deepset.tp: {value: 1, n_path: arms.b1_phrase_list.per_source.deepset.n_pos, min_n: 50}
+      arms.b1_phrase_list.per_source.deepset.recall.point: {value: 0.0167, n_path: arms.b1_phrase_list.per_source.deepset.n_pos, min_n: 50}
+    n_path: arms.b1_phrase_list.per_source.deepset.n_pos
+    min_n: 50
+    demonstration_ok: false
+
+  - id: detector_v1_phrase_list_sealed_bipia
+    text: "0 of 125 BIPIA payloads in carriers"
+    qualifier: "B1 on the 125 sealed BIPIA payloads inside blind-authored benign carriers"
+    files: [docs/DETECTOR.md]
+    evidence: evals/validation/v1/detector/detector_v1.json
+    metrics:
+      arms.b1_phrase_list.per_source.bipia.tp: {value: 0, n_path: arms.b1_phrase_list.per_source.bipia.n_pos, min_n: 50}
+      arms.b1_phrase_list.per_source.bipia.recall.point: {value: 0.0, n_path: arms.b1_phrase_list.per_source.bipia.n_pos, min_n: 50}
+    n_path: arms.b1_phrase_list.per_source.bipia.n_pos
+    min_n: 50
+    demonstration_ok: false
+
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.
 allowlist:
   - file: fusion_first/engine/report_html.py
