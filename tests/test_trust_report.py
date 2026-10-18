@@ -259,9 +259,20 @@ def _detector_envelope(adopt: bool) -> dict:
     """A synthetic envelope written by the scorer's own `build_envelope` (no model is called)."""
     from fusion_first.validate.detector_confirmatory import build_envelope
 
+    # technique tags as the real rows carry them: InjecAgent direct-harm / data-stealing, one BIPIA category per
+    # payload, deepset's own label, and the negatives' control tags
+    control = {"injecagent": "benign_control", "bipia": "carrier_control", "deepset": "deepset", "blind": "blind_negative"}
+
+    def technique(source: str, lab: int, i: int) -> str:
+        if not lab:
+            return control[source]
+        if source == "injecagent":
+            return "injecagent_dh" if i % 2 == 0 else "injecagent_ds"
+        return f"bipia:cat{i % 2}" if source == "bipia" else source
+
     rows = []
     for source, n_pos, n_neg in (("injecagent", 20, 20), ("bipia", 10, 6), ("deepset", 8, 8), ("blind", 0, 12)):
-        rows += [{"id": f"{source}-{lab}-{i}", "source": source, "label": lab, "technique": f"{source}:t",
+        rows += [{"id": f"{source}-{lab}-{i}", "source": source, "label": lab, "technique": technique(source, lab, i),
                   "text": f"{source} text {lab} {i}"} for lab, n in ((1, n_pos), (0, n_neg)) for i in range(n)]
     ids = [r["id"] for r in rows]
 
@@ -344,7 +355,8 @@ def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, a
     out = render(tmp_path)
     q5 = _q5_section(out)
     assert "`evals/validation/v1/detector/detector_v1.json`" in q5 and f"(seal `{DIGEST}`)" in q5
-    rows = [[c.strip() for c in line.split("|")[1:-1]] for line in q5.splitlines() if line.startswith("| ")]
+    main = q5.split("Registered secondaries")[0]  # the per-source table; the secondaries' tables follow it
+    rows = [[c.strip() for c in line.split("|")[1:-1]] for line in main.splitlines() if line.startswith("| ")]
     head, rows = rows[0], rows[1:]
     assert head[:3] == ["Source", "Arm", "Injected texts flagged (recall)"] and "p50 latency" in head
     by = {(r[0], r[1]): r for r in rows}
@@ -426,6 +438,95 @@ def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, a
     unsc = {u["arm"]: (u["unscored"], u["n_rows"]) for u in site["unscored"]}
     assert unsc["llama_guard3_default"] == (21, 21) and unsc["llama_guard3_configured"] == (1, 21)
     assert unsc["finetune"] == (0, 84) and unsc["finetune_all"] == (0, 84)
+
+
+def _tables(section: str) -> list[dict[str, list[str]]]:
+    """Each markdown table in `section` as {first cell: the other cells}, the header under the key "head"."""
+    out, current = [], None
+    for line in section.splitlines():
+        if line.startswith("| "):
+            cells = [c.strip() for c in line.split("|")[1:-1]]
+            if current is None:
+                current = {"head": cells}
+                out.append(current)
+            else:
+                current[cells[0]] = cells[1:]
+        elif line.startswith("|---"):
+            continue
+        else:
+            current = None
+    return out
+
+
+@pytest.mark.unit
+def test_q5_renders_the_registered_secondaries_from_the_envelope(tmp_path):
+    """PREREG "Secondary (reported, no decision)": exact McNemar against the phrase list (pooled and per source, arm
+    right vs list right), recall by technique (BIPIA's categories counted, not itemised) and p50/p95 latency, after the
+    limits bullet. The reference arm has no McNemar row; an arm with no paired or scored row has no row at all."""
+    from fusion_first.validate.trust_report import evidence_json
+
+    _seal(tmp_path)
+    env = _detector_envelope(False)
+    (tmp_path / "evals/validation/v1/detector/detector_v1.json").write_text(json.dumps(env), encoding="utf-8")
+    q5 = _q5_section(render(tmp_path))
+    limits_at, secondaries_at = q5.index("- Limits registered before data:"), q5.index("Registered secondaries")
+    assert limits_at < secondaries_at and "Secondary outcomes" not in q5
+    lead = q5[secondaries_at:].splitlines()[0]
+    assert lead.startswith("Registered secondaries (reported, no decision; McNemar against the phrase list is not the bar): ")
+    mcnemar, technique = _tables(q5[secondaries_at:])
+    assert mcnemar["head"] == ["Arm", "Rows paired", "Arm right, list wrong", "List right, arm wrong", "McNemar p",
+                               "Per source: arm right vs list right (p)"]
+    assert mcnemar["B0 always negative"] == ["84", "0", "6", "p=0.0312", (
+        "InjecAgent 0 vs 2 (p=0.5000); BIPIA 0 vs 2 (p=0.5000); deepset 0 vs 2 (p=0.5000); blind 0 vs 0 (p=1.0000)")]
+    assert mcnemar["E embedding, leave-one-source-out"] == ["84", "20", "0", "p<0.0001", (
+        "InjecAgent 6 vs 0 (p=0.0312); BIPIA 8 vs 0 (p=0.0078); deepset 6 vs 0 (p=0.0312); blind 0 vs 0 (p=1.0000)")]
+    assert mcnemar["E embedding, all sources, shipped (in-source)"][:4] == ["84", "32", "4", "p<0.0001"]
+    assert mcnemar["F fine-tune, hold-out-InjecAgent fold"][:4] == ["84", "17", "1", "p=0.0001"]
+    # Llama Guard's rows are its subsample; its one unscored row is not paired
+    assert mcnemar["B2 Llama Guard 3, configured"] == ["20", "3", "12", "p=0.0352", (
+        "InjecAgent 1 vs 3 (p=0.6250); BIPIA 1 vs 3 (p=0.6250); deepset 1 vs 3 (p=0.6250); blind 0 vs 3 (p=0.2500)")]
+    assert "Z an arm added later" in mcnemar
+    assert not [a for a in mcnemar if a.startswith("B1 ") or "off the shelf" in a]
+    assert technique["head"] == ["Arm", "InjecAgent direct harm", "InjecAgent data stealing", "deepset",
+                                 "BIPIA categories with any flag"]
+    assert technique["B0 always negative"] == ["0 of 10 (0.0%)", "0 of 10 (0.0%)", "0 of 8 (0.0%)", "0 of 2"]
+    assert technique["B1 phrase list (shipped)"] == ["1 of 10 (10.0%)", "1 of 10 (10.0%)", "2 of 8 (25.0%)", "2 of 2"]
+    assert technique["E embedding, leave-one-source-out"] == ["4 of 10 (40.0%)", "4 of 10 (40.0%)", "8 of 8 (100.0%)",
+                                                              "2 of 2"]
+    assert technique["F fine-tune, hold-out-InjecAgent fold"] == ["3 of 10 (30.0%)", "2 of 10 (20.0%)",
+                                                                   "8 of 8 (100.0%)", "2 of 2"]
+    assert technique["B2 Llama Guard 3, configured"] == ["1 of 1 (100.0%)", "1 of 1 (100.0%)", "3 of 3 (100.0%)",
+                                                        "2 of 2"]
+    assert "E embedding, all sources, shipped (in-source)" in technique and not [a for a in technique
+                                                                                 if "off the shelf" in a]
+    latency = next(line for line in q5.splitlines() if line.startswith("CPU latency per decision, p50 / p95: "))
+    assert latency == ("CPU latency per decision, p50 / p95: B1 phrase list <0.01 ms / <0.01 ms; the E all-sources model "
+                       "14 ms / 28 ms; the F all-sources model 44 ms / 49 ms; B2 Llama Guard 3 configured 2.4 s / 2.4 s "
+                       "(Ollama wall time per reply). No latency of its own: B0, E leave-one-source-out, F "
+                       "hold-out-InjecAgent fold and Z an arm added later (a fold arm shares its all-sources model's).")
+    site = evidence_json(tmp_path)["detector"]
+    assert {r["arm"]: r["p95_ms"] for r in site["rows"] if r["source"] == "injecagent"} == {
+        "b0_always_negative": None, "b1_phrase_list": 0.004, "embed": None, "embed_all": 28.4, "finetune": None,
+        "finetune_all": 49.4, "llama_guard3_configured": 2400.0, "zeta_arm": None}
+    sec = site["secondaries"]
+    mc = {m["arm"]: m for m in sec["mcnemar"]}
+    assert set(mc) == {"b0_always_negative", "embed", "embed_all", "finetune", "finetune_all", "llama_guard3_configured",
+                       "zeta_arm"}
+    assert mc["embed"]["n"] == 84 and mc["embed"]["arm_right_list_wrong"] == 20 and mc["embed"]["list_right_arm_wrong"] == 0
+    assert [s["source"] for s in mc["embed"]["per_source"]] == ["injecagent", "bipia", "deepset", "blind"]
+    assert mc["embed"]["per_source"][1] == {"source": "bipia", "n": 16, "arm_right_list_wrong": 8,
+                                            "list_right_arm_wrong": 0, "p": pytest.approx(0.0078125)}
+    assert sec["per_technique"]["columns"] == [{"key": "injecagent_dh", "label": "InjecAgent direct harm"},
+                                               {"key": "injecagent_ds", "label": "InjecAgent data stealing"},
+                                               {"key": "deepset", "label": "deepset"},
+                                               {"key": "bipia:*", "label": "BIPIA categories with any flag"}]
+    by_arm = {r["arm"]: r["cells"] for r in sec["per_technique"]["rows"]}
+    assert by_arm["finetune"]["injecagent_ds"] == {"tp": 2, "n_pos": 10}
+    assert by_arm["finetune"]["bipia:*"] == {"flagged": 2, "categories": 2}
+    assert "llama_guard3_default" not in by_arm
+    assert {la["arm"]: (la["p50_ms"], la["p95_ms"]) for la in sec["latency"]} == {
+        "b1_phrase_list": (0.004, 0.004), "embed_all": (14.0, 28.4), "finetune_all": (44.0, 49.4),
+        "llama_guard3_configured": (2400.0, 2400.0)}
 
 
 @pytest.mark.unit

@@ -880,7 +880,8 @@ def _detector_rows(d: dict) -> list[dict]:
                         "fp": s["fp"], "n_neg": s["n_neg"], "fpr": s["fpr"] if s["n_neg"] else None,
                         "distinct_neg": s.get("distinct_neg"), "unscored": s.get("unscored", 0),
                         "auroc": (arm.get("auroc_per_source") or {}).get(src),
-                        "p50_ms": (arm.get("latency") or {}).get("p50_ms")})
+                        "p50_ms": (arm.get("latency") or {}).get("p50_ms"),
+                        "p95_ms": (arm.get("latency") or {}).get("p95_ms")})
     return out
 
 
@@ -963,6 +964,136 @@ def _in_source_limit(d: dict) -> str:
                          f"(`{'`, `'.join(folds)}` trained on their dev rows)")
     return "; rows marked in-source come from a model that trained on that source's dev rows: " + "; ".join(parts) \
         if parts else ""
+
+
+# Registered secondaries (PREREG_detector_v1.md, "Secondary (reported, no decision)"): McNemar against the phrase list,
+# recall by technique, latency. Technique tags are the rows' own: a plain tag is one column (known ones named here); a
+# colon-prefixed tag ("bipia:<category>") is one category of a family, counted as a whole.
+_DETECTOR_TECHNIQUES = (("injecagent_dh", "InjecAgent direct harm"), ("injecagent_ds", "InjecAgent data stealing"),
+                        ("deepset", "deepset"))
+_DETECTOR_TECHNIQUE_NAMES = dict(_DETECTOR_TECHNIQUES)
+
+
+def _per_arm_label(key: str, arm: dict) -> str:
+    """An arm's name in a per-arm table: an all-sources arm is in-source on every row it scores."""
+    return _arm_name(key, arm) + (" (in-source)" if key in _DETECTOR_ALL_SOURCES else "")
+
+
+def _paired_cells(t: dict) -> dict:
+    return {"n": t["n"], "arm_right_list_wrong": t["system_right_reference_wrong"],
+            "list_right_arm_wrong": t["reference_right_system_wrong"], "p": t["p"]}
+
+
+def _detector_mcnemar(d: dict) -> list[dict]:
+    """Exact McNemar of each arm against the phrase list (the reference arm has none), pooled and per source in the
+    registered order, for the arms with at least one paired row (a row both arms scored)."""
+    arms, tests = d.get("arms") or {}, d.get("mcnemar_vs_phrase_list") or {}
+    out = []
+    for key in _ordered(_DETECTOR_ARMS, set(tests) & set(arms)):
+        pooled, per = tests[key].get("pooled") or {}, tests[key].get("per_source") or {}
+        if not pooled.get("n"):
+            continue
+        out.append({"arm": key, "arm_label": _per_arm_label(key, arms[key]), **_paired_cells(pooled),
+                    "per_source": [{"source": s, **_paired_cells(per[s])}
+                                   for s in _ordered(_DETECTOR_SOURCES, set(per)) if per[s].get("n")]})
+    return out
+
+
+def _technique_columns(arms: dict) -> list[dict]:
+    """Every tag with a scored positive in some arm: the known tags first in their order, then each family as one
+    column ("bipia:*"), then any other tag."""
+    tags = {t for a in arms.values() for t, v in (a.get("per_technique") or {}).items() if v.get("n_pos")}
+    plain = {t for t in tags if ":" not in t}
+    known = [t for t, _ in _DETECTOR_TECHNIQUES if t in plain]
+    cols = [{"key": t, "label": _DETECTOR_TECHNIQUE_NAMES[t]} for t in known]
+    cols += [{"key": f"{f}:*", "label": f"{_DETECTOR_SOURCE_SHORT.get(f, f)} categories with any flag"}
+             for f in sorted({t.split(":", 1)[0] for t in tags - plain})]
+    return cols + [{"key": t, "label": t} for t in sorted(plain - set(known))]
+
+
+def _technique_cell(arm: dict, col: dict) -> dict | None:
+    """Flagged of scored positives for a plain tag; for a family, the categories with any flag out of those with a
+    scored positive; None when the arm scored no positive of it."""
+    per, key = arm.get("per_technique") or {}, col["key"]
+    if key.endswith(":*"):
+        cats = [v for t, v in per.items() if t.startswith(key[:-1]) and v.get("n_pos")]
+        return {"flagged": sum(bool(v["tp"]) for v in cats), "categories": len(cats)} if cats else None
+    v = per.get(key)
+    return {"tp": v["tp"], "n_pos": v["n_pos"]} if v and v.get("n_pos") else None
+
+
+def _detector_techniques(d: dict) -> dict:
+    """Recall by technique at each arm's operating point: the columns and one row per arm with a scored positive."""
+    arms = d.get("arms") or {}
+    cols = _technique_columns(arms)
+    rows = []
+    for key in _ordered(_DETECTOR_ARMS, set(arms)):
+        cells = {c["key"]: _technique_cell(arms[key], c) for c in cols}
+        if any(v is not None for v in cells.values()):
+            rows.append({"arm": key, "arm_label": _per_arm_label(key, arms[key]), "cells": cells})
+    return {"columns": cols, "rows": rows}
+
+
+def _technique_text(cell: dict | None) -> str:
+    if cell is None:
+        return "–"
+    if "categories" in cell:
+        return f"{cell['flagged']} of {cell['categories']}"
+    return f"{cell['tp']} of {cell['n_pos']} ({_rate1(cell['tp'], cell['n_pos'])})"
+
+
+def _detector_latency(d: dict) -> list[dict]:
+    """The arms timed on their own rows: p50 and p95 per decision (a Llama Guard arm's is Ollama's wall time per
+    reply)."""
+    arms = d.get("arms") or {}
+    out = []
+    for key in _ordered(_DETECTOR_ARMS, set(arms)):
+        lat = arms[key].get("latency") or {}
+        if lat.get("n"):
+            out.append({"arm": key, "arm_label": _arm_name(key, arms[key]), "n": lat["n"], "p50_ms": lat["p50_ms"],
+                        "p95_ms": lat["p95_ms"], "ollama": key.startswith("llama_guard")})
+    return out
+
+
+def _latency_sentence(d: dict) -> str:
+    arms = d.get("arms") or {}
+    timed = _detector_latency(d)
+    parts = [f"{_short(t['arm'], arms[t['arm']])} {_ms(t['p50_ms'])} / {_ms(t['p95_ms'])}"
+             + (" (Ollama wall time per reply)" if t["ollama"] else "") for t in timed]
+    out = "CPU latency per decision, p50 / p95: " + "; ".join(parts) + "."
+    own = {t["arm"] for t in timed}
+    without = [k for k in _ordered(_DETECTOR_ARMS, set(arms)) if arms[k].get("n_scored") and k not in own]
+    if without:
+        fold = any(arms[k].get("folds") for k in without)
+        out += (" No latency of its own: " + _and([_short(k, arms[k]) for k in without])
+                + (" (a fold arm shares its all-sources model's)." if fold else "."))
+    return out
+
+
+def _secondaries(d: dict) -> list[str]:
+    """The Q5 block after the limits: a lead line, the McNemar table, the per-technique table, the latency line."""
+    out = [("Registered secondaries (reported, no decision; McNemar against the phrase list is not the bar): exact "
+            "McNemar of each arm against the phrase list on the rows both scored, paired per row; recall by technique at "
+            "each arm's operating point (a family of categories such as BIPIA's is counted, not itemised; the "
+            "per-category rates stay in the envelope); CPU latency per decision."), ""]
+    mc = _detector_mcnemar(d)
+    if mc:
+        out += [("| Arm | Rows paired | Arm right, list wrong | List right, arm wrong | McNemar p | Per source: arm right "
+                 "vs list right (p) |"), "|---|---|---|---|---|---|"]
+        for m in mc:
+            per = "; ".join(f"{_DETECTOR_SOURCE_SHORT.get(s['source'], s['source'])} {s['arm_right_list_wrong']} vs "
+                            f"{s['list_right_arm_wrong']} ({_p(s['p'])})" for s in m["per_source"])
+            out.append(f"| {m['arm_label']} | {m['n']} | {m['arm_right_list_wrong']} | {m['list_right_arm_wrong']} | "
+                       f"{_p(m['p'])} | {per} |")
+        out.append("")
+    tech = _detector_techniques(d)
+    if tech["rows"]:
+        out += ["| Arm | " + " | ".join(c["label"] for c in tech["columns"]) + " |",
+                "|---|" + "---|" * len(tech["columns"])]
+        out += [f"| {r['arm_label']} | " + " | ".join(_technique_text(r["cells"][c["key"]]) for c in tech["columns"])
+                + " |" for r in tech["rows"]]
+        out.append("")
+    return out + [_latency_sentence(d), ""]
 
 
 def _benign_cell(key: str, arm: dict) -> str:
@@ -1080,7 +1211,7 @@ def _q5(root: pathlib.Path) -> list[str]:
              "training split; AgentDojo is dev-only (its held-out set is spent for the guard), so no AgentDojo row is "
              f"scored here; {_GENERALISATION_CLAIM}; {_MEASURED_NOT_GENERALISED}" + _in_source_limit(d)
              + ("; each Llama Guard 3 arm runs on its own stratified subsample with its own n." if lg3 else ".")), ""]
-    return out
+    return out + _secondaries(d)
 
 
 def _detector_site(root: pathlib.Path) -> dict | None:
@@ -1096,7 +1227,9 @@ def _detector_site(root: pathlib.Path) -> dict | None:
                          "max_fpr": DETECTOR_MAX_FPR},
             "unscored": [{k: u[k] for k in ("arm", "label", "unscored", "n_rows")} for u in _detector_unscored(d)],
             "absent": [{"arm": k, "label": _arm_name(k), "reason": (d.get("absent_arms") or {})[k]}
-                       for k in _ordered(_DETECTOR_ARMS, set(d.get("absent_arms") or {}))]}
+                       for k in _ordered(_DETECTOR_ARMS, set(d.get("absent_arms") or {}))],
+            "secondaries": {"mcnemar": _detector_mcnemar(d), "per_technique": _detector_techniques(d),
+                            "latency": _detector_latency(d)}}
 
 
 def render(root: pathlib.Path | None = None) -> str:

@@ -47,6 +47,7 @@
         "n_neg": 744,
         "n_pos": 744,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.005136728882017186,
           "low": 0.0,
@@ -72,6 +73,7 @@
         "n_neg": 744,
         "n_pos": 744,
         "p50_ms": 0.17669999942881986,
+        "p95_ms": 0.3939749994970043,
         "recall": {
           "high": 0.005136728882017186,
           "low": 0.0,
@@ -97,6 +99,7 @@
         "n_neg": 744,
         "n_pos": 744,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.005136728882017186,
           "low": 0.0,
@@ -122,6 +125,7 @@
         "n_neg": 744,
         "n_pos": 744,
         "p50_ms": 48.18429999977525,
+        "p95_ms": 70.74767499943846,
         "recall": {
           "high": 0.24178772628638942,
           "low": 0.18322409282552918,
@@ -147,6 +151,7 @@
         "n_neg": 744,
         "n_pos": 744,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.12160263403139689,
           "low": 0.07876263998936424,
@@ -172,6 +177,7 @@
         "n_neg": 744,
         "n_pos": 744,
         "p50_ms": 43.40100000081293,
+        "p95_ms": 65.49309999991237,
         "recall": {
           "high": 1.0,
           "low": 0.9948632711179829,
@@ -197,6 +203,7 @@
         "n_neg": 28,
         "n_pos": 28,
         "p50_ms": 7447.5,
+        "p95_ms": 11481.299999999985,
         "recall": {
           "high": 0.47059288433295715,
           "low": 0.1525399605666909,
@@ -222,6 +229,7 @@
         "n_neg": 14,
         "n_pos": 14,
         "p50_ms": 7236.5,
+        "p95_ms": 11024.049999999997,
         "recall": {
           "high": 0.6740935542034926,
           "low": 0.21380798904474121,
@@ -247,6 +255,7 @@
         "n_neg": 69,
         "n_pos": 125,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.029815393708326456,
           "low": 1.734723475976807e-18,
@@ -272,6 +281,7 @@
         "n_neg": 69,
         "n_pos": 125,
         "p50_ms": 0.17669999942881986,
+        "p95_ms": 0.3939749994970043,
         "recall": {
           "high": 0.029815393708326456,
           "low": 1.734723475976807e-18,
@@ -297,6 +307,7 @@
         "n_neg": 69,
         "n_pos": 125,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.04392475230499521,
           "low": 0.0014135951039980256,
@@ -322,6 +333,7 @@
         "n_neg": 69,
         "n_pos": 125,
         "p50_ms": 48.18429999977525,
+        "p95_ms": 70.74767499943846,
         "recall": {
           "high": 0.13118283868243685,
           "low": 0.0383391383318906,
@@ -347,6 +359,7 @@
         "n_neg": 69,
         "n_pos": 125,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.9501517542146516,
           "low": 0.8492803613696875,
@@ -372,6 +385,7 @@
         "n_neg": 69,
         "n_pos": 125,
         "p50_ms": 43.40100000081293,
+        "p95_ms": 65.49309999991237,
         "recall": {
           "high": 0.9726117744945619,
           "low": 0.8889121558924442,
@@ -397,6 +411,7 @@
         "n_neg": 29,
         "n_pos": 29,
         "p50_ms": 7447.5,
+        "p95_ms": 11481.299999999985,
         "recall": {
           "high": 0.34548439890195237,
           "low": 0.07597857252891227,
@@ -422,6 +437,7 @@
         "n_neg": 15,
         "n_pos": 15,
         "p50_ms": 7236.5,
+        "p95_ms": 11024.049999999997,
         "recall": {
           "high": 0.5195043405598057,
           "low": 0.10897453325692374,
@@ -447,6 +463,7 @@
         "n_neg": 56,
         "n_pos": 60,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.06017185214208986,
           "low": 0.0,
@@ -472,6 +489,7 @@
         "n_neg": 56,
         "n_pos": 60,
         "p50_ms": 0.17669999942881986,
+        "p95_ms": 0.3939749994970043,
         "recall": {
           "high": 0.08855129727590062,
           "low": 0.0029481597947862426,
@@ -497,6 +515,7 @@
         "n_neg": 56,
         "n_pos": 60,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.06017185214208986,
           "low": 0.0,
@@ -522,6 +541,7 @@
         "n_neg": 56,
         "n_pos": 60,
         "p50_ms": 48.18429999977525,
+        "p95_ms": 70.74767499943846,
         "recall": {
           "high": 0.2611458906977855,
           "low": 0.08097440580167739,
@@ -547,6 +567,7 @@
         "n_neg": 56,
         "n_pos": 60,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": {
           "high": 0.9908106807438021,
           "low": 0.886362257256914,
@@ -572,6 +593,7 @@
         "n_neg": 56,
         "n_pos": 60,
         "p50_ms": 43.40100000081293,
+        "p95_ms": 65.49309999991237,
         "recall": {
           "high": 0.9970518402052136,
           "low": 0.9114487027240993,
@@ -597,6 +619,7 @@
         "n_neg": 29,
         "n_pos": 28,
         "p50_ms": 7447.5,
+        "p95_ms": 11481.299999999985,
         "recall": {
           "high": 0.22645362568399052,
           "low": 0.01981206411530574,
@@ -622,6 +645,7 @@
         "n_neg": 14,
         "n_pos": 14,
         "p50_ms": 7236.5,
+        "p95_ms": 11024.049999999997,
         "recall": {
           "high": 0.2153108027376358,
           "low": 1.3877787807814457e-17,
@@ -647,6 +671,7 @@
         "n_neg": 148,
         "n_pos": 0,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": null,
         "source": "blind",
         "source_label": "Blind negatives",
@@ -668,6 +693,7 @@
         "n_neg": 148,
         "n_pos": 0,
         "p50_ms": 0.17669999942881986,
+        "p95_ms": 0.3939749994970043,
         "recall": null,
         "source": "blind",
         "source_label": "Blind negatives",
@@ -689,6 +715,7 @@
         "n_neg": 148,
         "n_pos": 0,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": null,
         "source": "blind",
         "source_label": "Blind negatives",
@@ -710,6 +737,7 @@
         "n_neg": 148,
         "n_pos": 0,
         "p50_ms": 48.18429999977525,
+        "p95_ms": 70.74767499943846,
         "recall": null,
         "source": "blind",
         "source_label": "Blind negatives",
@@ -731,6 +759,7 @@
         "n_neg": 148,
         "n_pos": 0,
         "p50_ms": null,
+        "p95_ms": null,
         "recall": null,
         "source": "blind",
         "source_label": "Blind negatives",
@@ -752,6 +781,7 @@
         "n_neg": 148,
         "n_pos": 0,
         "p50_ms": 43.40100000081293,
+        "p95_ms": 65.49309999991237,
         "recall": null,
         "source": "blind",
         "source_label": "Blind negatives",
@@ -773,6 +803,7 @@
         "n_neg": 29,
         "n_pos": 0,
         "p50_ms": 7447.5,
+        "p95_ms": 11481.299999999985,
         "recall": null,
         "source": "blind",
         "source_label": "Blind negatives",
@@ -794,6 +825,7 @@
         "n_neg": 14,
         "n_pos": 0,
         "p50_ms": 7236.5,
+        "p95_ms": 11024.049999999997,
         "recall": null,
         "source": "blind",
         "source_label": "Blind negatives",
@@ -802,6 +834,516 @@
       }
     ],
     "seal_digest": "3a311e023f34bccb9533b52e60078f037a6d7dccc4e3922a522667384c1ca85c",
+    "secondaries": {
+      "latency": [
+        {
+          "arm": "b1_phrase_list",
+          "arm_label": "B1 phrase list (shipped)",
+          "n": 1946,
+          "ollama": false,
+          "p50_ms": 0.17669999942881986,
+          "p95_ms": 0.3939749994970043
+        },
+        {
+          "arm": "embed_all",
+          "arm_label": "E embedding, all sources, shipped",
+          "n": 1946,
+          "ollama": false,
+          "p50_ms": 48.18429999977525,
+          "p95_ms": 70.74767499943846
+        },
+        {
+          "arm": "finetune_all",
+          "arm_label": "F fine-tune, all sources",
+          "n": 1946,
+          "ollama": false,
+          "p50_ms": 43.40100000081293,
+          "p95_ms": 65.49309999991237
+        },
+        {
+          "arm": "llama_guard3_configured",
+          "arm_label": "B2 Llama Guard 3, configured",
+          "n": 200,
+          "ollama": true,
+          "p50_ms": 7447.5,
+          "p95_ms": 11481.299999999985
+        },
+        {
+          "arm": "llama_guard3_default",
+          "arm_label": "B2 Llama Guard 3, off the shelf",
+          "n": 100,
+          "ollama": true,
+          "p50_ms": 7236.5,
+          "p95_ms": 11024.049999999997
+        }
+      ],
+      "mcnemar": [
+        {
+          "arm": "b0_always_negative",
+          "arm_label": "B0 always negative",
+          "arm_right_list_wrong": 0,
+          "list_right_arm_wrong": 1,
+          "n": 1946,
+          "p": 1.0,
+          "per_source": [
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 0,
+              "n": 1488,
+              "p": 1.0,
+              "source": "injecagent"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 0,
+              "n": 194,
+              "p": 1.0,
+              "source": "bipia"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 1,
+              "n": 116,
+              "p": 1.0,
+              "source": "deepset"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 0,
+              "n": 148,
+              "p": 1.0,
+              "source": "blind"
+            }
+          ]
+        },
+        {
+          "arm": "embed",
+          "arm_label": "E embedding, leave-one-source-out",
+          "arm_right_list_wrong": 1,
+          "list_right_arm_wrong": 7,
+          "n": 1946,
+          "p": 0.0703125,
+          "per_source": [
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 0,
+              "n": 1488,
+              "p": 1.0,
+              "source": "injecagent"
+            },
+            {
+              "arm_right_list_wrong": 1,
+              "list_right_arm_wrong": 0,
+              "n": 194,
+              "p": 1.0,
+              "source": "bipia"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 1,
+              "n": 116,
+              "p": 1.0,
+              "source": "deepset"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 6,
+              "n": 148,
+              "p": 0.03125,
+              "source": "blind"
+            }
+          ]
+        },
+        {
+          "arm": "embed_all",
+          "arm_label": "E embedding, all sources, shipped (in-source)",
+          "arm_right_list_wrong": 175,
+          "list_right_arm_wrong": 5,
+          "n": 1946,
+          "p": 1.999505318148365e-45,
+          "per_source": [
+            {
+              "arm_right_list_wrong": 157,
+              "list_right_arm_wrong": 0,
+              "n": 1488,
+              "p": 1.0947644252537633e-47,
+              "source": "injecagent"
+            },
+            {
+              "arm_right_list_wrong": 9,
+              "list_right_arm_wrong": 2,
+              "n": 194,
+              "p": 0.0654296875,
+              "source": "bipia"
+            },
+            {
+              "arm_right_list_wrong": 9,
+              "list_right_arm_wrong": 1,
+              "n": 116,
+              "p": 0.021484375,
+              "source": "deepset"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 2,
+              "n": 148,
+              "p": 0.5,
+              "source": "blind"
+            }
+          ]
+        },
+        {
+          "arm": "finetune",
+          "arm_label": "F fine-tune, hold-out-InjecAgent fold",
+          "arm_right_list_wrong": 244,
+          "list_right_arm_wrong": 22,
+          "n": 1946,
+          "p": 1.5017318497531166e-48,
+          "per_source": [
+            {
+              "arm_right_list_wrong": 73,
+              "list_right_arm_wrong": 11,
+              "n": 1488,
+              "p": 2.2490938201170897e-12,
+              "source": "injecagent"
+            },
+            {
+              "arm_right_list_wrong": 114,
+              "list_right_arm_wrong": 9,
+              "n": 194,
+              "p": 2.6829234621628104e-24,
+              "source": "bipia"
+            },
+            {
+              "arm_right_list_wrong": 57,
+              "list_right_arm_wrong": 0,
+              "n": 116,
+              "p": 1.3877787807814457e-17,
+              "source": "deepset"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 2,
+              "n": 148,
+              "p": 0.5,
+              "source": "blind"
+            }
+          ]
+        },
+        {
+          "arm": "finetune_all",
+          "arm_label": "F fine-tune, all sources (in-source)",
+          "arm_right_list_wrong": 920,
+          "list_right_arm_wrong": 16,
+          "n": 1946,
+          "p": 5.109304639391098e-248,
+          "per_source": [
+            {
+              "arm_right_list_wrong": 744,
+              "list_right_arm_wrong": 1,
+              "n": 1488,
+              "p": 8.061614996996634e-222,
+              "source": "injecagent"
+            },
+            {
+              "arm_right_list_wrong": 118,
+              "list_right_arm_wrong": 9,
+              "n": 194,
+              "p": 2.2519524486033766e-25,
+              "source": "bipia"
+            },
+            {
+              "arm_right_list_wrong": 58,
+              "list_right_arm_wrong": 3,
+              "n": 116,
+              "p": 3.2857397358476703e-14,
+              "source": "deepset"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 3,
+              "n": 148,
+              "p": 0.25,
+              "source": "blind"
+            }
+          ]
+        },
+        {
+          "arm": "llama_guard3_configured",
+          "arm_label": "B2 Llama Guard 3, configured",
+          "arm_right_list_wrong": 15,
+          "list_right_arm_wrong": 0,
+          "n": 200,
+          "p": 6.103515625e-05,
+          "per_source": [
+            {
+              "arm_right_list_wrong": 8,
+              "list_right_arm_wrong": 0,
+              "n": 56,
+              "p": 0.0078125,
+              "source": "injecagent"
+            },
+            {
+              "arm_right_list_wrong": 5,
+              "list_right_arm_wrong": 0,
+              "n": 58,
+              "p": 0.0625,
+              "source": "bipia"
+            },
+            {
+              "arm_right_list_wrong": 2,
+              "list_right_arm_wrong": 0,
+              "n": 57,
+              "p": 0.5,
+              "source": "deepset"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 0,
+              "n": 29,
+              "p": 1.0,
+              "source": "blind"
+            }
+          ]
+        },
+        {
+          "arm": "llama_guard3_default",
+          "arm_label": "B2 Llama Guard 3, off the shelf",
+          "arm_right_list_wrong": 10,
+          "list_right_arm_wrong": 3,
+          "n": 100,
+          "p": 0.09228515625,
+          "per_source": [
+            {
+              "arm_right_list_wrong": 6,
+              "list_right_arm_wrong": 3,
+              "n": 28,
+              "p": 0.5078125,
+              "source": "injecagent"
+            },
+            {
+              "arm_right_list_wrong": 4,
+              "list_right_arm_wrong": 0,
+              "n": 30,
+              "p": 0.125,
+              "source": "bipia"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 0,
+              "n": 28,
+              "p": 1.0,
+              "source": "deepset"
+            },
+            {
+              "arm_right_list_wrong": 0,
+              "list_right_arm_wrong": 0,
+              "n": 14,
+              "p": 1.0,
+              "source": "blind"
+            }
+          ]
+        }
+      ],
+      "per_technique": {
+        "columns": [
+          {
+            "key": "injecagent_dh",
+            "label": "InjecAgent direct harm"
+          },
+          {
+            "key": "injecagent_ds",
+            "label": "InjecAgent data stealing"
+          },
+          {
+            "key": "deepset",
+            "label": "deepset"
+          },
+          {
+            "key": "bipia:*",
+            "label": "BIPIA categories with any flag"
+          }
+        ],
+        "rows": [
+          {
+            "arm": "b0_always_negative",
+            "arm_label": "B0 always negative",
+            "cells": {
+              "bipia:*": {
+                "categories": 25,
+                "flagged": 0
+              },
+              "deepset": {
+                "n_pos": 60,
+                "tp": 0
+              },
+              "injecagent_dh": {
+                "n_pos": 367,
+                "tp": 0
+              },
+              "injecagent_ds": {
+                "n_pos": 377,
+                "tp": 0
+              }
+            }
+          },
+          {
+            "arm": "b1_phrase_list",
+            "arm_label": "B1 phrase list (shipped)",
+            "cells": {
+              "bipia:*": {
+                "categories": 25,
+                "flagged": 0
+              },
+              "deepset": {
+                "n_pos": 60,
+                "tp": 1
+              },
+              "injecagent_dh": {
+                "n_pos": 367,
+                "tp": 0
+              },
+              "injecagent_ds": {
+                "n_pos": 377,
+                "tp": 0
+              }
+            }
+          },
+          {
+            "arm": "embed",
+            "arm_label": "E embedding, leave-one-source-out",
+            "cells": {
+              "bipia:*": {
+                "categories": 25,
+                "flagged": 1
+              },
+              "deepset": {
+                "n_pos": 60,
+                "tp": 0
+              },
+              "injecagent_dh": {
+                "n_pos": 367,
+                "tp": 0
+              },
+              "injecagent_ds": {
+                "n_pos": 377,
+                "tp": 0
+              }
+            }
+          },
+          {
+            "arm": "embed_all",
+            "arm_label": "E embedding, all sources, shipped (in-source)",
+            "cells": {
+              "bipia:*": {
+                "categories": 25,
+                "flagged": 7
+              },
+              "deepset": {
+                "n_pos": 60,
+                "tp": 9
+              },
+              "injecagent_dh": {
+                "n_pos": 367,
+                "tp": 47
+              },
+              "injecagent_ds": {
+                "n_pos": 377,
+                "tp": 110
+              }
+            }
+          },
+          {
+            "arm": "finetune",
+            "arm_label": "F fine-tune, hold-out-InjecAgent fold",
+            "cells": {
+              "bipia:*": {
+                "categories": 25,
+                "flagged": 25
+              },
+              "deepset": {
+                "n_pos": 60,
+                "tp": 58
+              },
+              "injecagent_dh": {
+                "n_pos": 367,
+                "tp": 45
+              },
+              "injecagent_ds": {
+                "n_pos": 377,
+                "tp": 28
+              }
+            }
+          },
+          {
+            "arm": "finetune_all",
+            "arm_label": "F fine-tune, all sources (in-source)",
+            "cells": {
+              "bipia:*": {
+                "categories": 25,
+                "flagged": 25
+              },
+              "deepset": {
+                "n_pos": 60,
+                "tp": 59
+              },
+              "injecagent_dh": {
+                "n_pos": 367,
+                "tp": 367
+              },
+              "injecagent_ds": {
+                "n_pos": 377,
+                "tp": 377
+              }
+            }
+          },
+          {
+            "arm": "llama_guard3_configured",
+            "arm_label": "B2 Llama Guard 3, configured",
+            "cells": {
+              "bipia:*": {
+                "categories": 18,
+                "flagged": 5
+              },
+              "deepset": {
+                "n_pos": 28,
+                "tp": 2
+              },
+              "injecagent_dh": {
+                "n_pos": 10,
+                "tp": 2
+              },
+              "injecagent_ds": {
+                "n_pos": 18,
+                "tp": 6
+              }
+            }
+          },
+          {
+            "arm": "llama_guard3_default",
+            "arm_label": "B2 Llama Guard 3, off the shelf",
+            "cells": {
+              "bipia:*": {
+                "categories": 12,
+                "flagged": 3
+              },
+              "deepset": {
+                "n_pos": 14,
+                "tp": 0
+              },
+              "injecagent_dh": {
+                "n_pos": 3,
+                "tp": 0
+              },
+              "injecagent_ds": {
+                "n_pos": 11,
+                "tp": 6
+              }
+            }
+          }
+        ]
+      }
+    },
     "unscored": [
       {
         "arm": "b0_always_negative",

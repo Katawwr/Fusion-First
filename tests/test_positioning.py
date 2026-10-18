@@ -118,7 +118,8 @@ def test_the_detector_doc_scopes_its_claims_to_what_was_measured():
 @pytest.mark.skipif(not (ROOT / DETECTOR_EVIDENCE).is_file(), reason="the confirmatory pass is not committed yet")
 def test_the_detector_doc_names_where_the_registered_secondaries_live():
     """McNemar against the phrase list, per-technique recall and p50/p95 latency are registered secondaries held in the
-    envelope and not rendered: the doc names their paths, and each path resolves in the committed envelope."""
+    envelope and rendered in the Trust Report (Q5): the doc names their paths, says where they are rendered, and each
+    path resolves in the committed envelope."""
     import json
 
     env = json.loads((ROOT / DETECTOR_EVIDENCE).read_text(encoding="utf-8"))
@@ -126,7 +127,9 @@ def test_the_detector_doc_names_where_the_registered_secondaries_live():
     for path in ("`mcnemar_vs_phrase_list.<arm>.pooled`", "`.per_source`", "`arms.<arm>.per_technique`",
                  "`arms.<arm>.latency.p50_ms`", "`.p95_ms`"):
         assert path in text
-    assert "it is not the bar" in text
+    assert "it is not the bar" in text and "Neither is rendered" not in text
+    assert 'The Trust Report (Q5) renders both under "Registered secondaries"' in text
+    assert "per-category rates stay in the envelope" in text and "and in the Trust Report (Q5)" in text
     arms = env["arms"]
     assert set(env["mcnemar_vs_phrase_list"]) == set(arms) - {"b1_phrase_list"}
     assert all({"pooled", "per_source"} <= set(m) for m in env["mcnemar_vs_phrase_list"].values())

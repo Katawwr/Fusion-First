@@ -81,13 +81,14 @@ The registered decision (`fusion_first.validate.prereg.detector_decision`) adopt
 
 Otherwise the detector stays dev-only. McNemar against the phrase list is reported in the evidence, but it is not the
 bar: `detector_v1.json` holds it at `mcnemar_vs_phrase_list.<arm>.pooled` and `.per_source`, beside per-technique
-recall at `arms.<arm>.per_technique`. Neither is rendered here or in the Trust Report.
+recall at `arms.<arm>.per_technique`. The Trust Report (Q5) renders both under "Registered secondaries": McNemar
+pooled and per source, and recall by technique with BIPIA's categories counted (per-category rates stay in the envelope).
 
 ## Latency
 
 CPU p50 and p95 per decision, timed over every chunk of a text. Llama Guard 3 latency is Ollama's wall time per
-reply. Both are in `detector_v1.json` at `arms.<arm>.latency.p50_ms` and `.p95_ms`. B0 and the fold arms carry none
-of their own; a fold arm's note names the all-sources model whose latency it shares.
+reply. Both are in `detector_v1.json` at `arms.<arm>.latency.p50_ms` and `.p95_ms`, and in the Trust Report (Q5). B0
+and the fold arms carry none of their own; a fold arm's note names the all-sources model whose latency it shares.
 
 ## Registered result
 
