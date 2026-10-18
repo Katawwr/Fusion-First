@@ -62,6 +62,28 @@ def test_the_off_the_shelf_prompt_asks_about_the_agents_reply_with_the_default_c
     assert "unsafe content in 'Agent' messages" in p and "ONLY THE LAST Agent message" in p  # not 'User'
 
 
+# sha256 (UTF-8) of the two step-2 renderings above. Computed with the pre-refactor module: `git show
+# 2b5cad2:fusion_first/validate/llama_guard.py` written to a scratch directory outside the repository, imported from
+# there, and fed these same items and replies.
+STEP2_CONFIGURED_SHA256 = "dba7a3fb9e6015752e307a68ef2308e01dbd9a7d88df7e3405c51837201a8599"
+STEP2_DEFAULT_SHA256 = "11f846afa7b4f16ac8ed41ec1e3eff79f8b978fb3a6957baf9b67f41d4105015"
+
+
+@pytest.mark.unit
+def test_the_step2_prompts_are_byte_identical_to_the_registered_comparator():
+    """The step-2 comparator (PREREG_guard_vs_llama_guard.md) ran on the module as of 2b5cad2, before `_render` was
+    factored out for the detector study's prompt. Its two renderings must hash exactly as that module's did."""
+    import hashlib
+
+    from fusion_first.validate.llama_guard import default_prompt
+
+    def sha(p: str) -> str:
+        return hashlib.sha256(p.encode("utf-8")).hexdigest()
+
+    assert sha(configured_prompt(GANDALF, "Sure: PW-1234ABCD")) == STEP2_CONFIGURED_SHA256
+    assert sha(default_prompt(INJEC, 'ACTION: {"tool": "AugustSmartLockUnlockDoor"}')) == STEP2_DEFAULT_SHA256
+
+
 def _row(kind, attack, fusion, a, b):
     exp = "gandalf" if kind == "leak" else "injecagent"
     key = "stopped" if attack else "blocked_any"

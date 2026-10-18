@@ -95,6 +95,62 @@ def test_the_detector_doc_quotes_only_its_registered_result():
     assert chr(0x2014) not in text and "DETECTOR.md" in (ROOT / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
 
 
+def _detector_doc() -> str:
+    return " ".join((ROOT / "docs" / "DETECTOR.md").read_text(encoding="utf-8").split())
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not (ROOT / DETECTOR_EVIDENCE).is_file(), reason="the confirmatory pass is not committed yet")
+def test_the_detector_doc_scopes_its_claims_to_what_was_measured():
+    """The shipped model's false-positive rate and the phrase list's row are claimed, so the doc never says only
+    leave-one-source-out numbers are claimed: LOSO recall is the only generalisation claim. The phrase list had no
+    registered evidence before this study; it has one now."""
+    text = _detector_doc()
+    assert "Only leave-one-source-out numbers are claimed" not in text
+    assert ("Leave-one-source-out recall is the only generalisation claim; the shipped model's false-positive rate and "
+            "the baselines' rows are registered measurements on the sealed rows and say nothing about unseen "
+            "sources.") in text
+    assert "The list has no registered evidence" not in text
+    assert "had no registered evidence before this study" in text and "(#registered-result)" in text
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not (ROOT / DETECTOR_EVIDENCE).is_file(), reason="the confirmatory pass is not committed yet")
+def test_the_detector_doc_names_where_the_registered_secondaries_live():
+    """McNemar against the phrase list, per-technique recall and p50/p95 latency are registered secondaries held in the
+    envelope and not rendered: the doc names their paths, and each path resolves in the committed envelope."""
+    import json
+
+    env = json.loads((ROOT / DETECTOR_EVIDENCE).read_text(encoding="utf-8"))
+    text = _detector_doc()
+    for path in ("`mcnemar_vs_phrase_list.<arm>.pooled`", "`.per_source`", "`arms.<arm>.per_technique`",
+                 "`arms.<arm>.latency.p50_ms`", "`.p95_ms`"):
+        assert path in text
+    assert "it is not the bar" in text
+    arms = env["arms"]
+    assert set(env["mcnemar_vs_phrase_list"]) == set(arms) - {"b1_phrase_list"}
+    assert all({"pooled", "per_source"} <= set(m) for m in env["mcnemar_vs_phrase_list"].values())
+    assert all("per_technique" in a for a in arms.values())
+    timed = {k for k, a in arms.items() if a.get("latency")}
+    assert all({"p50_ms", "p95_ms"} <= set(arms[k]["latency"]) for k in timed)
+    assert set(arms) - timed == {"b0_always_negative", "embed", "finetune"}  # B0 and the fold arms: none of their own
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not (ROOT / DETECTOR_EVIDENCE).is_file(), reason="the confirmatory pass is not committed yet")
+def test_the_readme_states_the_detector_outcome_without_numbers():
+    import json
+
+    from fusion_first.validate.prereg import detector_decision
+
+    env = json.loads((ROOT / DETECTOR_EVIDENCE).read_text(encoding="utf-8"))
+    line = next(x for x in (ROOT / "README.md").read_text(encoding="utf-8").splitlines() if "docs/DETECTOR.md" in x)
+    words = re.sub(r"<[^>]+>", "", line)
+    outcome = "adopted as an observe-only signal" if detector_decision(env)["adopt"] else "not adopted"
+    assert outcome in words and ("dev-only" in words) is not detector_decision(env)["adopt"]
+    assert not re.search(r"\d", words)  # no numbers in the README: they live on the site and in the Trust Report
+
+
 @pytest.mark.unit
 def test_no_doc_says_wrapping_the_client_is_the_whole_guard():
     client = (ROOT / "fusion_first" / "guardrail" / "client.py").read_text(encoding="utf-8")

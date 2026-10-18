@@ -16,6 +16,8 @@ import pytest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "prereg_ledger.py"
 DETECTOR_PREREG = "evals/validation/v1/PREREG_detector_v1.md"
+# sha256 of DETECTOR_PREREG's committed content (`git show HEAD:<file>`, LF bytes), as in PREREG_LEDGER.md's row.
+DETECTOR_PREREG_SHA256 = "7ae97ee36c5aa4cadf596ae87e5e6a6c6349e6aa474439da6240da8687bd423d"
 
 
 def _load_script():
@@ -74,7 +76,8 @@ def test_every_registration_and_its_amendments_precede_the_evidence_it_governs(r
 @needs_history
 def test_the_detector_registration_precedes_every_detector_evidence_file(rows):
     row = next(r for r in rows if r["registration"] == DETECTOR_PREREG)
-    assert row["commit"].startswith("341c3d4") and row["later"] == []
+    # Pinned by content, not by commit: publishing may rewrite commit hashes; content and order survive a rewrite.
+    assert row["sha256"] == DETECTOR_PREREG_SHA256 and row["later"] == []
     # Tracked files only: a working copy also holds gitignored local files (*.log) that no commit ever recorded.
     tracked = subprocess.run(["git", "ls-files", "--", "evals/validation/v1/detector"], cwd=ROOT, capture_output=True,
                              text=True, check=True).stdout
@@ -110,3 +113,12 @@ def test_the_ledger_hashes_are_the_registrations_committed_content():
         content = (ROOT / rel).read_bytes().replace(b"\r\n", b"\n")
         assert hashlib.sha256(content).hexdigest() == digest, f"{rel} changed since the ledger was generated"
     assert chr(0x2014) not in _committed()  # no em dashes
+
+
+@pytest.mark.unit
+def test_ci_checks_out_full_history_so_the_ledger_tests_run():
+    """actions/checkout is shallow by default, which would skip every `needs_history` test above in CI."""
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8").replace("\r\n", "\n")
+    python_job = ci.split("\n  python:\n")[1].split("\n  frontend:\n")[0]
+    checkout = python_job.split("- uses: actions/checkout@v4\n")[1].split("\n      - ")[0]
+    assert checkout.split() == ["with:", "fetch-depth:", "0"]

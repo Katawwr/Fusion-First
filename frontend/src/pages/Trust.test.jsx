@@ -230,9 +230,12 @@ describe("Trust page", () => {
       "Unscored rows (no finite score, excluded from rates): B2 Llama Guard 3, off the shelf 100 of 100.",
     );
     expect(screen.getByText("Registered arms not run: B3 ProtectAI deberta-v3.")).toBeInTheDocument();
-    expect(screen.getByText(/No adaptive-attack evaluation\. deepset is in-distribution; AgentDojo is dev-only/)).toHaveTextContent(
-      "Only leave-one-source-out rows are claimed",
+    const limits = screen.getByText(/No adaptive-attack evaluation\. deepset is in-distribution; AgentDojo is dev-only/);
+    // the shipped model's FPR is claimed too: LOSO recall is the only generalisation claim, not the only claim
+    expect(limits).toHaveTextContent(
+      "Leave-one-source-out recall is the only generalisation claim; the shipped model's false-positive rate and the baselines' rows are registered measurements on the sealed rows and say nothing about unseen sources.",
     );
+    expect(limits.textContent).not.toContain("rows are claimed");
     expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014)); // no em dashes in the copy
   });
 

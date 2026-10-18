@@ -390,6 +390,8 @@ def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, a
     seen = next(line for line in bullets if line.startswith("- In-source InjecAgent rows:"))
     assert "the E all-sources model 20 of 20 flagged (100.0%); the F all-sources model 20 of 20 flagged" in seen
     assert "62 attacker instructions and 17 tool-result templates" in seen
+    # the claimed primaries include the shipped (in-source) model's FPR: LOSO recall is the only generalisation claim
+    assert "leave-one-source-out recall is the only generalisation claim" in seen and "claims only" not in q5
     unscored = next(line for line in bullets if line.startswith("- Unscored rows"))
     assert ("B2 Llama Guard 3, configured 1 of 21; B2 Llama Guard 3, off the shelf 21 of 21; a source with no scored "
             "text has no table row.") in unscored
@@ -397,6 +399,9 @@ def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, a
     limits = next(line for line in bullets if line.startswith("- Limits registered before data:"))
     for word in ("adaptive", "in-distribution", "dev-only"):
         assert word in limits
+    assert ("leave-one-source-out recall is the only generalisation claim; the shipped model's false-positive rate and "
+            "the baselines' rows are registered measurements on the sealed rows and say nothing about unseen "
+            "sources") in limits
     assert ("the E all-sources model and the F all-sources model on every source; F hold-out-InjecAgent fold on BIPIA, "
             "deepset and blind (`finetune_holdout_injecagent` trained on their dev rows)") in limits
     bottom = out.split("## Q1")[0]
@@ -438,7 +443,9 @@ def test_q5_says_when_no_arm_left_a_row_unscored(tmp_path):
 @pytest.mark.unit
 def test_the_detector_doc_table_is_one_row_per_arm_scored_on_injecagent():
     """docs/DETECTOR.md's summary: InjecAgent recall, false positives on the tool-result negatives (InjecAgent, blind,
-    BIPIA; never deepset), InjecAgent AUROC and p50, in-source marked; an arm without a scored InjecAgent row is out."""
+    BIPIA; never deepset), InjecAgent AUROC and p50, in-source marked; an arm without a scored InjecAgent row is out.
+    A fold arm whose scoring fold trained on some of those sources splits its benign cell into never-seen and
+    in-source rows (arm F: InjecAgent never seen; blind and BIPIA carrier controls in-source)."""
     from fusion_first.validate.trust_report import detector_doc_table
 
     lines = detector_doc_table(_detector_envelope(False)).splitlines()
@@ -448,7 +455,9 @@ def test_the_detector_doc_table_is_one_row_per_arm_scored_on_injecagent():
     assert by["E embedding, all sources, shipped (in-source)"] == \
         "| E embedding, all sources, shipped (in-source) | 20 of 20 (100.0%) | 4 of 38 (10.5%) | 1.00 | 14 ms |"
     assert by["F fine-tune, hold-out-InjecAgent fold"].startswith(
-        "| F fine-tune, hold-out-InjecAgent fold | 5 of 20 (25.0%) | 1 of 38 (2.6%) |")
+        "| F fine-tune, hold-out-InjecAgent fold | 5 of 20 (25.0%) | 1 of 20 (5.0%) never-seen, 0 of 18 (0.0%) "
+        "in-source |")
+    assert by["E embedding, leave-one-source-out"].split(" | ")[2] == "0 of 38 (0.0%)"  # never in-source: one count
     assert by["B2 Llama Guard 3, configured"].split(" | ")[2] == "9 of 9 (100.0%)"  # its subsample's tool-result rows
 
 

@@ -8,8 +8,9 @@ detector would have become an observe-only `guard_input` signal: an event that n
 ## Why train one
 
 `guard_input` flags injection with a 22-phrase substring list (`_INJECTION_PHRASES` in
-`fusion_first/guardrail/guard.py`) over the raw text and its normalized views. The list has no registered evidence,
-and the code leaves paraphrased and non-English injection to a judge that is not on the runtime path.
+`fusion_first/guardrail/guard.py`) over the raw text and its normalized views. The list had no registered evidence
+before this study (its first registered number is under [Registered result](#registered-result)), and the code
+leaves paraphrased and non-English injection to a judge that is not on the runtime path.
 
 A read-only development re-run of the list (diagnostic, not registered) matched 0 of 1,054 InjecAgent injected tool
 responses, 8 of 263 deepset positives and 0 of 200 BIPIA payloads. Injected tool results rarely use the phrases it
@@ -78,12 +79,15 @@ The registered decision (`fusion_first.validate.prereg.detector_decision`) adopt
 2. the shipped all-sources model's false-positive rate on the 961 distinct confirmatory tool-result negatives (744
    InjecAgent minimal pairs, 148 blind, 69 carrier controls) is at most 0.05.
 
-Otherwise the detector stays dev-only. McNemar against the phrase list is reported, but it is not the bar.
+Otherwise the detector stays dev-only. McNemar against the phrase list is reported in the evidence, but it is not the
+bar: `detector_v1.json` holds it at `mcnemar_vs_phrase_list.<arm>.pooled` and `.per_source`, beside per-technique
+recall at `arms.<arm>.per_technique`. Neither is rendered here or in the Trust Report.
 
 ## Latency
 
-CPU p50 and p95 per decision for every arm, timed over every chunk of a text. Llama Guard 3 latency is Ollama's wall
-time per reply.
+CPU p50 and p95 per decision, timed over every chunk of a text. Llama Guard 3 latency is Ollama's wall time per
+reply. Both are in `detector_v1.json` at `arms.<arm>.latency.p50_ms` and `.p95_ms`. B0 and the fold arms carry none
+of their own; a fold arm's note names the all-sources model whose latency it shares.
 
 ## Registered result
 
@@ -105,21 +109,22 @@ Registered decision: not adopted; the detector stays dev-only.
 | B1 phrase list (shipped) | 0 of 744 (0.0%) | 0 of 961 (0.0%) | 0.50 | 0.18 ms |
 | E embedding, leave-one-source-out | 0 of 744 (0.0%) | 6 of 961 (0.6%) | 0.55 | – |
 | E embedding, all sources, shipped (in-source) | 157 of 744 (21.1%) | 4 of 961 (0.4%) | 0.92 | 48 ms |
-| F fine-tune, hold-out-InjecAgent fold | 73 of 744 (9.8%) | 22 of 961 (2.3%) | 0.81 | – |
+| F fine-tune, hold-out-InjecAgent fold | 73 of 744 (9.8%) | 11 of 744 (1.5%) never-seen, 11 of 217 (5.1%) in-source | 0.81 | – |
 | F fine-tune, all sources (in-source) | 744 of 744 (100.0%) | 13 of 961 (1.4%) | 1.00 | 43 ms |
 | B2 Llama Guard 3, configured | 8 of 28 (28.6%) | 0 of 86 (0.0%) | 0.64 | 7.4 s |
 | B2 Llama Guard 3, off the shelf | 6 of 14 (42.9%) | 3 of 43 (7.0%) | 0.61 | 7.2 s |
 
 The table is generated from the evidence (`fusion_first.validate.trust_report.detector_doc_table`) and a test checks
 it here. Benign tool results are the 961 tool-result negatives (744 InjecAgent minimal pairs, 148 blind, 69 carrier
-controls); a Llama Guard 3 arm counts those in its own stratified subsample. The fold arms have no latency of their
-own in the evidence, which gives it as the matching all-sources model's.
+controls); a Llama Guard 3 arm counts those in its own stratified subsample. Arm F's cell counts the rows its fold
+never saw (the InjecAgent minimal pairs) apart from the in-source ones (the blind negatives and carrier controls).
+The fold arms have no latency of their own in the evidence, which gives it as the matching all-sources model's.
 
 On never-seen InjecAgent injections the registered embedding arm and the phrase list flag none; the fine-tune fold
 and Llama Guard 3 flag some, Llama Guard 3 on small subsamples. The all-sources models trained on the dev InjecAgent
 rows, which share the 62 attacker instructions and 17 tool-result templates with the confirmatory rows: that is the
-in-source caveat the registration states, and their rows are not claimed. B3 (ProtectAI) was not run: its model
-download needs the owner's approval.
+in-source caveat the registration states, and their InjecAgent recall is not a generalisation claim. B3 (ProtectAI)
+was not run: its model download needs the owner's approval.
 
 ## Limits
 
@@ -128,8 +133,9 @@ download needs the owner's approval.
 - No adaptive-attack evaluation. A static result is expected to degrade against an attacker who adapts to the
   detector.
 - InjecAgent's 62 attacker instructions and 17 tool-result templates appear in both the dev and the confirmatory
-  rows, and AgentDojo shares one wrapper, so in-source numbers flatter any model. Only leave-one-source-out numbers
-  are claimed.
+  rows, and AgentDojo shares one wrapper, so in-source numbers flatter any model. Leave-one-source-out recall is the
+  only generalisation claim; the shipped model's false-positive rate and the baselines' rows are registered
+  measurements on the sealed rows and say nothing about unseen sources.
 - Arm F registers only the hold-out-InjecAgent and hold-out-AgentDojo folds, so its BIPIA, deepset and blind rows are
   scored by the hold-out-InjecAgent fold, which trained on those sources: they are in-source.
 - deepset is in-distribution with respect to its own training split. Its German rows are the only non-English data,

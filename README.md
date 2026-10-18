@@ -17,7 +17,7 @@
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-<p align="center">The <a href="docs/DETECTOR.md">tool-result injection detector</a> study is pre-registered; its result is on the <a href="https://fusion-first-testing.com/trust">Trust page</a>.</p>
+<p align="center">The <a href="docs/DETECTOR.md">tool-result injection detector</a> study is pre-registered; its result is on the <a href="https://fusion-first-testing.com/trust">Trust page</a> (registered result: not adopted; the detector stays dev-only).</p>
 
 <p align="center">
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-504d9a">

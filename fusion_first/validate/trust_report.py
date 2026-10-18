@@ -819,6 +819,11 @@ _DETECTOR_ALL_SOURCES = ("embed_all", "finetune_all")
 # tool-result templates x 62 attacker instructions, split by id).
 _INJECAGENT_SHARED = "62 attacker instructions and 17 tool-result templates"
 _TOOL_RESULT_NEGATIVES = ("injecagent", "blind", "bipia")  # outcome (2)'s sources; deepset negatives are prompts
+# What the claimed numbers say: the primaries include the shipped (in-source) model's false-positive rate, so the
+# claim scope is LOSO recall for generalisation, and the rest is a measurement on the sealed rows.
+_GENERALISATION_CLAIM = "leave-one-source-out recall is the only generalisation claim"
+_MEASURED_NOT_GENERALISED = ("the shipped model's false-positive rate and the baselines' rows are registered measurements "
+                             "on the sealed rows and say nothing about unseen sources")
 
 
 def _seal_digest(root: pathlib.Path) -> str | None:
@@ -938,8 +943,8 @@ def _detector_findings(d: dict) -> list[str]:
             f"{_short(r['arm'], arms.get(r['arm']))} {r['tp']} of {r['n_pos']} flagged ({_rate1(r['tp'], r['n_pos'])})"
             for r in seen)
             + f". These models trained on the dev InjecAgent rows, which share the {_INJECAGENT_SHARED} with the "
-            "confirmatory rows; the registration states that in-source numbers flatter any model and claims only the "
-            "leave-one-source-out numbers.")
+            "confirmatory rows; the registration states that in-source numbers flatter any model, and "
+            f"{_GENERALISATION_CLAIM}.")
     return out
 
 
@@ -960,10 +965,27 @@ def _in_source_limit(d: dict) -> str:
         if parts else ""
 
 
+def _benign_cell(key: str, arm: dict) -> str:
+    """False positives on the tool-result negatives. When the arm's scoring fold trained on some of those sources but
+    not others (arm F: its hold-out-InjecAgent fold scores blind and BIPIA too), the never-seen and in-source rows are
+    counted apart; otherwise one count (an all-sources arm is in-source everywhere and labelled so)."""
+    per = arm.get("per_source") or {}
+    srcs = [s for s in _TOOL_RESULT_NEGATIVES if (per.get(s) or {}).get("n_neg")]
+    seen = [s for s in srcs if _in_source(key, arm, s)]
+    unseen = [s for s in srcs if s not in seen]
+
+    def count(group: list[str]) -> str:
+        fp, n = sum(per[s].get("fp", 0) for s in group), sum(per[s]["n_neg"] for s in group)
+        return f"{fp} of {n} ({_rate1(fp, n)})"
+
+    return f"{count(unseen)} never-seen, {count(seen)} in-source" if seen and unseen else count(srcs)
+
+
 def detector_doc_table(d: dict) -> str:
     """The per-arm summary docs/DETECTOR.md quotes (a test checks it there verbatim): InjecAgent recall, false
-    positives on the tool-result negatives (InjecAgent minimal pairs, blind, BIPIA carrier controls), InjecAgent
-    AUROC and p50 latency, counts first."""
+    positives on the tool-result negatives (InjecAgent minimal pairs, blind, BIPIA carrier controls; split into
+    never-seen and in-source rows for a fold arm that trained on some of them), InjecAgent AUROC and p50 latency,
+    counts first."""
     arms = d.get("arms") or {}
     lines = ["| Arm | InjecAgent injections flagged | Benign tool results flagged | InjecAgent AUROC | p50 latency |",
              "|---|---|---|---|---|"]
@@ -973,12 +995,10 @@ def detector_doc_table(d: dict) -> str:
         ia = per.get("injecagent") or {}
         if not (ia.get("n_pos") or ia.get("n_neg")):
             continue
-        fp = sum((per.get(s) or {}).get("fp", 0) for s in _TOOL_RESULT_NEGATIVES)
-        n = sum((per.get(s) or {}).get("n_neg", 0) for s in _TOOL_RESULT_NEGATIVES)
         auroc = (arm.get("auroc_per_source") or {}).get("injecagent")
         label = _arm_name(key, arm) + (" (in-source)" if _in_source(key, arm, "injecagent") else "")
         lines.append(f"| {label} | {ia['tp']} of {ia['n_pos']} ({_rate1(ia['tp'], ia['n_pos'])}) | "
-                     f"{fp} of {n} ({_rate1(fp, n)}) | {'–' if auroc is None else format(auroc, '.2f')} | "
+                     f"{_benign_cell(key, arm)} | {'–' if auroc is None else format(auroc, '.2f')} | "
                      f"{_ms((arm.get('latency') or {}).get('p50_ms'))} |")
     return "\n".join(lines)
 
@@ -1058,7 +1078,7 @@ def _q5(root: pathlib.Path) -> list[str]:
              "agent loop; no adaptive-attack evaluation, so a static result is expected to degrade against an attacker "
              "who adapts to the detector; the deepset test rows are in-distribution with respect to deepset's own "
              "training split; AgentDojo is dev-only (its held-out set is spent for the guard), so no AgentDojo row is "
-             "scored here; only the leave-one-source-out numbers are claimed" + _in_source_limit(d)
+             f"scored here; {_GENERALISATION_CLAIM}; {_MEASURED_NOT_GENERALISED}" + _in_source_limit(d)
              + ("; each Llama Guard 3 arm runs on its own stratified subsample with its own n." if lg3 else ".")), ""]
     return out
 

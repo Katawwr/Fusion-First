@@ -264,9 +264,11 @@ export function DetectorSection({ d }) {
         <p className="mt-1 text-xs text-app-subtle">Registered arms not run: {absent.map((a) => a.label).join(", ")}.</p>
       )}
       <p className="mt-1 text-xs text-app-subtle">
-        No adaptive-attack evaluation. deepset is in-distribution; AgentDojo is dev-only and not scored here. Only
-        leave-one-source-out rows are claimed; InjecAgent's 62 attacker instructions and 17 tool-result templates
-        appear in both the training and the scored rows.
+        No adaptive-attack evaluation. deepset is in-distribution; AgentDojo is dev-only and not scored here.
+        Leave-one-source-out recall is the only generalisation claim; the shipped model's false-positive rate and the
+        baselines' rows are registered measurements on the sealed rows and say nothing about unseen sources.
+        InjecAgent's 62 attacker instructions and 17 tool-result templates appear in both the training and the scored
+        rows.
       </p>
     </Section>
   );
