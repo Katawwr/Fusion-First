@@ -75,7 +75,10 @@ def test_every_registration_and_its_amendments_precede_the_evidence_it_governs(r
 def test_the_detector_registration_precedes_every_detector_evidence_file(rows):
     row = next(r for r in rows if r["registration"] == DETECTOR_PREREG)
     assert row["commit"].startswith("341c3d4") and row["later"] == []
-    detector = {p.relative_to(ROOT).as_posix() for p in (ROOT / "evals/validation/v1/detector").iterdir()}
+    # Tracked files only: a working copy also holds gitignored local files (*.log) that no commit ever recorded.
+    tracked = subprocess.run(["git", "ls-files", "--", "evals/validation/v1/detector"], cwd=ROOT, capture_output=True,
+                             text=True, check=True).stdout
+    detector = set(tracked.splitlines())
     seal = "evals/validation/v1/detector/confirmatory.seal.json"  # committed with the registration itself
     assert {e["path"] for e in row["evidence"]} == detector - {seal}
     assert LEDGER.first_commit(ROOT, seal)["commit"] == row["commit"]
