@@ -1,7 +1,8 @@
-"""The detector study's confirmatory pass (PREREG_detector_v1.md "Scoring once"): the committed envelope re-derives
-from `scores.jsonl` and the sealed rows with no model; the Llama Guard 3 subsample, prompt and verdicts; the scorer's
-refusals. Every fixture is synthetic (tmp_path rows, a seal written by write_seal, fake embedder and fold models,
-a fake Ollama): no test opens the real confirmatory rows, and no model is called."""
+"""The detector study's confirmatory pass (PREREG_detector_v1.md "Scoring once"): the committed envelope, the Llama
+Guard 3 subsample and the phrase list's scores re-derive from `scores.jsonl` and the sealed rows with no model; the
+Llama Guard 3 prompt and verdicts; the scorer's refusals. Every fixture is synthetic (tmp_path rows, a seal written by
+write_seal, fake embedder and fold models, a fake Ollama); the committed-evidence tests read the real confirmatory rows
+only through the scorer's seal-verifying reader, and no model is called."""
 
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ import random
 import re
 import runpy
 import shutil
+from collections import Counter
 
 import numpy as np
 import pytest
@@ -136,6 +138,45 @@ def test_the_committed_envelope_re_derives_from_its_scores_and_the_sealed_rows()
         if env["inputs"][key]:
             path = ROOT / env["inputs"][key]["path"]
             assert hashlib.sha256(path.read_bytes()).hexdigest() == env["inputs"][key]["sha256"], key
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not all(p.is_file() for p in COMMITTED), reason="the confirmatory pass is not committed yet")
+def test_the_committed_envelope_carries_the_seal_digest_the_registration_quotes():
+    """The registration's first lines quote the seal's digest (sealed text, never edited): the envelope, the committed
+    seal and the Llama Guard 3 subsample all carry that digest, so the scored rows are the registered rows."""
+    prereg = (ROOT / dc.PREREGISTRATION).read_text(encoding="utf-8")
+    quoted = re.search(r"digest\s+`([0-9a-f]{64})`", prereg).group(1)
+    env = json.loads((ROOT / dc.EVIDENCE).read_text(encoding="utf-8"))
+    assert env["seal_digest"] == quoted == seal_digest(load_seal(ROOT / dc.SEAL))
+    assert json.loads((ROOT / dc.SUBSAMPLE).read_text(encoding="utf-8"))["seal_digest"] == quoted
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not (ROOT / dc.SUBSAMPLE).is_file(), reason="the Llama Guard 3 subsample is not committed yet")
+def test_the_committed_llama_guard_subsample_re_derives_from_the_sealed_rows():
+    """lg3_subsample.json is `stratified_subsample(rows, 200, 42)` over the sealed confirmatory rows, ids in that
+    order, under the registered rule, with the strata counts it records."""
+    rows, digest = dc.sealed_rows(ROOT / dc.DATA, ROOT / dc.SEAL)
+    doc = json.loads((ROOT / dc.SUBSAMPLE).read_text(encoding="utf-8"))
+    assert (doc["seed"], doc["n"], doc["seal_digest"], doc["rule"]) == (42, 200, digest, dc.SUBSAMPLE_RULE)
+    assert doc["ids"] == dc.stratified_subsample(rows, 200, 42)
+    by_id = {r["id"]: r for r in rows}
+    assert doc["strata"] == dict(Counter(f"{by_id[i]['source']}:{by_id[i]['label']}" for i in doc["ids"]))
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not all(p.is_file() for p in COMMITTED), reason="the confirmatory pass is not committed yet")
+def test_the_committed_phrase_list_scores_re_derive_from_the_sealed_rows_without_a_model():
+    """B1 is `phrase_list_score` over the raw tool result: its scores.jsonl lines re-derive from the sealed rows alone,
+    one line per row, flagged exactly when the shipped list matched (its native binary decision)."""
+    rows, _ = dc.sealed_rows(ROOT / dc.DATA, ROOT / dc.SEAL)
+    lines = [json.loads(x) for x in (ROOT / dc.SCORES).read_text(encoding="utf-8").splitlines()]
+    b1 = {x["id"]: x for x in lines if x["arm"] == "b1_phrase_list"}
+    assert len(b1) == len(rows) == sum(x["arm"] == "b1_phrase_list" for x in lines)
+    for r in rows:
+        score = ds.phrase_list_score(r["text"])
+        assert (b1[r["id"]]["score"], b1[r["id"]]["flagged"]) == (score, score >= dc.NATIVE_THRESHOLD), r["id"]
 
 
 @pytest.mark.unit
