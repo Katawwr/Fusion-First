@@ -118,3 +118,13 @@ def test_one_mcp_config_form_across_docs(doc):
     assert '"command": "python"' not in text
     if '"mcpServers"' in text:
         assert '"fusion": { "command": "fusion-mcp" }' in text
+
+
+@pytest.mark.unit
+def test_sample_health_replies_carry_the_package_version():
+    """A sample `/api/health` reply shown in the docs reports the version this checkout ships."""
+    import fusion_first
+
+    shown = [(doc, v) for doc in DOCS
+             for v in re.findall(r'"version":\s*"([^"]+)"', (ROOT / doc).read_text(encoding="utf-8"))]
+    assert shown and all(v == fusion_first.__version__ for _, v in shown), shown

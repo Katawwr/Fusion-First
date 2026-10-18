@@ -130,6 +130,7 @@ COMMITTED = [ROOT / dc.EVIDENCE, ROOT / dc.SCORES]
 @pytest.mark.skipif(not all(p.is_file() for p in COMMITTED), reason="the confirmatory pass is not committed yet")
 def test_the_committed_envelope_re_derives_from_its_scores_and_the_sealed_rows():
     env = check_envelope(ROOT / dc.EVIDENCE, ROOT / dc.SCORES, ROOT / dc.DATA, ROOT / dc.SEAL)
+    assert "previous" not in env  # scored once: no forced re-run replaced an earlier pass
     assert env["inputs"]["seal"] == dc.SEAL and env["inputs"]["data"] == dc.DATA
     for key in ("lg3_subsample", "lg3_raw"):  # the Llama Guard arms' inputs are the committed files
         if env["inputs"][key]:

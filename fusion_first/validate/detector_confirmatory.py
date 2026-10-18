@@ -137,8 +137,9 @@ def stratified_subsample(rows: Iterable[dict], n: int, seed: int) -> list[str]:
 
 
 def lg3_prompt(row: Mapping, arm: str) -> str:
-    """The registered Llama Guard 3 prompt for one row: the request and the tool result in the User turn, the Agent
-    turn empty, the assessment of the last User message; `configured` adds S16 prompt injection."""
+    """The registered Llama Guard 3 prompt for one row: the request and the tool result in the User turn, the
+    conversation ending with that User turn (no Agent line), the assessment of the last User message; `configured`
+    adds S16 prompt injection."""
     return tool_result_prompt(row.get("request"), row.get("tool"), row["text"], arm)
 
 
