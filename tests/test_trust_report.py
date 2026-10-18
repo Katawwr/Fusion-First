@@ -402,8 +402,12 @@ def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, a
     seen = next(line for line in bullets if line.startswith("- In-source InjecAgent rows:"))
     assert "the E all-sources model 20 of 20 flagged (100.0%); the F all-sources model 20 of 20 flagged" in seen
     assert "62 attacker instructions and 17 tool-result templates" in seen
-    # the claimed primaries include the shipped (in-source) model's FPR: LOSO recall is the only generalisation claim
-    assert "leave-one-source-out recall is the only generalisation claim" in seen and "claims only" not in q5
+    # the claimed primaries include the shipped (in-source) model's FPR: LOSO recall is the only generalisation claim,
+    # given as the report's own reading of the registration's literal words (R24)
+    assert ("the registration states that in-source numbers flatter any model and that \"only the LOSO numbers are "
+            "claimed\" (`evals/validation/v1/PREREG_detector_v1.md`, \"Limits, stated before data\"); this report reads "
+            "that as: leave-one-source-out recall is the only generalisation claim.") in seen
+    assert "claims only" not in q5 and ", and leave-one-source-out recall is the only generalisation claim" not in q5
     unscored = next(line for line in bullets if line.startswith("- Unscored rows"))
     assert ("B2 Llama Guard 3, configured 1 of 21; B2 Llama Guard 3, off the shelf 21 of 21; a source with no scored "
             "text has no table row.") in unscored
@@ -411,9 +415,11 @@ def test_q5_reports_every_arm_by_source_with_the_registered_decision(tmp_path, a
     limits = next(line for line in bullets if line.startswith("- Limits registered before data:"))
     for word in ("adaptive", "in-distribution", "dev-only"):
         assert word in limits
-    assert ("leave-one-source-out recall is the only generalisation claim; the shipped model's false-positive rate and "
-            "the baselines' rows are registered measurements on the sealed rows and say nothing about unseen "
-            "sources") in limits
+    assert ("so no AgentDojo row is scored here; the registration's own words on claim scope are \"only the LOSO "
+            "numbers are claimed\" (`evals/validation/v1/PREREG_detector_v1.md`, \"Limits, stated before data\"), which "
+            "this report reads as: leave-one-source-out recall is the only generalisation claim; the shipped model's "
+            "false-positive rate and the baselines' rows are registered measurements on the sealed rows and say nothing "
+            "about unseen sources; rows marked in-source") in limits
     assert ("the E all-sources model and the F all-sources model on every source; F hold-out-InjecAgent fold on BIPIA, "
             "deepset and blind (`finetune_holdout_injecagent` trained on their dev rows)") in limits
     bottom = out.split("## Q1")[0]
@@ -527,6 +533,20 @@ def test_q5_renders_the_registered_secondaries_from_the_envelope(tmp_path):
     assert {la["arm"]: (la["p50_ms"], la["p95_ms"]) for la in sec["latency"]} == {
         "b1_phrase_list": (0.004, 0.004), "embed_all": (14.0, 28.4), "finetune_all": (44.0, 49.4),
         "llama_guard3_configured": (2400.0, 2400.0)}
+
+
+@pytest.mark.unit
+def test_q5_quotes_the_registration_on_claim_scope_and_owns_its_reading():
+    """R24: the registration's line on claim scope is quoted verbatim from the sealed PREREG text wherever Q5 invokes
+    it; the refinement (LOSO recall is the only generalisation claim; the shipped FPR and the baselines' rows are
+    registered measurements) is the report's own reading, never presented as the registration's words."""
+    quote = "only the LOSO numbers are claimed"
+    assert quote in (ROOT / "evals/validation/v1/PREREG_detector_v1.md").read_text(encoding="utf-8")
+    q5 = _q5_section(render(ROOT))
+    assert q5.count(f'"{quote}"') == 2  # the in-source bullet and the limits bullet
+    assert "this report reads that as: leave-one-source-out recall is the only generalisation claim" in q5
+    assert "which this report reads as: leave-one-source-out recall is the only generalisation claim" in q5
+    assert "registration states that in-source numbers flatter any model, and leave-one-source-out" not in q5
 
 
 @pytest.mark.unit

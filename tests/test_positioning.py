@@ -102,14 +102,17 @@ def _detector_doc() -> str:
 @pytest.mark.unit
 @pytest.mark.skipif(not (ROOT / DETECTOR_EVIDENCE).is_file(), reason="the confirmatory pass is not committed yet")
 def test_the_detector_doc_scopes_its_claims_to_what_was_measured():
-    """The shipped model's false-positive rate and the phrase list's row are claimed, so the doc never says only
-    leave-one-source-out numbers are claimed: LOSO recall is the only generalisation claim. The phrase list had no
-    registered evidence before this study; it has one now."""
+    """The shipped model's false-positive rate and the phrase list's row are claimed, so the doc never says in its own
+    voice that only leave-one-source-out numbers are claimed: it quotes the registration's words verbatim and gives
+    the reading (LOSO recall is the only generalisation claim) as its own (R24). The phrase list had no registered
+    evidence before this study; it has one now."""
     text = _detector_doc()
+    quote = "only the LOSO numbers are claimed"
+    assert quote in (ROOT / "evals/validation/v1/PREREG_detector_v1.md").read_text(encoding="utf-8")
     assert "Only leave-one-source-out numbers are claimed" not in text
-    assert ("Leave-one-source-out recall is the only generalisation claim; the shipped model's false-positive rate and "
-            "the baselines' rows are registered measurements on the sealed rows and say nothing about unseen "
-            "sources.") in text
+    assert (f"The registration's words are \"{quote}\"; this doc reads them as: leave-one-source-out recall is the only "
+            "generalisation claim; the shipped model's false-positive rate and the baselines' rows are registered "
+            "measurements on the sealed rows and say nothing about unseen sources.") in text
     assert "The list has no registered evidence" not in text
     assert "had no registered evidence before this study" in text and "(#registered-result)" in text
 

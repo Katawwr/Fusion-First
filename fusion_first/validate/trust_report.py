@@ -819,8 +819,12 @@ _DETECTOR_ALL_SOURCES = ("embed_all", "finetune_all")
 # tool-result templates x 62 attacker instructions, split by id).
 _INJECAGENT_SHARED = "62 attacker instructions and 17 tool-result templates"
 _TOOL_RESULT_NEGATIVES = ("injecagent", "blind", "bipia")  # outcome (2)'s sources; deepset negatives are prompts
-# What the claimed numbers say: the primaries include the shipped (in-source) model's false-positive rate, so the
-# claim scope is LOSO recall for generalisation, and the rest is a measurement on the sealed rows.
+# The registration's own words on claim scope (PREREG_detector_v1.md, "Limits, stated before data"), quoted verbatim
+# (tests/test_trust_report.py checks them against the sealed text). The primaries include the shipped (in-source)
+# model's false-positive rate, so the refinement below is this report's reading, given as its own, never as the
+# registration's words: LOSO recall for generalisation, the rest a measurement on the sealed rows.
+_REGISTRATION_SCOPE_QUOTE = "only the LOSO numbers are claimed"
+_REGISTRATION_SCOPE_CITED = f'"{_REGISTRATION_SCOPE_QUOTE}" (`{DETECTOR_PREREG}`, "Limits, stated before data")'
 _GENERALISATION_CLAIM = "leave-one-source-out recall is the only generalisation claim"
 _MEASURED_NOT_GENERALISED = ("the shipped model's false-positive rate and the baselines' rows are registered measurements "
                              "on the sealed rows and say nothing about unseen sources")
@@ -944,8 +948,8 @@ def _detector_findings(d: dict) -> list[str]:
             f"{_short(r['arm'], arms.get(r['arm']))} {r['tp']} of {r['n_pos']} flagged ({_rate1(r['tp'], r['n_pos'])})"
             for r in seen)
             + f". These models trained on the dev InjecAgent rows, which share the {_INJECAGENT_SHARED} with the "
-            "confirmatory rows; the registration states that in-source numbers flatter any model, and "
-            f"{_GENERALISATION_CLAIM}.")
+            "confirmatory rows; the registration states that in-source numbers flatter any model and that "
+            f"{_REGISTRATION_SCOPE_CITED}; this report reads that as: {_GENERALISATION_CLAIM}.")
     return out
 
 
@@ -1209,7 +1213,8 @@ def _q5(root: pathlib.Path) -> list[str]:
              "agent loop; no adaptive-attack evaluation, so a static result is expected to degrade against an attacker "
              "who adapts to the detector; the deepset test rows are in-distribution with respect to deepset's own "
              "training split; AgentDojo is dev-only (its held-out set is spent for the guard), so no AgentDojo row is "
-             f"scored here; {_GENERALISATION_CLAIM}; {_MEASURED_NOT_GENERALISED}" + _in_source_limit(d)
+             f"scored here; the registration's own words on claim scope are {_REGISTRATION_SCOPE_CITED}, which this "
+             f"report reads as: {_GENERALISATION_CLAIM}; {_MEASURED_NOT_GENERALISED}" + _in_source_limit(d)
              + ("; each Llama Guard 3 arm runs on its own stratified subsample with its own n." if lg3 else ".")), ""]
     return out + _secondaries(d)
 

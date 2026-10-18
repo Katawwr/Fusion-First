@@ -134,9 +134,10 @@ was not run: its model download needs the owner's approval.
 - No adaptive-attack evaluation. A static result is expected to degrade against an attacker who adapts to the
   detector.
 - InjecAgent's 62 attacker instructions and 17 tool-result templates appear in both the dev and the confirmatory
-  rows, and AgentDojo shares one wrapper, so in-source numbers flatter any model. Leave-one-source-out recall is the
-  only generalisation claim; the shipped model's false-positive rate and the baselines' rows are registered
-  measurements on the sealed rows and say nothing about unseen sources.
+  rows, and AgentDojo shares one wrapper, so in-source numbers flatter any model. The registration's words are "only
+  the LOSO numbers are claimed"; this doc reads them as: leave-one-source-out recall is the only generalisation claim;
+  the shipped model's false-positive rate and the baselines' rows are registered measurements on the sealed rows and
+  say nothing about unseen sources.
 - Arm F registers only the hold-out-InjecAgent and hold-out-AgentDojo folds, so its BIPIA, deepset and blind rows are
   scored by the hold-out-InjecAgent fold, which trained on those sources: they are in-source.
 - deepset is in-distribution with respect to its own training split. Its German rows are the only non-English data,
