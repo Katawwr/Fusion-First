@@ -45,6 +45,10 @@ def test_publishing_uses_trusted_publishing_and_no_token(wf):
     assert publish["permissions"] == {"id-token": "write"}
     assert publish["environment"]["name"] == "pypi"
     assert any(str(s.get("uses", "")).startswith("pypa/gh-action-pypi-publish@") for s in publish["steps"])
+    # The job that holds the PyPI identity runs only actions pinned to a full commit SHA.
+    for s in publish["steps"]:
+        ref = str(s["uses"]).split("@", 1)[1]
+        assert len(ref) == 40 and all(c in "0123456789abcdef" for c in ref), s["uses"]
 
 
 @pytest.mark.unit
