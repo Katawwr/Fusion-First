@@ -1,7 +1,26 @@
 # Releasing fusion-safety
 
-The owner's steps for a release (0.1.1 below), in order. PyPI never accepts the same version twice, so a
-mistake found after the upload means a new version.
+Releases publish from GitHub Actions by PyPI Trusted Publishing (`.github/workflows/release.yml`): pushing a
+`v<version>` tag builds the web app and the wheel, checks them, smoke-tests the wheel and uploads it. No API token
+exists anywhere. PyPI never accepts the same version twice, so a mistake found after the upload means a new version.
+
+## One-time setup
+
+On PyPI, open project fusion-safety, then Manage, then Publishing, and add a GitHub publisher: owner `Katawwr`,
+repository `Fusion-First`, workflow `release.yml`, environment `pypi`. Delete any old API tokens afterwards.
+
+## Each release
+
+1. Bump the version in `pyproject.toml`, `fusion_first/__init__.py` and `plugins/fusion/.mcp.json`, add the
+   CHANGELOG entry, commit, and push `main` once CI is green.
+2. Tag and push the tag: `git tag v0.1.2 && git push origin v0.1.2`. `scripts/release_tag_check.py` refuses a tag
+   that does not name the version.
+3. Watch the release run (`gh run watch`), then check https://pypi.org/project/fusion-safety/ shows the version.
+4. Redeploy the site from `main`: `bash scripts/deploy_site.sh`, then date the CHANGELOG heading and commit.
+
+## Local rehearsal (optional)
+
+Steps 1 to 4 below build and smoke-test the same files locally before tagging.
 
 ## 1. Fresh clone outside OneDrive
 
@@ -64,33 +83,9 @@ async def main():
     async with stdio_client(params) as (r, w), ClientSession(r, w) as s:
         info = await s.initialize()
         tools = (await s.list_tools()).tools
-        print(info.serverInfo.name, info.serverInfo.version, len(tools))
+        print((getattr(info, 'server_info', None) or info.serverInfo).name, (getattr(info, 'server_info', None) or info.serverInfo).version, len(tools))
 
 
 asyncio.run(main())
 EOF
 ```
-
-## 5. Upload
-
-From a standalone Windows PowerShell window, not the app's terminal pane: the pane corrupts a token pasted into
-twine's hidden prompt, and PyPI answers 403.
-
-```powershell
-cd ~\fusion-release
-python -m twine upload dist/*
-```
-
-Then check that https://pypi.org/project/fusion-safety/0.1.1/ shows the MIT license, Python 3.11 to 3.13, and the
-Source and Issues links. The plugin pins `fusion-safety==0.1.1`, so its MCP server starts only once this upload is
-live.
-
-## 6. Redeploy the site
-
-From your checkout at the release commit (the script refuses uncommitted changes):
-
-```bash
-bash scripts/deploy_site.sh
-```
-
-Then date the 0.1.1 heading in `CHANGELOG.md` and commit it.
