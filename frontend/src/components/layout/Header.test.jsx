@@ -23,6 +23,18 @@ describe("Header", () => {
     expect(screen.getByText("Fusion First")).toHaveClass("brand-wordmark");
   });
 
+  it("links the GitHub repository with an icon", () => {
+    render(
+      <MemoryRouter>
+        <Header />
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole("link", { name: "Source on GitHub" });
+    expect(link).toHaveAttribute("href", "https://github.com/Katawwr/Fusion-First");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link.querySelector("svg")).not.toBeNull();
+  });
+
   it("shows the FF monogram, not the retired logo image", () => {
     const { container } = render(
       <MemoryRouter>

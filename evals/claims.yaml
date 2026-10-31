@@ -31,7 +31,7 @@ claims:
   - id: runtime_guardrail_step2_recall
     text: "stopped 89% of real attacks"
     qualifier: "runtime guardrail, current rules (0c560b5), on fresh successful attacks against qwen2.5:7b and llama3.1:8b, scored once, pre-registered (PREREG_step2_guard.md)"
-    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
+    files: [docs/CASE_STUDY.md]  # the README no longer quotes it (owner 2026-10-02); the case study does
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       fusion.all.recall.point: {value: 0.8919, n_path: fusion.all.attacks, min_n: 50}
@@ -40,7 +40,7 @@ claims:
   - id: runtime_guardrail_step2_overblock
     text: "wrongly blocking 1% of clean transcripts"
     qualifier: "same measurement; clean = oracle-clean transcripts"
-    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
+    files: [docs/CASE_STUDY.md]  # the README no longer quotes it (owner 2026-10-02); the case study does
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       fusion.all.over_block.point: {value: 0.0079, n_path: fusion.all.clean, min_n: 50}
@@ -49,7 +49,7 @@ claims:
   - id: llama_guard_step2_recall
     text: "stopped 52% of the same attacks"
     qualifier: "Llama Guard 3 8B, configured (Meta's format + S15/S16, told the secret), on the same transcripts"
-    files: []  # README no longer quotes it (owner 2026-10-02); the site reads it from the evidence
+    files: [docs/CASE_STUDY.md]  # the README no longer quotes it (owner 2026-10-02); the case study does
     evidence: evals/validation/v1/step2_guard.json
     metrics:
       llama_guard_b.all.recall.point: {value: 0.5203, n_path: llama_guard_b.all.attacks, min_n: 50}
@@ -86,7 +86,7 @@ claims:
   - id: detector_v1_primary_injecagent_recall
     text: "flagged 0 of 744 never-seen InjecAgent injections, recall 0.0% (95% CI 0.0% to 0.5%)"
     qualifier: "primary (1): arm E (frozen bge-small embedding + logistic regression) under the hold-out-InjecAgent fold, on the 744 unspent InjecAgent positives"
-    files: [docs/DETECTOR.md]
+    files: [docs/DETECTOR.md, docs/CASE_STUDY.md]
     evidence: evals/validation/v1/detector/detector_v1.json
     metrics:
       primary.injecagent_recall.tp: {value: 0, n_path: primary.injecagent_recall.n, min_n: 50}
@@ -126,7 +126,7 @@ claims:
   - id: detector_v1_decision
     text: "Registered decision: not adopted; the detector stays dev-only."
     qualifier: "prereg.detector_decision on the envelope: primary recall below the 0.60 floor; the shipped FPR within the 0.05 ceiling (tests/test_positioning.py checks the verdict)"
-    files: [docs/DETECTOR.md]
+    files: [docs/DETECTOR.md, docs/CASE_STUDY.md]
     evidence: evals/validation/v1/detector/detector_v1.json
     metrics:
       decision.primary_recall: {value: 0.0, n_path: decision.primary_recall_n, min_n: 50}
@@ -170,6 +170,19 @@ claims:
       arms.b1_phrase_list.per_source.bipia.tp: {value: 0, n_path: arms.b1_phrase_list.per_source.bipia.n_pos, min_n: 50}
       arms.b1_phrase_list.per_source.bipia.recall.point: {value: 0.0, n_path: arms.b1_phrase_list.per_source.bipia.n_pos, min_n: 50}
     n_path: arms.b1_phrase_list.per_source.bipia.n_pos
+    min_n: 50
+    demonstration_ok: false
+
+  # The shipped all-sources embedding model on the same InjecAgent rows: in-source (it trained on the dev InjecAgent
+  # rows), quoted by docs/CASE_STUDY.md only as the contrast with the leave-one-source-out primary, never as recall.
+  - id: detector_v1_shipped_in_source_injecagent
+    text: "flagged 157 of 744 in-source"
+    qualifier: "arm E all sources (embed_all) on the 744 sealed InjecAgent positives; in-source, not a generalisation claim"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/detector/detector_v1.json
+    metrics:
+      arms.embed_all.per_source.injecagent.tp: {value: 157, n_path: arms.embed_all.per_source.injecagent.n_pos, min_n: 50}
+    n_path: arms.embed_all.per_source.injecagent.n_pos
     min_n: 50
     demonstration_ok: false
 

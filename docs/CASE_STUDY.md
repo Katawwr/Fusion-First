@@ -1,0 +1,90 @@
+# Case study: Fusion First
+
+One page for reviewers: the problem, what was built, the headline result, a pre-registered negative result, how the
+numbers are kept honest, how it was built, and the limits. Every rate here is registered in
+[`evals/claims.yaml`](../evals/claims.yaml) against a committed evidence file.
+
+## Problem
+
+An agent with tools reads untrusted text: emails, web pages, tool results. Text that carries instructions can
+redirect the next tool call, for example to send private data to an outside address. Frontier models resist much of
+this; the small open-weight models people run locally often do not. Most evals report a score without measuring
+whether their grader was right.
+
+## What was built
+
+- **Eval engine.** Attacks an agent on four OWASP-mapped checks (direct prompt injection, excessive agency, data
+  exfiltration, system prompt leakage) plus quality, and grades the replies with a cross-family judge. Each run
+  checks its grader on blind known-answer questions and against deterministic oracles on the run's own clear-cut
+  transcripts, and withholds the grade (`?`) when the grader falls short. Rates carry Wilson intervals; before/after
+  comparisons carry a McNemar test and a PROVEN / PRELIMINARY / INCONCLUSIVE badge.
+- **Runtime guardrail.** Once untrusted content is in context, a tool call the user's own request does not cover is
+  blocked; given the tool results, a read they ask for beside a send to an outside address is blocked too. Replies
+  are redacted for planted secrets.
+- **Delivery.** A `fusion` CLI; a local web app (`fusion serve`: React 19 + Vite + Tailwind frontend on a FastAPI
+  backend, loopback bind, Host allowlist, per-launch token on every write); an MCP server; a Claude Code plugin with
+  opt-in guard hooks; the [`fusion-safety`](https://pypi.org/project/fusion-safety/) package on PyPI, released by
+  Trusted Publishing from a version tag. Runs record model responses as cassettes, so `fusion run verify` re-derives a
+  real run offline ([`examples/verified-run`](../examples/verified-run)).
+
+## Headline result
+
+Pre-registered ([`PREREG_step2_guard.md`](../evals/validation/v1/PREREG_step2_guard.md)) and scored once on fresh
+successful attacks against qwen2.5:7b and llama3.1:8b, the guardrail stopped 89% of real attacks while
+wrongly blocking 1% of clean transcripts. Llama Guard 3 8B, configured for the task and run on the same
+transcripts, stopped 52% of the same attacks.
+
+The cost is stated beside it: in a live AgentDojo agent loop on held-out tasks (also pre-registered), the guard broke
+more legitimate tasks than the registered margin allows. The [Trust Report](../TRUST_REPORT.md) lists what it blocked.
+
+## Negative result: the detector study
+
+The guard flags injected text with a fixed phrase list. The question: does a small CPU classifier (frozen bge-small
+embeddings with logistic regression, and an optional fine-tune) do better on injected tool results from a source it
+never trained on, without more false alarms? The registration was committed before any model was trained, the
+confirmatory split was sealed by digest, the scorer refuses rows that do not match the seal, and the split was scored
+once ([`docs/DETECTOR.md`](DETECTOR.md)).
+
+Under the leave-one-source-out fold that never saw InjecAgent, the embedding model
+flagged 0 of 744 never-seen InjecAgent injections, recall 0.0% (95% CI 0.0% to 0.5%).
+Registered decision: not adopted; the detector stays dev-only.
+
+What it taught:
+
+- **Frozen embeddings do not transfer across sources.** The decision boundary learned on the other sources did not
+  find InjecAgent's injections.
+- **In-source scores measure memorisation.** The all-sources model, trained on InjecAgent's dev rows, which share
+  their attacker instructions and templates with the sealed rows, flagged 157 of 744 in-source on the same rows.
+  That number describes the source, not detection, which is why the registration named leave-one-source-out recall
+  as the only generalisation claim before any data existed.
+
+## How the numbers stay honest
+
+- **Pre-registration.** Each study commits its bar and decision rule before data.
+  [`PREREG_LEDGER.md`](../evals/validation/v1/PREREG_LEDGER.md) is generated from git history and shows each
+  registration's commit preceding its evidence; a test fails if it drifts.
+- **Sealed, scored once.** Confirmatory rows are hashed into a seal before training and scored a single time.
+- **Numbers only from committed evidence.** Every rate in the docs and the site source is registered in
+  `evals/claims.yaml` with its evidence file and metric path; `tests/test_claims_backed.py` scans those files and
+  fails on any unregistered rate, and evidence from the offline stand-in judge cannot back a claim.
+- **Generated reports.** `TRUST_REPORT.md` and the site's evidence file are generated from `evals/`; a test fails if
+  either disagrees with the evidence.
+- **Negatives published.** Besides the detector: the rubric judge was no more accurate than one plain question
+  (the rubric is kept for checkable, quoted evidence, not accuracy), the optional prompt fix raised refusals of safe
+  requests on small models, and the free local grader missed its registered bar.
+
+## How it was built
+
+By directing AI coding agents (Claude Code) under review gates: the owner set the direction, the bars and the
+decisions; agents wrote the code. Most commits are authored "Fusion Builder" and carry a `Co-Authored-By: Claude`
+trailer. The gates: tests written with every change; a Stop hook that runs the unit tests and the accuracy gate; a
+lint hook on every edit; a pre-deploy hook that blocks a deploy while the gate is red; independent review agents
+before merge; CI on every push. No API spend: real model calls went through a subscription CLI or local Ollama.
+
+## Limits
+
+- The agentic checks still grade prose: excessive agency and exfiltration are judged from the model's reply, not from
+  tool calls executed in a tool loop. Testing the target inside a real tool loop is the next build.
+- Samples are small (tens to hundreds of transcripts per cell); read the intervals, not the points.
+- No adaptive-attack evaluation; a static result is expected to degrade against an attacker who adapts.
+- The guard's cost in a live agent loop is above its registered margin (see Headline result).
