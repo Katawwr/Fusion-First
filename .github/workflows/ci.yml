@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   python:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       FUSION_OFFLINE: "1"
     steps:
@@ -34,7 +34,7 @@ jobs:
           git diff --exit-code TRUST_REPORT.md frontend/src/content/evidence.json
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -52,7 +52,7 @@ jobs:
 
   e2e:
     # The real product in a real browser: `fusion serve` on the built frontend, offline (demo only).
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       FUSION_OFFLINE: "1"
     steps:

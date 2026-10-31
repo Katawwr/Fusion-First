@@ -68,3 +68,21 @@ def test_the_tag_check_accepts_only_the_package_version():
     assert check.problems(ROOT, f"refs/tags/v{version}") == []
     assert check.problems(ROOT, "v9.9.9")
     assert check.problems(ROOT, version)  # a tag needs the leading v
+
+
+@pytest.mark.unit
+def test_every_workflow_job_runs_on_a_pinned_runner_image():
+    """ubuntu-latest moved to 26.04 (2026-10), where Playwright could not install its browser: pin the image."""
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+        jobs = yaml.safe_load(path.read_text(encoding="utf-8"))["jobs"]
+        for name, job in jobs.items():
+            assert job["runs-on"] == "ubuntu-24.04", f"{path.name}:{name} runs on {job['runs-on']}"
+
+
+@pytest.mark.unit
+def test_the_dev_extras_carry_what_the_detector_tests_import():
+    """CI installs .[dev,mcp,serve]: the detector's logistic arm and its tests need scikit-learn there too."""
+    import tomllib
+
+    dev = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"]["dev"]
+    assert any(d.startswith("scikit-learn") for d in dev)

@@ -64,6 +64,7 @@ detector = [
 dev = [
     "pytest>=8.0",
     "scipy>=1.13",  # only to cross-check the exact McNemar implementation in tests
+    "scikit-learn>=1.5",  # the detector's logistic arm and its tests (CI installs .[dev])
     "pytest-asyncio>=0.24",
     "ruff~=0.16.10",
     "setuptools>=68",  # the packaging tests build the wheel without isolation
