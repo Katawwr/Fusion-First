@@ -3,7 +3,7 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
-## [0.1.1] - Unreleased
+## [0.1.1] - 2026-10-31
 
 ### Added
 
