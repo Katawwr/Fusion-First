@@ -17,7 +17,7 @@
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
-<p align="center">For reviewers: <a href="docs/CASE_STUDY.md">Case study</a> (the problem, the results, a published negative result, how it was built).</p>
+<p align="center"><a href="docs/CASE_STUDY.md">Case study</a> (the problem, the results, a published negative result, how it was built).</p>
 
 <p align="center">The <a href="docs/DETECTOR.md">tool-result injection detector</a> study is pre-registered; its result is on the <a href="https://fusion-first-testing.com/trust">Trust page</a> (registered result: not adopted; the detector stays dev-only).</p>
 
