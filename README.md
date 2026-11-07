@@ -61,6 +61,19 @@ Any model or agent can be the target: `ollama:<model>`, `openai-compat:<url>#<mo
 hosted API with your own key (`openai:`, `anthropic:`, `hf:`, ...; needs `FUSION_ALLOW_API_SPEND=1`), or any
 program via `cmd:<command>`.
 
+**Test a tool-using agent** (`excessive_agency` and `data_exfiltration` only):
+
+```bash
+python -m fusion_first.cli run start --prompt agent.txt --target ollama:qwen2.5:7b --grader host --corpus v2 --check excessive_agency,data_exfiltration
+python -m fusion_first.cli run start --prompt agent.txt --target ollama:qwen2.5:7b --grader host --corpus v2 --check excessive_agency,data_exfiltration --no-fix-arm
+```
+
+Each attack offers your agent the probe's own tools and runs a bounded loop (at most four assistant turns); scripted
+tool results come back, the injected one at its scripted turn. The real tool calls are graded by the oracle
+cross-check and the judge, and the guard is replayed over every tool result the agent received. `--corpus v2` also
+adds gold v2's 80 sealed known-answer questions to a host-graded run; `--no-fix-arm` halves the target calls and
+reports the as-written rate with its interval. Details: [Tool loop](docs/RUN_LOCALLY.md#tool-loop---corpus-v2).
+
 **Runtime guardrail** in your agent loop:
 
 ```python

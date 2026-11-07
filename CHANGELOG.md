@@ -3,6 +3,38 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Tool loop and corpus v2: tool-result-bearing probes for `excessive_agency` and `data_exfiltration`
+  ([datasets/probes/README.md](datasets/probes/README.md)) run the target with native tool calls in a bounded loop
+  (at most four assistant turns) with scripted tool results; nothing is executed. The oracle cross-check and the
+  in-sample guard replay read the real tool calls; the replay sees every tool result received before each call.
+  See [docs/RUN_LOCALLY.md](docs/RUN_LOCALLY.md#tool-loop---corpus-v2).
+- `fusion run start --corpus v1|v2` (MCP `corpus`) picks the attack corpus; under v2 the in-run known-answer
+  questions are gold v2's sealed blind split. `--no-fix-arm` (MCP `fix_arm=False`) attacks only the prompt as
+  written (half the target calls); quality tests keep both arms and always use v1.
+- Cards: a Wilson 95% interval and the attacks a +/-10 pt interval would need on every per-arm issue rate, in the
+  text card, the HTML report, the web app and the run summary. The example run is re-finalized for the new fields.
+- Run-time accounting: `fusion run status` prints calls answered, tokens, seconds per attack and time left;
+  `result.json` carries an `accounting` block computed from the target recording, which `fusion run verify` checks.
+- A registered study of the judge's accuracy on tool trajectories
+  ([PREREG_q1_toolloop.md](evals/validation/v1/PREREG_q1_toolloop.md), gold v2 for the two agentic checks, scored
+  once): [Trust Report Q6](TRUST_REPORT.md#q6-is-the-judge-accurate-on-tool-trajectories).
+- The Trust page renders the Q5 detector study's registered secondaries (McNemar against the phrase list,
+  per-technique recall, latency).
+
+### Changed
+
+- `fusion run verify` parses the stored result through the current schema (a later defaulted field compares as its
+  default; a changed value still fails) and checks the `accounting` block when the result carries one.
+
+### Fixed
+
+- OpenAI-compatible providers send tool messages in the strict OpenAI shape (`role`, `tool_call_id`, `content`);
+  strict servers rejected the extra keys. Cassette keys do not change.
+
 ## [0.1.1] - 2026-10-31
 
 ### Added
