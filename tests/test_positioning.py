@@ -184,7 +184,8 @@ def test_the_readme_states_the_toolloop_judge_outcome_without_numbers():
     line = next(x for x in (ROOT / "README.md").read_text(encoding="utf-8").splitlines()
                 if "PREREG_q1_toolloop.md" in x)
     words = re.sub(r"<[^>]+>", "", line)
-    outcome = "the claim is allowed" if toolloop_decision(env)["claim_allowed"] else "no accuracy claim"
+    outcome = ("it met its registered bar" if toolloop_decision(env)["claim_allowed"]
+               else "it missed its registered bar, so no accuracy is claimed")
     assert "tool trajectories" in words and f"(registered result: {outcome})" in words and "Trust page" in words
     assert not re.search(r"\d", words)
 

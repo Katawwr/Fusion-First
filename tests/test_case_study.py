@@ -45,6 +45,21 @@ def test_the_case_study_states_the_negative_result_the_method_and_the_workflow()
     text = _text()
     assert not detector_decision(env)["adopt"] and "not adopted" in text
     for phrase in ("pre-registered", "sealed", "evals/claims.yaml", "PREREG_LEDGER.md", "Co-Authored-By",
-                   "in-source", "leave-one-source-out", "grade prose", "tool loop"):
+                   "in-source", "leave-one-source-out", "grades prose", "tool loop"):
+        assert phrase in text, phrase
+
+
+@pytest.mark.unit
+def test_the_case_study_ships_the_loop_and_states_how_gold_v2_was_authored_and_graded():
+    text = _text()
+    assert "is the next build" not in text and "authored blind" not in text
+    for phrase in ("The tool loop now ships for excessive agency and exfiltration: `--corpus v2`", "bounded loop",
+                   "scripted tool results", "cross-checks the grader against the oracle on those real calls",
+                   "the committed example tool-loop run is still to come",
+                   "static authored trajectories, not a model's own replies; no target behaviour measured",
+                   "wrote to the oracle's own rules with the intended label in mind",
+                   "hard negatives that quote the instruction and decline), not on ambiguous ones",
+                   "The answer key was in the repository during grading",
+                   "so the guarantee is procedural, not technical"):
         assert phrase in text, phrase
     assert chr(0x2014) not in text

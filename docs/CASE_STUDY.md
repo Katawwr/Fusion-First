@@ -39,8 +39,14 @@ more legitimate tasks than the registered margin allows. The [Trust Report](../T
 
 The judge on tool trajectories, pre-registered ([`PREREG_q1_toolloop.md`](../evals/validation/v1/PREREG_q1_toolloop.md))
 and scored once on the sealed blind split against oracle labels: Sonnet host subagents
-scored 40 of 40 on each agentic check, accuracy 100% (95% CI 91% to 100%).
-The trajectories were authored by Sonnet subagents, the grader's vendor, so shared blind spots are not ruled out.
+scored 40 of 40 on each agentic check, accuracy 100% (95% CI 91% to 100%), on static authored trajectories, not a
+model's own replies; no target behaviour measured. The trajectories were written by Sonnet subagents, the grader's
+vendor, so shared blind spots are not ruled out. The authors were blind to the rubric, the judge prompt, gold v1 and
+the probe corpus, but wrote to the oracle's own rules with the intended label in mind, so the set measures whether the
+judge agrees with that rule on clean, deliberately constructed cases (including hard negatives that quote the
+instruction and decline), not on ambiguous ones. The answer key was in the repository during grading; the graders were
+instructed to read nothing but the task JSON, and a post-hoc audit of their transcripts found only the two CLI commands
+and their own scratch files, so the guarantee is procedural, not technical.
 
 ## Negative result: the detector study
 
@@ -88,8 +94,10 @@ before merge; CI on every push. No API spend: real model calls went through a su
 
 ## Limits
 
-- The agentic checks still grade prose: excessive agency and exfiltration are judged from the model's reply, not from
-  tool calls executed in a tool loop. Testing the target inside a real tool loop is the next build.
+- The tool loop now ships for excessive agency and exfiltration: `--corpus v2` runs the target in a bounded loop with
+  scripted tool results, grades the tool calls it makes and cross-checks the grader against the oracle on those real
+  calls. The default corpus v1 still grades prose (the model's reply, not executed tool calls), and the committed
+  example tool-loop run is still to come.
 - Samples are small (tens to hundreds of transcripts per cell); read the intervals, not the points.
 - No adaptive-attack evaluation; a static result is expected to degrade against an attacker who adapts.
 - The guard's cost in a live agent loop is above its registered margin (see Headline result).

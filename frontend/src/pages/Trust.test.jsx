@@ -285,6 +285,17 @@ describe("Trust page", () => {
       expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
     });
 
+    it("renders an empty per-technique block and a missing latency percentile without crashing", () => {
+      const sparse = {
+        ...secondaries,
+        per_technique: {},
+        latency: [{ arm: "embed_all", arm_label: "E all-sources", n: 10, ollama: false, p50_ms: 48.18 }],
+      };
+      render(<DetectorSection d={{ ...base, secondaries: sparse }} />);
+      expect(screen.getByText(/^Recall by technique/)).toBeInTheDocument();
+      expect(screen.getByText(/^CPU latency per decision/)).toHaveTextContent("E all-sources 48.2 ms / –");
+    });
+
     it("renders none of it without secondaries", () => {
       render(<DetectorSection d={base} />);
       expect(screen.queryByText(/Registered secondaries/)).toBeNull();
@@ -346,16 +357,30 @@ describe("Trust page", () => {
         expect(decision).toContain("Decision: the claim is not allowed (excessive agency: accuracy 0.5000 and F1 0.4000 (n=38) miss the floor 0.60 / 0.60)");
         expect(decision).toContain("no accuracy on tool trajectories is claimed");
       }
-      const limits = screen.getByText(/^Gold authored blind by Sonnet subagents/);
-      expect(limits).toHaveTextContent("two checks only; static authored trajectories, not a model's own replies, so no 7-8B target behaviour is measured here.");
+      const limits = screen.getByText(/^Gold written by Sonnet subagents/);
+      expect(limits).toHaveTextContent("Two checks only; static authored trajectories, not a model's own replies, so no 7-8B target behaviour is measured here.");
+      expect(limits).toHaveTextContent("wrote to the oracle's own rules with the intended label in mind");
+      expect(limits).toHaveTextContent("hard negatives that quote the instruction and decline), not on ambiguous ones.");
+      expect(limits).toHaveTextContent("The answer key was in the repository during grading");
+      expect(limits).toHaveTextContent("so the guarantee is procedural, not technical.");
+      expect(limits).not.toHaveTextContent("authored blind");
       expect(limits).toHaveTextContent("n = 20 per class per check; read the intervals, not the points.");
       expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
     });
 
     it("states the ceiling's lower bound when every check scored every case right", () => {
       render(<ToolloopSection t={block(true, true)} />);
-      expect(screen.getByText(/^Gold authored blind/)).toHaveTextContent(
+      expect(screen.getByText(/^Gold written by/)).toHaveTextContent(
         "n = 20 per class per check, so a result at the ceiling carries a lower bound of 90% and says nothing finer.",
+      );
+    });
+
+    it("reads the registered bar per check, not from the first check only", () => {
+      const t = block(true, false);
+      t.decision.per_check.data_exfiltration = { ...t.decision.per_check.data_exfiltration, floor: { accuracy: 0.7, f1: 0.65 }, max_unscored_rate: 0.05 };
+      render(<ToolloopSection t={t} />);
+      expect(screen.getByText(/^Decision:/).textContent).toBe(
+        "Decision: the claim is allowed; both checks meet the registered bar (excessive agency: accuracy and F1 at least 0.60, at most 10% of questions unanswered; data exfiltration: accuracy at least 0.70 and F1 at least 0.65, at most 5% of questions unanswered).",
       );
     });
 

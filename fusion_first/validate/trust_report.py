@@ -14,6 +14,7 @@ from fusion_first.validate.detector_confirmatory import PREREGISTRATION as DETEC
 from fusion_first.validate.detector_confirmatory import SEAL as DETECTOR_SEAL
 from fusion_first.validate.judge_eval_toolloop import EVIDENCE as TOOLLOOP_EVIDENCE
 from fusion_first.validate.judge_eval_toolloop import PREREG as TOOLLOOP_PREREG
+from fusion_first.validate.judge_eval_toolloop import RUN as TOOLLOOP_RUN
 from fusion_first.validate.prereg import (
     DETECTOR_MAX_FPR,
     DETECTOR_MIN_RECALL,
@@ -207,6 +208,7 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
     out.append("- **Erroring often?** " + ("; ".join(counts).capitalize() + ". " if counts else "")
                + _WITHHELD)
     out.append(_detector_bottom_line(root))
+    out.append(_toolloop_bottom_line(root))
     return out + [""]
 
 
@@ -1294,7 +1296,8 @@ def _toolloop_baselines(d: dict) -> str:
     if not parts:
         return ""
     text = "; ".join(parts)
-    return f"Rule-based baselines on the same items (F1, exact McNemar p against the grader). {text[0].upper()}{text[1:]}."
+    return ("Rule-based baselines on the same items: the v1 text heuristics, not written for tool trajectories (F1, "
+            f"exact McNemar p against the grader). {text[0].upper()}{text[1:]}.")
 
 
 def _toolloop_decision_sentence(dec: dict) -> str:
@@ -1327,9 +1330,56 @@ def _toolloop_limits(d: dict) -> str:
                  if c.get("positives")]
     tech = (f"; the per-technique recalls rest on {min(positives)}-{max(positives)} positives each and are descriptive"
             if positives else "")
-    return ("Limits: the gold is blind-authored by Sonnet subagents, the grader's vendor, so shared blind spots are "
-            "possible and not measured; two checks only; static authored trajectories, not a model's own replies, so "
-            f"no 7-8B target behaviour is measured here; {n}{tech}.")
+    return ("Limits: the gold is authored by Sonnet subagents, the grader's vendor, so shared blind spots are "
+            "possible and not measured; " + _TOOLLOOP_AUTHORING + "; two checks only; static authored trajectories, "
+            f"not a model's own replies, so no 7-8B target behaviour is measured here; {n}{tech}.")
+
+
+_TOOLLOOP_AUTHORING = (
+    "the authors were blind to the rubric, the judge prompt, gold v1 and the probe corpus, but wrote to the oracle's "
+    "own rules with the intended label in mind, so the set "
+    "measures whether the judge agrees with that rule on clean, deliberately constructed cases (including hard "
+    "negatives that quote the instruction and decline), not on ambiguous ones")
+
+_TOOLLOOP_GRADER_BLINDNESS = (
+    "The answer key was in the repository during grading; the graders were instructed to read nothing but the task "
+    "JSON, and a post-hoc audit of their transcripts found only the two CLI commands (`fusion run tasks --lease`, "
+    "`fusion run submit`) and their own scratch files, so the guarantee is procedural, not technical.")
+
+
+def _toolloop_rejected(root: pathlib.Path) -> list[dict] | None:
+    """The committed run's rejected submissions (`state.json`), or None when the run directory is absent."""
+    path = root / TOOLLOOP_RUN / "state.json"
+    if not path.is_file():
+        return None
+    return list(json.loads(path.read_text(encoding="utf-8")).get("rejected") or [])
+
+
+def _toolloop_answered(root: pathlib.Path) -> str:
+    rejected = _toolloop_rejected(root)
+    if rejected is None:
+        return "Each question has one accepted answer, scored in one pass."
+    if not rejected:
+        return "Each question answered once (no answer was rejected), scored in one pass."
+    n = len(rejected)
+    why = ("for unquoted evidence" if all(r.get("reason", "").startswith("evidence not quoted") for r in rejected)
+           else "by the submission checks")
+    return (f"Each question has one accepted answer ({n} {'answer was' if n == 1 else 'answers were'} rejected {why} "
+            "and re-asked, as the registration allows), scored in one pass.")
+
+
+def _toolloop_bottom_line(root: pathlib.Path) -> str:
+    head = "- **Judge accurate on tool trajectories?** "
+    d = _load(root, TOOLLOOP_EVIDENCE)
+    if not d:
+        return head + "Registered and not yet scored; no number from it is claimed."
+    dec = toolloop_decision(d)
+    span = ", ".join(f"{_check_label(c)} {_iv(b['grader']['accuracy'])}" for c, b in _toolloop_checks(d))
+    verdict = ("met, so the claim is allowed" if dec["claim_allowed"] else
+               "not met, so no accuracy on tool trajectories is claimed and v2 runs keep withholding grades")
+    return (head + f"Pre-registered, {d['grader']} on the sealed blind split of gold v2: {span}. Its registered bar "
+            f"({_floor_text(dec)}): {verdict}. Static authored trajectories, not a model's own replies; no target "
+            "behaviour measured.")
 
 
 def _q6(root: pathlib.Path) -> list[str]:
@@ -1344,11 +1394,12 @@ def _q6(root: pathlib.Path) -> list[str]:
     dec = toolloop_decision(d)
     prereg = d.get("preregistration") or TOOLLOOP_PREREG
     out += [(f"Grader: {d['grader']}, judge prompt version {d['judge_prompt_version']}. Items: the sealed blind split "
-             "of gold v2, multi-step tool trajectories authored blind by Sonnet subagents. Labels: deterministic "
-             "oracles (a forbidden tool or an outside destination; a planted canary in the agent's output). Each "
-             f"question answered once, scored in one pass. Registered in `{prereg}` (seal `{d.get('seal_digest')}`); "
-             "amended before any grading: the scorer refuses an incompletely graded run, and the decision fails "
-             f"closed when too many questions go unanswered. Evidence: `{TOOLLOOP_EVIDENCE}`."), "",
+             "of gold v2, multi-step tool trajectories written by Sonnet subagents to the oracle's rules (see the "
+             "limits). Labels: deterministic oracles (a forbidden tool or an outside destination; a planted canary in "
+             f"the agent's output). {_toolloop_answered(root)} {_TOOLLOOP_GRADER_BLINDNESS} Registered in `{prereg}` "
+             f"(seal `{d.get('seal_digest')}`); amended before any grading: the scorer refuses an incompletely graded "
+             f"run, and the decision fails closed when too many questions go unanswered. Evidence: "
+             f"`{TOOLLOOP_EVIDENCE}`."), "",
             "| Check | n (unanswered) | Accuracy | Recall | Specificity | F1 | κ |", "|---|---|---|---|---|---|---|"]
     checks = _toolloop_checks(d)
     for check, b in checks:
