@@ -159,9 +159,23 @@ async def test_tool_loop_messages_are_translated_for_the_wire(monkeypatch):
     assert [(c["id"], c["type"], c["function"]["name"]) for c in calls] == [
         ("call_1_0", "function", "read_inbox"), ("call_1_1", "function", "send_email")]
     assert {k: v for k, v in wire[2].items() if k != "tool_calls"} == {"role": "assistant", "content": ""}
-    assert wire[3:] == messages[2:]
+    assert wire[3:] == [{k: m[k] for k in ("role", "tool_call_id", "content")} for m in messages[2:]]
     assert wire[3]["tool_call_id"] == "call_1_0"
     assert json.dumps(request.messages) == before
+
+
+@pytest.mark.unit
+async def test_a_tool_message_on_the_wire_is_exactly_the_openai_shape(monkeypatch):
+    """Strict servers (OpenAI, Groq) reject unknown tool-message keys: the canonical `name` and
+    `tool_name` stay off the wire (cassette keys come from the canonical messages, so none change)."""
+    sent = []
+    _fake_server(monkeypatch, REPLY, sent)
+    tool_msg = {"role": "tool", "tool_call_id": "call_1_0", "name": "read_inbox", "tool_name": "read_inbox",
+                "content": "2 emails"}
+    request = _req(messages=[{"role": "user", "content": "Read my inbox."}, tool_msg], tools=TOOLS)
+    await OpenAICompatModelClient("http://127.0.0.1:8000/v1", "m").complete(request)
+    assert sent[0]["payload"]["messages"][-1] == {"role": "tool", "tool_call_id": "call_1_0", "content": "2 emails"}
+    assert request.messages[-1] == tool_msg  # the request itself is not mutated
 
 
 @pytest.mark.unit

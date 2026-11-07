@@ -38,7 +38,10 @@ class OpenAICompatUnavailable(FusionProviderError):
 
 def _wire_message(message: dict) -> dict:
     """An assistant message's tool-call `arguments` dicts as JSON strings (OpenAI requires strings; the
-    tool loop's canonical messages carry dicts). Everything else, `tool_call_id` included, is unchanged."""
+    tool loop's canonical messages carry dicts), and a tool message as exactly {role, tool_call_id, content}:
+    strict servers (OpenAI, Groq) reject the canonical `name` / `tool_name` keys. Everything else is unchanged."""
+    if message.get("role") == "tool":
+        return {k: message[k] for k in ("role", "tool_call_id", "content") if k in message}
     calls = message.get("tool_calls") if message.get("role") == "assistant" else None
     if not isinstance(calls, list):
         return message
