@@ -18,7 +18,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from fusion_first.runs.engine import RunDir  # noqa: E402
+from fusion_first.runs.engine import RunDir, RunError  # noqa: E402
 from fusion_first.validate import judge_eval_toolloop as jt  # noqa: E402
 
 
@@ -44,7 +44,7 @@ def main(argv=None) -> int:
         out = pathlib.Path(a.out)
         rep = jt.score(RunDir(pathlib.Path(a.workspace).resolve(), a.run_id),
                        out=out if out.is_absolute() else root / out, root=root, grader_label=a.grader_label)
-    except (FileExistsError, ValueError) as e:
+    except (FileExistsError, ValueError, RunError) as e:
         print(f"judge_eval_toolloop {a.cmd}: {e}", file=sys.stderr)
         return 1
     for check, block in rep["checks"].items():

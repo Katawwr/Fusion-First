@@ -5,6 +5,9 @@ Registered 2026-11-07, before any grader answered any of these questions. The se
 `b9236c20fd6a227c1d28126633a62fc99a942aa04beb27c086534f0c5abefcb7`) is committed in the same change.
 Nothing below changes after that commit; a revision needs a new registration on fresh rows.
 
+Amended 2026-11-07 before any grading: the scorer refuses an incompletely graded run; the decision fails closed
+above the policy's max_unscored_rate.
+
 ## Why
 
 The judge's measured accuracy (Q1, `judge_eval_host_sonnet.json`) and gold v1 cover single-turn transcripts: at
@@ -40,7 +43,9 @@ across them. Whether it reads those correctly has never been measured, and the i
   (both support both checks).
 - **Decision rule (in code):** `fusion_first.validate.prereg.toolloop_decision`: the docs may claim the judge's
   accuracy on tool trajectories only if BOTH checks meet the policy floor (`evals/policy.yaml`: accuracy >= 0.60
-  and F1 >= 0.60, point estimates) on the blind split. Otherwise no such claim is made and v2 runs keep
+  and F1 >= 0.60, point estimates) on the blind split, and neither check has more than the policy's
+  `max_unscored_rate` (0.10) of its questions unanswered (unanswered / (answered + unanswered); a stored answer
+  the strict parser cannot read counts as unanswered). Otherwise no such claim is made and v2 runs keep
   withholding grades through the in-run gate.
 - **Evidence:** `evals/validation/v1/toolloop/judge_eval_toolloop_host_sonnet.json`, written by
   `scripts/judge_eval_toolloop.py score` with the seal digest, this file's path, the grader, the judge prompt
@@ -64,5 +69,6 @@ Seal digest: `b9236c20fd6a227c1d28126633a62fc99a942aa04beb27c086534f0c5abefcb7` 
 ## Scored once
 
 `scripts/judge_eval_toolloop.py score` writes the evidence once: it refuses when the output exists (there is no
-`--force`), when the blind split does not match the seal, when this file does not quote the seal digest, or when
-the run's questions or judge prompt version differ from the sealed cases.
+`--force`), when the blind split does not match the seal, when this file does not quote the seal digest, when any
+question of the run is still ungraded, or when the run's questions or judge prompt version differ from the sealed
+cases.

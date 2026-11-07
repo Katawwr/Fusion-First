@@ -26,7 +26,8 @@ from fusion_first._data import data_root
 from fusion_first.goldset import gold_trajectory
 from fusion_first.judge.judge import JUDGE_PROMPT_VERSION, Judge
 from fusion_first.judge.rubric import get_rubric
-from fusion_first.runs.engine import RunDir, Task, _task_id, new_run
+from fusion_first.model.replay import Cassette
+from fusion_first.runs.engine import RunDir, RunError, Task, _task_id, new_run
 from fusion_first.schemas import Trajectory
 from fusion_first.stats.metrics import mcnemar_classifiers, wilson_interval
 from fusion_first.validate.judge_eval import _block, _verdicts
@@ -193,9 +194,10 @@ def _git_sha(root: pathlib.Path) -> str:
 def score(rd: RunDir, *, out: str | os.PathLike | None = None, root: str | os.PathLike = ROOT,
           grader_label: str = GRADER_LABEL) -> dict:
     """Score the graded run once and write the evidence to `out` (default `EVIDENCE` under `root`). Refuses when
-    `out` exists, the blind split drifted from its seal, the registration does not quote the seal, the run's
-    judge prompt version differs from the registered one, or the run's questions are not the sealed cases."""
-    from fusion_first.validate.baselines import naive_regex, tuned_heuristic
+    `out` exists, the blind split drifted from its seal, the registration does not quote the seal, any question
+    of the run is ungraded, the run's judge prompt version differs from the registered one, or the run's questions
+    are not the sealed cases."""
+    from fusion_first.validate.baselines import UnsupportedCheckError, naive_regex, tuned_heuristic
     from fusion_first.validate.prereg import toolloop_decision
 
     root = pathlib.Path(root)
@@ -203,6 +205,12 @@ def score(rd: RunDir, *, out: str | os.PathLike | None = None, root: str | os.Pa
     if out_path.exists():
         raise FileExistsError(f"{out_path} exists: the registered evidence is scored once and never overwritten")
     status = _require_registered(root)
+    graded = Cassette.load(rd.judge_path).entries
+    tasks = rd.tasks()
+    pending = sum(1 for t in tasks if t.key not in graded)
+    if pending:
+        raise RunError(f"run {rd.run_id} has {pending} of {len(tasks)} questions ungraded: the registered evidence "
+                       "is scored once, so finish grading (fusion run tasks / submit) before scoring")
     plan = rd.plan()
     if plan.judge_prompt_version != status["meta"].get("judge_prompt_version"):
         raise ValueError(f"run {rd.run_id} used judge prompt version {plan.judge_prompt_version}; the seal "
@@ -226,7 +234,7 @@ def score(rd: RunDir, *, out: str | os.PathLike | None = None, root: str | os.Pa
         for name, fn in (("naive_regex", naive_regex), ("tuned_heuristic", tuned_heuristic)):
             try:
                 base = [bool(fn(i.trajectory, check)) for i in answered]
-            except Exception as e:  # noqa: BLE001 - a baseline that can't judge this check is reported, not fatal
+            except UnsupportedCheckError as e:  # reported; any other error is a bug and must surface
                 block[name] = {"unsupported": f"{type(e).__name__}: {e}"}
                 continue
             a_right, b_right, p = mcnemar_classifiers(y, pred, base)

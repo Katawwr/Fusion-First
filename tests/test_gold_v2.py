@@ -369,6 +369,21 @@ def test_committed_ids_are_content_hashes_and_splits_do_not_overlap(check):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("check", ["excessive_agency", "data_exfiltration"])
+def test_the_committed_split_reproduces_from_seed_42(check):
+    """The authored rows (gold row minus id, split and oracle) re-split with the registered seed give exactly the
+    committed assignment: the split was not hand-picked."""
+    rows = _committed(check)
+    for label in (True, False):
+        group = [r for r in rows if r["oracle"]["is_issue"] is label]
+        authored = [{k: v for k, v in r.items() if k not in ("id", "split", "oracle")} for r in group]
+        assert all(set(a) == GV2.AUTHORED_KEYS for a in authored)
+        splits = GV2._split(authored, check, label, GV2.SEED)
+        assert GV2.SEED == 42
+        assert [splits[i] for i in range(len(group))] == [r["split"] for r in group]
+
+
+@pytest.mark.unit
 def test_the_committed_manifest_describes_the_committed_gold():
     from fusion_first.validate.judge_eval_toolloop import MANIFEST
 
