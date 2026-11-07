@@ -97,6 +97,28 @@ def test_resume_on_a_host_run_points_to_tasks_and_submit(tmp_path, capsys):
 
 
 @pytest.mark.unit
+def test_summary_prints_the_interval_after_each_rate(capsys):
+    import argparse
+
+    from fusion_first.runs.cli import _print_summary
+
+    card = {"check": "excessive_agency", "grade": "D", "grader_accuracy": {"note": "n/a"}, "honesty": "PRELIMINARY",
+            "scored": "8/8", "issue_rate_as_written": 0.375, "issue_rate_with_fix": 0.125,
+            "issue_rate_as_written_ci": [0.137, 0.694], "issue_rate_with_fix_ci": [0.022, 0.471],
+            "attacks_for_10pt": 87}
+    summary = {"overall_grade": "D", "verdict": "v", "cards": [card], "verify": "fusion run verify x"}
+    _print_summary(argparse.Namespace(json=False), summary)
+    out = capsys.readouterr().out
+    assert "issues 38% (95% CI 14–69%) → 12% (95% CI 2–47%) with fix" in out
+    assert "±10 pts needs about 87 attacks" in out
+    old = {**card}  # a summary from before the intervals: the rates alone
+    for k in ("issue_rate_as_written_ci", "issue_rate_with_fix_ci", "attacks_for_10pt"):
+        old.pop(k)
+    _print_summary(argparse.Namespace(json=False), {**summary, "cards": [old]})
+    assert "issues 38% → 12% with fix" in capsys.readouterr().out
+
+
+@pytest.mark.unit
 def test_min_grade_rejects_typos(capsys):
     with pytest.raises(SystemExit):  # argparse rejects it before any run lookup
         main(["run", "finalize", "--min-grade", "B+"])

@@ -944,7 +944,12 @@ export function ProveStep({
                 <p style={{ margin: "0 0 0.85rem", fontWeight: 600, color: "var(--text)" }}>
                   {checkMeta(check).label}
                 </p>
-                <BeforeAfterBars ba={card.before_after} />
+                <BeforeAfterBars
+                  ba={card.before_after}
+                  baselineCi={card.baseline_issue_ci}
+                  hardenedCi={card.hardened_issue_ci}
+                  attacksFor10pt={card.attacks_for_10pt}
+                />
               </Card>
             );
           })}

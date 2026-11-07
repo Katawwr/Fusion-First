@@ -241,6 +241,11 @@ class SafetyReportCard(BaseModel):
     # Why judge_accuracy is absent: a card either shows Bar A or says why it can't.
     judge_accuracy_note: str = ""
     before_after: BeforeAfterResult | None = None
+    # Wilson 95% interval of each arm's issue rate (None = no scored attack, or no fix arm), and the attacks
+    # a +/-10 pt interval would need at the baseline rate. None on cards stored before they existed.
+    baseline_issue_ci: Interval | None = None
+    hardened_issue_ci: Interval | None = None
+    attacks_for_10pt: int | None = None
     benchmark: BenchmarkResult | None = None
     owasp_tags: list[OwaspTag] = Field(default_factory=list)
     top_fixes: list[str] = Field(default_factory=list)

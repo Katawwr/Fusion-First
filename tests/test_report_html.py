@@ -63,6 +63,32 @@ def test_card_html_contains_key_values():
 
 
 @pytest.mark.unit
+def test_each_rate_shows_its_interval_and_the_sample_size_hint():
+    card = _card().model_copy(update={
+        "baseline_issue_ci": Interval(point=0.83, low=0.61, high=0.94),
+        "hardened_issue_ci": Interval(point=0.11, low=0.03, high=0.33),
+        "attacks_for_10pt": 55,
+    })
+    h = render_report_card_html(card)
+    assert "95% CI 61–94" in h and "95% CI 3–33" in h
+    assert '<p class="fine">±10 pts at this rate needs about 55 attacks (had 18).</p>' in h
+    old = render_report_card_html(_card())  # a card stored before the intervals: no CI text, no hint
+    assert "needs about" not in old and "95% CI 61" not in old
+
+
+@pytest.mark.unit
+def test_a_card_without_a_fix_arm_still_shows_its_rate():
+    card = _card().model_copy(update={
+        "before_after": None, "hardened_grade": "?",
+        "baseline_issue_ci": Interval(point=0.375, low=0.137, high=0.694), "attacks_for_10pt": 87,
+        "trust": _card().trust.model_copy(update={"n_scored": 8}),
+    })
+    h = render_report_card_html(card)
+    assert "As written" in h and "38%" in h and "95% CI 14–69" in h and "With fix" not in h
+    assert "needs about 87 attacks (had 8)" in h
+
+
+@pytest.mark.unit
 def test_dashboard_leads_with_the_runtime_guardrail():
     page = render_dashboard_html([_card(), _card()], title="All checks")
     assert page.count("Runtime guardrail") == 1

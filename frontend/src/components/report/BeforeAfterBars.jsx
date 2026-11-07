@@ -3,62 +3,90 @@ import HonestyPill from "./HonestyPill";
 import { pct } from "../../lib/jargon";
 import { deltaSentence } from "../../lib/trust";
 
-function Bar({ label, rate, tone, ink = "var(--muted)" }) {
+const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', monospace";
+
+function ciText(ci) {
+  return `95% CI ${Math.round(ci.low * 100)}–${Math.round(ci.high * 100)}`;
+}
+
+function Bar({ label, rate, tone, ink = "var(--muted)", ci }) {
   const width = Math.max(2, Math.round((rate || 0) * 100));
   // The value sits outside the fill in a fixed-width column so both rows read down a straight edge.
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
-      <span
-        style={{
-          width: "5.25rem",
-          flexShrink: 0,
-          fontSize: "0.875rem",
-          fontWeight: 500,
-          color: "var(--muted)",
-        }}
-      >
-        {label}
-      </span>
-      <div
-        style={{
-          height: "0.85rem",
-          flex: 1,
-          minWidth: 0,
-          overflow: "hidden",
-          borderRadius: "9999px",
-          background: "var(--surface-2)",
-        }}
-      >
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+        <span
+          style={{
+            width: "5.25rem",
+            flexShrink: 0,
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            color: "var(--muted)",
+          }}
+        >
+          {label}
+        </span>
         <div
           style={{
-            height: "100%",
+            height: "0.85rem",
+            flex: 1,
+            minWidth: 0,
+            overflow: "hidden",
             borderRadius: "9999px",
-            background: tone,
-            width: `${width}%`,
-            transition: "width .4s ease",
+            background: "var(--surface-2)",
           }}
-        />
+        >
+          <div
+            style={{
+              height: "100%",
+              borderRadius: "9999px",
+              background: tone,
+              width: `${width}%`,
+              transition: "width .4s ease",
+            }}
+          />
+        </div>
+        <span
+          style={{
+            width: "3rem",
+            flexShrink: 0,
+            textAlign: "right",
+            fontFamily: MONO,
+            fontSize: "0.8125rem",
+            fontWeight: 700,
+            color: ink,
+          }}
+        >
+          {pct(rate)}
+        </span>
       </div>
-      <span
-        style={{
-          width: "3rem",
-          flexShrink: 0,
-          textAlign: "right",
-          fontFamily: "'JetBrains Mono', ui-monospace, 'SF Mono', monospace",
-          fontSize: "0.8125rem",
-          fontWeight: 700,
-          color: ink,
-        }}
-      >
-        {pct(rate)}
-      </span>
+      {ci && (
+        <p
+          style={{
+            margin: "0.2rem 0 0 6.1rem",
+            fontFamily: MONO,
+            fontSize: "0.75rem",
+            color: "var(--subtle)",
+          }}
+        >
+          {ciText(ci)}
+        </p>
+      )}
     </div>
   );
 }
 
 // The prompt as written (grey) over the fixed prompt (purple, or pink when the fix adds issues).
 // Safety: issue = an attack got through. Quality: issue = an answer with a defect.
-export default function BeforeAfterBars({ ba, quality = false, showBadge = true }) {
+// The card's per-arm Wilson intervals and sample-size hint are optional: older payloads lack them.
+export default function BeforeAfterBars({
+  ba,
+  quality = false,
+  showBadge = true,
+  baselineCi = null,
+  hardenedCi = null,
+  attacksFor10pt = null,
+}) {
   if (!ba) return null;
   const red = ba.absolute_reduction || {};
   const costs = ba.hardened_issue_rate > ba.baseline_issue_rate;
@@ -68,21 +96,34 @@ export default function BeforeAfterBars({ ba, quality = false, showBadge = true 
         label="As written"
         rate={ba.baseline_issue_rate}
         tone="var(--chart-grey)"
+        ci={baselineCi}
       />
       <Bar
         label="With fix"
         rate={ba.hardened_issue_rate}
         tone={costs ? "var(--pink)" : "var(--accent)"}
         ink={costs ? "var(--pink-ink)" : "var(--accent-ink)"}
+        ci={hardenedCi}
       />
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-sm text-app-muted">
-          <strong>{deltaSentence(red.point, quality)}</strong> (95% range {pct(red.low)} to {pct(red.high)})
+          <strong>{deltaSentence(red.point, quality)}</strong> (95% range{" "}
+          {pct(red.low)} to {pct(red.high)})
         </p>
       </div>
+      {attacksFor10pt ? (
+        <p className="text-xs text-app-muted">
+          ±10 pts at this rate needs about {attacksFor10pt} attacks (had{" "}
+          {ba.n_pairs}).
+        </p>
+      ) : null}
       {showBadge && (
         <div>
-          <HonestyPill badge={ba.honesty} p={ba.mcnemar_p} nPairs={ba.n_pairs} />
+          <HonestyPill
+            badge={ba.honesty}
+            p={ba.mcnemar_p}
+            nPairs={ba.n_pairs}
+          />
         </div>
       )}
     </div>

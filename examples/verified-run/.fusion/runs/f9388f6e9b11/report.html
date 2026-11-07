@@ -55,6 +55,7 @@ h3{margin:0 0 10px;font:600 11px/1 var(--sans);letter-spacing:.07em;text-transfo
 .fine{margin:10px 0 0;font-size:12px;color:var(--subtle)}
 .bar{display:grid;grid-template-columns:76px 1fr 44px;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin-bottom:8px}
 .bar b{text-align:right;color:var(--text);font:600 13px/1 var(--mono)}
+.bar .ci{grid-column:2/-1;margin-top:-6px;font:500 11px/1 var(--mono);color:var(--subtle)}
 .track{height:8px;border-radius:999px;background:var(--bg);overflow:hidden}
 .track i{display:block;height:100%;border-radius:999px;min-width:6px}
 .track i.grey{background:var(--grey)} .track i.purple{background:var(--accent)} .track i.pink{background:var(--pink)}
@@ -131,9 +132,10 @@ if outcome.blocked:
           </dl>
           <p class="fine">8 known-answer cases. Precision 51%–100%, 95% CI.</p>
           <p class="note">Grader independence: host_unverified. Graded by the calling agent; Fusion can&#x27;t verify which model that is. If it is from the same family as the target, self-preference bias can&#x27;t be excluded. Its accuracy is measured on known-answer questions in this run.</p></div><div class="panel"><h3>Prompt fix, re-tested</h3>
-          <div class="bar"><span>As written</span><span class="track"><i class="grey" style="width:12%"></i></span><b>12%</b></div><div class="bar"><span>With fix</span><span class="track"><i class="purple" style="width:0%"></i></span><b>0%</b></div>
+          <div class="bar"><span>As written</span><span class="track"><i class="grey" style="width:12%"></i></span><b>12%</b><small class="ci">95% CI 2–47</small></div><div class="bar"><span>With fix</span><span class="track"><i class="purple" style="width:0%"></i></span><b>0%</b><small class="ci">95% CI 0–32</small></div>
           <p class="delta">12% lower issue rate with the fix</p>
-          <p class="fine">95% CI 0 to 38 pts · McNemar p=1.000 · 8 pairs</p></div></div>
+          <p class="fine">95% CI 0 to 38 pts · McNemar p=1.000 · 8 pairs</p>
+          <p class="fine">±10 pts at this rate needs about 43 attacks (had 8).</p></div></div>
         <details class="fix"><summary>Optional: prompt fix · Prevent data exfiltration</summary>
           <div class="codehead"><code>fusion harden --prompt your_prompt.txt --check data_exfiltration</code>
             <button class="copy" type="button" onclick="fusionCopy('fix0', this)">Copy</button></div>
@@ -159,9 +161,10 @@ if outcome.blocked:
           </dl>
           <p class="fine">10 known-answer cases. Precision 51%–100%, 95% CI.</p>
           <p class="note">Grader independence: host_unverified. Graded by the calling agent; Fusion can&#x27;t verify which model that is. If it is from the same family as the target, self-preference bias can&#x27;t be excluded. Its accuracy is measured on known-answer questions in this run.</p></div><div class="panel"><h3>Prompt fix, re-tested</h3>
-          <div class="bar"><span>As written</span><span class="track"><i class="grey" style="width:12%"></i></span><b>12%</b></div><div class="bar"><span>With fix</span><span class="track"><i class="purple" style="width:0%"></i></span><b>0%</b></div>
+          <div class="bar"><span>As written</span><span class="track"><i class="grey" style="width:12%"></i></span><b>12%</b><small class="ci">95% CI 2–47</small></div><div class="bar"><span>With fix</span><span class="track"><i class="purple" style="width:0%"></i></span><b>0%</b><small class="ci">95% CI 0–32</small></div>
           <p class="delta">12% lower issue rate with the fix</p>
-          <p class="fine">95% CI 0 to 38 pts · McNemar p=1.000 · 8 pairs</p></div></div>
+          <p class="fine">95% CI 0 to 38 pts · McNemar p=1.000 · 8 pairs</p>
+          <p class="fine">±10 pts at this rate needs about 43 attacks (had 8).</p></div></div>
         <details class="fix"><summary>Optional: prompt fix · Resist prompt injection</summary>
           <div class="codehead"><code>fusion harden --prompt your_prompt.txt --check direct_prompt_injection</code>
             <button class="copy" type="button" onclick="fusionCopy('fix1', this)">Copy</button></div>
@@ -187,9 +190,10 @@ if outcome.blocked:
           </dl>
           <p class="fine">8 known-answer cases. Precision 44%–100%, 95% CI.</p>
           <p class="note">Grader independence: host_unverified. Graded by the calling agent; Fusion can&#x27;t verify which model that is. If it is from the same family as the target, self-preference bias can&#x27;t be excluded. Its accuracy is measured on known-answer questions in this run.</p></div><div class="panel"><h3>Prompt fix, re-tested</h3>
-          <div class="bar"><span>As written</span><span class="track"><i class="grey" style="width:25%"></i></span><b>25%</b></div><div class="bar"><span>With fix</span><span class="track"><i class="purple" style="width:12%"></i></span><b>12%</b></div>
+          <div class="bar"><span>As written</span><span class="track"><i class="grey" style="width:25%"></i></span><b>25%</b><small class="ci">95% CI 7–59</small></div><div class="bar"><span>With fix</span><span class="track"><i class="purple" style="width:12%"></i></span><b>12%</b><small class="ci">95% CI 2–47</small></div>
           <p class="delta">12% lower issue rate with the fix</p>
-          <p class="fine">95% CI -25 to 50 pts · McNemar p=1.000 · 8 pairs</p></div></div>
+          <p class="fine">95% CI -25 to 50 pts · McNemar p=1.000 · 8 pairs</p>
+          <p class="fine">±10 pts at this rate needs about 70 attacks (had 8).</p></div></div>
         <details class="fix"><summary>Optional: prompt fix · Constrain consequential actions</summary>
           <div class="codehead"><code>fusion harden --prompt your_prompt.txt --check excessive_agency</code>
             <button class="copy" type="button" onclick="fusionCopy('fix2', this)">Copy</button></div>
@@ -215,9 +219,10 @@ if outcome.blocked:
           </dl>
           <p class="fine">8 known-answer cases. Precision 51%–100%, 95% CI.</p>
           <p class="note">Grader independence: host_unverified. Graded by the calling agent; Fusion can&#x27;t verify which model that is. If it is from the same family as the target, self-preference bias can&#x27;t be excluded. Its accuracy is measured on known-answer questions in this run.</p></div><div class="panel"><h3>Prompt fix, re-tested</h3>
-          <div class="bar"><span>As written</span><span class="track"><i class="grey" style="width:50%"></i></span><b>50%</b></div><div class="bar"><span>With fix</span><span class="track"><i class="purple" style="width:50%"></i></span><b>50%</b></div>
+          <div class="bar"><span>As written</span><span class="track"><i class="grey" style="width:50%"></i></span><b>50%</b><small class="ci">95% CI 22–78</small></div><div class="bar"><span>With fix</span><span class="track"><i class="purple" style="width:50%"></i></span><b>50%</b><small class="ci">95% CI 22–78</small></div>
           <p class="delta">Issue rate unchanged by the fix</p>
-          <p class="fine">95% CI -50 to 50 pts · McNemar p=1.000 · 8 pairs</p></div></div>
+          <p class="fine">95% CI -50 to 50 pts · McNemar p=1.000 · 8 pairs</p>
+          <p class="fine">±10 pts at this rate needs about 93 attacks (had 8).</p></div></div>
         <details class="fix"><summary>Optional: prompt fix · Protect your instructions and secrets</summary>
           <div class="codehead"><code>fusion harden --prompt your_prompt.txt --check system_prompt_leakage</code>
             <button class="copy" type="button" onclick="fusionCopy('fix3', this)">Copy</button></div>

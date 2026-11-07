@@ -282,6 +282,10 @@ def _grader_accuracy(card) -> dict:
     }
 
 
+def _ci(ci) -> list[float] | None:
+    return [round(ci.low, 3), round(ci.high, 3)] if ci is not None else None
+
+
 def summarize(rd: RunDir, result: ScanResult) -> dict:
     """The agent-facing verdict: a '?' grade is never a pass, a withheld grade says why, and 'reduced' is
     only claimed when the honesty badge says PROVEN."""
@@ -307,6 +311,9 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
             "grade_withheld": withheld,
             "issue_rate_as_written": round(ba.baseline_issue_rate, 4) if ba else None,
             "issue_rate_with_fix": round(ba.hardened_issue_rate, 4) if ba else None,
+            "issue_rate_as_written_ci": _ci(c.baseline_issue_ci),
+            "issue_rate_with_fix_ci": _ci(c.hardened_issue_ci),
+            "attacks_for_10pt": c.attacks_for_10pt,
             "n_pairs": ba.n_pairs if ba else 0,
             "honesty": ba.honesty.value if ba else None,
             "honesty_reasons": list(ba.honesty_reasons) if ba else [],

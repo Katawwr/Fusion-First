@@ -88,6 +88,9 @@ export default function ReportCard({ card, outcomes = [] }) {
             ba={card.before_after}
             quality={quality}
             showBadge={false}
+            baselineCi={card.baseline_issue_ci}
+            hardenedCi={card.hardened_issue_ci}
+            attacksFor10pt={card.attacks_for_10pt}
           />
         </div>
       )}

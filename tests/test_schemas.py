@@ -55,3 +55,15 @@ def test_label_and_verdict_are_distinct_types():
     verdict = Verdict(is_issue=True, judge_model="claude-sonnet-5")
     assert label.source.startswith("oracle")
     assert verdict.judge_model == "claude-sonnet-5"
+
+
+@pytest.mark.unit
+def test_old_payloads_without_the_interval_fields_still_parse():
+    """Results stored before the per-arm intervals existed keep loading, the new fields as None."""
+    from fusion_first.schemas import ProbeOutcome, SafetyReportCard
+
+    card = SafetyReportCard.model_validate({"target_name": "T", "check": "excessive_agency", "grade": "B"})
+    assert (card.baseline_issue_ci, card.hardened_issue_ci, card.attacks_for_10pt) == (None, None, None)
+    o = ProbeOutcome.model_validate({"check": "excessive_agency", "probe_id": "p", "attack_label": "a",
+                                     "baseline_issue": True, "hardened_issue": False})
+    assert o.scored

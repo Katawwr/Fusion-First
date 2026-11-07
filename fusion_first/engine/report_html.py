@@ -7,7 +7,7 @@ import html
 
 from fusion_first.engine.guard_replay import in_sample_payload
 from fusion_first.guardrail.snippet import guardrail_snippet
-from fusion_first.schemas import Honesty, ProbeOutcome, SafetyReportCard
+from fusion_first.schemas import Honesty, Interval, ProbeOutcome, SafetyReportCard
 
 # The prompt fix's measured caveat (Trust Report: fix efficacy on small open-weight models).
 FIX_CAVEAT = ("On the small open-weight models measured, the prompt fix rarely cut attacks and raised "
@@ -77,21 +77,37 @@ def _accuracy(card: SafetyReportCard) -> str:
           {_judge_notes(card)}</div>"""
 
 
+def _bar(label: str, rate: float, tone: str, ci: Interval | None) -> str:
+    ci_s = f'<small class="ci">95% CI {ci.low*100:.0f}–{ci.high*100:.0f}</small>' if ci else ""
+    return (f'<div class="bar"><span>{label}</span><span class="track"><i class="{tone}" '
+            f'style="width:{round(rate * 100)}%"></i></span><b>{_pct(rate)}</b>{ci_s}</div>')
+
+
+def _hint(card: SafetyReportCard) -> str:
+    if not card.attacks_for_10pt:
+        return ""
+    had = card.before_after.n_pairs if card.before_after else card.trust.n_scored
+    return f'<p class="fine">±10 pts at this rate needs about {card.attacks_for_10pt} attacks (had {had}).</p>'
+
+
 def _fix_result(card: SafetyReportCard) -> str:
     d = card.before_after
     if not d:
-        return ""
+        b = card.baseline_issue_ci
+        if not b:
+            return ""
+        return f"""<div class="panel"><h3>Issue rate</h3>
+          {_bar("As written", b.point, "grey", b)}
+          {_hint(card)}</div>"""
     worse = d.hardened_issue_rate > d.baseline_issue_rate
-    rows = "".join(
-        f'<div class="bar"><span>{label}</span><span class="track"><i class="{tone}" '
-        f'style="width:{round(rate * 100)}%"></i></span><b>{_pct(rate)}</b></div>'
-        for label, rate, tone in (("As written", d.baseline_issue_rate, "grey"),
-                                  ("With fix", d.hardened_issue_rate, "pink" if worse else "purple")))
+    rows = (_bar("As written", d.baseline_issue_rate, "grey", card.baseline_issue_ci)
+            + _bar("With fix", d.hardened_issue_rate, "pink" if worse else "purple", card.hardened_issue_ci))
     r = d.absolute_reduction
     return f"""<div class="panel"><h3>Prompt fix, re-tested</h3>
           {rows}
           <p class="delta">{_esc(_delta_text(r.point))}</p>
-          <p class="fine">95% CI {r.low*100:.0f} to {r.high*100:.0f} pts · McNemar p={d.mcnemar_p:.3f} · {d.n_pairs} pairs</p></div>"""
+          <p class="fine">95% CI {r.low*100:.0f} to {r.high*100:.0f} pts · McNemar p={d.mcnemar_p:.3f} · {d.n_pairs} pairs</p>
+          {_hint(card)}</div>"""
 
 
 def _fix_block(card: SafetyReportCard, idx: int) -> str:
@@ -204,6 +220,7 @@ h3{{margin:0 0 10px;font:600 11px/1 var(--sans);letter-spacing:.07em;text-transf
 .fine{{margin:10px 0 0;font-size:12px;color:var(--subtle)}}
 .bar{{display:grid;grid-template-columns:76px 1fr 44px;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin-bottom:8px}}
 .bar b{{text-align:right;color:var(--text);font:600 13px/1 var(--mono)}}
+.bar .ci{{grid-column:2/-1;margin-top:-6px;font:500 11px/1 var(--mono);color:var(--subtle)}}
 .track{{height:8px;border-radius:999px;background:var(--bg);overflow:hidden}}
 .track i{{display:block;height:100%;border-radius:999px;min-width:6px}}
 .track i.grey{{background:var(--grey)}} .track i.purple{{background:var(--accent)}} .track i.pink{{background:var(--pink)}}

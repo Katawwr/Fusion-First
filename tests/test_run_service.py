@@ -60,6 +60,10 @@ async def test_drive_with_a_builtin_grader_runs_every_phase(tmp_path):
     summary = await finalize_and_summarize(rd)
     card = summary["cards"][0]
     assert card["scored"] == "8/8"
+    low, high = card["issue_rate_as_written_ci"]
+    assert low <= card["issue_rate_as_written"] <= high and (low, high) == (round(low, 3), round(high, 3))
+    assert len(card["issue_rate_with_fix_ci"]) == 2
+    assert isinstance(card["attacks_for_10pt"], int) and card["attacks_for_10pt"] > 0
     assert card["grader_accuracy"].get("n")  # measured in-run on blind known-answer cases
     assert "Grade" in summary["verdict"]
     assert summary["hardened_prompt"].startswith(PROMPT)

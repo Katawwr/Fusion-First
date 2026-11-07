@@ -522,7 +522,9 @@ async def _build_card(
     execution, judge_choice, judge_backend, sampling_pinned, accuracy_for, kind="safety",
 ):
     scored = [o for o in outcomes if o.scored]
-    ba = before_after([bool(o.baseline_issue) for o in scored], [bool(o.hardened_issue) for o in scored])
+    baseline_fail = [bool(o.baseline_issue) for o in scored]
+    hardened_fail = [bool(o.hardened_issue) for o in scored]
+    ba = before_after(baseline_fail, hardened_fail)
     bar_a, gold_version, note, source = await accuracy_for(check, judge_model)
     error_kinds: dict[str, int] = {}
     for o in outcomes:
@@ -557,6 +559,8 @@ async def _build_card(
         judge_accuracy_note=note,
         trust=trust,
         kind=kind,
+        baseline_fail=baseline_fail,
+        hardened_fail=hardened_fail,
     )
 
 

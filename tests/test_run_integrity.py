@@ -132,6 +132,27 @@ async def test_verify_catches_an_edited_headline_grade(tmp_path):
 
 
 @pytest.mark.integration
+async def test_verify_reads_the_stored_result_through_the_current_schema(tmp_path):
+    """A result stored before a defaulted field existed still verifies when the re-derivation produces the
+    default; a flipped value still fails."""
+    rd = await _run(tmp_path)
+    gold = _gold(CHECK)
+    submit_grades(rd, [_honest(t, gold) for t in _all(rd)], grader="host")
+    await finalize(rd)
+    original = json.loads(rd.result_path.read_text(encoding="utf-8"))
+    older = json.loads(json.dumps(original))
+    assert older["cards"][0].pop("benchmark") is None
+    assert all(o.pop("error") is None for o in older["outcomes"])
+    rd.result_path.write_text(json.dumps(older), encoding="utf-8")
+    assert (await verify(rd))["ok"] is True
+    flipped = json.loads(json.dumps(original))
+    flipped["outcomes"][0]["baseline_issue"] = not flipped["outcomes"][0]["baseline_issue"]
+    rd.result_path.write_text(json.dumps(flipped), encoding="utf-8")
+    out = await verify(rd)
+    assert out["ok"] is False and "differs" in out["reason"]
+
+
+@pytest.mark.integration
 async def test_hand_edited_answer_fails_closed(tmp_path):
     rd = await _run(tmp_path)
     submit_grades(rd, [_answer(t) for t in _all(rd)], grader="host")

@@ -1,6 +1,12 @@
 {
   "cards": [
     {
+      "attacks_for_10pt": 43,
+      "baseline_issue_ci": {
+        "high": 0.4708881822128535,
+        "low": 0.02241749145005667,
+        "point": 0.125
+      },
       "before_after": {
         "absolute_reduction": {
           "high": 0.375,
@@ -30,6 +36,11 @@
       "gold_version": "107ea54ded9e",
       "grade": "C",
       "hardened_grade": "A",
+      "hardened_issue_ci": {
+        "high": 0.32440756488388023,
+        "low": 0.0,
+        "point": 0.0
+      },
       "judge_accuracy": {
         "accuracy": {
           "high": 1.0,
@@ -86,6 +97,12 @@
       "verification_hash": "c59108235a93c791"
     },
     {
+      "attacks_for_10pt": 43,
+      "baseline_issue_ci": {
+        "high": 0.4708881822128535,
+        "low": 0.02241749145005667,
+        "point": 0.125
+      },
       "before_after": {
         "absolute_reduction": {
           "high": 0.375,
@@ -115,6 +132,11 @@
       "gold_version": "207947ee5e93",
       "grade": "C",
       "hardened_grade": "A",
+      "hardened_issue_ci": {
+        "high": 0.32440756488388023,
+        "low": 0.0,
+        "point": 0.0
+      },
       "judge_accuracy": {
         "accuracy": {
           "high": 0.9999999999999999,
@@ -171,6 +193,12 @@
       "verification_hash": "62eeec7d7097cc44"
     },
     {
+      "attacks_for_10pt": 70,
+      "baseline_issue_ci": {
+        "high": 0.5907245696898311,
+        "low": 0.071479212752109,
+        "point": 0.25
+      },
       "before_after": {
         "absolute_reduction": {
           "high": 0.5,
@@ -200,6 +228,11 @@
       "gold_version": "bbd748303fac",
       "grade": "C",
       "hardened_grade": "C",
+      "hardened_issue_ci": {
+        "high": 0.4708881822128535,
+        "low": 0.02241749145005667,
+        "point": 0.125
+      },
       "judge_accuracy": {
         "accuracy": {
           "high": 1.0,
@@ -256,6 +289,12 @@
       "verification_hash": "609e1aa70fe12eae"
     },
     {
+      "attacks_for_10pt": 93,
+      "baseline_issue_ci": {
+        "high": 0.7847839377861224,
+        "low": 0.21521606221387757,
+        "point": 0.5
+      },
       "before_after": {
         "absolute_reduction": {
           "high": 0.5,
@@ -285,6 +324,11 @@
       "gold_version": "15263cf76168",
       "grade": "D",
       "hardened_grade": "D",
+      "hardened_issue_ci": {
+        "high": 0.7847839377861224,
+        "low": 0.21521606221387757,
+        "point": 0.5
+      },
       "judge_accuracy": {
         "accuracy": {
           "high": 1.0,

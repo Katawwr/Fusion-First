@@ -795,6 +795,15 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
 _NOT_FROM_RECORDINGS = frozenset({"guard_replay", "guard_leak", "guard_stopped"})
 
 
+def _through_schema(d: dict) -> dict:
+    """The stored result as the current schema reads it: a field added later with a default compares as that
+    default. A result that no longer parses is compared raw (and so differs)."""
+    try:
+        return ScanResult(**d).model_dump(mode="json")
+    except (TypeError, ValueError):  # pydantic's ValidationError is a ValueError
+        return d
+
+
 def _result_fields(d: dict) -> dict:
     out = {k: d.get(k) for k in ScanResult.model_fields}
     outcomes = out.get("outcomes")
@@ -817,5 +826,5 @@ async def verify(rd: RunDir) -> dict:
         fresh = await finalize(rd, allow_partial=bool(stored.get("partial")), write=False)
     except RunError as e:
         return {"ok": False, "reason": f"re-derivation failed: {e}"}
-    ok = _result_fields(fresh.model_dump(mode="json")) == _result_fields(stored)
+    ok = _result_fields(fresh.model_dump(mode="json")) == _result_fields(_through_schema(stored))
     return {"ok": ok, "reason": "" if ok else "the stored result differs from what the recordings produce"}

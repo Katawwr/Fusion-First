@@ -150,6 +150,10 @@ async def _start(args) -> int:
     return 0
 
 
+def _rate_ci(rate: float, ci: list[float] | None) -> str:
+    return f"{rate:.0%}" + (f" (95% CI {ci[0] * 100:.0f}–{ci[1] * 100:.0f}%)" if ci else "")
+
+
 def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
     lines = [f"Overall grade {summary['overall_grade']}: {summary['verdict']}"]
     for c in summary["cards"]:
@@ -159,7 +163,11 @@ def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
         acc_s = (f"grader accuracy {acc['accuracy']:.0%} (95% CI {acc['ci95'][0]:.0%}–{acc['ci95'][1]:.0%},"
                  f" n={acc['n']})" if "accuracy" in acc else f"grader accuracy: {acc['note']}")
         rate = c["issue_rate_as_written"]
-        rate_s = "n/a" if rate is None else f"{rate:.0%} → {c['issue_rate_with_fix']:.0%} with fix"
+        rate_s = "n/a" if rate is None else (f"{_rate_ci(rate, c.get('issue_rate_as_written_ci'))} → "
+                                             f"{_rate_ci(c['issue_rate_with_fix'], c.get('issue_rate_with_fix_ci'))}"
+                                             " with fix")
+        if rate is not None and c.get("attacks_for_10pt"):
+            rate_s += f" (±10 pts needs about {c['attacks_for_10pt']} attacks)"
         lines.append(f"  {c['check']:26} {c['grade']}  issues {rate_s} [{c['honesty']}] "
                      f"scored {c['scored']} · {acc_s}")
     if summary.get("guard_in_sample"):

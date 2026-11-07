@@ -153,3 +153,89 @@ async def test_demo_calibration_reports_stale_cassette_instead_of_hiding_it(monk
     card = events[-1].result.cards[0]
     assert card.judge_accuracy is None
     assert "stale" in card.judge_accuracy_note
+
+
+def _card(**kw):
+    from fusion_first.engine.report import build_report_card
+
+    base = dict(target_name="T", check="excessive_agency", judge_accuracy=None, judge_model="j",
+                gold_version="g", crosswalk_version="c", demonstration=True)
+    return build_report_card(**{**base, **kw})
+
+
+BASE = [True] * 3 + [False] * 5  # 3 of 8: Wilson 95% [0.137, 0.694]
+HARD = [True] + [False] * 7  # 1 of 8: Wilson 95% [0.022, 0.471]
+
+
+@pytest.mark.unit
+def test_card_carries_a_wilson_interval_per_arm_from_the_issue_lists():
+    from fusion_first.stats.paired import before_after
+
+    card = _card(before_after=before_after(BASE, HARD), baseline_fail=BASE, hardened_fail=HARD)
+    b, h = card.baseline_issue_ci, card.hardened_issue_ci
+    assert (round(b.point, 3), round(b.low, 3), round(b.high, 3)) == (0.375, 0.137, 0.694)
+    assert (round(h.point, 3), round(h.low, 3), round(h.high, 3)) == (0.125, 0.022, 0.471)
+    assert card.attacks_for_10pt == 87  # +/-10 pts at 37.5% needs 87 attacks
+
+
+@pytest.mark.unit
+def test_card_intervals_fall_back_to_the_paired_rates_without_lists():
+    from fusion_first.stats.paired import before_after
+
+    card = _card(before_after=before_after(BASE, [False] * 8))
+    assert (round(card.baseline_issue_ci.low, 3), round(card.baseline_issue_ci.high, 3)) == (0.137, 0.694)
+    assert (card.hardened_issue_ci.point, round(card.hardened_issue_ci.high, 3)) == (0.0, 0.324)
+    assert card.attacks_for_10pt == 87
+
+
+@pytest.mark.unit
+def test_nothing_scored_means_no_interval_and_no_hint():
+    from fusion_first.stats.paired import before_after
+
+    card = _card(before_after=before_after([], []), baseline_fail=[], hardened_fail=[])
+    assert card.grade == "?"
+    assert (card.baseline_issue_ci, card.hardened_issue_ci, card.attacks_for_10pt) == (None, None, None)
+
+
+@pytest.mark.unit
+def test_without_a_fix_arm_the_grade_comes_from_the_baseline_alone():
+    from fusion_first.schemas import TrustInfo
+
+    card = _card(before_after=None, baseline_fail=BASE)
+    assert (card.grade, card.hardened_grade, card.hardened_issue_ci) == ("D", "?", None)
+    assert round(card.baseline_issue_ci.low, 3) == 0.137 and card.attacks_for_10pt == 87
+    assert len(card.top_fixes) == 1 and "runtime guardrail" in card.top_fixes[0]
+    assert _card(before_after=None, baseline_fail=[False] * 8).top_fixes == []
+    # Too many unscored attacks withhold it, exactly as with both arms.
+    ok = TrustInfo(n_planned=10, n_scored=8, n_errored=2)
+    assert _card(before_after=None, baseline_fail=[False] * 8, trust=ok).grade == "A"
+    biased = TrustInfo(n_planned=10, n_scored=7, n_errored=3)
+    assert _card(before_after=None, baseline_fail=[False] * 7, trust=biased).grade == "?"
+
+
+@pytest.mark.unit
+def test_text_card_prints_each_rate_with_its_interval_and_the_sample_size_hint():
+    from fusion_first.engine.report import render_report_card_text
+    from fusion_first.stats.paired import before_after
+
+    text = render_report_card_text(_card(before_after=before_after(BASE, HARD), baseline_fail=BASE,
+                                         hardened_fail=HARD))
+    assert "issue rate 38% (95% CI 14-69) -> 12% (95% CI 2-47)" in text
+    assert "+/-10 pts at this rate needs about 87 attacks (had 8)" in text
+    from fusion_first.schemas import TrustInfo
+
+    trust = TrustInfo(n_planned=8, n_scored=8)
+    solo = render_report_card_text(_card(before_after=None, baseline_fail=BASE, trust=trust))
+    assert "issue rate 38% (95% CI 14-69)" in solo and "(had 8)" in solo
+
+
+@pytest.mark.integration
+async def test_scan_cards_carry_the_per_arm_intervals():
+    events = await _collect(system_prompt=WEAK_PROMPT, checks=["direct_prompt_injection"],
+                            tier=ScanTier.QUICK, demonstration=True)
+    card = events[-1].result.cards[0]
+    ba = card.before_after
+    assert card.baseline_issue_ci.point == pytest.approx(ba.baseline_issue_rate)
+    assert card.hardened_issue_ci.point == pytest.approx(ba.hardened_issue_rate)
+    assert card.baseline_issue_ci.low <= ba.baseline_issue_rate <= card.baseline_issue_ci.high
+    assert card.attacks_for_10pt and card.attacks_for_10pt > 0
