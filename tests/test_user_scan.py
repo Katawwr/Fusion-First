@@ -333,3 +333,104 @@ async def test_a_demonstration_without_a_fix_arm_grades_the_canned_baseline():
     result = events[-1].result
     assert all(o.hardened_skipped and o.scored for o in result.outcomes)
     assert result.cards[0].before_after is None and result.cards[0].grade != "?"
+
+
+# ---- tool templates (corpus v2) run through the bounded tool loop ------------------------------------
+
+HONEST_REPLY = "I read the ticket and summarised it for you; I took no other step."
+
+
+class ToolAgent:
+    """A fake tool-calling target over v2 templates (found by their user turn). Turn 1 calls the read tool;
+    on the prompt as written it then makes the attack call, on any other prompt it answers in prose."""
+
+    def __init__(self, templates, compliant_system: str):
+        self.by_user = {t.user: t for t in templates}
+        self.compliant_system = compliant_system
+        self.requests: list[ModelRequest] = []
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        self.requests.append(request)
+        t = self.by_user[request.messages[0]["content"]]
+        turn = 1 + sum(1 for m in request.messages if m["role"] == "assistant")
+        read = t.oracle["benign_tools"][0]
+        if turn == 1:
+            return ModelResponse(text="", model="fake-agent", tool_calls=[{"name": read, "arguments": {"id": "4471"}}])
+        if turn == 2 and request.system == self.compliant_system and t.attack_action:
+            return ModelResponse(text="", model="fake-agent", tool_calls=[
+                {"name": t.attack_action["tool"], "arguments": t.attack_action["arguments"]}])
+        reply = "Done." if request.system == self.compliant_system and t.attack_action else HONEST_REPLY
+        return ModelResponse(text=reply, model="fake-agent", tool_calls=[])
+
+
+class ForbiddenCallJudge:
+    """Flags a transcript iff the agent called one of `forbidden`, quoting the call."""
+
+    def __init__(self, forbidden=("approve_refund", "send_email")):
+        self.forbidden = forbidden
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        ids = request.response_schema["properties"]["criteria"]["items"]["properties"]["id"]["enum"]
+        text = request.messages[0]["content"]
+        hit = next((f"calls {f}]" for f in self.forbidden if f"[ASSISTANT calls {f}]" in text), "")
+        crit = [{"id": i, "violated": bool(hit) and n == 0, "evidence": hit if n == 0 else ""}
+                for n, i in enumerate(ids)]
+        return ModelResponse(text=json.dumps({"criteria": crit, "rationale": "r", "confidence": 0.9}),
+                             model="fake-judge")
+
+
+async def _v2_scan(target, fix_arm=True):
+    return await _collect(system_prompt=WEAK_PROMPT, checks=["excessive_agency"], tier=ScanTier.QUICK,
+                          demonstration=False, judge_client=ForbiddenCallJudge(), target_client=target,
+                          target_model_id="fake-model", judge_model="fake-judge", version="v2", fix_arm=fix_arm)
+
+
+@pytest.mark.integration
+async def test_a_tool_template_runs_through_the_tool_loop_on_both_arms(v2_fixture_probes):
+    from fusion_first.engine.fixes import apply_fix
+    from fusion_first.engine.user_scan import _build_arms
+
+    attack = v2_fixture_probes[0]
+    target = ToolAgent(v2_fixture_probes, WEAK_PROMPT)
+    hardened = apply_fix(WEAK_PROMPT, ["excessive_agency"])
+    base, hard = await _build_arms(attack, WEAK_PROMPT, hardened, demonstration=False,
+                                   target_client=target, target_model_id="fake-model")
+    assert all(r.tools == list(attack.tools) and r.model_id == "fake-model" for r in target.requests)
+    assert target.requests[0].messages == [{"role": "user", "content": attack.user}]  # nothing pasted
+    assert [s.tool_call.name for s in base.steps if s.tool_call] == ["get_ticket", "approve_refund"]
+    assert [s.tool_call.name for s in hard.steps if s.tool_call] == ["get_ticket"]
+    assert (base.steps[0].content, hard.steps[0].content) == (WEAK_PROMPT, hardened)
+    assert base.steps[3].tool_result.injected and base.steps[3].tool_result.content == attack.injected
+
+    result = (await _v2_scan(ToolAgent(v2_fixture_probes, WEAK_PROMPT)))[-1].result
+    by_id = {o.probe_id: o for o in result.outcomes}
+    assert [(by_id[t.id].baseline_issue, by_id[t.id].hardened_issue) for t in v2_fixture_probes] == [
+        (True, False), (True, False), (False, False)]
+    assert "approve_refund" in by_id[attack.id].evidence
+    assert [by_id[t.id].guard_replay for t in v2_fixture_probes] == ["stopped", "stopped", "allowed"]
+
+
+@pytest.mark.integration
+async def test_a_tool_template_without_a_fix_arm_runs_the_loop_on_the_prompt_as_written_only(v2_fixture_probes):
+    target = ToolAgent(v2_fixture_probes, WEAK_PROMPT)
+    result = (await _v2_scan(target, fix_arm=False))[-1].result
+    assert {r.system for r in target.requests} == {WEAK_PROMPT}
+    assert all(o.hardened_skipped and o.hardened_issue is None and o.scored for o in result.outcomes)
+
+
+class _ToolBlindTarget:
+    """A backend that ignores tools (claude-cli, cmd:): no tool_calls field at all."""
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        return ModelResponse(text="I would read the ticket.", model="cli-model", tool_calls=None)
+
+
+@pytest.mark.integration
+async def test_a_backend_that_ignores_tools_ends_the_scan_with_one_error_naming_it(v2_fixture_probes):
+    events = await _v2_scan(_ToolBlindTarget())
+    types = [e.type for e in events]
+    assert types.count(ScanEventType.ERROR) == 1 and types[-1] == ScanEventType.ERROR
+    assert ScanEventType.PROBE_RESULT not in types  # not three unscored attacks
+    err = events[-1]
+    assert err.code == "backend_unavailable"
+    assert "fake-model" in err.message and "no tool_calls field" in err.message

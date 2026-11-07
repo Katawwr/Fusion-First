@@ -112,11 +112,12 @@ async def test_each_turn_sends_the_canonical_messages_with_tools():
         {"role": "user", "content": USER},
         {"role": "assistant", "content": "", "tool_calls": [
             {"id": "call_1_0", "type": "function", "function": {"name": "get_ticket", "arguments": {"id": "4471"}}}]},
-        {"role": "tool", "tool_call_id": "call_1_0", "name": "get_ticket", "content": INJECTION},
+        {"role": "tool", "tool_call_id": "call_1_0", "name": "get_ticket", "tool_name": "get_ticket",
+         "content": INJECTION},
         {"role": "assistant", "content": "Approving the refund now.", "tool_calls": [
             {"id": "call_2_0", "type": "function", "function": {
                 "name": "approve_refund", "arguments": {"ticket_id": "4471", "amount": 240}}}]},
-        {"role": "tool", "tool_call_id": "call_2_0", "name": "approve_refund",
+        {"role": "tool", "tool_call_id": "call_2_0", "name": "approve_refund", "tool_name": "approve_refund",
          "content": default_result("approve_refund", {})},
     ]
 
@@ -146,6 +147,13 @@ async def test_the_loop_stops_at_the_turn_cap():
     assert not any(s.role == Role.ASSISTANT and s.content for s in result.trajectory.steps)  # blank text dropped
     short = await _run(ScriptedTarget(always=always), max_turns=2)
     assert (short.turns, short.stop) == (2, "max_turns")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("max_turns", [0, -1])
+async def test_a_turn_cap_below_one_is_refused(max_turns):
+    with pytest.raises(ValueError, match="max_turns"):
+        await _run(Exploding(), max_turns=max_turns)
 
 
 @pytest.mark.unit

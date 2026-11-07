@@ -7,9 +7,10 @@ final turn (`stop="final"`). `None` means the backend ignores tools (claude-cli,
 loop raises `ToolsUnsupported`, which is not isolatable, since every case of the run would fail the same way.
 
 Messages use one provider-agnostic shape, built deterministically so record/replay keys are stable:
-assistant tool calls carry `id = call_<turn>_<i>` and dict `arguments`; tool results carry `tool_call_id`
-and `name`. The OpenAI-compatible provider JSON-encodes the arguments on the wire; the Ollama provider
-needs no change (it accepts dict arguments and ignores the extra `id`, `type` and `tool_call_id` keys).
+assistant tool calls carry `id = call_<turn>_<i>` and dict `arguments`; tool results carry `tool_call_id`,
+`name` and `tool_name` (Ollama's `/api/chat` names a tool result by `tool_name`; without it a result is
+linked to its call only by position). The OpenAI-compatible provider JSON-encodes the arguments on the
+wire; the Ollama provider needs no change (it accepts dict arguments and ignores the extra keys).
 """
 
 from __future__ import annotations
@@ -59,6 +60,8 @@ async def run_tool_loop(
     max_turns: int = MAX_ASSISTANT_TURNS,
     max_tokens: int = 800,
 ) -> ToolLoopResult:
+    if max_turns < 1:
+        raise ValueError(f"max_turns must be at least 1, got {max_turns}")
     messages: list[dict] = [{"role": "user", "content": user}]
     steps = [Step(role=Role.SYSTEM, content=system_prompt), Step(role=Role.USER, content=user)]
     responses: list[ModelResponse] = []
@@ -71,7 +74,7 @@ async def run_tool_loop(
         if resp.tool_calls is None:
             raise ToolsUnsupported(
                 f"the target backend returned no tool_calls field for a request that offered tools "
-                f"(model {resp.model!r}); use a tool-capable backend (ollama:, openai-compat:)")
+                f"(model {model_id or resp.model!r}); use a tool-capable backend (ollama:, openai-compat:)")
         calls = [(c["name"], _arguments(c)) for c in resp.tool_calls]
         for name, args in calls:
             steps.append(Step(role=Role.ASSISTANT, tool_call=ToolCall(name=name, arguments=args)))
@@ -87,5 +90,6 @@ async def run_tool_loop(
             sim = simulate(name, args, turn, script)
             steps.append(Step(role=Role.TOOL, tool_result=ToolResult(tool=name, content=sim.content,
                                                                      injected=sim.injected)))
-            messages.append({"role": "tool", "tool_call_id": cid, "name": name, "content": sim.content})
+            messages.append({"role": "tool", "tool_call_id": cid, "name": name, "tool_name": name,
+                             "content": sim.content})
     return ToolLoopResult(Trajectory(steps=steps), responses, max_turns, "max_turns")

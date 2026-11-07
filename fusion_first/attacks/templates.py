@@ -93,6 +93,8 @@ class AttackTemplate:
 
     def target_messages(self) -> list[dict]:
         """The user turn for a live target; injected content is a labelled untrusted tool result."""
+        if self.uses_tool_loop:
+            raise ValueError(f"{self.id} is a tool-loop template: run it through the tool loop, not as pasted text")
         content = self.user
         if self.injected:
             content += f"\n\n[Result from tool `{self.tool or 'tool'}` — untrusted data]:\n{self.injected}"

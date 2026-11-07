@@ -22,6 +22,7 @@ from fusion_first.attacks.templates import AttackTemplate, select_templates
 from fusion_first.engine import guard_replay
 from fusion_first.engine.fixes import apply_fix
 from fusion_first.engine.report import build_report_card
+from fusion_first.engine.tool_loop import ToolsUnsupported, run_tool_loop
 from fusion_first.errors import ErrorKind, classify, isolatable
 from fusion_first.judge.judge import Judge
 from fusion_first.judge.rubric import get_rubric
@@ -134,7 +135,8 @@ async def _build_arms(
     target_model_id: str | None,
     fix_arm: bool = True,
 ) -> tuple[Trajectory, Trajectory | None]:
-    """(prompt as written, hardened prompt); the hardened arm is None without a fix arm (never asked)."""
+    """(prompt as written, hardened prompt); the hardened arm is None without a fix arm (never asked). A tool
+    template (corpus v2) runs each arm through the bounded tool loop; a v1 template pastes its tool result."""
     if demonstration:
         return (
             template.demo_trajectory(system_prompt, hardened=False),
@@ -142,6 +144,14 @@ async def _build_arms(
         )
     if target_client is None or target_model_id is None:
         raise ValueError("live scan requires a target_client and target_model_id")
+    if template.uses_tool_loop:
+        async def loop(prompt: str) -> Trajectory:
+            return (await run_tool_loop(
+                system_prompt=prompt, user=template.user, tools=list(template.tools), script=template.turns,
+                client=target_client, model_id=target_model_id,
+            )).trajectory
+
+        return await loop(system_prompt), (await loop(hardened_prompt) if fix_arm else None)
     base_text = await _target_response(template, system_prompt, target_client, target_model_id)
     if not fix_arm:
         return template.live_trajectory(system_prompt, base_text), None
@@ -325,6 +335,8 @@ _ABORT_MESSAGES = {
 
 
 def _abort_for(exc: BaseException) -> ScanAbort:
+    if isinstance(exc, ToolsUnsupported):  # every tool attack would fail the same way: one error, named
+        return ScanAbort("backend_unavailable", f"The target cannot run tool attacks: {exc}.")
     code = {
         ErrorKind.BUDGET_EXCEEDED: "budget_exceeded",
         ErrorKind.QUOTA_EXHAUSTED: "quota_exhausted",

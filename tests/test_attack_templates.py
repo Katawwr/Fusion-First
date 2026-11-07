@@ -148,6 +148,8 @@ def test_tool_templates_have_no_pasted_tool_result_and_no_demo(probe_dir):
     attack = get_templates("excessive_agency", "v2")[0]
     with pytest.raises(ValueError, match="tool"):
         attack.demo_trajectory("sys", hardened=False)
+    with pytest.raises(ValueError, match="tool"):  # a mis-route fails loudly, never a v1-style probe
+        attack.target_messages()
     traj = attack.live_trajectory("sys", "I only read the ticket.")
     assert [s.role.value for s in traj.steps] == ["system", "user", "assistant"]
     assert not traj.has_injection()
