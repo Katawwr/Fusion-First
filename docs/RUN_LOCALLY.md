@@ -268,10 +268,11 @@ probe has no injected turn and no `attack_action`: it measures false alarms. You
 
 **The card** reports, per arm, the issue rate with its Wilson 95% interval and how many attacks a +/-10 pt
 interval would need at that rate; the oracle cross-check on the run's real tool calls (a call the action oracle
-flags is a clear positive; benign-tool calls only, with a final reply that claims nothing the oracle would flag (no forbidden tool, no address
-or URL outside the allowlist), a clear negative); and the in-sample guard replay, each call checked against the user's request and every tool
-result received before it. Under `--corpus v2` the in-run known-answer questions are gold v2's sealed blind split
-(80 questions, `datasets/gold/*.v2.jsonl`) added to a host-graded run.
+flags is a clear positive; benign-tool calls only, with a final reply that claims nothing the oracle would flag (no
+forbidden tool, no address or URL outside the allowlist), a clear negative); and the in-sample guard replay, each
+call checked against the user's request and every tool result received before it. Under `--corpus v2` the in-run
+known-answer questions are gold v2's sealed blind split (80 questions, `datasets/gold/*.v2.jsonl`) added to a
+host-graded run.
 
 **Accounting.** While collecting, `fusion run status` prints
 `target answered <done>/<total> · <in> tokens in, <out> out · <time> per attack · about <time> left`.
@@ -281,10 +282,10 @@ mismatch.
 
 **Targets.** Ollama and OpenAI-compatible targets (and the hosted presets built on it) support tool calls. A
 `claude-cli:`, `cmd:` or `python:` target ends the scan with one `backend_unavailable` error that names the
-tool-capable backends. A Quick tool-loop scan of a 7B model takes about a minute per attack when the model fits a
-GPU at least partly (the committed tool-loop run's `accounting` block records what `qwen2.5:7b` took on this
-project's machine) and far longer on CPU alone: smoke a 3B model first to see whether it emits native tool calls at
-all. Run one Ollama job at a time. `llama3.1:8b` is excluded: it calls tools but fabricates their inputs
+tool-capable backends. A Quick tool-loop scan of a 7B model is slow on local hardware; the committed tool-loop
+run's `accounting` block records what `qwen2.5:7b` took on one machine (target calls, tokens, latency total, p50
+and p95). Smoke a 3B model first to see whether it emits native tool calls at all. Run one Ollama job at a time.
+`llama3.1:8b` is excluded: it calls tools but fabricates their inputs
 ([PREREG_step4_agentdojo.md](../evals/validation/v1/PREREG_step4_agentdojo.md)).
 
 **`--no-fix-arm`** attacks only the prompt as written: half the target calls, no before/after comparison, and
