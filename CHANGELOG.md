@@ -24,6 +24,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
   once): [Trust Report Q6](TRUST_REPORT.md#q6-is-the-judge-accurate-on-tool-trajectories).
 - The Trust page renders the Q5 detector study's registered secondaries (McNemar against the phrase list,
   per-technique recall, latency).
+- [examples/verified-run-toolloop](examples/verified-run-toolloop): a committed qwen2.5:7b run through the tool
+  loop (`--corpus v2`, both arms, Quick tier), graded by Claude Code host subagents. CI re-derives it offline with
+  `fusion run verify --workspace examples/verified-run-toolloop latest` and fails on drift.
 
 ### Changed
 

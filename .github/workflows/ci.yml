@@ -24,6 +24,8 @@ jobs:
       - run: pip install -e ".[dev,mcp,serve]"
       - name: The committed example run re-derives exactly
         run: fusion run verify --workspace examples/verified-run latest
+      - name: The committed example tool-loop run re-derives exactly
+        run: fusion run verify --workspace examples/verified-run-toolloop latest
       - run: python -m ruff check fusion_first tests scripts app setup.py
       - run: python -m pytest -q
       - name: Accuracy gate (committed baselines)

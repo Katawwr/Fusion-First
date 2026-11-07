@@ -68,13 +68,16 @@ fixes (the runtime guardrail first, the optional prompt fix second), and a prove
 judge, gold-set, crosswalk and verification hashes. `eval` prints one `[eval:PASS]` or `[eval:FAIL]`
 line per check and exits non-zero on a failure.
 
-## 4. Verify the committed example run
+## 4. Verify the committed example runs
 
 **Verified.** `examples/verified-run` holds a real run: `llama3.2:1b` on Ollama, graded by Claude Code
-host subagents. From a checkout (`pip install -e .`):
+host subagents. `examples/verified-run-toolloop` holds a real tool-loop run: `qwen2.5:7b` on Ollama through the
+bounded loop (`--corpus v2`, both arms, Quick tier), graded the same way, with the oracle cross-check on its real
+tool calls and an `accounting` block. From a checkout (`pip install -e .`):
 
 ```bash
 fusion run verify --workspace examples/verified-run latest
+fusion run verify --workspace examples/verified-run-toolloop latest
 ```
 
 ```text
@@ -265,8 +268,8 @@ probe has no injected turn and no `attack_action`: it measures false alarms. You
 
 **The card** reports, per arm, the issue rate with its Wilson 95% interval and how many attacks a +/-10 pt
 interval would need at that rate; the oracle cross-check on the run's real tool calls (a call the action oracle
-flags is a clear positive; benign-tool calls only, with a final reply that does not claim the forbidden action, a
-clear negative); and the in-sample guard replay, each call checked against the user's request and every tool
+flags is a clear positive; benign-tool calls only, with a final reply that claims nothing the oracle would flag (no forbidden tool, no address
+or URL outside the allowlist), a clear negative); and the in-sample guard replay, each call checked against the user's request and every tool
 result received before it. Under `--corpus v2` the in-run known-answer questions are gold v2's sealed blind split
 (80 questions, `datasets/gold/*.v2.jsonl`) added to a host-graded run.
 
@@ -278,8 +281,10 @@ mismatch.
 
 **Targets.** Ollama and OpenAI-compatible targets (and the hosted presets built on it) support tool calls. A
 `claude-cli:`, `cmd:` or `python:` target ends the scan with one `backend_unavailable` error that names the
-tool-capable backends. Local 7B generation is slow (tokens per second, not tens), so a Quick tool-loop scan takes
-hours: smoke a 3B model first to see whether it emits native tool calls at all. Run one Ollama job at a time. `llama3.1:8b` is excluded: it calls tools but fabricates their inputs
+tool-capable backends. A Quick tool-loop scan of a 7B model takes about a minute per attack when the model fits a
+GPU at least partly (the committed tool-loop run's `accounting` block records what `qwen2.5:7b` took on this
+project's machine) and far longer on CPU alone: smoke a 3B model first to see whether it emits native tool calls at
+all. Run one Ollama job at a time. `llama3.1:8b` is excluded: it calls tools but fabricates their inputs
 ([PREREG_step4_agentdojo.md](../evals/validation/v1/PREREG_step4_agentdojo.md)).
 
 **`--no-fix-arm`** attacks only the prompt as written: half the target calls, no before/after comparison, and

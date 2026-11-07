@@ -24,8 +24,9 @@ whether their grader was right.
 - **Delivery.** A `fusion` CLI; a local web app (`fusion serve`: React 19 + Vite + Tailwind frontend on a FastAPI
   backend, loopback bind, Host allowlist, per-launch token on every write); an MCP server; a Claude Code plugin with
   opt-in guard hooks; the [`fusion-safety`](https://pypi.org/project/fusion-safety/) package on PyPI, released by
-  Trusted Publishing from a version tag. Runs record model responses as cassettes, so `fusion run verify` re-derives a
-  real run offline ([`examples/verified-run`](../examples/verified-run)).
+  Trusted Publishing from a version tag. Runs record model responses as cassettes, so `fusion run verify` re-derives
+  two real runs offline ([`examples/verified-run`](../examples/verified-run),
+  [`examples/verified-run-toolloop`](../examples/verified-run-toolloop)).
 
 ## Headline result
 
@@ -97,7 +98,8 @@ before merge; CI on every push. No API spend: real model calls went through a su
 - The tool loop now ships for excessive agency and exfiltration: `--corpus v2` runs the target in a bounded loop with
   scripted tool results, grades the tool calls it makes and cross-checks the grader against the oracle on those real
   calls. The default corpus v1 still grades prose (the model's reply, not executed tool calls), and the committed
-  example tool-loop run is still to come.
+  example tool-loop run ([`examples/verified-run-toolloop`](../examples/verified-run-toolloop)) is a Quick-tier
+  sample of one 7B model: read its intervals, not its points.
 - Samples are small (tens to hundreds of transcripts per cell); read the intervals, not the points.
 - No adaptive-attack evaluation; a static result is expected to degrade against an attacker who adapts.
 - The guard's cost in a live agent loop is above its registered margin (see Headline result).

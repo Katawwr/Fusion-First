@@ -42,10 +42,11 @@
 ```bash
 pip install -e .
 fusion run verify --workspace examples/verified-run latest
+fusion run verify --workspace examples/verified-run-toolloop latest
 ```
 
-Re-derives a real llama3.2:1b run, graded by Claude Code host subagents, offline from its committed recordings;
-exits non-zero on drift.
+Re-derives two real runs offline from their committed recordings: llama3.2:1b on the text corpus and qwen2.5:7b
+through the tool loop (`--corpus v2`), both graded by Claude Code host subagents; exits non-zero on drift.
 
 ## Use
 

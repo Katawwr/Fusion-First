@@ -1,9 +1,11 @@
-"""The committed example run (examples/verified-run: llama3.2:1b, graded by Claude Code host subagents)
-re-derives exactly, offline and without its .secret, and verify catches drift. CI also runs
-`fusion run verify --workspace examples/verified-run latest` as its own step."""
+"""The committed example runs re-derive exactly, offline and without their .secret, and verify catches drift:
+examples/verified-run (llama3.2:1b, corpus v1, the four safety checks) and examples/verified-run-toolloop
+(qwen2.5:7b through the tool loop, --corpus v2, the two agentic checks), both graded by Claude Code host
+subagents. CI also runs `fusion run verify --workspace <workspace> latest` for each as its own step."""
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import pathlib
 import shutil
@@ -14,14 +16,47 @@ from fusion_first.cli import main
 from fusion_first.runs import service
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-WORKSPACE = ROOT / "examples" / "verified-run"
-RUN = WORKSPACE / ".fusion" / "runs" / "f9388f6e9b11"
 KEPT = {"plan.json", "prompt.txt", "target.cassette.json", "judge.requests.json", "judge.cassette.json",
         "tasks.json", "state.json", "result.json", "report.html"}
 
 
+@dataclasses.dataclass(frozen=True)
+class Example:
+    name: str
+    run_id: str
+    target: str
+    version: str
+    checks: tuple[str, ...]
+
+    @property
+    def workspace(self) -> pathlib.Path:
+        return ROOT / "examples" / self.name
+
+    @property
+    def run(self) -> pathlib.Path:
+        return self.workspace / ".fusion" / "runs" / self.run_id
+
+    @property
+    def verify_command(self) -> str:
+        return f"fusion run verify --workspace examples/{self.name} latest"
+
+
+EXAMPLES = [
+    Example("verified-run", "f9388f6e9b11", "ollama:llama3.2:1b", "v1",
+            ("data_exfiltration", "direct_prompt_injection", "excessive_agency", "system_prompt_leakage")),
+    Example("verified-run-toolloop", "a422f81944a9", "ollama:qwen2.5:7b", "v2",
+            ("data_exfiltration", "excessive_agency")),
+]
+TOOLLOOP = EXAMPLES[1]
+each_example = pytest.mark.parametrize("ex", EXAMPLES, ids=[e.name for e in EXAMPLES])
+
+
 def _files(d: pathlib.Path) -> set[str]:
     return {p.name for p in d.iterdir()}
+
+
+def _json(path: pathlib.Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _verify(workspace: pathlib.Path, capsys, *extra: str) -> tuple[int, dict]:
@@ -30,32 +65,37 @@ def _verify(workspace: pathlib.Path, capsys, *extra: str) -> tuple[int, dict]:
 
 
 @pytest.mark.integration
-def test_the_committed_run_keeps_only_what_verify_reads():
+@each_example
+def test_the_committed_run_keeps_only_what_verify_reads(ex):
     """No .secret (the task-id key, read only during collect), leases, heartbeat or lock file."""
-    assert _files(RUN) == KEPT
+    assert _files(ex.run) == KEPT
 
 
 @pytest.mark.integration
-def test_the_committed_run_verifies_offline_without_its_secret(capsys):
-    rd = service.resolve_run(WORKSPACE, "latest")
-    assert rd.root.resolve() == RUN.resolve() and not rd.secret_path.exists()
-    code, res = _verify(WORKSPACE, capsys, "--prompt", str(WORKSPACE / "prompt.txt"))
+@each_example
+def test_the_committed_run_verifies_offline_without_its_secret(ex, capsys):
+    rd = service.resolve_run(ex.workspace, "latest")
+    assert rd.root.resolve() == ex.run.resolve() and not rd.secret_path.exists()
+    code, res = _verify(ex.workspace, capsys, "--prompt", str(ex.workspace / "prompt.txt"))
     assert (code, res) == (0, {"ok": True, "reason": ""})
-    assert _files(RUN) == KEPT  # verify leaves nothing behind, its lock file included
+    assert _files(ex.run) == KEPT  # verify leaves nothing behind, its lock file included
 
 
 @pytest.mark.integration
-def test_the_run_is_of_the_committed_prompt():
-    plan = json.loads((RUN / "plan.json").read_text(encoding="utf-8"))
-    assert (RUN / "prompt.txt").read_bytes() == (WORKSPACE / "prompt.txt").read_bytes()
-    assert plan["target"] == "ollama:llama3.2:1b" and plan["grader"] == "host" and plan["calibration"]
+@each_example
+def test_the_run_is_of_the_committed_prompt_and_corpus(ex):
+    plan = _json(ex.run / "plan.json")
+    assert (ex.run / "prompt.txt").read_bytes() == (ex.workspace / "prompt.txt").read_bytes()
+    assert plan["target"] == ex.target and plan["grader"] == "host" and plan["calibration"]
+    assert plan["version"] == ex.version and sorted(plan["checks"]) == sorted(ex.checks)
 
 
 @pytest.mark.integration
-def test_the_result_is_real_and_measures_the_grader_in_run():
-    result = json.loads((RUN / "result.json").read_text(encoding="utf-8"))
+@each_example
+def test_the_result_is_real_and_measures_the_grader_in_run(ex):
+    result = _json(ex.run / "result.json")
     assert result["demonstration"] is False and result["partial"] is False
-    assert sorted(c["check"] for c in result["cards"]) == sorted(result["run"]["checks"])
+    assert sorted(c["check"] for c in result["cards"]) == sorted(result["run"]["checks"]) == sorted(ex.checks)
     for card in result["cards"]:
         assert card["demonstration"] is False
         assert card["judge_accuracy"] and card["judge_accuracy"]["n"] > 0, card["check"]
@@ -63,14 +103,34 @@ def test_the_result_is_real_and_measures_the_grader_in_run():
 
 
 @pytest.mark.integration
+def test_the_tool_loop_run_holds_real_tool_calls_their_oracle_check_and_their_accounting():
+    """The qwen2.5:7b run went through the loop: the target recording carries native tool calls, the stored
+    accounting block counts them, the oracle cross-check ran on them, and both arms were attacked."""
+    ex = TOOLLOOP
+    plan, result = _json(ex.run / "plan.json"), _json(ex.run / "result.json")
+    assert plan["fix_arm"] is True and result["run"]["version"] == "v2"
+    with_calls = sum(1 for e in _json(ex.run / "target.cassette.json").values() if e.get("tool_calls"))
+    assert with_calls > 0
+    acc = result["accounting"]
+    assert acc["responses_with_tool_calls"] == with_calls and acc["target_calls"] >= with_calls
+    assert acc["latency_s"]["n_with_latency"] == acc["target_calls"] > 0 and acc["output_tokens"] > 0
+    for gate in result["grader_gate"]:
+        agreement = gate["oracle_agreement"]
+        assert agreement["n"] > 0 and agreement["unanswered"] == 0, gate["check"]
+    transcripts = [json.dumps(r) for r in _json(ex.run / "judge.requests.json").values()]
+    assert any("[ASSISTANT calls " in t for t in transcripts)
+
+
+@pytest.mark.integration
+@each_example
 @pytest.mark.parametrize("name", ["judge.cassette.json", "result.json"])
-def test_verify_fails_on_drift(tmp_path, capsys, name):
+def test_verify_fails_on_drift(tmp_path, capsys, ex, name):
     """An edited recording breaks the commitment; an edited result no longer re-derives."""
     ws = tmp_path / "ws"
-    shutil.copytree(WORKSPACE, ws)
-    path = ws / RUN.relative_to(WORKSPACE) / name
+    shutil.copytree(ex.workspace, ws)
+    path = ws / ex.run.relative_to(ex.workspace) / name
     if name == "result.json":
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = _json(path)
         data["overall_grade"] = "A" if data["overall_grade"] != "A" else "B"
         path.write_text(json.dumps(data), encoding="utf-8")
     else:
@@ -81,13 +141,19 @@ def test_verify_fails_on_drift(tmp_path, capsys, name):
 
 @pytest.mark.unit
 @pytest.mark.parametrize("rel", ["README.md", "docs/RUN_LOCALLY.md", ".github/workflows/ci.yml"])
-def test_the_docs_and_ci_run_the_same_verify_command(rel):
+def test_the_docs_and_ci_run_the_same_verify_commands(rel):
     text = (ROOT / rel).read_text(encoding="utf-8")
-    assert "fusion run verify --workspace examples/verified-run latest" in text
+    for ex in EXAMPLES:
+        assert ex.verify_command in text, (rel, ex.name)
 
 
 @pytest.mark.unit
 def test_git_keeps_the_recorded_bytes():
     """verify hashes the recordings byte for byte, so a core.autocrlf checkout must not rewrite them."""
     rules = (ROOT / ".gitattributes").read_text(encoding="utf-8").splitlines()
-    assert "examples/verified-run/** -text" in rules
+    ignore = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    for ex in EXAMPLES:
+        assert f"examples/{ex.name}/** -text" in rules
+        assert f"!examples/{ex.name}/.fusion/" in ignore  # the run is committed...
+        for stripped in (".secret", "leases.json", "heartbeat.json", ".lock"):
+            assert f"examples/{ex.name}/.fusion/**/{stripped}" in ignore  # ...without its run-local state

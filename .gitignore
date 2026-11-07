@@ -65,6 +65,12 @@ examples/verified-run/.fusion/**/.secret
 examples/verified-run/.fusion/**/leases.json
 examples/verified-run/.fusion/**/heartbeat.json
 examples/verified-run/.fusion/**/.lock
+# The committed example tool-loop run (qwen2.5:7b through the loop, --corpus v2), verified the same way.
+!examples/verified-run-toolloop/.fusion/
+examples/verified-run-toolloop/.fusion/**/.secret
+examples/verified-run-toolloop/.fusion/**/leases.json
+examples/verified-run-toolloop/.fusion/**/heartbeat.json
+examples/verified-run-toolloop/.fusion/**/.lock
 
 # Claude Code agent worktrees (harness-managed)
 .claude/worktrees/
