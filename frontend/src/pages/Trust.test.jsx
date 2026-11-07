@@ -246,4 +246,57 @@ describe("Trust page", () => {
     expect(screen.getByText(/^Unscored rows/)).toHaveTextContent("Unscored rows (no finite score, excluded from rates): none.");
     expect(screen.queryByText(/Registered arms not run/)).toBeNull();
   });
+  describe("registered secondaries", () => {
+    const src = (source, n, a, l, p, in_source = false) => ({ source, n, arm_right_list_wrong: a, list_right_arm_wrong: l, p, in_source });
+    const secondaries = {
+      mcnemar: [
+        { arm: "embed", arm_label: "E embedding, leave-one-source-out", n: 1946, arm_right_list_wrong: 1, list_right_arm_wrong: 7, p: 0.0703125, in_source_sources: [],
+          per_source: [src("injecagent", 1488, 0, 0, 1.0), src("blind", 148, 0, 6, 0.03125)] },
+        { arm: "embed_all", arm_label: "E embedding, all sources, shipped (in-source)", n: 1946, arm_right_list_wrong: 175, list_right_arm_wrong: 5, p: 2e-45, in_source_sources: ["injecagent", "blind"],
+          per_source: [src("injecagent", 1488, 157, 0, 1e-47, true), src("blind", 148, 0, 2, 0.5, true)] },
+      ],
+      per_technique: {
+        columns: [{ key: "deepset", label: "deepset" }, { key: "bipia:*", label: "BIPIA categories with any flag" }],
+        rows: [{ arm: "embed", arm_label: "E embedding, leave-one-source-out", in_source_sources: [], cells: { deepset: { n_pos: 60, tp: 0 }, "bipia:*": { categories: 25, flagged: 1 } } }],
+      },
+      latency: [
+        { arm: "embed_all", arm_label: "E all-sources", n: 1946, ollama: false, p50_ms: 48.18, p95_ms: 70.75 },
+        { arm: "llama_guard3_configured", arm_label: "B2 Llama Guard 3, configured", n: 200, ollama: true, p50_ms: 7447.5, p95_ms: 11481.3 },
+      ],
+    };
+    const base = { rows: [], decision: { adopt: false, min_recall: 0.6, max_fpr: 0.05 }, unscored: [] };
+
+    it("renders the lead line, both arm rows, the in-source marker, the per-technique header and the latency line", () => {
+      render(<DetectorSection d={{ ...base, secondaries }} />);
+      expect(screen.getByText("Registered secondaries (reported, no decision; McNemar against the phrase list is not the bar).")).toBeInTheDocument();
+      expect(screen.getAllByRole("cell", { name: "E embedding, leave-one-source-out" }).length).toBe(2); // McNemar and technique tables
+      expect(screen.getByRole("cell", { name: "E embedding, all sources, shipped (in-source)" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "p=0.070" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "0 vs 6 (p=0.031)" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "157 vs 0 (p<0.001), in-source" })).toBeInTheDocument();
+      expect(screen.getAllByText(/in-source$/).length).toBeGreaterThan(0);
+      expect(screen.getByRole("columnheader", { name: "BIPIA categories with any flag" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "0 of 60 (0.0%)" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "1 of 25" })).toBeInTheDocument();
+      const lat = screen.getByText(/^CPU latency per decision/);
+      expect(lat).toHaveTextContent("E all-sources 48.2 ms / 70.8 ms");
+      expect(lat).toHaveTextContent("B2 Llama Guard 3, configured 7.4 s / 11.5 s (Ollama wall time per reply)");
+      expect(lat).toHaveTextContent("No latency of its own: E embedding, leave-one-source-out.");
+      expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
+    });
+
+    it("renders none of it without secondaries", () => {
+      render(<DetectorSection d={base} />);
+      expect(screen.queryByText(/Registered secondaries/)).toBeNull();
+      expect(screen.queryByText(/^CPU latency per decision/)).toBeNull();
+    });
+
+    it("renders the committed secondaries block", () => {
+      expect(evidence.detector?.secondaries).toBeTruthy();
+      render(<DetectorSection d={evidence.detector} />);
+      expect(screen.getByText(/^Registered secondaries/)).toBeInTheDocument();
+      expect(screen.getByText(/^CPU latency per decision/)).toBeInTheDocument();
+      expect(screen.getAllByRole("columnheader", { name: /^BIPIA categories/ }).length).toBe(1);
+    });
+  });
 });

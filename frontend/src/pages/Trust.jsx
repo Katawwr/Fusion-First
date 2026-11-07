@@ -209,6 +209,68 @@ const flagged = (k, n, iv) => (n ? `${k} of ${n}, ${interval(iv)}` : "–");
 const pct1 = (x) => (x === null || x === undefined ? "–" : `${(x * 100).toFixed(1)}%`);
 const interval1 = (iv) => `${pct1(iv.point)} (${pct1(iv.low)}–${pct1(iv.high)})`;
 
+const SOURCE_NAMES = { injecagent: "InjecAgent", bipia: "BIPIA", deepset: "deepset", blind: "blind" };
+
+// Latency of the registered secondaries: ms to one decimal; Ollama arms are wall time per reply, in seconds.
+const lat1 = (x, sec) => (sec ? `${(x / 1000).toFixed(1)} s` : `${x.toFixed(1)} ms`);
+
+// A per-technique cell: positives flagged, or categories with any flag (a counted family such as BIPIA's).
+function techniqueCell(c) {
+  if (!c) return "–";
+  if (c.categories !== undefined) return `${c.flagged} of ${c.categories}`;
+  return c.n_pos ? `${c.tp} of ${c.n_pos} (${((c.tp / c.n_pos) * 100).toFixed(1)}%)` : "–";
+}
+
+// Registered secondaries of Q5 (reported, no decision). The markdown under the same heading in TRUST_REPORT.md is the model.
+function SecondariesBlock({ s }) {
+  const sources = s.mcnemar?.[0]?.per_source?.map((x) => x.source) || [];
+  const tech = s.per_technique || { columns: [], rows: [] };
+  const latency = s.latency || [];
+  const timed = new Set(latency.map((l) => l.arm));
+  const untimed = (s.mcnemar || []).filter((m) => !timed.has(m.arm));
+  return (
+    <>
+      <p className="mt-6 mb-3 text-sm text-app-muted">
+        Registered secondaries (reported, no decision; McNemar against the phrase list is not the bar).
+      </p>
+      <DataTable
+        numeric={[1, 2, 3, 4]}
+        head={["Arm", "Rows paired", "Arm right, list wrong", "List right, arm wrong", "Exact p", ...sources.map((x) => SOURCE_NAMES[x] || x)]}
+        rows={(s.mcnemar || []).map((m) => [
+          m.arm_label,
+          m.n,
+          m.arm_right_list_wrong,
+          m.list_right_arm_wrong,
+          pShort(m.p),
+          ...sources.map((src) => {
+            const c = m.per_source?.find((x) => x.source === src);
+            return c
+              ? `${c.arm_right_list_wrong} vs ${c.list_right_arm_wrong} (${pShort(c.p)})${c.in_source ? ", in-source" : ""}`
+              : "–";
+          }),
+        ])}
+      />
+      <p className="mt-3 mb-2 text-xs text-app-subtle">
+        Recall by technique at each arm's operating point; a family of categories such as BIPIA's is counted, not itemised.
+      </p>
+      <DataTable
+        numeric={tech.columns.map((_, i) => i + 1)}
+        head={["Arm", ...tech.columns.map((c) => c.label)]}
+        rows={(tech.rows || []).map((r) => [r.arm_label, ...tech.columns.map((c) => techniqueCell(r.cells?.[c.key]))])}
+      />
+      {latency.length > 0 && (
+        <p className="mt-3 text-xs text-app-subtle">
+          CPU latency per decision, p50 / p95:{" "}
+          {latency
+            .map((l) => `${l.arm_label} ${lat1(l.p50_ms, l.ollama)} / ${lat1(l.p95_ms, l.ollama)}${l.ollama ? " (Ollama wall time per reply)" : ""}`)
+            .join("; ")}
+          .{untimed.length > 0 && ` No latency of its own: ${untimed.map((m) => m.arm_label).join(", ")}.`}
+        </p>
+      )}
+    </>
+  );
+}
+
 // Q5 of the Trust Report. A null block means the registered study is not scored yet.
 export function DetectorSection({ d }) {
   const title = "Trained detector vs the phrase list";
@@ -270,6 +332,7 @@ export function DetectorSection({ d }) {
         InjecAgent's 62 attacker instructions and 17 tool-result templates appear in both the training and the scored
         rows.
       </p>
+      {d.secondaries && <SecondariesBlock s={d.secondaries} />}
     </Section>
   );
 }
