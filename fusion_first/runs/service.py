@@ -213,6 +213,10 @@ def status(rd: RunDir, running: bool | None = None) -> dict:
         "grader": plan.grader,
         "run_dir": str(rd.root),
         "next": _next_step(rd, plan.grader, st, running),
+        "accounting": {"target_calls": st.target_calls, "input_tokens": st.input_tokens,
+                       "output_tokens": st.output_tokens, "target_seconds": st.target_seconds,
+                       "seconds_per_attack": st.seconds_per_attack, "eta_s": st.eta_s,
+                       "started_at": st.started_at},
     }
     if rd.result_path.exists():
         out["report_html"] = str(rd.report_path)

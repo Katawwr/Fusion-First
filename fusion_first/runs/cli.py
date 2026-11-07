@@ -30,7 +30,7 @@ from fusion_first.backends.resolve import (
 )
 from fusion_first.errors import FusionError
 from fusion_first.runs import service
-from fusion_first.runs.engine import RunError, grading_tasks, submit_grades
+from fusion_first.runs.engine import RunError, accounting_line, grading_tasks, submit_grades
 
 _GRADE_RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "F": 4, "?": 5}
 
@@ -280,7 +280,11 @@ def cmd_run(args) -> int:
         rd = service.resolve_run(args.workspace, args.run)
         if args.run_cmd == "status":
             st = service.status(rd)
-            _out(args, st, f"{rd.run_id}: {st['phase']}: {st['next']}")
+            text = f"{rd.run_id}: {st['phase']}: {st['next']}"
+            state = rd.state()
+            if state.target_calls:
+                text += f"\n  {accounting_line(state)}"
+            _out(args, st, text)
             return 0
         if args.run_cmd == "tasks":
             print(json.dumps(grading_tasks(rd, max_tasks=args.max, lease_s=args.lease), indent=2,

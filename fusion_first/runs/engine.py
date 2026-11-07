@@ -21,6 +21,7 @@ import contextlib
 import hashlib
 import hmac
 import json
+import math
 import os
 import pathlib
 import re
@@ -54,9 +55,10 @@ RUNS_DIRNAME = os.path.join(".fusion", "runs")
 MIN_EVIDENCE_CHARS = 8  # a violated criterion must quote at least this much of the agent's own output
 
 __all__ = [
-    "NotGraded", "RunDir", "RunError", "RunPlan", "RunState", "Task", "TargetNotRecorded", "collect",
-    "commitment", "finalize", "grade_with", "grading_tasks", "independence_of", "lease_info",
-    "new_run", "submit_grades", "verify",
+    "AccountingClient", "NotGraded", "RunDir", "RunError", "RunPlan", "RunState", "Task", "TargetNotRecorded",
+    "accounting_line", "accounting_of", "attack_rate", "collect", "commitment", "finalize", "fmt_duration",
+    "fmt_ktokens", "grade_with", "grading_tasks", "independence_of", "lease_info", "new_run", "submit_grades",
+    "verify",
 ]
 
 
@@ -104,6 +106,14 @@ class RunState:
     n_graded: int = 0
     rejected: list[dict] = field(default_factory=list)
     failed_grades: int = 0
+    # Accounting of REAL target calls (cassette hits never count), summed over every collect process.
+    target_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    target_seconds: float = 0.0  # provider latency_s, else wall time around the call
+    started_at: float | None = None  # epoch seconds when collect first started (kept on resume)
+    seconds_per_attack: float | None = None  # wall-clock rate of THIS collect process; None until known
+    eta_s: float | None = None
 
 
 def _replace_with_retry(src: str, dst: pathlib.Path, tries: int = 12) -> None:
@@ -298,6 +308,91 @@ def independence_of(target: str, grader: str) -> tuple[str, str]:
     return ("cross_family", f"Grader {g_model} and target {t.model} are from different model families.")
 
 
+# ------------------------------------------------------------------------------------ accounting
+
+
+class AccountingClient:
+    """Counts the calls that reach the live target. Wraps the target INSIDE the recorder, so cassette hits
+    (resume, replay) never count. Responses pass through unchanged: the recording keeps what the provider
+    returned, so its `latency_s` stays None when the provider gave none."""
+
+    def __init__(self, inner: ModelClient):
+        self.inner = inner
+        self.calls = 0
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self.seconds = 0.0
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        t0 = time.perf_counter()
+        resp = await self.inner.complete(request)
+        wall = time.perf_counter() - t0
+        self.calls += 1
+        self.input_tokens += resp.input_tokens or 0
+        self.output_tokens += resp.output_tokens or 0
+        self.seconds += resp.latency_s if resp.latency_s is not None else wall
+        return resp
+
+
+def attack_rate(*, elapsed: float, live_calls: int, recorded_calls: int, completed: int,
+                total: int) -> tuple[float | None, float | None]:
+    """(seconds per attack, seconds left) at THIS process's rate; (None, None) until it made a live call.
+
+    Measured per call, then scaled by calls per attack (every recorded call over every finished attack):
+    attacks run concurrently with the progress events, so which attack a live call served is unknown,
+    but the call count is exact. Replayed attacks add recorded calls and finished attacks alike."""
+    if live_calls <= 0 or completed <= 0:
+        return None, None
+    per_attack = elapsed / live_calls * (recorded_calls / completed)
+    return per_attack, per_attack * max(0, total - completed)
+
+
+def fmt_ktokens(n: int) -> str:
+    return f"{n / 1000:.1f}k"
+
+
+def fmt_duration(s: float) -> str:
+    if s < 59.5:
+        return f"{round(s)} s"
+    minutes = round(s / 60)
+    if minutes < 60:
+        return f"{minutes} min"
+    h, m = divmod(minutes, 60)
+    return f"{h} h" + (f" {m} min" if m else "")
+
+
+def accounting_line(st: RunState) -> str:
+    """`target answered 5/32 · 2.1k tokens in, 0.6k out · 48 s per attack · about 22 min left`."""
+    parts = [f"target answered {st.completed}/{st.total}"]
+    if st.input_tokens or st.output_tokens:
+        parts.append(f"{fmt_ktokens(st.input_tokens)} tokens in, {fmt_ktokens(st.output_tokens)} out")
+    if st.seconds_per_attack is not None:
+        parts.append(f"{fmt_duration(st.seconds_per_attack)} per attack")
+    if st.eta_s is not None and st.completed < st.total:
+        parts.append(f"about {fmt_duration(st.eta_s)} left")
+    return " · ".join(parts)
+
+
+def _nearest_rank(sorted_xs: list[float], q: float) -> float | None:
+    if not sorted_xs:
+        return None
+    return round(sorted_xs[max(0, math.ceil(q * len(sorted_xs)) - 1)], 3)
+
+
+def accounting_of(target: Cassette) -> dict:
+    """What the target recording says the run cost: reproducible from the recording alone."""
+    entries = list(target.entries.values())
+    lat = sorted(float(e["latency_s"]) for e in entries if e.get("latency_s") is not None)
+    return {
+        "target_calls": len(entries),
+        "input_tokens": sum(int(e.get("input_tokens") or 0) for e in entries),
+        "output_tokens": sum(int(e.get("output_tokens") or 0) for e in entries),
+        "latency_s": {"total": round(sum(lat), 3), "p50": _nearest_rank(lat, 0.50),
+                      "p95": _nearest_rank(lat, 0.95), "n_with_latency": len(lat)},
+        "responses_with_tool_calls": sum(1 for e in entries if e.get("tool_calls")),
+    }
+
+
 # ------------------------------------------------------------------------------------ collect
 
 
@@ -340,12 +435,23 @@ async def collect(
         return await _collect(rd, plan, target_client, concurrency, on_progress)
 
 
+_COUNT_FIELDS = ("completed", "total", "target_calls", "input_tokens", "output_tokens", "target_seconds",
+                 "seconds_per_attack", "eta_s")
+
+
 async def _collect(rd, plan, target_client, concurrency, on_progress) -> RunState:
     from fusion_first.engine.user_scan import run_user_scan
     from fusion_first.stats.calibration import run_calibration
 
-    rd.update_state(phase="collecting", message="testing the target")
-    recorder = CheckpointingRecordClient(target_client, Cassette.load(rd.target_path), rd.target_path, every=1)
+    st0 = rd.update_state(phase="collecting", message="testing the target", seconds_per_attack=None, eta_s=None)
+    if st0.started_at is None:
+        st0 = rd.update_state(started_at=time.time())
+    # Resume adds to the stored totals but measures the rate afresh: replayed attacks finish in
+    # milliseconds, and the earlier process's wall time includes however long the run sat stalled, so only
+    # calls answered live in THIS process, over THIS process's elapsed time, predict what is left.
+    acct = AccountingClient(target_client)
+    t_start = time.monotonic()
+    recorder = CheckpointingRecordClient(acct, Cassette.load(rd.target_path), rd.target_path, every=1)
     collector = CollectingJudgeClient()
     try:
         async for ev in run_user_scan(
@@ -355,8 +461,20 @@ async def _collect(rd, plan, target_client, concurrency, on_progress) -> RunStat
             version=plan.version, fix_arm=plan.fix_arm,
         ):
             if ev.type == ScanEventType.PROBE_RESULT:
-                st = rd.update_state(completed=ev.completed, total=ev.total,
-                                     message=f"target answered {ev.completed}/{ev.total}")
+                per_attack, eta = attack_rate(
+                    elapsed=time.monotonic() - t_start, live_calls=acct.calls,
+                    recorded_calls=len(recorder.cassette.entries), completed=ev.completed, total=ev.total)
+                counts = RunState(
+                    completed=ev.completed, total=ev.total,
+                    target_calls=st0.target_calls + acct.calls,
+                    input_tokens=st0.input_tokens + acct.input_tokens,
+                    output_tokens=st0.output_tokens + acct.output_tokens,
+                    target_seconds=round(st0.target_seconds + acct.seconds, 3),
+                    seconds_per_attack=None if per_attack is None else round(per_attack, 3),
+                    eta_s=None if eta is None else round(eta, 1),
+                )
+                st = rd.update_state(**{k: getattr(counts, k) for k in _COUNT_FIELDS},
+                                     message=accounting_line(counts))
                 if on_progress:
                     on_progress(st)
             elif ev.type == ScanEventType.ERROR:
@@ -781,7 +899,7 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
     if write:
         partial = n_graded < snap.n_tasks
         payload = {**result.model_dump(mode="json"), "run": asdict(plan), "commitment": snap.commitment,
-                   "partial": partial, "grader_gate": gates}
+                   "partial": partial, "grader_gate": gates, "accounting": accounting_of(snap.target)}
         with rd.lock():
             rd.write_json(rd.result_path, payload)
             rd._write(rd.report_path, render_dashboard_html(result.cards, f"Fusion run {plan.run_id}",
