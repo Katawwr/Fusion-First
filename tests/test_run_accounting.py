@@ -178,7 +178,8 @@ async def test_resume_keeps_stored_totals_and_never_counts_replayed_answers(tmp_
         await collect(rd, first)
     st1 = rd.state()
     assert st1.started_at and st1.completed >= 1
-    assert st1.target_calls <= 4 and st1.input_tokens == 100 * st1.target_calls  # counted per finished attack
+    # flushed when collect stopped, including calls made for attacks that never finished
+    assert st1.target_calls == 4 and st1.input_tokens == 400
     recorded = len(json.loads(rd.target_path.read_text(encoding="utf-8")))
     assert recorded == 4
     again = TokenTarget()
@@ -235,6 +236,23 @@ async def test_result_carries_accounting_from_the_recording_and_still_verifies(t
     assert stored["accounting"] == accounting_of(Cassette.load(rd.target_path))
     assert stored["accounting"]["target_calls"] > 0
     assert (await verify(rd))["ok"] is True
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(("path", "value"), [(("input_tokens",), 1), (("latency_s", "p95"), 0.001),
+                                             (("target_calls",), 0)])
+async def test_a_tampered_accounting_block_fails_verify(tmp_path, path, value):
+    rd, _, _ = await _collected(tmp_path)
+    assert not submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")["rejected"]
+    await finalize(rd)
+    stored = json.loads(rd.result_path.read_text(encoding="utf-8"))
+    block = stored["accounting"]
+    for k in path[:-1]:
+        block = block[k]
+    block[path[-1]] = value
+    rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert await verify(rd) == {"ok": False,
+                                "reason": "the stored accounting block differs from the target recording"}
 
 
 @pytest.mark.integration

@@ -489,6 +489,12 @@ async def _collect(rd, plan, target_client, concurrency, on_progress) -> RunStat
                     await run_calibration(check, collector, version=plan.version, split="blind")
     finally:
         recorder.flush()
+        # Calls already answered for attacks still in flight (a crash, a failed scan) are in the recording
+        # and replay on resume, so they would never be counted again: write the totals now.
+        rd.update_state(target_calls=st0.target_calls + acct.calls,
+                        input_tokens=st0.input_tokens + acct.input_tokens,
+                        output_tokens=st0.output_tokens + acct.output_tokens,
+                        target_seconds=round(st0.target_seconds + acct.seconds, 3))
 
     secret = rd.secret_path.read_text(encoding="utf-8").strip()
     tasks = sorted(
@@ -953,6 +959,9 @@ async def verify(rd: RunDir) -> dict:
         return {"ok": False, "reason": "inputs changed since the result was produced (commitment mismatch)"}
     if _plan_through_schema(stored.get("run")) != asdict(rd.plan()):
         return {"ok": False, "reason": "the stored run plan differs from plan.json"}
+    # Results finalized before accounting existed carry no block; one that is present must match.
+    if "accounting" in stored and stored["accounting"] != accounting_of(Cassette.load(rd.target_path)):
+        return {"ok": False, "reason": "the stored accounting block differs from the target recording"}
     try:
         fresh = await finalize(rd, allow_partial=bool(stored.get("partial")), write=False)
     except RunError as e:
