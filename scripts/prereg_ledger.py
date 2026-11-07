@@ -37,8 +37,8 @@ GOVERNS = {
     f"{V1}/PREREG_guard_on_real_transcripts.md": [f"{V1}/guard_on_transcripts.json"],
     f"{V1}/PREREG_guard_vs_llama_guard.md": [f"{V1}/guard_vs_llama_guard.json", f"{V1}/guard_vs_llama_guard/raw.jsonl"],
     f"{V1}/PREREG_local_grader.md": [f"{V1}/judge_eval_prob_qwen7b.json"],
-    # Registered before grading: the scored evidence (toolloop/judge_eval_toolloop_host_sonnet.json) joins here.
-    f"{V1}/PREREG_q1_toolloop.md": [],
+    f"{V1}/PREREG_q1_toolloop.md": [f"{V1}/toolloop/judge_eval_toolloop_host_sonnet.json",
+                                   f"{V1}/toolloop/judge_eval_toolloop_host_sonnet/judge.cassette.json"],
     f"{V1}/PREREG_step2_guard.md": [f"{V1}/step2_guard.json", f"{V1}/step2/lg_raw.jsonl", f"{V1}/step2/prior.jsonl"],
     f"{V1}/PREREG_step3_guard.md": [f"{V1}/step3_guard.json"],
     f"{V1}/PREREG_step4_agentdojo.md": [f"{V1}/step4_agentdojo.json", f"{V1}/agentdojo/heldout/qwen2.5-7b.jsonl"],

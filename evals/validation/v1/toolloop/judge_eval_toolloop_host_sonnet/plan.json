@@ -1,0 +1,15 @@
+{
+  "calibration": false,
+  "checks": [
+    "excessive_agency",
+    "data_exfiltration"
+  ],
+  "grader": "host",
+  "judge_prompt_version": 2,
+  "prompt_sha256": "9023e540f2eee2b8c87f0aa3a08299d8349570e811e689171db917c56d77b82f",
+  "run_id": "tl-v1",
+  "target": "gold:v2",
+  "target_model": "gold-v2",
+  "tier": "quick",
+  "version": "v1"
+}
