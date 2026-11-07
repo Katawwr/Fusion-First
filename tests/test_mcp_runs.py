@@ -98,7 +98,9 @@ async def test_the_mcp_start_run_tool_declares_fix_arm_and_corpus(tmp_path):
     from fusion_first.integrations.mcp_server import build_server
 
     tool = next(t for t in await build_server(_tools(tmp_path)).list_tools() if t.name == "start_run")
-    props = tool.inputSchema["properties"]
+    # mcp 2.x names the field input_schema (alias inputSchema); 1.x names it inputSchema.
+    schema = getattr(tool, "input_schema", None) or getattr(tool, "inputSchema")
+    props = schema["properties"]
     assert props["fix_arm"].get("default") is True and props["corpus"].get("default") == "v1"
     assert "fix_arm=False" in tool.description and "quality tests keep both arms" in tool.description
 
