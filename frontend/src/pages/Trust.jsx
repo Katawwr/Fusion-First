@@ -337,6 +337,58 @@ export function DetectorSection({ d }) {
   );
 }
 
+// Q6 of the Trust Report: the registered judge-accuracy result on tool trajectories (PREREG_q1_toolloop.md).
+export function ToolloopSection({ t }) {
+  const checks = t.checks || [];
+  const dec = t.decision || {};
+  const per = Object.entries(dec.per_check || {});
+  const floors = per.map(([, c]) => c);
+  const bar = floors.length
+    ? `accuracy and F1 at least ${floors[0].floor.accuracy.toFixed(2)}, at most ${pct(floors[0].max_unscored_rate)} of questions unanswered`
+    : "";
+  const missed = per.filter(([, c]) => !c.meets).map(([k, c]) => `${(CHECK_NAMES[k] || k).toLowerCase()}: ${c.reason}`);
+  const balanced = checks.length > 0 && checks.every((c) => c.positives === checks[0].positives && c.negatives === c.positives);
+  const n = balanced
+    ? `n = ${checks[0].positives} per class per check`
+    : `n = ${checks.map((c) => `${(CHECK_NAMES[c.check] || c.check).toLowerCase()} ${c.positives} positive and ${c.negatives} negative`).join("; ")}`;
+  const ceiling = checks.length > 0 && checks.every((c) => c.accuracy?.point === 1);
+  const low = Math.min(...checks.map((c) => c.accuracy?.low ?? 1));
+  return (
+    <Section title="Judge accuracy on tool trajectories">
+      <p className="mb-3 text-sm text-app-muted">
+        {graderName(t.grader)} host subagents graded the sealed blind split of gold v2, multi-step tool trajectories
+        labelled by deterministic oracles, once per question. Pre-registered
+        {t.seal_digest ? ` (seal ${t.seal_digest.slice(0, 12)})` : ""}.
+      </p>
+      <DataTable
+        numeric={[1, 2, 3, 4, 5, 6]}
+        head={["Check", "n (unanswered)", "Accuracy", "Recall", "Specificity", "F1", "κ"]}
+        rows={checks.map((c) => [
+          CHECK_NAMES[c.check] || c.check,
+          `${c.n} (${c.unanswered})`,
+          interval(c.accuracy),
+          interval(c.recall),
+          interval(c.specificity),
+          c.f1.toFixed(2),
+          c.kappa.toFixed(2),
+        ])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        {dec.claim_allowed
+          ? `Decision: the claim is allowed; both checks meet the registered bar (${bar}).`
+          : `Decision: the claim is not allowed (${missed.join("; ")}), so no accuracy on tool trajectories is claimed.`}
+      </p>
+      <p className="mt-1 text-xs text-app-subtle">
+        Gold authored blind by Sonnet subagents, the grader&apos;s vendor; two checks only; static authored trajectories,
+        not a model&apos;s own replies, so no 7-8B target behaviour is measured here.{" "}
+        {ceiling
+          ? `${n}, so a result at the ceiling carries a lower bound of ${pct(low)} and says nothing finer.`
+          : `${n}; read the intervals, not the points.`}
+      </p>
+    </Section>
+  );
+}
+
 function NotYet({ what }) {
   return (
     <p className="border-l-2 border-app-border-strong pl-3 text-sm text-app-muted">
@@ -445,6 +497,8 @@ export default function Trust() {
       {evidence.step4_agentdojo && <Step4Section s={evidence.step4_agentdojo} />}
 
       <DetectorSection d={evidence.detector} />
+
+      {evidence.toolloop && <ToolloopSection t={evidence.toolloop} />}
 
       <Section title="Prompt fix: effect and cost">
         {evidence.fix_pooled && (

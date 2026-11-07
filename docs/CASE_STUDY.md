@@ -37,6 +37,11 @@ transcripts, stopped 52% of the same attacks.
 The cost is stated beside it: in a live AgentDojo agent loop on held-out tasks (also pre-registered), the guard broke
 more legitimate tasks than the registered margin allows. The [Trust Report](../TRUST_REPORT.md) lists what it blocked.
 
+The judge on tool trajectories, pre-registered ([`PREREG_q1_toolloop.md`](../evals/validation/v1/PREREG_q1_toolloop.md))
+and scored once on the sealed blind split against oracle labels: Sonnet host subagents
+scored 40 of 40 on each agentic check, accuracy 100% (95% CI 91% to 100%).
+The trajectories were authored by Sonnet subagents, the grader's vendor, so shared blind spots are not ruled out.
+
 ## Negative result: the detector study
 
 The guard flags injected text with a fixed phrase list. The question: does a small CPU classifier (frozen bge-small

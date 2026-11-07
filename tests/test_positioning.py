@@ -169,6 +169,26 @@ def test_the_readme_states_the_detector_outcome_without_numbers():
     assert not re.search(r"\d", words)  # no numbers in the README: they live on the site and in the Trust Report
 
 
+TOOLLOOP_EVIDENCE = "evals/validation/v1/toolloop/judge_eval_toolloop_host_sonnet.json"
+
+
+@pytest.mark.unit
+def test_the_readme_states_the_toolloop_judge_outcome_without_numbers():
+    """The registered judge-accuracy result on tool trajectories: the README links the registration and states the
+    decision's outcome in words; the numbers live on the site, in the Trust Report (Q6) and the case study."""
+    import json
+
+    from fusion_first.validate.prereg import toolloop_decision
+
+    env = json.loads((ROOT / TOOLLOOP_EVIDENCE).read_text(encoding="utf-8"))
+    line = next(x for x in (ROOT / "README.md").read_text(encoding="utf-8").splitlines()
+                if "PREREG_q1_toolloop.md" in x)
+    words = re.sub(r"<[^>]+>", "", line)
+    outcome = "the claim is allowed" if toolloop_decision(env)["claim_allowed"] else "no accuracy claim"
+    assert "tool trajectories" in words and f"(registered result: {outcome})" in words and "Trust page" in words
+    assert not re.search(r"\d", words)
+
+
 @pytest.mark.unit
 def test_no_doc_says_wrapping_the_client_is_the_whole_guard():
     client = (ROOT / "fusion_first" / "guardrail" / "client.py").read_text(encoding="utf-8")

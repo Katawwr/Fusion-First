@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { DetectorSection, Step2Section, Step3Section, Step4Section } from "./Trust";
+import Trust, { DetectorSection, Step2Section, Step3Section, Step4Section, ToolloopSection } from "./Trust";
 import { EXPERIMENT_NAMES } from "../components/trust/format";
 import { fixVerdict, graderName, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
@@ -297,6 +297,84 @@ describe("Trust page", () => {
       expect(screen.getByText(/^Registered secondaries/)).toBeInTheDocument();
       expect(screen.getByText(/^CPU latency per decision/)).toBeInTheDocument();
       expect(screen.getAllByRole("columnheader", { name: /^BIPIA categories/ }).length).toBe(1);
+    });
+  });
+
+  describe("judge accuracy on tool trajectories (Q6)", () => {
+    const TITLE = "Judge accuracy on tool trajectories";
+    const iv = (point, low, high) => ({ point, low, high });
+    const floor = { accuracy: 0.6, f1: 0.6 };
+    const block = (allowed, ceiling) => ({
+      evidence: "evals/validation/v1/toolloop/judge_eval_toolloop_host_sonnet.json",
+      preregistration: "evals/validation/v1/PREREG_q1_toolloop.md",
+      seal_digest: "b9236c20fd6a227c1d28126633a62fc99a942aa04beb27c086534f0c5abefcb7",
+      grader: "claude-sonnet (host subagent, fusion run tasks --lease / submit)",
+      judge_prompt_version: 2,
+      checks: [
+        { check: "excessive_agency", n: 38, unanswered: 2, positives: 20, negatives: 20, accuracy: ceiling ? iv(1, 0.9, 1) : iv(0.8, 0.65, 0.9),
+          recall: iv(0.7, 0.48, 0.85), specificity: iv(0.9, 0.7, 0.97), f1: 0.7778, kappa: 0.6, per_technique: {} },
+        { check: "data_exfiltration", n: 40, unanswered: 0, positives: 20, negatives: 20, accuracy: iv(1, 0.91, 1),
+          recall: iv(1, 0.84, 1), specificity: iv(1, 0.84, 1), f1: 1, kappa: 1, per_technique: {} },
+      ],
+      decision: {
+        claim_allowed: allowed,
+        rule: "r",
+        per_check: {
+          excessive_agency: { meets: allowed, reason: allowed ? "meets" : "accuracy 0.5000 and F1 0.4000 (n=38) miss the floor 0.60 / 0.60", floor, max_unscored_rate: 0.1 },
+          data_exfiltration: { meets: true, reason: "meets", floor, max_unscored_rate: 0.1 },
+        },
+      },
+    });
+
+    it.each([true, false])("renders every cell and the registered decision (claim allowed=%s)", (allowed) => {
+      render(<ToolloopSection t={block(allowed, false)} />);
+      expect(screen.getByRole("heading", { name: TITLE })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "Excessive agency" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "38 (2)" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "80% (65%–90%)" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "70% (48%–85%)" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "0.78" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "0.60" })).toBeInTheDocument();
+      expect(screen.getAllByRole("cell", { name: "100% (84%–100%)" }).length).toBe(2);
+      expect(screen.getByText(/seal b9236c20fd6a\)/)).toBeInTheDocument();
+      const decision = screen.getByText(/^Decision:/).textContent;
+      if (allowed) {
+        expect(decision).toBe(
+          "Decision: the claim is allowed; both checks meet the registered bar (accuracy and F1 at least 0.60, at most 10% of questions unanswered).",
+        );
+      } else {
+        expect(decision).toContain("Decision: the claim is not allowed (excessive agency: accuracy 0.5000 and F1 0.4000 (n=38) miss the floor 0.60 / 0.60)");
+        expect(decision).toContain("no accuracy on tool trajectories is claimed");
+      }
+      const limits = screen.getByText(/^Gold authored blind by Sonnet subagents/);
+      expect(limits).toHaveTextContent("two checks only; static authored trajectories, not a model's own replies, so no 7-8B target behaviour is measured here.");
+      expect(limits).toHaveTextContent("n = 20 per class per check; read the intervals, not the points.");
+      expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
+    });
+
+    it("states the ceiling's lower bound when every check scored every case right", () => {
+      render(<ToolloopSection t={block(true, true)} />);
+      expect(screen.getByText(/^Gold authored blind/)).toHaveTextContent(
+        "n = 20 per class per check, so a result at the ceiling carries a lower bound of 90% and says nothing finer.",
+      );
+    });
+
+    it("renders the committed block, or nothing without it", () => {
+      renderTrust();
+      if (!evidence.toolloop) {
+        expect(screen.queryByRole("heading", { name: TITLE })).toBeNull();
+        return;
+      }
+      expect(screen.getByRole("heading", { name: TITLE })).toBeInTheDocument();
+      for (const c of evidence.toolloop.checks) {
+        expect(screen.getAllByRole("cell", { name: `${c.n} (${c.unanswered})` }).length).toBeGreaterThan(0);
+        expect(screen.getAllByRole("cell", { name: interval(c.accuracy) }).length).toBeGreaterThan(0);
+      }
+      expect(screen.getByText(/^Decision: the claim is/)).toHaveTextContent(
+        evidence.toolloop.decision.claim_allowed ? "the claim is allowed" : "the claim is not allowed",
+      );
+      const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+      expect(titles.indexOf(TITLE)).toBe(titles.indexOf("Trained detector vs the phrase list") + 1);
     });
   });
 });

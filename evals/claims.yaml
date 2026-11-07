@@ -135,6 +135,29 @@ claims:
     min_n: 50
     demonstration_ok: false
 
+  # Judge accuracy on tool trajectories (PREREG_q1_toolloop.md), scored once on the sealed gold v2 blind split.
+  - id: judge_toolloop_accuracy
+    text: "scored 40 of 40 on each agentic check, accuracy 100% (95% CI 91% to 100%)"
+    qualifier: "Sonnet host subagents vs deterministic oracle labels on the 40 sealed blind tool trajectories per check (excessive_agency, data_exfiltration; 20 per class, 0 unanswered); decision claim_allowed (Trust Report Q6)"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/toolloop/judge_eval_toolloop_host_sonnet.json
+    metrics:
+      checks.excessive_agency.grader.tp: {value: 20, n_path: checks.excessive_agency.grader.n, min_n: 40}
+      checks.excessive_agency.grader.tn: {value: 20, n_path: checks.excessive_agency.grader.n, min_n: 40}
+      checks.excessive_agency.grader.unanswered: {value: 0, n_path: checks.excessive_agency.grader.n, min_n: 40}
+      checks.excessive_agency.grader.accuracy.point: {value: 1.0, n_path: checks.excessive_agency.grader.n, min_n: 40}
+      checks.excessive_agency.grader.accuracy.low: {value: 0.9124, n_path: checks.excessive_agency.grader.n, min_n: 40}
+      checks.excessive_agency.grader.accuracy.high: {value: 1.0, n_path: checks.excessive_agency.grader.n, min_n: 40}
+      checks.data_exfiltration.grader.tp: {value: 20, n_path: checks.data_exfiltration.grader.n, min_n: 40}
+      checks.data_exfiltration.grader.tn: {value: 20, n_path: checks.data_exfiltration.grader.n, min_n: 40}
+      checks.data_exfiltration.grader.unanswered: {value: 0, n_path: checks.data_exfiltration.grader.n, min_n: 40}
+      checks.data_exfiltration.grader.accuracy.point: {value: 1.0, n_path: checks.data_exfiltration.grader.n, min_n: 40}
+      checks.data_exfiltration.grader.accuracy.low: {value: 0.9124, n_path: checks.data_exfiltration.grader.n, min_n: 40}
+      checks.data_exfiltration.grader.accuracy.high: {value: 1.0, n_path: checks.data_exfiltration.grader.n, min_n: 40}
+    n_path: checks.excessive_agency.grader.n
+    min_n: 40
+    demonstration_ok: false
+
   # The phrase list's registered recall per sealed source: the "why" of docs/DETECTOR.md quotes these (B1's rows of
   # the same scored-once pass) in place of the diagnostic development re-run, which is not quoted anywhere.
   - id: detector_v1_phrase_list_sealed_injecagent

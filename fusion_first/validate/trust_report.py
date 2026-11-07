@@ -12,20 +12,25 @@ from fusion_first._data import data_root
 from fusion_first.validate.detector_confirmatory import EVIDENCE as DETECTOR_EVIDENCE
 from fusion_first.validate.detector_confirmatory import PREREGISTRATION as DETECTOR_PREREG
 from fusion_first.validate.detector_confirmatory import SEAL as DETECTOR_SEAL
+from fusion_first.validate.judge_eval_toolloop import EVIDENCE as TOOLLOOP_EVIDENCE
+from fusion_first.validate.judge_eval_toolloop import PREREG as TOOLLOOP_PREREG
 from fusion_first.validate.prereg import (
     DETECTOR_MAX_FPR,
     DETECTOR_MIN_RECALL,
     LOCAL_GRADER_EVIDENCE,
+    TOOLLOOP_CHECKS,
     detector_decision,
     local_grader_decision,
+    toolloop_decision,
 )
 
 HEADER = """# Fusion First: Trust Report
 
-Five questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
-simpler checks, does a trained detector beat the phrase list?** Generated from committed evidence by
-`python -m fusion_first.validate.trust_report`; a test fails if this file and its evidence disagree. Intervals
-are 95% Wilson unless noted. Demonstration evidence (the offline stand-in judge) is excluded.
+Six questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
+simpler checks, does a trained detector beat the phrase list, is the judge accurate on tool trajectories?**
+Generated from committed evidence by `python -m fusion_first.validate.trust_report`; a test fails if this file and
+its evidence disagree. Intervals are 95% Wilson unless noted. Demonstration evidence (the offline stand-in judge) is
+excluded.
 """
 
 
@@ -526,7 +531,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "local_grader": local_grader,
             "step2_guard": _step2_site(root), "step3_guard": _step3_site(root), "step4_agentdojo": _step4_site(root),
-            "detector": _detector_site(root),
+            "detector": _detector_site(root), "toolloop": _toolloop_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
 
@@ -1254,9 +1259,138 @@ def _detector_site(root: pathlib.Path) -> dict | None:
                             "latency": _detector_latency(d)}}
 
 
+_TOOLLOOP_BASELINES = (("naive_regex", "naive regex"), ("tuned_heuristic", "tuned heuristic"))
+
+
+def _check_label(check: str) -> str:
+    return check.replace("_", " ")
+
+
+def _toolloop_checks(d: dict) -> list[tuple[str, dict]]:
+    """The envelope's checks in the registration's order (excessive agency first)."""
+    order = {c: i for i, c in enumerate(TOOLLOOP_CHECKS)}
+    return sorted(d["checks"].items(), key=lambda kv: (order.get(kv[0], len(order)), kv[0]))
+
+
+def _toolloop_techniques(d: dict) -> list[str]:
+    return sorted({t for b in d["checks"].values() for t in b.get("per_technique") or {}})
+
+
+def _technique_recall(c: dict | None) -> str:
+    if not c or not c.get("positives") or not c.get("recall"):
+        return "–"
+    return f"{c['detected']} of {c['positives']}, {_iv(c['recall'])}"
+
+
+def _toolloop_baselines(d: dict) -> str:
+    """Per check, each supported baseline's F1 and its exact McNemar p against the grader; '' when none ran."""
+    parts = []
+    for check, b in _toolloop_checks(d):
+        cells = [f"{name} F1 {base['f1']:.2f} ({_p(base['vs_grader']['mcnemar_p'])})"
+                 for key, name in _TOOLLOOP_BASELINES
+                 for base in [b.get(key) or {}] if "f1" in base and "vs_grader" in base]
+        if cells:
+            parts.append(f"{_check_label(check)}: {', '.join(cells)}")
+    if not parts:
+        return ""
+    text = "; ".join(parts)
+    return f"Rule-based baselines on the same items (F1, exact McNemar p against the grader). {text[0].upper()}{text[1:]}."
+
+
+def _toolloop_decision_sentence(dec: dict) -> str:
+    per = dec["per_check"]
+    floor = _floor_text(dec)
+    unscored = {c["max_unscored_rate"] for c in per.values()}
+    ceiling = (f", at most {_pct(unscored.pop())} of each check's questions unanswered" if len(unscored) == 1 else "")
+    if dec["claim_allowed"]:
+        return (f"Decision: the claim is allowed: both checks meet the registered bar ({floor}{ceiling}; point "
+                "estimates).")
+    missed = "; ".join(c["reason"] for c in per.values() if not c["meets"])
+    return (f"Decision: the claim is not allowed ({missed}; the registered bar is {floor}{ceiling}), so no accuracy "
+            "on tool trajectories is claimed and v2 runs keep withholding grades through the in-run gate.")
+
+
+def _toolloop_limits(d: dict) -> str:
+    classes = [(c, b.get("positives") or 0, b.get("n_items", 0) - (b.get("positives") or 0))
+               for c, b in _toolloop_checks(d)]
+    if len({(pos, neg) for _, pos, neg in classes}) == 1 and classes[0][1] == classes[0][2]:
+        n = f"n = {classes[0][1]} per class per check"
+    else:
+        n = "n = " + "; ".join(f"{_check_label(c)} {pos} positive and {neg} negative" for c, pos, neg in classes)
+    accs = [b["grader"]["accuracy"] for b in d["checks"].values()]
+    if all(a.get("point") == 1.0 for a in accs):
+        low = min(a["low"] for a in accs)
+        n += f", so a result at the ceiling carries a lower bound of {low:.2f} and says nothing finer"
+    else:
+        n += ", so read the intervals, not the points"
+    positives = [c["positives"] for b in d["checks"].values() for c in (b.get("per_technique") or {}).values()
+                 if c.get("positives")]
+    tech = (f"; the per-technique recalls rest on {min(positives)}-{max(positives)} positives each and are descriptive"
+            if positives else "")
+    return ("Limits: the gold is blind-authored by Sonnet subagents, the grader's vendor, so shared blind spots are "
+            "possible and not measured; two checks only; static authored trajectories, not a model's own replies, so "
+            f"no 7-8B target behaviour is measured here; {n}{tech}.")
+
+
+def _q6(root: pathlib.Path) -> list[str]:
+    out = ["## Q6: Is the judge accurate on tool trajectories?", ""]
+    d = _load(root, TOOLLOOP_EVIDENCE)
+    if not d:
+        if (root / TOOLLOOP_PREREG).is_file():
+            return out + [(f"REGISTERED, NOT YET SCORED: `{TOOLLOOP_PREREG}` fixes the items, the labels and the "
+                           f"decision rule before any grading; this section is generated from `{TOOLLOOP_EVIDENCE}` "
+                           "when it is committed."), ""]
+        return out + ["NOT YET MEASURED.", ""]
+    dec = toolloop_decision(d)
+    prereg = d.get("preregistration") or TOOLLOOP_PREREG
+    out += [(f"Grader: {d['grader']}, judge prompt version {d['judge_prompt_version']}. Items: the sealed blind split "
+             "of gold v2, multi-step tool trajectories authored blind by Sonnet subagents. Labels: deterministic "
+             "oracles (a forbidden tool or an outside destination; a planted canary in the agent's output). Each "
+             f"question answered once, scored in one pass. Registered in `{prereg}` (seal `{d.get('seal_digest')}`); "
+             "amended before any grading: the scorer refuses an incompletely graded run, and the decision fails "
+             f"closed when too many questions go unanswered. Evidence: `{TOOLLOOP_EVIDENCE}`."), "",
+            "| Check | n (unanswered) | Accuracy | Recall | Specificity | F1 | κ |", "|---|---|---|---|---|---|---|"]
+    checks = _toolloop_checks(d)
+    for check, b in checks:
+        g = b["grader"]
+        out.append(f"| {_check_label(check)} | {g['n']} ({g.get('unanswered', 0)}) | {_iv(g['accuracy'])} | "
+                   f"{_iv(g['recall'])} | {_iv(g['specificity'])} | {g['f1']:.2f} | {g['kappa']:.2f} |")
+    techs = _toolloop_techniques(d)
+    if techs:
+        out += ["", "Recall by technique (injected tool results detected; benign controls carry no positives):", "",
+                "| Technique | " + " | ".join(_check_label(c) for c, _ in checks) + " |",
+                "|---|" + "---|" * len(checks)]
+        out += [f"| {_check_label(t)} | " + " | ".join(_technique_recall((b.get("per_technique") or {}).get(t))
+                                                      for _, b in checks) + " |" for t in techs]
+    base = _toolloop_baselines(d)
+    out += [""] + ([f"- {base}"] if base else []) + [f"- {_toolloop_decision_sentence(dec)}",
+                                                    f"- {_toolloop_limits(d)}", ""]
+    return out
+
+
+def _toolloop_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, TOOLLOOP_EVIDENCE)
+    if not d:
+        return None
+    dec = toolloop_decision(d)
+    checks = []
+    for check, b in _toolloop_checks(d):
+        g = b["grader"]
+        checks.append({"check": check, **{k: g[k] for k in ("n", "unanswered", "accuracy", "recall", "specificity",
+                                                            "f1", "kappa")},
+                       "positives": b.get("positives"), "negatives": b.get("n_items", 0) - (b.get("positives") or 0),
+                       "per_technique": b.get("per_technique")})
+    return {"evidence": TOOLLOOP_EVIDENCE, "preregistration": d.get("preregistration") or TOOLLOOP_PREREG,
+            "seal_digest": d.get("seal_digest"), "grader": d["grader"],
+            "judge_prompt_version": d.get("judge_prompt_version"), "checks": checks,
+            "decision": {"claim_allowed": dec["claim_allowed"], "rule": dec["rule"],
+                         "per_check": {c: {k: v[k] for k in ("meets", "reason", "floor", "max_unscored_rate")}
+                                       for c, v in dec["per_check"].items()}}}
+
+
 def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
-    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root),
+    parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root), *_q6(root),
              *_step2(root), *_step3(root), *_step4(root), *_guard(root),
              *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"

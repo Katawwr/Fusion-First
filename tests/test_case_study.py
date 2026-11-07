@@ -33,7 +33,7 @@ def test_the_case_study_quotes_registered_claims_for_its_numbers():
     mine = {c["id"]: c["text"] for c in load_registry().claims if CASE in (c.get("files") or [])}
     assert {"runtime_guardrail_step2_recall", "llama_guard_step2_recall", "runtime_guardrail_step2_overblock",
             "detector_v1_primary_injecagent_recall", "detector_v1_decision",
-            "detector_v1_shipped_in_source_injecagent"} <= set(mine)
+            "detector_v1_shipped_in_source_injecagent", "judge_toolloop_accuracy"} <= set(mine)
     assert all(t in text for t in mine.values())
 
 
