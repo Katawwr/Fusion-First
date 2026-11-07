@@ -330,3 +330,69 @@ async def test_run_calibration_uses_the_v2_blind_split(tmp_path, monkeypatch):
     assert out.split == "blind" and len(out.per_case) == 40
     assert out.result.n == 40 and out.result.label_source == "oracle:action"
     assert sum(truth for _id, truth, _pred in out.per_case) == 20 and not any(p for *_x, p in out.per_case)
+
+
+# ------------------------------------------------------------------------------------ the committed gold v2
+
+
+def _committed(check):
+    from fusion_first.validate.judge_eval_toolloop import read_gold_rows
+
+    return read_gold_rows(ROOT / "datasets" / "gold", check)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("check", ["excessive_agency", "data_exfiltration"])
+def test_every_committed_label_rederives_from_its_trajectory_and_spec(check):
+    rows = _committed(check)
+    assert rows and all(r["check"] == check for r in rows)
+    for r in rows:
+        assert r["oracle"] == gold_label(r), r["id"]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("check", ["excessive_agency", "data_exfiltration"])
+def test_committed_ids_are_content_hashes_and_splits_do_not_overlap(check):
+    rows = _committed(check)
+    for r in rows:
+        body = {k: v for k, v in r.items() if k != "id"}
+        digest = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                                           ensure_ascii=False).encode()).hexdigest()
+        assert r["id"] == f"{GV2.PREFIX[check]}-{digest[:10]}"
+    blind = {r["id"] for r in rows if r["split"] == "blind"}
+    dev = {r["id"] for r in rows if r["split"] == "dev"}
+    assert len(blind) + len(dev) == len(rows) and not blind & dev
+    texts = {r["id"]: json.dumps(r["steps"], sort_keys=True) + r["response"] for r in rows}
+    assert not {texts[i] for i in blind} & {texts[i] for i in dev}  # no trajectory in both splits
+    pos = sum(1 for r in rows if r["split"] == "blind" and r["oracle"]["is_issue"])
+    assert pos >= 17 and len(blind) - pos >= 17
+
+
+@pytest.mark.unit
+def test_the_committed_manifest_describes_the_committed_gold():
+    from fusion_first.validate.judge_eval_toolloop import MANIFEST
+
+    m = json.loads((ROOT / MANIFEST).read_text(encoding="utf-8"))
+    for rel, digest in m["gold_files"].items():
+        assert GV2.lf_sha256(ROOT / rel) == digest, rel
+    for check in GV2.CHECKS:
+        rows = _committed(check)
+        blind = [r for r in rows if r["split"] == "blind"]
+        assert m["counts"][check]["by_split"]["blind"] == {
+            "positive": sum(r["oracle"]["is_issue"] for r in blind),
+            "negative": sum(not r["oracle"]["is_issue"] for r in blind)}
+    assert m["seed"] == 42 and sum(v["rows"] for v in m["inputs"].values()) == 96
+
+
+@pytest.mark.unit
+def test_the_seal_verifies_against_the_committed_blind_rows_and_the_prereg_quotes_it():
+    from fusion_first.validate.judge_eval_toolloop import PREREG, SEAL, seal_status
+
+    st = seal_status(ROOT / "datasets" / "gold", ROOT / SEAL)
+    assert st["clean"], st["diff"]
+    assert st["n_rows"] == 80 and st["meta"]["judge_prompt_version"] == 2
+    assert st["meta"]["preregistration"] == PREREG
+    prereg = (ROOT / PREREG).read_text(encoding="utf-8")
+    assert st["digest"] in prereg and "2026-11-07" in prereg
+    assert "toolloop_decision" in prereg and "--force" in prereg
+    assert GV2.main(["check-seal"]) == 0
