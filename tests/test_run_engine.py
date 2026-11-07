@@ -283,3 +283,85 @@ async def test_parity_run_engine_equals_a_direct_scan_with_the_same_judge(tmp_pa
         assert v.grade in (d.grade, "?")
         if v.grade == "?":
             assert v.judge_accuracy_note.startswith("Grade withheld")
+
+
+# ---- fix arm and corpus version in the plan ----------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_the_plan_records_the_fix_arm_and_an_old_plan_loads_with_one(tmp_path):
+    rd = new_run(tmp_path, PROMPT, checks=[CHECK], target="fake:m", target_model="m", grader="host",
+                 fix_arm=False, version="v2")
+    stored = json.loads(rd.plan_path.read_text(encoding="utf-8"))
+    assert (stored["fix_arm"], stored["version"]) == (False, "v2")
+    assert (rd.plan().fix_arm, rd.plan().version) == (False, "v2")
+    del stored["fix_arm"]  # a plan written before the option existed
+    rd.plan_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert rd.plan().fix_arm is True
+
+
+@pytest.mark.integration
+async def test_a_run_without_the_fix_arm_asks_the_target_once_per_attack(tmp_path):
+    rd = new_run(tmp_path, PROMPT, checks=[CHECK], target="fake:m", target_model="m", grader="host",
+                 fix_arm=False)
+    target = FakeTarget()
+    st = await collect(rd, target)
+    n_blind = sum(1 for c in load_gold(CHECK) if c.split == "blind")
+    assert len(target.systems) == 8 and set(target.systems) == {PROMPT}
+    assert st.n_tasks == 8 + n_blind  # one question per attack, plus the known-answer ones
+    submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
+    result = await finalize(rd)
+    assert result.cards[0].before_after is None and result.n_scored == 8
+    assert all(o.hardened_skipped for o in result.outcomes)
+    assert (await verify(rd))["ok"] is True
+
+
+@pytest.mark.integration
+async def test_a_result_stored_before_the_fix_arm_option_still_verifies(tmp_path):
+    """Its plan.json and stored run carry no fix_arm key; both read as the default (a fix arm)."""
+    rd = new_run(tmp_path, PROMPT, checks=[CHECK], target="fake:m", target_model="m", grader="host")
+    plan = json.loads(rd.plan_path.read_text(encoding="utf-8"))
+    del plan["fix_arm"]
+    rd.plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    await collect(rd, FakeTarget())
+    submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
+    await finalize(rd)
+    stored = json.loads(rd.result_path.read_text(encoding="utf-8"))
+    del stored["run"]["fix_arm"]
+    for o in stored["outcomes"]:
+        del o["hardened_skipped"]
+    rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert (await verify(rd))["ok"] is True
+    stored["run"]["tier"] = "full"  # any real difference in the stored plan still fails
+    rd.result_path.write_text(json.dumps(stored), encoding="utf-8")
+    assert (await verify(rd))["ok"] is False
+
+
+@pytest.fixture
+def v2_probe_dir(tmp_path, monkeypatch):
+    """A probe dir whose `*.v2.jsonl` is three v1-shaped rows: the corpus version is visible as the count."""
+    from fusion_first.attacks import templates as templates_mod
+    from fusion_first.attacks.templates import get_templates
+    from fusion_first.goldset import PROBE_DIR
+
+    probes = tmp_path / "probes"
+    probes.mkdir()
+    rows = (PROBE_DIR / f"{CHECK}.v1.jsonl").read_text(encoding="utf-8").splitlines()[:3]
+    (probes / f"{CHECK}.v2.jsonl").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(templates_mod, "PROBE_DIR", probes)
+    get_templates.cache_clear()
+    yield probes
+    get_templates.cache_clear()
+
+
+@pytest.mark.integration
+async def test_the_plan_corpus_version_reaches_collect_and_finalize(tmp_path, v2_probe_dir):
+    rd = new_run(tmp_path / "ws", PROMPT, checks=[CHECK], target="fake:m", target_model="m", grader="host",
+                 version="v2", calibration=False)
+    target = FakeTarget()
+    st = await collect(rd, target)
+    assert (st.total, len(target.systems), st.n_tasks) == (3, 6, 6)
+    submit_grades(rd, [_answer(t) for t in grading_tasks(rd, max_tasks=1000)], grader="g")
+    result = await finalize(rd)
+    assert (result.n_planned, result.n_scored) == (3, 3)  # finalize replays the same v2 attacks
+    assert (await verify(rd))["ok"] is True

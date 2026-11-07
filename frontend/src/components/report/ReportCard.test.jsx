@@ -36,6 +36,25 @@ describe("ReportCard", () => {
     expect(screen.queryByLabelText(/closed by the fix|still open after the fix/)).toBeNull();
   });
 
+  it("shows the as-written rate with its interval when the run had no fix arm", () => {
+    const solo = {
+      ...card,
+      before_after: null,
+      baseline_issue_ci: { point: 0.375, low: 0.137, high: 0.694 },
+      hardened_issue_ci: null,
+      attacks_for_10pt: 87,
+      trust: { execution: "live", n_planned: 8, n_scored: 8, n_errored: 0 },
+    };
+    render(<ReportCard card={solo} outcomes={[]} />);
+    expect(screen.getByText("As written")).toBeInTheDocument();
+    expect(screen.getByText("38%")).toBeInTheDocument();
+    expect(screen.getByText("95% CI 14–69")).toBeInTheDocument();
+    expect(screen.getByText("Issue rate (no fix arm)")).toBeInTheDocument();
+    expect(screen.getByText(/needs about 87 attacks \(had 8\)/)).toBeInTheDocument();
+    expect(screen.queryByText("With fix")).toBeNull();
+    expect(screen.queryByText("Prompt fix (optional)")).toBeNull();
+  });
+
   it("labels the fix's arms as the prompt as written and with the fix", () => {
     render(<ReportCard card={card} outcomes={[]} />);
     expect(screen.getByText("As written")).toBeInTheDocument();

@@ -36,6 +36,7 @@ from fusion_first.schemas import (
     ScanEventType,
     ScanResult,
     ScanTier,
+    Severity,
     Trajectory,
     TrustInfo,
     Verdict,
@@ -131,15 +132,19 @@ async def _build_arms(
     demonstration: bool,
     target_client: ModelClient | None,
     target_model_id: str | None,
-) -> tuple[Trajectory, Trajectory]:
+    fix_arm: bool = True,
+) -> tuple[Trajectory, Trajectory | None]:
+    """(prompt as written, hardened prompt); the hardened arm is None without a fix arm (never asked)."""
     if demonstration:
         return (
             template.demo_trajectory(system_prompt, hardened=False),
-            template.demo_trajectory(hardened_prompt, hardened=True),
+            template.demo_trajectory(hardened_prompt, hardened=True) if fix_arm else None,
         )
     if target_client is None or target_model_id is None:
         raise ValueError("live scan requires a target_client and target_model_id")
     base_text = await _target_response(template, system_prompt, target_client, target_model_id)
+    if not fix_arm:
+        return template.live_trajectory(system_prompt, base_text), None
     hard_text = await _target_response(template, hardened_prompt, target_client, target_model_id)
     return (
         template.live_trajectory(system_prompt, base_text),
@@ -167,26 +172,29 @@ async def _score_template(
     demonstration: bool,
     target_client: ModelClient | None,
     target_model_id: str | None,
-    arms: tuple[Trajectory, Trajectory] | None = None,
+    arms: tuple[Trajectory, Trajectory | None] | None = None,
+    fix_arm: bool = True,
 ) -> ProbeOutcome:
-    """Run one attack on both arms and judge them. Isolatable failures become UNSCORED; run-level ones
-    propagate."""
+    """Run one attack on both arms (the prompt as written only, without a fix arm) and judge them.
+    Isolatable failures become UNSCORED; run-level ones propagate."""
     rubric = get_rubric(check)
+    skipped = {} if fix_arm else {"hardened_skipped": True}
     try:
         base_traj, hard_traj = arms or await _build_arms(
             template, system_prompt, hardened_prompt,
             demonstration=demonstration, target_client=target_client, target_model_id=target_model_id,
+            fix_arm=fix_arm,
         )
     except Exception as exc:  # noqa: BLE001
         if isolatable(exc):
-            return _unscored(template, check, exc, "target")
+            return _unscored(template, check, exc, "target").model_copy(update=skipped)
         raise
     try:
         b: Verdict = await judge.evaluate(base_traj, rubric)
-        h: Verdict = await judge.evaluate(hard_traj, rubric)
+        h: Verdict | None = await judge.evaluate(hard_traj, rubric) if hard_traj is not None else None
     except Exception as exc:  # noqa: BLE001
         if isolatable(exc):
-            return _unscored(template, check, exc, "judge")
+            return _unscored(template, check, exc, "judge").model_copy(update=skipped)
         raise
     verdict, leak = (None, None) if demonstration else _replay(template, base_traj, system_prompt)
     return ProbeOutcome(
@@ -195,13 +203,14 @@ async def _score_template(
         attack_label=template.attack_label,
         owasp=template.owasp,
         baseline_issue=b.is_issue,
-        hardened_issue=h.is_issue,
+        hardened_issue=h.is_issue if h is not None else None,
         baseline_severity=b.severity,
-        hardened_severity=h.severity,
+        hardened_severity=h.severity if h is not None else Severity.NONE,
         evidence=_evidence(b) if b.is_issue else "",
         baseline_excerpt=_excerpt(_last_assistant_text(base_traj), 200),
         guard_replay=verdict,
         guard_leak=leak,
+        **skipped,
     )
 
 
@@ -345,13 +354,18 @@ async def run_user_scan(
     sampling_pinned: bool | None = None,
     judge_accuracy_provider: AccuracyProvider | None = None,
     breaker: ErrorBreaker | None = None,
+    fix_arm: bool = True,
 ) -> AsyncIterator[ScanEvent]:
+    """`fix_arm=False` attacks only the prompt as written (half the target calls): the cards grade the
+    baseline and carry no before/after. It applies to safety attacks only; quality tests keep both arms,
+    since they measure what the fix costs."""
     if not demonstration and judge_client is None:
         raise ValueError("live scan requires a judge_client")
+    if demonstration and version != "v1":
+        raise ValueError(f"corpus {version} has no canned replies: demonstration mode runs corpus v1 only")
     judge_model = judge_model or (DEMO_JUDGE_MODEL if demonstration else "judge")
     crosswalk_version = Crosswalk().code_version()
     hardened = hardened_prompt if hardened_prompt is not None else apply_fix(system_prompt, checks)
-    hardened_sha = hashlib.sha256(hardened.encode("utf-8")).hexdigest()
     execution = "canned" if demonstration else "live"
     breaker = breaker or ErrorBreaker()
     accuracy_for: AccuracyProvider = judge_accuracy_provider or (
@@ -372,6 +386,9 @@ async def run_user_scan(
         for check in checks
     }
     total = sum(len(v) for v in plan.values())
+    # The hardened prompt's hash names a prompt this scan ran; without a fix arm only quality tests run it.
+    hardened_ran = fix_arm or any(k == "quality" for k in kinds.values())
+    hardened_sha = hashlib.sha256(hardened.encode("utf-8")).hexdigest() if hardened_ran else ""
     yield ScanEvent(
         type=ScanEventType.SCAN_STARTED,
         total=total,
@@ -402,15 +419,16 @@ async def run_user_scan(
                 # Canned arms are deterministic; seed one replay judge over all of them.
                 arms = {
                     t.id: (t.demo_trajectory(system_prompt, hardened=False),
-                           t.demo_trajectory(hardened, hardened=True))
+                           t.demo_trajectory(hardened, hardened=True) if fix_arm else None)
                     for t in templates
                 }
-                demo_judge = _demo_judge([tr for pair in arms.values() for tr in pair], check)
+                demo_judge = _demo_judge(
+                    [tr for pair in arms.values() for tr in pair if tr is not None], check)
                 for t in templates:
                     outcome = await _score_template(
                         t, check, system_prompt, hardened, demo_judge,
                         demonstration=True, target_client=None, target_model_id=None,
-                        arms=arms[t.id],
+                        arms=arms[t.id], fix_arm=fix_arm,
                     )
                     check_outcomes[t.id] = outcome
                     completed += 1
@@ -432,7 +450,7 @@ async def run_user_scan(
                         return await _score_template(
                             t, check, system_prompt, hardened, judge,
                             demonstration=False, target_client=target_client,
-                            target_model_id=target_model_id,
+                            target_model_id=target_model_id, fix_arm=fix_arm,
                         )
 
                 tasks = [asyncio.create_task(one(t)) for t in templates]
@@ -461,7 +479,7 @@ async def run_user_scan(
             card = await _build_card(
                 check, ordered, target_name, judge_model, crosswalk_version, demonstration,
                 execution, judge_choice, judge_backend, sampling_pinned, accuracy_for,
-                kind=kinds[check],
+                kind=kinds[check], fix_arm=fix_arm or is_quality,
             )
             cards.append(card)
             yield ScanEvent(
@@ -519,12 +537,12 @@ def _probe_event(check: str, outcome: ProbeOutcome, completed: int, total: int, 
 
 async def _build_card(
     check, outcomes, target_name, judge_model, crosswalk_version, demonstration,
-    execution, judge_choice, judge_backend, sampling_pinned, accuracy_for, kind="safety",
+    execution, judge_choice, judge_backend, sampling_pinned, accuracy_for, kind="safety", fix_arm=True,
 ):
     scored = [o for o in outcomes if o.scored]
     baseline_fail = [bool(o.baseline_issue) for o in scored]
-    hardened_fail = [bool(o.hardened_issue) for o in scored]
-    ba = before_after(baseline_fail, hardened_fail)
+    hardened_fail = [bool(o.hardened_issue) for o in scored] if fix_arm else None
+    ba = before_after(baseline_fail, hardened_fail) if fix_arm else None
     bar_a, gold_version, note, source = await accuracy_for(check, judge_model)
     error_kinds: dict[str, int] = {}
     for o in outcomes:

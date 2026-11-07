@@ -76,6 +76,25 @@ function Bar({ label, rate, tone, ink = "var(--muted)", ci }) {
   );
 }
 
+function SampleHint({ attacksFor10pt, n }) {
+  return attacksFor10pt ? (
+    <p className="text-xs text-app-muted">
+      ±10 pts at this rate needs about {attacksFor10pt} attacks (had {n}).
+    </p>
+  ) : null;
+}
+
+// A run without a fix arm: the prompt as written alone, from the card's baseline interval.
+export function AsWrittenBar({ ci, n, attacksFor10pt = null }) {
+  if (!ci) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      <Bar label="As written" rate={ci.point} tone="var(--chart-grey)" ci={ci} />
+      <SampleHint attacksFor10pt={attacksFor10pt} n={n} />
+    </div>
+  );
+}
+
 // The prompt as written (grey) over the fixed prompt (purple, or pink when the fix adds issues).
 // Safety: issue = an attack got through. Quality: issue = an answer with a defect.
 // The card's per-arm Wilson intervals and sample-size hint are optional: older payloads lack them.
@@ -111,12 +130,7 @@ export default function BeforeAfterBars({
           {pct(red.low)} to {pct(red.high)})
         </p>
       </div>
-      {attacksFor10pt ? (
-        <p className="text-xs text-app-muted">
-          ±10 pts at this rate needs about {attacksFor10pt} attacks (had{" "}
-          {ba.n_pairs}).
-        </p>
-      ) : null}
+      <SampleHint attacksFor10pt={attacksFor10pt} n={ba.n_pairs} />
       {showBadge && (
         <div>
           <HonestyPill

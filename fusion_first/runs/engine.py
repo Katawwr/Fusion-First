@@ -81,8 +81,9 @@ class RunPlan:
     grader: str  # e.g. "host" | "claude_cli" | "ollama_prob:qwen2.5:7b"
     prompt_sha256: str
     calibration: bool = True
-    version: str = "v1"
+    version: str = "v1"  # the attack corpus (`--corpus`)
     judge_prompt_version: int = 1  # plans written before prompt versioning were graded under v1
+    fix_arm: bool = True  # False: safety attacks hit only the prompt as written (`--no-fix-arm`)
 
 
 @dataclass
@@ -221,6 +222,8 @@ def new_run(
     tier: str = "quick",
     calibration: bool = True,
     run_id: str | None = None,
+    version: str = "v1",
+    fix_arm: bool = True,
 ) -> RunDir:
     unknown = [c for c in checks if c not in REGISTRY]
     if unknown:
@@ -239,7 +242,7 @@ def new_run(
     plan = RunPlan(
         run_id=rid, checks=list(checks), tier=tier, target=target, target_model=target_model,
         grader=grader, prompt_sha256=hashlib.sha256(system_prompt.encode("utf-8")).hexdigest(),
-        calibration=calibration, judge_prompt_version=JUDGE_PROMPT_VERSION,
+        calibration=calibration, version=version, judge_prompt_version=JUDGE_PROMPT_VERSION, fix_arm=fix_arm,
     )
     rd.write_json(rd.plan_path, asdict(plan))
     rd.save_state(RunState())
@@ -349,6 +352,7 @@ async def _collect(rd, plan, target_client, concurrency, on_progress) -> RunStat
             system_prompt=rd.prompt(), checks=plan.checks, tier=ScanTier(plan.tier),
             demonstration=False, judge_client=collector, target_client=recorder,
             target_model_id=plan.target_model, judge_model="collector", concurrency=concurrency,
+            version=plan.version, fix_arm=plan.fix_arm,
         ):
             if ev.type == ScanEventType.PROBE_RESULT:
                 st = rd.update_state(completed=ev.completed, total=ev.total,
@@ -760,6 +764,7 @@ async def _finalize(rd: RunDir, snap, allow_partial: bool, write: bool) -> ScanR
         target_model_id=plan.target_model, judge_model=plan.grader, concurrency=1,
         judge_choice=choice, judge_backend="host" if plan.grader == "host" else plan.grader,
         judge_accuracy_provider=_in_run_accuracy(judge_client, plan),
+        version=plan.version, fix_arm=plan.fix_arm,
         # Replay: a missing answer is "not graded", never a backend outage, so no circuit breaker.
         breaker=ErrorBreaker(max_consecutive=10**9, max_error_rate=2.0, min_seen=10**9),
     ):
@@ -804,6 +809,14 @@ def _through_schema(d: dict) -> dict:
         return d
 
 
+def _plan_through_schema(d):
+    """The stored run plan as RunPlan reads it: a key added later (fix_arm) compares as its default."""
+    try:
+        return asdict(RunPlan(**d))
+    except TypeError:  # not a dict, or keys RunPlan does not know: compared raw (and so differs)
+        return d
+
+
 def _result_fields(d: dict) -> dict:
     out = {k: d.get(k) for k in ScanResult.model_fields}
     outcomes = out.get("outcomes")
@@ -820,7 +833,7 @@ async def verify(rd: RunDir) -> dict:
     stored = rd.read_json(rd.result_path)
     if stored.get("commitment") != commitment(rd):
         return {"ok": False, "reason": "inputs changed since the result was produced (commitment mismatch)"}
-    if stored.get("run") != asdict(rd.plan()):
+    if _plan_through_schema(stored.get("run")) != asdict(rd.plan()):
         return {"ok": False, "reason": "the stored run plan differs from plan.json"}
     try:
         fresh = await finalize(rd, allow_partial=bool(stored.get("partial")), write=False)

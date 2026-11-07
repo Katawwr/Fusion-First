@@ -33,6 +33,7 @@ from fusion_first.runs.engine import (
 from fusion_first.schemas import ScanResult
 
 WORKSPACE_ENV = "FUSION_WORKSPACE"
+CORPORA = ("v1", "v2")  # attack corpora: v1 single-turn text, v2 tool use (`--corpus`)
 BUSY_PHASES = ("created", "collecting", "grading")
 # A heartbeat older than STALE_AFTER_S means the driving process is gone (the event loop keeps beating
 # through a slow model call).
@@ -97,21 +98,42 @@ def start_run(
     tier: str = "quick",
     calibration: bool = True,
     allow_self_grading: bool = False,
+    fix_arm: bool = True,
+    version: str = "v1",
 ) -> RunDir:
-    """Create the run directory (no model calls yet)."""
+    """Create the run directory (no model calls yet). `version` is the attack corpus; `fix_arm=False`
+    attacks only the prompt as written (quality tests keep both arms: they measure the fix's cost)."""
     if not system_prompt or not system_prompt.strip():
         raise RunError("system_prompt must be non-empty")
     if tier not in ("quick", "full"):
         raise RunError("tier must be quick or full")
+    if version not in CORPORA:
+        raise RunError(f"corpus must be {' or '.join(CORPORA)}")
+    check_list = resolve_checks(checks)
+    missing = [c for c in check_list if not _has_corpus(c, version)]
+    if missing:
+        raise RunError(f"corpus {version} has no attacks for: {', '.join(missing)} (pick other checks)")
     t = parse_target(target)
     g = parse_grader(grader)
     if independence_of(t.label, g.label)[0] == "same_model" and not allow_self_grading:
         raise RunError(f"the grader is the target model itself ({t.model}); choose another grader, or "
                        "pass allow_self_grading to accept strongly self-biased grades")
     return new_run(
-        workspace_dir(workspace), system_prompt, checks=resolve_checks(checks), target=t.label,
-        target_model=t.model, grader=g.label, tier=tier, calibration=calibration,
+        workspace_dir(workspace), system_prompt, checks=check_list, target=t.label,
+        target_model=t.model, grader=g.label, tier=tier, calibration=calibration, version=version,
+        fix_arm=fix_arm,
     )
+
+
+def _has_corpus(check: str, version: str) -> bool:
+    from fusion_first.attacks.templates import get_templates
+    from fusion_first.measure.harness import load_quality_tests
+
+    try:
+        (load_quality_tests if get_rubric(check).kind == "quality" else get_templates)(check, version)
+    except FileNotFoundError:
+        return False
+    return True
 
 
 def needs_target(rd: RunDir) -> bool:
@@ -303,18 +325,20 @@ def summarize(rd: RunDir, result: ScanResult) -> dict:
     for c in result.cards:
         ba = c.before_after
         withheld = c.judge_accuracy_note if c.judge_accuracy_note.startswith("Grade withheld") else None
+        # Without a fix arm the as-written rate is the baseline interval's point over the scored attacks.
+        as_written = ba.baseline_issue_rate if ba else (c.baseline_issue_ci.point if c.baseline_issue_ci else None)
         cards.append({
             "check": c.check,
             "kind": c.kind,
             "grade": c.grade,
             "grade_with_fix": c.hardened_grade,
             "grade_withheld": withheld,
-            "issue_rate_as_written": round(ba.baseline_issue_rate, 4) if ba else None,
+            "issue_rate_as_written": round(as_written, 4) if as_written is not None else None,
             "issue_rate_with_fix": round(ba.hardened_issue_rate, 4) if ba else None,
             "issue_rate_as_written_ci": _ci(c.baseline_issue_ci),
             "issue_rate_with_fix_ci": _ci(c.hardened_issue_ci),
             "attacks_for_10pt": c.attacks_for_10pt,
-            "n_pairs": ba.n_pairs if ba else 0,
+            "n_pairs": ba.n_pairs if ba else c.trust.n_scored,
             "honesty": ba.honesty.value if ba else None,
             "honesty_reasons": list(ba.honesty_reasons) if ba else [],
             "scored": f"{c.trust.n_scored}/{c.trust.n_planned}",
@@ -367,6 +391,8 @@ def _verdict(overall: str, cards: list[dict], has_safety: bool) -> str:
     guard = " Add the runtime guardrail (guardrail_snippet)."
     if proven:
         tail = f"{guard} The optional prompt fix measurably reduced issues for: {', '.join(proven)}."
+    elif safety_bad and all(c["honesty"] is None for c in safety_bad):
+        tail = f"{guard} The prompt fix was not tested (no fix arm)."
     elif safety_bad and has_safety:
         tail = f"{guard} The prompt fix is optional and did not reach PROVEN here (see honesty_reasons)."
     else:

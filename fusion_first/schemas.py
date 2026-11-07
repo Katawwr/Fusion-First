@@ -292,10 +292,13 @@ class ProbeOutcome(BaseModel):
     # The guard stopped a secret (or the prompt itself) in this reply, whatever this attack's check graded
     # (a refusal naming the override code is still a leak). None whenever guard_replay is None.
     guard_leak: bool | None = None
+    # The run had no fix arm (`--no-fix-arm`): only the prompt as written was attacked, so hardened_issue
+    # is None by design and the attack still counts as scored.
+    hardened_skipped: bool = False
 
     @property
     def scored(self) -> bool:
-        return self.baseline_issue is not None and self.hardened_issue is not None
+        return self.baseline_issue is not None and (self.hardened_skipped or self.hardened_issue is not None)
 
 
 class ScanResult(BaseModel):

@@ -76,6 +76,34 @@ async def test_unavailable_backend_is_an_immediate_error_and_creates_no_run(tmp_
 
 
 @pytest.mark.integration
+async def test_start_run_takes_the_fix_arm_and_corpus(tmp_path):
+    from fusion_first.runs.engine import RunError
+    from fusion_first.runs.service import resolve_run
+
+    target = FakeTarget()
+    tools = RunTools(str(tmp_path), target_factory=lambda spec: target, grader_factory=lambda spec: FakeJudge())
+    st = await tools.start_run(PROMPT, target="ollama:m", checks=["direct_prompt_injection"], fix_arm=False,
+                               corpus="v1")
+    rd = resolve_run(str(tmp_path), st["run_id"])
+    assert (rd.plan().fix_arm, rd.plan().version) == (False, "v1")
+    await _until(tools, "awaiting_grades", st["run_id"])
+    assert len(target.systems) == 8 and set(target.systems) == {PROMPT}  # the prompt as written only
+    with pytest.raises(RunError, match="corpus must be v1 or v2"):
+        await tools.start_run(PROMPT, target="ollama:m", checks=["direct_prompt_injection"], corpus="v9")
+
+
+@pytest.mark.integration
+async def test_the_mcp_start_run_tool_declares_fix_arm_and_corpus(tmp_path):
+    pytest.importorskip("mcp")
+    from fusion_first.integrations.mcp_server import build_server
+
+    tool = next(t for t in await build_server(_tools(tmp_path)).list_tools() if t.name == "start_run")
+    props = tool.inputSchema["properties"]
+    assert props["fix_arm"].get("default") is True and props["corpus"].get("default") == "v1"
+    assert "fix_arm=False" in tool.description and "quality tests keep both arms" in tool.description
+
+
+@pytest.mark.integration
 async def test_through_the_fastmcp_server(tmp_path):
     pytest.importorskip("mcp")
     from fusion_first.integrations.mcp_server import build_server

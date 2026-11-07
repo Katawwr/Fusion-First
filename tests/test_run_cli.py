@@ -119,6 +119,48 @@ def test_summary_prints_the_interval_after_each_rate(capsys):
 
 
 @pytest.mark.unit
+def test_summary_without_a_fix_arm_prints_the_as_written_rate_and_says_so(capsys):
+    import argparse
+
+    from fusion_first.runs.cli import _print_summary
+
+    card = {"check": "excessive_agency", "grade": "D", "grader_accuracy": {"note": "n/a"}, "honesty": None,
+            "scored": "8/8", "issue_rate_as_written": 0.375, "issue_rate_with_fix": None,
+            "issue_rate_as_written_ci": [0.137, 0.694], "issue_rate_with_fix_ci": None, "attacks_for_10pt": 87}
+    _print_summary(argparse.Namespace(json=False), {"overall_grade": "D", "verdict": "v", "cards": [card],
+                                                    "verify": "fusion run verify x"})
+    out = capsys.readouterr().out
+    assert "issues 38% (95% CI 14–69%) (no fix arm) (±10 pts needs about 87 attacks)" in out
+    assert "with fix" not in out and "[None]" not in out
+
+
+@pytest.mark.unit
+def test_run_start_passes_the_fix_arm_and_corpus(monkeypatch, capsys):
+    from fusion_first.runs import service
+    from fusion_first.runs.engine import RunError
+
+    seen = {}
+
+    def fake_start(*a, **kw):
+        seen.update(kw)
+        raise RunError("stop here")
+
+    monkeypatch.setattr(service, "start_run", fake_start)
+    base = ["run", "start", "--prompt", __file__, "--target", "ollama:m"]
+    assert main(base) == 2
+    assert (seen["fix_arm"], seen["version"]) == (True, "v1")
+    assert main([*base, "--no-fix-arm", "--corpus", "v2"]) == 2
+    assert (seen["fix_arm"], seen["version"]) == (False, "v2")
+    with pytest.raises(SystemExit) as exc:
+        main([*base, "--corpus", "v3"])
+    assert exc.value.code == 2
+    capsys.readouterr()
+    with pytest.raises(SystemExit):
+        main(["run", "start", "--help"])
+    assert "quality tests keep both arms" in " ".join(capsys.readouterr().out.split())
+
+
+@pytest.mark.unit
 def test_min_grade_rejects_typos(capsys):
     with pytest.raises(SystemExit):  # argparse rejects it before any run lookup
         main(["run", "finalize", "--min-grade", "B+"])

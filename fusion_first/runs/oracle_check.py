@@ -212,10 +212,12 @@ async def oracle_agreement(plan, prompt: str, target: Cassette, judge: Cassette)
         for template in select_templates(check, ScanTier(plan.tier), plan.version):
             try:
                 base, hard = await _build_arms(template, prompt, hardened, demonstration=False,
-                                               target_client=replay, target_model_id=plan.target_model)
+                                               target_client=replay, target_model_id=plan.target_model,
+                                               fix_arm=plan.fix_arm)
             except CassetteMiss:
                 continue
-            for arm, traj, sysp in (("as_written", base, prompt), ("with_fix", hard, hardened)):
+            arms = [("as_written", base, prompt)] + ([("with_fix", hard, hardened)] if hard is not None else [])
+            for arm, traj, sysp in arms:
                 label = clear_cut_label(check, template, traj, sysp)
                 if label is None:
                     continue

@@ -102,7 +102,8 @@ def build_server(runs: RunTools | None = None):
 
     @mcp.tool()
     async def start_run(system_prompt: str, target: str, grader: str = "host", checks: list[str] | None = None,
-                        tier: str = "quick", workspace: str | None = None, allow_self_grading: bool = False) -> dict:
+                        tier: str = "quick", workspace: str | None = None, allow_self_grading: bool = False,
+                        fix_arm: bool = True, corpus: str = "v1") -> dict:
         """Start an evaluation of an agent's system prompt. target: 'ollama:<model>' (local, free,
         e.g. ollama:llama3.2:1b or ollama:hf.co/<user>/<repo>), 'claude-cli:<model>' (Claude
         subscription), 'openai-compat:<url>#<model>' (your own server: vLLM, TGI, LM Studio...), or a
@@ -111,9 +112,11 @@ def build_server(runs: RunTools | None = None):
         FUSION_ALLOW_API_SPEND=1). 'cmd:<command>' is refused here unless FUSION_ALLOW_CMD_TARGETS=1.
         grader: 'host' (you grade via get_grading_tasks/submit_grades), 'claude-cli',
         'ollama-prob:<model>', or any chat target spec. checks: safety check names, 'all' (default:
-        all safety), 'quality', or 'everything'. The target is tested in the background: poll
-        run_status."""
-        return await runs.start_run(system_prompt, target, grader, checks, tier, workspace, allow_self_grading)
+        all safety), 'quality', or 'everything'. fix_arm=False attacks only the prompt as written (half
+        the target calls, no before/after; quality tests keep both arms). corpus: 'v1' single-turn text
+        (default) or 'v2' tool use. The target is tested in the background: poll run_status."""
+        return await runs.start_run(system_prompt, target, grader, checks, tier, workspace, allow_self_grading,
+                                    fix_arm, corpus)
 
     @mcp.tool()
     async def resume_run(run_id: str | None = None, workspace: str | None = None) -> dict:

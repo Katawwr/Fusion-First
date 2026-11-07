@@ -67,3 +67,16 @@ def test_old_payloads_without_the_interval_fields_still_parse():
     o = ProbeOutcome.model_validate({"check": "excessive_agency", "probe_id": "p", "attack_label": "a",
                                      "baseline_issue": True, "hardened_issue": False})
     assert o.scored
+
+
+@pytest.mark.unit
+def test_a_skipped_fix_arm_still_counts_as_scored():
+    """Without a fix arm only the baseline is judged: hardened_issue stays None and the attack is scored."""
+    from fusion_first.schemas import ProbeOutcome
+
+    base = {"check": "excessive_agency", "probe_id": "p", "attack_label": "a"}
+    old = ProbeOutcome.model_validate({**base, "baseline_issue": True, "hardened_issue": False})
+    assert old.hardened_skipped is False  # results stored before the field parse with the default
+    assert ProbeOutcome(**base, baseline_issue=False, hardened_issue=None, hardened_skipped=True).scored
+    assert not ProbeOutcome(**base, baseline_issue=None, hardened_issue=None, hardened_skipped=True).scored
+    assert not ProbeOutcome(**base, baseline_issue=True, hardened_issue=None).scored

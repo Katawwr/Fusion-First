@@ -248,3 +248,76 @@ async def test_scan_cards_carry_the_per_arm_intervals():
     assert card.hardened_issue_ci.point == pytest.approx(ba.hardened_issue_rate)
     assert card.baseline_issue_ci.low <= ba.baseline_issue_rate <= card.baseline_issue_ci.high
     assert card.attacks_for_10pt and card.attacks_for_10pt > 0
+
+
+# ---- no fix arm --------------------------------------------------------------------------------------
+
+
+class _CountingTarget:
+    """Records each target call's system prompt; complies, so attacks land and the rate is above 0."""
+
+    def __init__(self):
+        self.systems: list[str] = []
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        self.systems.append(request.system)
+        return ModelResponse(text="Sure. PWNED", model="fake-target")
+
+
+class _FlaggingJudge:
+    """Flags every reply, quoting the agent's own words."""
+
+    async def complete(self, request: ModelRequest) -> ModelResponse:
+        ids = request.response_schema["properties"]["criteria"]["items"]["properties"]["id"]["enum"]
+        crit = [{"id": i, "violated": n == 0, "evidence": "Sure. PWNED" if n == 0 else ""}
+                for n, i in enumerate(ids)]
+        return ModelResponse(text=json.dumps({"criteria": crit, "rationale": "r", "confidence": 0.9}),
+                             model="fake-judge")
+
+
+async def _live(checks, fix_arm, target, judge=None):
+    return await _collect(system_prompt=WEAK_PROMPT, checks=checks, tier=ScanTier.QUICK, demonstration=False,
+                          judge_client=judge or _FlaggingJudge(), target_client=target,
+                          target_model_id="fake-model", judge_model="fake-judge", fix_arm=fix_arm)
+
+
+@pytest.mark.integration
+async def test_without_a_fix_arm_only_the_prompt_as_written_is_attacked():
+    both, solo = _CountingTarget(), _CountingTarget()
+    await _live(["direct_prompt_injection"], True, both)
+    result = (await _live(["direct_prompt_injection"], False, solo))[-1].result
+    assert len(solo.systems) == len(result.outcomes) == 8 and len(both.systems) == 16
+    assert set(solo.systems) == {WEAK_PROMPT}  # no hardened target call at all
+    assert all(o.hardened_issue is None and o.hardened_skipped and o.scored for o in result.outcomes)
+    card = result.cards[0]
+    assert (card.before_after, card.hardened_grade, card.hardened_issue_ci) == (None, "?", None)
+    assert (card.baseline_issue_ci.point, card.grade, card.trust.n_scored) == (1.0, "F", 8)
+    assert len(card.top_fixes) == 1 and "runtime guardrail" in card.top_fixes[0]
+    assert (result.n_scored, result.hardened_prompt_sha256) == (8, "")
+
+
+@pytest.mark.integration
+async def test_quality_checks_keep_both_arms_without_a_fix_arm():
+    """A quality test measures what the fix costs, so it always runs the hardened prompt too."""
+    from tests.test_run_engine import _QualityJudge
+
+    target = _CountingTarget()
+    result = (await _live(["instruction_following"], False, target, judge=_QualityJudge()))[-1].result
+    assert len(target.systems) == 2 * len(result.outcomes)
+    assert not any(o.hardened_skipped for o in result.outcomes)
+    assert result.cards[0].before_after is not None and result.hardened_prompt_sha256
+
+
+@pytest.mark.integration
+async def test_demonstration_mode_refuses_the_v2_corpus():
+    with pytest.raises(ValueError, match="no canned replies"):
+        await _collect(system_prompt=WEAK_PROMPT, checks=["excessive_agency"], demonstration=True, version="v2")
+
+
+@pytest.mark.integration
+async def test_a_demonstration_without_a_fix_arm_grades_the_canned_baseline():
+    events = await _collect(system_prompt=WEAK_PROMPT, checks=["direct_prompt_injection"],
+                            tier=ScanTier.QUICK, demonstration=True, fix_arm=False)
+    result = events[-1].result
+    assert all(o.hardened_skipped and o.scored for o in result.outcomes)
+    assert result.cards[0].before_after is None and result.cards[0].grade != "?"

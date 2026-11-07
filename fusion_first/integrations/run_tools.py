@@ -85,6 +85,8 @@ class RunTools:
         tier: str = "quick",
         workspace: str | None = None,
         allow_self_grading: bool = False,
+        fix_arm: bool = True,
+        corpus: str = "v1",
     ) -> dict:
         t, g = parse_target(target), parse_grader(grader)
         _refuse_remote_commands(t, g)
@@ -93,7 +95,8 @@ class RunTools:
         if not g.external:
             clients["grader_client"] = self._grader_factory(g.label)
         rd = service.start_run(self._ws(workspace), system_prompt, checks=checks, target=target,
-                               grader=grader, tier=tier, allow_self_grading=allow_self_grading)
+                               grader=grader, tier=tier, allow_self_grading=allow_self_grading,
+                               fix_arm=fix_arm, version=corpus)
         self.manager.launch(rd, **clients)
         out = service.status(rd, running=True)
         out["next"] = ("The target is being tested in the background. Call run_status(run_id, "

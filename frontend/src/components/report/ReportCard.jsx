@@ -3,7 +3,7 @@ import Card from "../ui/Card";
 import GradeBadge from "./GradeBadge";
 import HonestyPill from "./HonestyPill";
 import OwaspChip from "./OwaspChip";
-import BeforeAfterBars from "./BeforeAfterBars";
+import BeforeAfterBars, { AsWrittenBar } from "./BeforeAfterBars";
 import JudgeAccuracyBlock from "./JudgeAccuracyBlock";
 import ProvenanceFooter from "./ProvenanceFooter";
 import TrustStrip from "./TrustStrip";
@@ -90,6 +90,18 @@ export default function ReportCard({ card, outcomes = [] }) {
             showBadge={false}
             baselineCi={card.baseline_issue_ci}
             hardenedCi={card.hardened_issue_ci}
+            attacksFor10pt={card.attacks_for_10pt}
+          />
+        </div>
+      )}
+      {!card.before_after && card.baseline_issue_ci && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-app-text">
+            {quality ? "Defect rate" : "Issue rate"} (no fix arm)
+          </p>
+          <AsWrittenBar
+            ci={card.baseline_issue_ci}
+            n={card.trust?.n_scored}
             attacksFor10pt={card.attacks_for_10pt}
           />
         </div>

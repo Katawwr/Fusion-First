@@ -56,6 +56,11 @@ def add_parsers(sub) -> None:
     s.add_argument("--collect-only", action="store_true", help="stop after testing the target")
     s.add_argument("--max-calls", type=int, default=400, help="hard cap on target calls")
     s.add_argument("--allow-self-grading", action="store_true", help="let the target model grade itself (biased)")
+    s.add_argument("--no-fix-arm", action="store_true",
+                   help="attack only the prompt as written (half the target calls; no before/after). "
+                        "Safety attacks only: quality tests keep both arms, they measure the fix's cost")
+    s.add_argument("--corpus", default="v1", choices=list(service.CORPORA),
+                   help="attack corpus: v1 single-turn text (default), v2 tool use")
 
     p = rs.add_parser("status", parents=[common], help="phase and next step")
     p.add_argument("run", nargs="?", default=None)
@@ -135,7 +140,8 @@ async def _start(args) -> int:
     prompt = pathlib.Path(args.prompt).read_text(encoding="utf-8")
     rd = service.start_run(args.workspace, prompt, checks=args.check, target=args.target, grader=args.grader,
                            tier=args.tier, calibration=not args.no_calibration,
-                           allow_self_grading=args.allow_self_grading)
+                           allow_self_grading=args.allow_self_grading, fix_arm=not args.no_fix_arm,
+                           version=args.corpus)
     if not args.json:
         print(f"run {rd.run_id} · {_describe_cost(args.target, args.grader)}")
 
@@ -162,13 +168,18 @@ def _print_summary(args, summary: dict, min_grade: str | None = None) -> int:
         acc = c["grader_accuracy"]
         acc_s = (f"grader accuracy {acc['accuracy']:.0%} (95% CI {acc['ci95'][0]:.0%}–{acc['ci95'][1]:.0%},"
                  f" n={acc['n']})" if "accuracy" in acc else f"grader accuracy: {acc['note']}")
-        rate = c["issue_rate_as_written"]
-        rate_s = "n/a" if rate is None else (f"{_rate_ci(rate, c.get('issue_rate_as_written_ci'))} → "
-                                             f"{_rate_ci(c['issue_rate_with_fix'], c.get('issue_rate_with_fix_ci'))}"
-                                             " with fix")
+        rate, with_fix = c["issue_rate_as_written"], c["issue_rate_with_fix"]
+        if rate is None:
+            rate_s = "n/a"
+        elif with_fix is None:
+            rate_s = f"{_rate_ci(rate, c.get('issue_rate_as_written_ci'))} (no fix arm)"
+        else:
+            rate_s = (f"{_rate_ci(rate, c.get('issue_rate_as_written_ci'))} → "
+                      f"{_rate_ci(with_fix, c.get('issue_rate_with_fix_ci'))} with fix")
         if rate is not None and c.get("attacks_for_10pt"):
             rate_s += f" (±10 pts needs about {c['attacks_for_10pt']} attacks)"
-        lines.append(f"  {c['check']:26} {c['grade']}  issues {rate_s} [{c['honesty']}] "
+        honesty = f" [{c['honesty']}]" if c["honesty"] else ""
+        lines.append(f"  {c['check']:26} {c['grade']}  issues {rate_s}{honesty} "
                      f"scored {c['scored']} · {acc_s}")
     if summary.get("guard_in_sample"):
         lines.append(f"{summary['guard_in_sample']['sentence']} {summary['guard_in_sample']['setup']}")
