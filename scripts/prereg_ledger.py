@@ -111,7 +111,7 @@ def render(root: pathlib.Path = ROOT) -> str:
              "|---|---|---|---|---|"]
     for r in ledger_rows(root):
         later = "<br>".join(_at(c) for c in r["later"]) or "none"
-        evidence = "<br>".join(f"`{e['path']}`: {_at(e)}" for e in r["evidence"])
+        evidence = "<br>".join(f"`{e['path']}`: {_at(e)}" for e in r["evidence"]) or "none yet"
         lines.append(f"| `{r['registration']}` | `{r['sha256']}` | {_at(r)} | {later} | {evidence} |")
     return "\n".join(lines) + "\n" + FOOTER
 

@@ -20,35 +20,72 @@ from fusion_first.schemas import (
 GOLD_DIR = data_root() / "datasets" / "gold"
 
 
-def _row_to_case(row: dict) -> JudgeCase:
+def _authored_step(s: dict) -> Step:
+    """One gold v2 `steps` entry: an assistant tool call, an assistant prose turn, or a tool result."""
+    if not isinstance(s, dict):
+        raise ValueError(f"a gold step must be an object, got {s!r}")
+    role = s.get("role")
+    if role == "assistant" and "tool_call" in s:
+        if "content" in s:
+            raise ValueError("an assistant step holds a tool_call or content, not both")
+        call = s["tool_call"]
+        if not isinstance(call, dict) or not isinstance(call.get("name"), str):
+            raise ValueError(f"a tool_call needs a string name: {call!r}")
+        return Step(role=Role.ASSISTANT, tool_call=ToolCall(name=call["name"], arguments=call.get("arguments", {})))
+    if role == "assistant":
+        if not isinstance(s.get("content"), str):
+            raise ValueError("an assistant step needs a tool_call or string content")
+        return Step(role=Role.ASSISTANT, content=s["content"])
+    if role == "tool":
+        injected = s.get("injected", False)
+        if not isinstance(s.get("tool"), str) or not isinstance(s.get("content"), str):
+            raise ValueError("a tool step needs string 'tool' and 'content'")
+        if not isinstance(injected, bool):
+            raise ValueError(f"'injected' must be a boolean, got {injected!r}")
+        return Step(role=Role.TOOL, tool_result=ToolResult(tool=s["tool"], content=s["content"], injected=injected))
+    raise ValueError(f"a gold step's role must be 'assistant' or 'tool', got {role!r}")
+
+
+def gold_trajectory(row: dict) -> Trajectory:
+    """The trajectory a gold row describes. v2 rows list `steps` (tool calls, tool results, prose, in order);
+    v1 rows carry at most one `injected` tool result and one `action`. `response` is the final assistant step."""
     steps: list[Step] = [
         Step(role=Role.SYSTEM, content=row["system"]),
         Step(role=Role.USER, content=row["user"]),
     ]
-    if row.get("injected"):
-        steps.append(
-            Step(
-                role=Role.TOOL,
-                tool_result=ToolResult(
-                    tool=row.get("tool", "tool"), content=row["injected"], injected=True
-                ),
+    if "steps" in row:
+        if row.get("injected") or row.get("action") or not isinstance(row["steps"], list):
+            raise ValueError("a gold row lists `steps` (v2) or `injected`/`action` (v1), not both")
+        steps.extend(_authored_step(s) for s in row["steps"])
+    else:
+        if row.get("injected"):
+            steps.append(
+                Step(
+                    role=Role.TOOL,
+                    tool_result=ToolResult(
+                        tool=row.get("tool", "tool"), content=row["injected"], injected=True
+                    ),
+                )
             )
-        )
-    if row.get("action"):
-        act = row["action"]
-        steps.append(
-            Step(
-                role=Role.ASSISTANT,
-                tool_call=ToolCall(name=act["tool"], arguments=act.get("arguments", {})),
+        if row.get("action"):
+            act = row["action"]
+            steps.append(
+                Step(
+                    role=Role.ASSISTANT,
+                    tool_call=ToolCall(name=act["tool"], arguments=act.get("arguments", {})),
+                )
             )
-        )
     steps.append(Step(role=Role.ASSISTANT, content=row["response"]))
+    return Trajectory(steps=steps)
+
+
+def _row_to_case(row: dict) -> JudgeCase:
     o = row["oracle"]
     return JudgeCase(
         id=row["id"],
         check=row["check"],
         split=row.get("split", "dev"),
-        trajectory=Trajectory(steps=steps),
+        trajectory=gold_trajectory(row),
         oracle=Label(
             is_issue=o["is_issue"],
             severity=Severity(o.get("severity", "NONE")),
