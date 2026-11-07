@@ -245,7 +245,7 @@ Corpus v1 grades the reply text. Corpus v2 gives the target real tools and grade
 ```bash
 python -m fusion_first.cli run start --prompt agent.txt --target ollama:qwen2.5:7b --grader host --corpus v2 --check excessive_agency,data_exfiltration
 python -m fusion_first.cli run start --prompt agent.txt --target ollama:qwen2.5:7b --grader host --corpus v2 --check excessive_agency,data_exfiltration --no-fix-arm
-fusion run status
+python -m fusion_first.cli run status
 ```
 
 **A v2 probe** (`datasets/probes/<check>.v2.jsonl`; schema and techniques in
@@ -278,10 +278,8 @@ mismatch.
 
 **Targets.** Ollama and OpenAI-compatible targets (and the hosted presets built on it) support tool calls. A
 `claude-cli:`, `cmd:` or `python:` target ends the scan with one `backend_unavailable` error that names the
-tool-capable backends. Before a 7B run, smoke a 3B model to see whether it emits native tool calls at all: a 7B
-model on the GPU the registered runs used generates about 1.4 tokens/s
-([PREREG_step2_guard.md](../evals/validation/v1/PREREG_step2_guard.md)), so a Quick scan takes hours. Run one
-Ollama job at a time. `llama3.1:8b` is excluded: it calls tools but fabricates their inputs
+tool-capable backends. Local 7B generation is slow (tokens per second, not tens), so a Quick tool-loop scan takes
+hours: smoke a 3B model first to see whether it emits native tool calls at all. Run one Ollama job at a time. `llama3.1:8b` is excluded: it calls tools but fabricates their inputs
 ([PREREG_step4_agentdojo.md](../evals/validation/v1/PREREG_step4_agentdojo.md)).
 
 **`--no-fix-arm`** attacks only the prompt as written: half the target calls, no before/after comparison, and
