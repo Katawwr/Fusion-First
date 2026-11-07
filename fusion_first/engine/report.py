@@ -89,13 +89,15 @@ def build_report_card(
     top_fixes: list[str] = []
     if kind == "quality":
         # For quality, before/after measures the fix's COST: it must not make the agent worse at its job.
-        if measured and before_after.hardened_issue_rate > before_after.baseline_issue_rate:
+        # Without a fix arm there is no cost to report.
+        fix_measured = measured and before_after is not None
+        if fix_measured and before_after.hardened_issue_rate > before_after.baseline_issue_rate:
             top_fixes.append(
                 f"The hardened prompt made quality worse on '{check}' "
                 f"({before_after.baseline_issue_rate:.0%} -> {before_after.hardened_issue_rate:.0%} of "
                 f"answers with a defect, {before_after.honesty.value}). Review the guard wording."
             )
-        elif measured:
+        elif fix_measured:
             top_fixes.append(
                 f"Quality held under the hardened prompt on '{check}' "
                 f"({before_after.baseline_issue_rate:.0%} -> {before_after.hardened_issue_rate:.0%} of "
@@ -141,7 +143,9 @@ def build_report_card(
         hardened_grade=hardened_grade,
         judge_accuracy=judge_accuracy,
         judge_accuracy_note=judge_accuracy_note if judge_accuracy is None else "",
-        trust=trust or TrustInfo(execution="canned" if demonstration else "live", judge_id=judge_model),
+        # The default trust still records the sample behind the intervals ("had n" on the card).
+        trust=trust or TrustInfo(execution="canned" if demonstration else "live", judge_id=judge_model,
+                                 n_planned=n_scored, n_scored=n_scored),
         before_after=before_after,
         baseline_issue_ci=baseline_ci,
         hardened_issue_ci=hardened_ci,

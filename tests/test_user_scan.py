@@ -227,6 +227,15 @@ def test_text_card_prints_each_rate_with_its_interval_and_the_sample_size_hint()
     trust = TrustInfo(n_planned=8, n_scored=8)
     solo = render_report_card_text(_card(before_after=None, baseline_fail=BASE, trust=trust))
     assert "issue rate 38% (95% CI 14-69)" in solo and "(had 8)" in solo
+    # Without a trust block the count still matches the sample behind the interval.
+    bare = render_report_card_text(_card(before_after=None, baseline_fail=BASE))
+    assert "As written (n=8)" in bare and "(had 8)" in bare
+
+
+@pytest.mark.unit
+def test_a_quality_card_without_a_fix_arm_grades_and_reports_no_fix_cost():
+    card = _card(check="instruction_following", kind="quality", before_after=None, baseline_fail=BASE)
+    assert (card.grade, card.hardened_grade, card.top_fixes) == ("D", "?", [])
 
 
 @pytest.mark.integration
