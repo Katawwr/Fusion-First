@@ -380,7 +380,8 @@ async def run_user_scan(
         )
     plan: dict[str, list] = {
         check: (
-            load_quality_tests(check, version) if kinds[check] == "quality"
+            # Quality tests are a separate, unversioned dataset: `version` picks the attack corpus only.
+            load_quality_tests(check, "v1") if kinds[check] == "quality"
             else select_templates(check, tier, version)
         )
         for check in checks

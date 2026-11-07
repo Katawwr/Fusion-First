@@ -126,11 +126,13 @@ def start_run(
 
 
 def _has_corpus(check: str, version: str) -> bool:
+    """The corpus covers the safety attack probes; quality tests are unversioned (always v1)."""
     from fusion_first.attacks.templates import get_templates
-    from fusion_first.measure.harness import load_quality_tests
 
+    if get_rubric(check).kind == "quality":
+        return True
     try:
-        (load_quality_tests if get_rubric(check).kind == "quality" else get_templates)(check, version)
+        get_templates(check, version)
     except FileNotFoundError:
         return False
     return True

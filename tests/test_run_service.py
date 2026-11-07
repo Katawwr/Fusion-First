@@ -154,6 +154,31 @@ def test_start_run_records_the_fix_arm_and_corpus_and_rejects_unknown_ones(tmp_p
 
 
 @pytest.mark.unit
+def test_corpus_v2_with_everything_starts_because_quality_tests_are_unversioned(tmp_path, monkeypatch):
+    """--corpus governs the safety probes only: a v2 file for every safety check is enough to start."""
+    from fusion_first.attacks import templates as templates_mod
+    from fusion_first.attacks.templates import get_templates
+    from fusion_first.goldset import PROBE_DIR
+    from fusion_first.judge.rubric import checks_of_kind
+
+    probes = tmp_path / "probes"
+    probes.mkdir()
+    for check in checks_of_kind("safety"):
+        (probes / f"{check}.v2.jsonl").write_bytes((PROBE_DIR / f"{check}.v1.jsonl").read_bytes())
+    monkeypatch.setattr(templates_mod, "PROBE_DIR", probes)
+    get_templates.cache_clear()
+    try:
+        rd = start_run(tmp_path / "ws", PROMPT, checks="everything", target="ollama:m", version="v2")
+        assert rd.plan().version == "v2" and set(checks_of_kind("quality")) <= set(rd.plan().checks)
+        (probes / "system_prompt_leakage.v2.jsonl").unlink()  # a safety check without the corpus still refuses
+        get_templates.cache_clear()
+        with pytest.raises(RunError, match="corpus v2 has no attacks for: system_prompt_leakage"):
+            start_run(tmp_path / "ws", PROMPT, checks="everything", target="ollama:m", version="v2")
+    finally:
+        get_templates.cache_clear()
+
+
+@pytest.mark.unit
 def test_the_verdict_says_the_fix_was_not_tested_without_a_fix_arm():
     from fusion_first.runs.service import _verdict
 

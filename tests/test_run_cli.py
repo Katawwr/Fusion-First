@@ -157,7 +157,10 @@ def test_run_start_passes_the_fix_arm_and_corpus(monkeypatch, capsys):
     capsys.readouterr()
     with pytest.raises(SystemExit):
         main(["run", "start", "--help"])
-    assert "quality tests keep both arms" in " ".join(capsys.readouterr().out.split())
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "quality tests keep both arms" in help_text
+    assert ("applies to the safety attack probes and their calibration gold; quality tests are unversioned "
+            "(v1)") in help_text
 
 
 @pytest.mark.unit

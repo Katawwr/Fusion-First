@@ -309,6 +309,18 @@ async def test_quality_checks_keep_both_arms_without_a_fix_arm():
 
 
 @pytest.mark.integration
+async def test_quality_tests_come_from_the_v1_file_whatever_the_corpus():
+    from fusion_first.measure.harness import load_quality_tests
+    from tests.test_run_engine import _QualityJudge
+
+    result = (await _collect(system_prompt=WEAK_PROMPT, checks=["instruction_following"], tier=ScanTier.QUICK,
+                             demonstration=False, judge_client=_QualityJudge(), target_client=_CountingTarget(),
+                             target_model_id="fake-model", judge_model="fake-judge", version="v2"))[-1].result
+    v1_ids = [t["id"] for t in load_quality_tests("instruction_following", "v1")]
+    assert [o.probe_id for o in result.outcomes] == v1_ids
+
+
+@pytest.mark.integration
 async def test_demonstration_mode_refuses_the_v2_corpus():
     with pytest.raises(ValueError, match="no canned replies"):
         await _collect(system_prompt=WEAK_PROMPT, checks=["excessive_agency"], demonstration=True, version="v2")

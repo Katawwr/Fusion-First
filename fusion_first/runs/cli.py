@@ -60,7 +60,8 @@ def add_parsers(sub) -> None:
                    help="attack only the prompt as written (half the target calls; no before/after). "
                         "Safety attacks only: quality tests keep both arms, they measure the fix's cost")
     s.add_argument("--corpus", default="v1", choices=list(service.CORPORA),
-                   help="attack corpus: v1 single-turn text (default), v2 tool use")
+                   help="attack corpus: v1 single-turn text (default), v2 tool use; applies to the safety "
+                        "attack probes and their calibration gold; quality tests are unversioned (v1)")
 
     p = rs.add_parser("status", parents=[common], help="phase and next step")
     p.add_argument("run", nargs="?", default=None)
