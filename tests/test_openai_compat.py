@@ -126,8 +126,52 @@ async def test_without_tools_nothing_is_sent_or_parsed(monkeypatch):
     resp = await client.complete(_req())
     assert "tools" not in sent[0]["payload"]
     assert resp.tool_calls is None
-    resp = await client.complete(_req(tools=TOOLS))  # tools offered, plain answer
-    assert (resp.text, resp.tool_calls) == ("Hello!", None)
+    resp = await client.complete(_req(tools=TOOLS))  # tools offered, plain answer: [] = no call this turn
+    assert (resp.text, resp.tool_calls) == ("Hello!", [])
+
+
+@pytest.mark.unit
+async def test_tool_loop_messages_are_translated_for_the_wire(monkeypatch):
+    """Assistant tool-call arguments go out as JSON strings (OpenAI requires strings); tool messages keep
+    their tool_call_id; everything else is sent unchanged and the request itself is not mutated."""
+    sent = []
+    _fake_server(monkeypatch, REPLY, sent)
+    messages = [
+        {"role": "user", "content": "Read my inbox."},
+        {"role": "assistant", "content": "", "tool_calls": [
+            {"id": "call_1_0", "type": "function", "function": {"name": "read_inbox", "arguments": {"n": 2}}},
+            {"id": "call_1_1", "type": "function", "function": {"name": "send_email",
+                                                                "arguments": {"to": "a@x.org", "body": "é"}}}]},
+        {"role": "tool", "tool_call_id": "call_1_0", "name": "read_inbox", "content": "2 emails"},
+        {"role": "tool", "tool_call_id": "call_1_1", "name": "send_email", "content": '{"status": "ok"}'},
+    ]
+    request = _req(messages=messages, tools=TOOLS)
+    before = json.dumps(request.messages)
+    await OpenAICompatModelClient("http://127.0.0.1:8000/v1", "m").complete(request)
+    wire = sent[0]["payload"]["messages"]
+    assert wire[0] == {"role": "system", "content": "You are SupportBot."}
+    assert wire[1] == messages[0]
+    calls = wire[2]["tool_calls"]
+    assert [c["function"]["arguments"] for c in calls] == ['{"n": 2}', '{"to": "a@x.org", "body": "é"}']
+    assert all(isinstance(c["function"]["arguments"], str) for c in calls)
+    assert [json.loads(c["function"]["arguments"]) for c in calls] == [
+        m["function"]["arguments"] for m in messages[1]["tool_calls"]]
+    assert [(c["id"], c["type"], c["function"]["name"]) for c in calls] == [
+        ("call_1_0", "function", "read_inbox"), ("call_1_1", "function", "send_email")]
+    assert {k: v for k, v in wire[2].items() if k != "tool_calls"} == {"role": "assistant", "content": ""}
+    assert wire[3:] == messages[2:]
+    assert wire[3]["tool_call_id"] == "call_1_0"
+    assert json.dumps(request.messages) == before
+
+
+@pytest.mark.unit
+async def test_string_tool_call_arguments_pass_through(monkeypatch):
+    sent = []
+    _fake_server(monkeypatch, REPLY, sent)
+    msg = {"role": "assistant", "content": "", "tool_calls": [
+        {"id": "c", "type": "function", "function": {"name": "read_inbox", "arguments": '{"n": 1}'}}]}
+    await OpenAICompatModelClient("http://127.0.0.1:8000/v1", "m").complete(_req(messages=[msg], tools=TOOLS))
+    assert sent[0]["payload"]["messages"][1] == msg
 
 
 # ------------------------------------------------------------------ spec + zero-spend gate

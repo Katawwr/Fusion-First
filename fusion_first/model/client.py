@@ -70,7 +70,9 @@ class ModelResponse(BaseModel):
     # Per output token: {"token": str, "logprob": float, "top": [{"token","logprob"}...]}.
     top_logprobs: list[dict] | None = None
     # Native tool calls the model asked for: [{"name": str, "arguments": dict}], plus "arguments_raw"
-    # (the provider's text) when its string arguments did not decode to a JSON object. None = no calls.
+    # (the provider's text) when its string arguments did not decode to a JSON object. A tool-capable
+    # provider (Ollama, OpenAI-compatible) returns [] when tools were offered and none was called;
+    # None = tools were not offered, or the backend ignores them (claude-cli, cmd:, python:, host).
     tool_calls: list[dict] | None = None
 
 

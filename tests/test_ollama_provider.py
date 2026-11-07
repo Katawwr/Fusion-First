@@ -280,11 +280,15 @@ def test_object_arguments_carry_no_raw_text():
 
 
 @pytest.mark.unit
-async def test_a_plain_answer_has_no_tool_calls(monkeypatch):
+async def test_a_plain_answer_to_offered_tools_is_an_empty_call_list(monkeypatch):
+    # [] = the backend understood tools and made no call (a final turn); None = tools were not offered.
     resp, _ = await _complete_with(monkeypatch, {"content": "Done."}, tools=TOOLS)
-    assert (resp.text, resp.tool_calls) == ("Done.", None)
+    assert (resp.text, resp.tool_calls) == ("Done.", [])
     resp, _ = await _complete_with(monkeypatch, {"content": "Done.", "tool_calls": []}, tools=TOOLS)
-    assert resp.tool_calls is None
+    assert resp.tool_calls == []
+    resp, _ = await _complete_with(monkeypatch, {"content": "Done.", "tool_calls": [{"function": {"name": ""}}]},
+                                   tools=TOOLS)
+    assert resp.tool_calls == []
 
 
 @pytest.mark.unit

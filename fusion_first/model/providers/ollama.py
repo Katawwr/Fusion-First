@@ -168,7 +168,7 @@ class OllamaModelClient:
             truncated=done_reason == "length",
             latency_s=round(time.monotonic() - started, 3),
             top_logprobs=self._parse_logprobs(data.get("logprobs")) if request.logprobs else None,
-            tool_calls=normalize_tool_calls(message.get("tool_calls")) if request.tools is not None else None,
+            tool_calls=(normalize_tool_calls(message.get("tool_calls")) or []) if request.tools is not None else None,
         )
 
 

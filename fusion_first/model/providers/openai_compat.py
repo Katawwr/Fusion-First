@@ -36,6 +36,21 @@ class OpenAICompatUnavailable(FusionProviderError):
     """The server could not answer (not running, wrong URL or model, or a network error)."""
 
 
+def _wire_message(message: dict) -> dict:
+    """An assistant message's tool-call `arguments` dicts as JSON strings (OpenAI requires strings; the
+    tool loop's canonical messages carry dicts). Everything else, `tool_call_id` included, is unchanged."""
+    calls = message.get("tool_calls") if message.get("role") == "assistant" else None
+    if not isinstance(calls, list):
+        return message
+    wire_calls = []
+    for call in calls:
+        fn = call.get("function") if isinstance(call, dict) else None
+        if isinstance(fn, dict) and isinstance(fn.get("arguments"), dict):
+            call = {**call, "function": {**fn, "arguments": json.dumps(fn["arguments"], ensure_ascii=False)}}
+        wire_calls.append(call)
+    return {**message, "tool_calls": wire_calls}
+
+
 class OpenAICompatModelClient:
     def __init__(self, base_url: str, model: str, *, timeout: float = 600.0, api_key_env: str = API_KEY_ENV):
         self._base_url = base_url.rstrip("/")
@@ -47,7 +62,7 @@ class OpenAICompatModelClient:
         messages: list[dict] = []
         if request.system:
             messages.append({"role": "system", "content": request.system})
-        messages.extend(request.messages)
+        messages.extend(_wire_message(m) for m in request.messages)
         payload: dict = {"model": self._model, "messages": messages, "max_tokens": request.max_tokens,
                          "temperature": request.temperature, "stream": False}
         if request.seed is not None:
@@ -100,5 +115,6 @@ class OpenAICompatModelClient:
             input_tokens=int(usage.get("prompt_tokens") or 0), output_tokens=int(usage.get("completion_tokens") or 0),
             stop_reason=choice.get("finish_reason"), truncated=choice.get("finish_reason") == "length",
             latency_s=round(time.monotonic() - started, 3),
-            tool_calls=normalize_tool_calls(choice["message"].get("tool_calls")) if request.tools is not None else None,
+            tool_calls=((normalize_tool_calls(choice["message"].get("tool_calls")) or [])
+                        if request.tools is not None else None),
         )

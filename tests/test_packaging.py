@@ -273,7 +273,9 @@ def _reachable_modules() -> set[str]:
              "fusion_first.web.factory", "fusion_first.web.serve",  # fusion serve
              "fusion_first.integrations.claude_hooks", "fusion_first.integrations.agent_tools",
              "fusion_first.integrations.promptfoo",  # promptfoo assertions load it by path
-             "fusion_first.targets"} | {m for m in modules if m.startswith("fusion_first.guardrail")}  # library API
+             "fusion_first.targets",
+             "fusion_first.engine.tool_loop",  # runtime: the scan's native tool loop
+             } | {m for m in modules if m.startswith("fusion_first.guardrail")}  # library API
     seen, stack = set(), sorted(roots)
     while stack:
         m = stack.pop()
