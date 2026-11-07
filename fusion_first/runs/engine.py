@@ -439,6 +439,12 @@ _COUNT_FIELDS = ("completed", "total", "target_calls", "input_tokens", "output_t
                  "seconds_per_attack", "eta_s")
 
 
+def known_answer_gold_version(check: str, corpus: str) -> str:
+    """The gold set a check's known-answer questions come from. Only a safety check's gold follows the attack
+    corpus; quality tests are a separate, unversioned dataset (always v1), and so is their gold."""
+    return corpus if get_rubric(check).kind == "safety" else "v1"
+
+
 async def _collect(rd, plan, target_client, concurrency, on_progress) -> RunState:
     from fusion_first.engine.user_scan import run_user_scan
     from fusion_first.stats.calibration import run_calibration
@@ -485,8 +491,9 @@ async def _collect(rd, plan, target_client, concurrency, on_progress) -> RunStat
             from fusion_first.goldset import load_gold
 
             for check in plan.checks:
-                if any(c.split == "blind" for c in load_gold(check, plan.version)):
-                    await run_calibration(check, collector, version=plan.version, split="blind")
+                gold = known_answer_gold_version(check, plan.version)
+                if any(c.split == "blind" for c in load_gold(check, gold)):
+                    await run_calibration(check, collector, version=gold, split="blind")
     finally:
         recorder.flush()
         # Calls already answered for attacks still in flight (a crash, a failed scan) are in the recording
@@ -803,8 +810,9 @@ def _in_run_accuracy(judge_client, plan: RunPlan):
         if not plan.calibration:
             return None, "", "In-run calibration was switched off for this run.", ""
         try:
-            outcome = await run_calibration(check, judge_client, version=plan.version, split="blind")
-        except (ValueError, IsolatableError, CassetteMiss) as e:
+            outcome = await run_calibration(check, judge_client, version=known_answer_gold_version(check, plan.version),
+                                            split="blind")
+        except (ValueError, IsolatableError, CassetteMiss, FileNotFoundError) as e:
             return None, "", f"The grader's accuracy could not be measured in this run ({e}).", ""
         skipped = sum(1 for _, kind in outcome.errors if kind == ErrorKind.NOT_GRADED)
         if skipped:

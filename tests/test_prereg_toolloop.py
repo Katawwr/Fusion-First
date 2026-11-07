@@ -180,6 +180,7 @@ def test_prepare_makes_one_label_free_task_per_blind_case(sealed_root, tmp_path)
     rd = jt.prepare(tmp_path / "ws", root=sealed_root, run_id="tl")
     plan = rd.plan()
     assert plan.grader == "host" and plan.calibration is False
+    assert plan.version == "v2"  # the questions are gold v2's blind cases (the committed run predates this)
     assert sorted(plan.checks) == sorted(jt.CHECKS) and plan.judge_prompt_version == 2
     tasks = grading_tasks(rd, max_tasks=500)
     assert len(tasks) == 80 and {t["check"] for t in tasks} == set(jt.CHECKS)

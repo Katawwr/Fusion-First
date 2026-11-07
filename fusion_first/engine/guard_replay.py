@@ -34,10 +34,13 @@ def guard_for_prompt(system_prompt: str) -> Guardrail:
 
 def guard_verdict(template: AttackTemplate, trajectory: Trajectory, guard: Guardrail) -> str:
     """"stopped", "allowed" or "no_tool_call" for one attack's prompt-as-written reply. Each tool call is
-    checked against every tool result received before it (a v1 template's pasted result precedes them all)."""
+    checked against every tool result received before it (a v1 template's pasted result precedes them all).
+    A tool-loop call is always checked with `untrusted_context=True`, from the first call on, as the snippet
+    configures the guard (`fusion_first/guardrail/snippet.py`, the measured configuration); a v1 call is
+    untrusted only when the template pastes an injected result."""
     tool_loop = template.uses_tool_loop
     received: list[str] = []
-    injected = bool(template.injected) and not tool_loop  # v1: the pasted result is untrusted context
+    injected = tool_loop or bool(template.injected)  # v1: the pasted result is untrusted context
     called = False
     for step in trajectory.steps:
         if step.tool_result is not None:

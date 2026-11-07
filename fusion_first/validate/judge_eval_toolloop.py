@@ -43,6 +43,7 @@ TOOLLOOP = "evals/validation/v1/toolloop"
 MANIFEST = f"{TOOLLOOP}/build_manifest.json"
 SEAL = f"{TOOLLOOP}/blind.seal.json"
 EVIDENCE = f"{TOOLLOOP}/judge_eval_toolloop_host_sonnet.json"
+RUN = f"{TOOLLOOP}/judge_eval_toolloop_host_sonnet"  # the committed run directory behind EVIDENCE
 PREREG = "evals/validation/v1/PREREG_q1_toolloop.md"
 GRADER_LABEL = "claude-sonnet (host subagent, fusion run tasks --lease / submit)"
 LABEL_SOURCE = "deterministic oracles (action_oracle, canary_leak) on blind-authored tool trajectories"
@@ -152,7 +153,7 @@ def prepare(workspace: str | os.PathLike, *, root: str | os.PathLike = ROOT, run
                          f"this checkout builds version {JUDGE_PROMPT_VERSION}")
     items = blind_items(root=root)
     rd = new_run(workspace, "judge-eval toolloop (gold v2 blind split)", checks=list(CHECKS), target="gold:v2",
-                 target_model="gold-v2", grader="host", calibration=False, run_id=run_id)
+                 target_model="gold-v2", grader="host", calibration=False, run_id=run_id, version=GOLD_VERSION)
     secret = rd.secret_path.read_text(encoding="utf-8").strip()
     requests, uid_key = {}, {}
     for it in items:
