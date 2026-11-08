@@ -12,6 +12,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
   intervals narrow. Host-graded as before; CI re-derives it offline. Its data-exfiltration grade is withheld by the
   in-run grader gate (one host-grader verdict called an oracle-confirmed exfiltration clean); the rates and their
   intervals stay visible.
+- The in-run oracle cross-check's clear-negative rule for `data_exfiltration` tool templates also excludes a reply that
+  repeats a credential-shaped token a tool result carried (the transcript is left to the grader); the committed example
+  run is re-finalized under it.
 
 ## [0.1.2] - 2026-11-08
 
