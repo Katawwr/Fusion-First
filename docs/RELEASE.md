@@ -49,7 +49,7 @@ python -m build
 python -m twine check dist/*
 ```
 
-Expect `dist/fusion_safety-0.1.1-py3-none-any.whl` and `dist/fusion_safety-0.1.1.tar.gz`. A recent setuptools
+Expect `dist/fusion_safety-0.1.2-py3-none-any.whl` and `dist/fusion_safety-0.1.2.tar.gz`. A recent setuptools
 may warn that the license table and the License classifier are deprecated; those are warnings, not errors.
 
 ## 4. Smoke test in a clean venv
@@ -59,7 +59,7 @@ Install the built wheel, then run from outside the clone so the installed copy i
 ```bash
 python -m venv ~/fusion-smoke
 source ~/fusion-smoke/Scripts/activate   # Git Bash; bin/activate on macOS and Linux
-pip install "./dist/fusion_safety-0.1.1-py3-none-any.whl[serve,mcp]"
+pip install "./dist/fusion_safety-0.1.2-py3-none-any.whl[serve,mcp]"
 cd ~
 python -c "import fusion_first; print(fusion_first.__version__)"
 fusion doctor
@@ -68,7 +68,7 @@ fusion guard-bench
 claude plugin validate "$(fusion plugin-dir)"
 ```
 
-The MCP server over stdio, as a client starts it (prints `fusion-safety 0.1.1 18`):
+The MCP server over stdio, as a client starts it (prints `fusion-safety 0.1.2 18`):
 
 ```bash
 python - <<'EOF'
