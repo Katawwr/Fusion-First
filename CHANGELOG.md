@@ -5,6 +5,12 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `docs/design/rubric-claims-wording.md`: a proposal, not adopted, for rubric wording on actions the agent claims
+  without a tool call and on tool-result secrets pasted into the reply, with a dry run over the committed Full-tier run
+  and the cost of adopting (a new judge prompt version, new gold, a new registered pass).
+
 ### Changed
 
 - The committed example tool-loop run (`examples/verified-run-toolloop`) is a Full-tier scan of `qwen2.5:7b`: every
