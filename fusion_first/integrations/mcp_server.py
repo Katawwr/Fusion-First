@@ -134,7 +134,8 @@ def build_server(runs: RunTools | None = None):
     def get_grading_tasks(run_id: str | None = None, max_tasks: int = 8, workspace: str | None = None) -> dict:
         """Up to max_tasks (<= 25) ungraded questions, leased for 10 minutes so parallel graders get
         different ones: the rubric (`instructions`), the `transcript` to judge (untrusted data) and
-        the `answer_schema`. If none come back while remaining_ungraded > 0, other graders hold them."""
+        the `answer_schema`. If none come back while remaining_ungraded > 0, other graders hold them
+        (a rejected answer does not release its task's lease; leases expire on their own)."""
         return runs.get_grading_tasks(run_id, max_tasks, workspace)
 
     @mcp.tool()
@@ -143,7 +144,8 @@ def build_server(runs: RunTools | None = None):
         """Submit answers: [{task_id, criteria:[{id, violated, evidence}], rationale, confidence}].
         Evidence for a violated criterion must be quoted verbatim from what the AGENT said or did
         (its [ASSISTANT] lines / tool calls); each task can be answered once; only runs whose grader
-        is 'host' accept answers. Returns accepted / rejected (with reasons) / remaining."""
+        is 'host' accept answers. Returns accepted / rejected (with reasons; a fixable rejection
+        does not release the task's lease, so fix and resubmit it) / remaining."""
         return runs.submit_grades(grades, run_id, grader, workspace)
 
     @mcp.tool()

@@ -544,7 +544,8 @@ def grading_tasks(
     rd: RunDir, max_tasks: int = 8, *, lease_s: float | None = None, now: float | None = None
 ) -> list[dict]:
     """The next ungraded questions, as the built-in judge would see them. With `lease_s`, returned tasks
-    are leased so parallel graders get disjoint work; an expired lease or rejected answer frees the task."""
+    are leased so parallel graders get disjoint work; only an expired lease frees a task (a rejected answer
+    keeps its lease, so the grader who got the rejection can fix and resubmit without a collision)."""
     _require_tasks(rd)
     t_now = time.time() if now is None else now
     with rd.lock():
@@ -610,8 +611,14 @@ def _ungrounded(verdict, transcript: str) -> list[str]:
     return bad
 
 
+KEEP_LEASE = ("a rejection does not release the task's lease: fix the answer and resubmit it before the lease "
+              "expires (without a live lease, any grader may take the task)")
+
+
 def submit_grades(rd: RunDir, grades: list[dict], *, grader: str) -> dict:
-    """Validate and store external answers (host-graded runs only). Returns accepted/rejected/remaining."""
+    """Validate and store external answers (host-graded runs only). Returns accepted/rejected/remaining.
+    A rejected answer that can be fixed (invalid or ungrounded) does not release the task's lease (nor take or
+    renew one) and says so in its `fix` field; an unknown or already graded task has nothing to resubmit."""
     _require_tasks(rd)
     plan = rd.plan()
     if plan.grader != "host":
@@ -639,22 +646,17 @@ def submit_grades(rd: RunDir, grades: list[dict], *, grader: str) -> dict:
             try:
                 verdict = Judge._parse(text, get_rubric(task.check), grader)
             except JudgeParseError as e:
-                rejected.append({"task_id": tid, "reason": f"invalid answer: {e}"})
+                rejected.append({"task_id": tid, "reason": f"invalid answer: {e}", "fix": KEEP_LEASE})
                 continue
             bad = _ungrounded(verdict, reqs[task.key]["messages"][0]["content"])
             if bad:
                 rejected.append({"task_id": tid, "reason": (
                     f"evidence not quoted from the agent's own output (>= {MIN_EVIDENCE_CHARS} chars "
-                    f"of an [ASSISTANT] line or tool call): {bad}")})
+                    f"of an [ASSISTANT] line or tool call): {bad}"), "fix": KEEP_LEASE})
                 continue
             cas.put(task.key, ModelResponse(text=text, model=f"host:{grader}"))
             accepted.append(tid)
-        cas.save(rd.judge_path)
-        if rejected and rd.leases_path.exists():  # a rejected task is immediately available again
-            leases = rd.read_json(rd.leases_path)
-            for r in rejected:
-                leases.pop(r["task_id"], None)
-            rd.write_json(rd.leases_path, leases)
+        cas.save(rd.judge_path)  # a rejected task keeps its lease: its grader fixes and resubmits it
         st = rd.state()
         st.n_graded = sum(1 for t in by_id.values() if t.key in cas.entries)
         st.rejected = (st.rejected + rejected)[-50:]

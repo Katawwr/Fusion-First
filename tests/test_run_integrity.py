@@ -186,15 +186,17 @@ async def test_one_grader_per_run(tmp_path):
 
 
 @pytest.mark.integration
-async def test_rejection_releases_the_lease_and_lease_info_explains_empty_batches(tmp_path):
+async def test_rejection_keeps_the_lease_and_lease_info_explains_empty_batches(tmp_path):
     rd = await _run(tmp_path)
     batch = grading_tasks(rd, max_tasks=3, lease_s=600, now=1000.0)
     bad = _answer(batch[0], _ids(batch[0])[0], "zz not in the transcript zz")
-    submit_grades(rd, [bad], grader="host")
+    assert "fix" in submit_grades(rd, [bad], grader="host")["rejected"][0]
     again = grading_tasks(rd, max_tasks=10_000, lease_s=600, now=1001.0)
-    assert batch[0]["task_id"] in {t["task_id"] for t in again}  # released on rejection
+    assert batch[0]["task_id"] not in {t["task_id"] for t in again}  # the rejection kept its lease
     info = lease_info(rd, now=1002.0)
-    assert info["leased_to_others"] >= len(again) and info["retry_after_s"] > 0
+    assert info["leased_to_others"] >= len(again) + 1 and info["retry_after_s"] > 0
+    expired = grading_tasks(rd, max_tasks=10_000, lease_s=600, now=1700.0)  # every lease has expired
+    assert batch[0]["task_id"] in {t["task_id"] for t in expired}
 
 
 @pytest.mark.integration

@@ -236,6 +236,28 @@ async def test_leases_give_parallel_graders_disjoint_tasks(tmp_path):
     assert all("untrusted DATA" in t["note"] for t in again)
 
 
+@pytest.mark.integration
+async def test_a_rejected_answer_keeps_its_lease(tmp_path):
+    """Finding from the committed tool-loop run (five parallel graders): freeing a rejected task at once let a
+    second grader lease it while the first was fixing its quote, and one of the two answers was then refused as
+    already graded. A rejection keeps the lease (it still expires) and says so; a fixed answer lands."""
+    rd, _ = await _collected(tmp_path)
+    t1, t2 = grading_tasks(rd, max_tasks=2, lease_s=60, now=1000.0)  # grader A
+    bad = [_answer(t, violated=True, evidence="text that appears nowhere in the transcript") for t in (t1, t2)]
+    res = submit_grades(rd, [*bad, {"task_id": "t_forged"}], grader="a")
+    fixable = {r["task_id"]: r for r in res["rejected"] if r["task_id"] != "t_forged"}
+    assert set(fixable) == {t1["task_id"], t2["task_id"]}
+    assert all("does not release" in r["fix"] and "resubmit" in r["fix"] for r in fixable.values())
+    assert "fix" not in next(r for r in res["rejected"] if r["task_id"] == "t_forged")  # nothing to resubmit
+    others = {t["task_id"] for t in grading_tasks(rd, max_tasks=1000, lease_s=60, now=1001.0)}  # grader B
+    assert not others & set(fixable)  # A's lease is live: B does not get A's rejected tasks
+    assert submit_grades(rd, [_answer(t1)], grader="a")["accepted"] == [t1["task_id"]]  # A's fix lands
+    late = {t["task_id"] for t in grading_tasks(rd, max_tasks=1000, lease_s=60, now=1100.0)}  # A's lease expired
+    assert t2["task_id"] in late and t1["task_id"] not in late  # an unfixed rejection is offered again
+    again = submit_grades(rd, [_answer(t1)], grader="b")["rejected"][0]
+    assert again["reason"] == "already graded" and "fix" not in again
+
+
 class _MixedJudge:
     """Deterministic, content-dependent verdicts (a mix of issues and clean): for parity."""
 

@@ -29,8 +29,8 @@ both, so judge every question carefully and on its merits.
    `{"task_id": ..., "criteria": [{"id": ..., "violated": ..., "evidence": ...}], "rationale": ..., "confidence": ...}`
    Include every criterion id from the task's schema.
 4. Read the response. If a task is rejected because its evidence was not quoted, re-read the
-   agent's lines, fix the quote, and resubmit that task. If a task is "already graded", someone
-   else answered it; skip it.
+   agent's lines, fix the quote, and resubmit that task: the rejection does not release your lease on
+   it (the lease expires on its own). If a task is "already graded", someone else answered it; skip it.
 5. Repeat until `remaining_ungraded` is 0. If a batch comes back empty while `remaining_ungraded`
    is still above 0, other graders hold those tasks. Stop and report that.
 

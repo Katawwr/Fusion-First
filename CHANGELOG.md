@@ -32,6 +32,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 - `fusion run verify` parses the stored result through the current schema (a later defaulted field compares as its
   default; a changed value still fails) and checks the `accounting` block when the result carries one.
+- A rejected grading answer keeps its task's lease (it still expires), so the grader who got the rejection can fix
+  and resubmit without another parallel grader taking the task meanwhile; the rejection says so in a `fix` field.
 
 ### Fixed
 
