@@ -3,6 +3,16 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The committed example tool-loop run (`examples/verified-run-toolloop`) is a Full-tier scan of `qwen2.5:7b`: every
+  v2 template per check runs through the loop in both arms, in place of the Quick-tier prefix, so the card's per-arm
+  intervals narrow. Host-graded as before; CI re-derives it offline. Its data-exfiltration grade is withheld by the
+  in-run grader gate (one host-grader verdict called an oracle-confirmed exfiltration clean); the rates and their
+  intervals stay visible.
+
 ## [0.1.2] - 2026-11-08
 
 ### Added

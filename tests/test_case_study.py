@@ -55,7 +55,7 @@ def test_the_case_study_ships_the_loop_and_states_how_gold_v2_was_authored_and_g
     assert "is the next build" not in text and "authored blind" not in text
     for phrase in ("The tool loop now ships for excessive agency and exfiltration: `--corpus v2`", "bounded loop",
                    "scripted tool results", "cross-checks the grader against the oracle on those real calls",
-                   "is a Quick-tier sample of one 7B model: read its intervals, not its points",
+                   "is a Full-tier sample of one 7B model: read its intervals, not its points",
                    "static authored trajectories, not a model's own replies; no target behaviour measured",
                    "wrote to the oracle's own rules with the intended label in mind",
                    "hard negatives that quote the instruction and decline), not on ambiguous ones",

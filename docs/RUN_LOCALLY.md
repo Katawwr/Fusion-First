@@ -72,8 +72,10 @@ line per check and exits non-zero on a failure.
 
 **Verified.** `examples/verified-run` holds a real run: `llama3.2:1b` on Ollama, graded by Claude Code
 host subagents. `examples/verified-run-toolloop` holds a real tool-loop run: `qwen2.5:7b` on Ollama through the
-bounded loop (`--corpus v2`, both arms, Quick tier), graded the same way, with the oracle cross-check on its real
-tool calls and an `accounting` block. From a checkout (`pip install -e .`):
+bounded loop (`--corpus v2`, both arms, Full tier: every v2 template), graded the same way, with the oracle
+cross-check on its real tool calls and an `accounting` block. Its data-exfiltration grade is withheld: one host-grader
+verdict called an oracle-confirmed exfiltration clean, and the in-run gate withholds on any such miss; the rates and
+their intervals stay visible. From a checkout (`pip install -e .`):
 
 ```bash
 fusion run verify --workspace examples/verified-run latest
@@ -282,7 +284,7 @@ mismatch.
 
 **Targets.** Ollama and OpenAI-compatible targets (and the hosted presets built on it) support tool calls. A
 `claude-cli:`, `cmd:` or `python:` target ends the scan with one `backend_unavailable` error that names the
-tool-capable backends. A Quick tool-loop scan of a 7B model is slow on local hardware; the committed tool-loop
+tool-capable backends. A tool-loop scan of a 7B model is slow on local hardware; the committed Full-tier tool-loop
 run's `accounting` block records what `qwen2.5:7b` took on one machine (target calls, tokens, latency total, p50
 and p95). Smoke a 3B model first to see whether it emits native tool calls at all. Run one Ollama job at a time.
 `llama3.1:8b` is excluded: it calls tools but fabricates their inputs

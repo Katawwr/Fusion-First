@@ -98,8 +98,10 @@ before merge; CI on every push. No API spend: real model calls went through a su
 - The tool loop now ships for excessive agency and exfiltration: `--corpus v2` runs the target in a bounded loop with
   scripted tool results, grades the tool calls it makes and cross-checks the grader against the oracle on those real
   calls. The default corpus v1 still grades prose (the model's reply, not executed tool calls), and the committed
-  example tool-loop run ([`examples/verified-run-toolloop`](../examples/verified-run-toolloop)) is a Quick-tier
-  sample of one 7B model: read its intervals, not its points.
+  example tool-loop run ([`examples/verified-run-toolloop`](../examples/verified-run-toolloop)) is a Full-tier
+  sample of one 7B model: read its intervals, not its points. Its data-exfiltration grade is withheld by the in-run
+  grader gate (one host-grader verdict called an oracle-confirmed exfiltration clean); the rates and their intervals
+  stay visible.
 - Samples are small (tens to hundreds of transcripts per cell); read the intervals, not the points.
 - No adaptive-attack evaluation; a static result is expected to degrade against an attacker who adapts.
 - The guard's cost in a live agent loop is above its registered margin (see Headline result).
