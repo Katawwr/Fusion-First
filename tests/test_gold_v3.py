@@ -219,6 +219,62 @@ def test_the_v3_cli_builds_seals_and_checks(tmp_path, capsys):
     assert GV3.BUILT == "2026-11-09" and GV3.STUDY is S
 
 
+# ------------------------------------------------------------------------------------ the committed gold v3
+
+
+def _committed(check):
+    return [json.loads(x) for x in (ROOT / f"datasets/gold/{check}.v3.jsonl").read_text(encoding="utf-8").splitlines()
+            if x.strip()]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("check", S.checks)
+def test_every_committed_v3_label_re_derives_and_every_row_is_blind(check):
+    rows = _committed(check)
+    assert rows and all(r["split"] == "blind" for r in rows)
+    assert all(r["id"].startswith(S.id_prefix[check] + "-") for r in rows)
+    for r in rows:
+        assert r["oracle"] == jt.gold_label(r, S), r["id"]
+        assert r["technique"] in S.techniques and set(r["oracle_spec"]) == set(S.spec_keys)
+    positives = {r["technique"] for r in rows if r["oracle"]["is_issue"]}
+    negatives = {r["technique"] for r in rows if not r["oracle"]["is_issue"]}
+    assert positives <= {"claim_first_person", "claim_passive", "claim_synonym", "secret_unrequested"}
+    assert negatives <= {"offer_or_plan", "declined_or_negated", "narrative_or_quoted", "benign_control",
+                         "secret_requested_by_name", "secret_declined"}
+    assert len(jt.blind_items(root=ROOT, study=S, checks=[check])) == len(rows)
+
+
+@pytest.mark.unit
+def test_the_committed_v3_manifest_describes_the_committed_gold():
+    m = json.loads((ROOT / S.manifest).read_text(encoding="utf-8"))
+    for rel, digest in m["gold_files"].items():
+        assert gb.lf_sha256(ROOT / rel) == digest, rel
+    assert m["study"] == "claims_v3" and m["judge_prompt_version"] == 3 and m["seed"] == 42
+    assert sum(v["rows"] for v in m["inputs"].values()) == 90 and len(m["inputs"]) == 9 and m["dropped"] == []
+    for check in S.checks:
+        rows = _committed(check)
+        assert m["counts"][check]["by_split"]["blind"] == {"positive": sum(r["oracle"]["is_issue"] for r in rows),
+                                                           "negative": sum(not r["oracle"]["is_issue"] for r in rows)}
+        for pattern in S.patterns[check]:
+            tally = m["counts"][check]["by_pattern"][pattern]["blind"]
+            assert tally["positive"] >= S.min_blind_per_pattern and tally["negative"] >= S.min_blind_per_pattern
+
+
+@pytest.mark.unit
+def test_the_v3_seal_verifies_and_the_registration_quotes_both_digests():
+    st = jt.seal_status(ROOT / "datasets" / "gold", ROOT / S.seal, S)
+    assert st["clean"], st["diff"]
+    assert st["n_rows"] == 90 and st["meta"]["judge_prompt_version"] == 3 and st["meta"]["study"] == "claims_v3"
+    assert st["meta"]["preregistration"] == S.prereg
+    prereg = (ROOT / S.prereg).read_text(encoding="utf-8")
+    assert st["digest"] in prereg and "2026-11-09" in prereg
+    v2 = jt.seal_status(ROOT / "datasets" / "gold", ROOT / jt.SEAL, jt.TOOLLOOP)
+    assert v2["digest"] in prereg  # the pass also re-asks the gold v2 blind split
+    assert "claims_v3_decision" in prereg and "--force" in prereg and "<" not in prereg.split("## Why")[0]
+    assert GV3.main(["check-seal"]) == 0
+    jt._require_registered(ROOT, S)  # what prepare and score check before anything else
+
+
 @pytest.mark.unit
 def test_the_v2_study_keeps_its_builder_rules():
     assert jt.TOOLLOOP.blind_per_label == 20 and jt.TOOLLOOP.min_blind_per_label == 17

@@ -39,6 +39,8 @@ GOVERNS = {
     f"{V1}/PREREG_local_grader.md": [f"{V1}/judge_eval_prob_qwen7b.json"],
     f"{V1}/PREREG_q1_toolloop.md": [f"{V1}/toolloop/judge_eval_toolloop_host_sonnet.json",
                                    f"{V1}/toolloop/judge_eval_toolloop_host_sonnet/judge.cassette.json"],
+    f"{V1}/PREREG_q7_claims_v3.md": [f"{V1}/claims_v3/judge_eval_claims_v3_host_sonnet.json",
+                                    f"{V1}/claims_v3/judge_eval_claims_v3_host_sonnet/judge.cassette.json"],
     f"{V1}/PREREG_step2_guard.md": [f"{V1}/step2_guard.json", f"{V1}/step2/lg_raw.jsonl", f"{V1}/step2/prior.jsonl"],
     f"{V1}/PREREG_step3_guard.md": [f"{V1}/step3_guard.json"],
     f"{V1}/PREREG_step4_agentdojo.md": [f"{V1}/step4_agentdojo.json", f"{V1}/agentdojo/heldout/qwen2.5-7b.jsonl"],
