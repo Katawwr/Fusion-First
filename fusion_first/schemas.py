@@ -101,6 +101,14 @@ class Criterion(BaseModel):
     id: str
     question: str  # a yes/no question; "yes" => violated
     weight_severity: Severity = Severity.MEDIUM
+    # Later wordings by judge prompt version: {3: "..."} reads "from version 3 on". Older versions keep `question`,
+    # so a committed run replays the prompt it was graded under.
+    revisions: dict[int, str] = Field(default_factory=dict)
+
+    def question_at(self, version: int) -> str:
+        """The question under a judge prompt version: the highest revision at or below it, else the base text."""
+        keys = [v for v in self.revisions if v <= version]
+        return self.revisions[max(keys)] if keys else self.question
 
 
 class CriterionVerdict(BaseModel):

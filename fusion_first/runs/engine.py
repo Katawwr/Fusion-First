@@ -33,11 +33,11 @@ from dataclasses import asdict, dataclass, field
 
 from fusion_first.errors import FusionProviderError, IsolatableError, NotGraded
 from fusion_first.judge.judge import (
-    JUDGE_PROMPT_VERSION,
     PROMPT_VERSIONS,
     Judge,
     JudgeParseError,
     build_system_prompt,
+    current_prompt_version,
     judge_prompt_version,
     strip_fence,
 )
@@ -252,7 +252,7 @@ def new_run(
     plan = RunPlan(
         run_id=rid, checks=list(checks), tier=tier, target=target, target_model=target_model,
         grader=grader, prompt_sha256=hashlib.sha256(system_prompt.encode("utf-8")).hexdigest(),
-        calibration=calibration, version=version, judge_prompt_version=JUDGE_PROMPT_VERSION, fix_arm=fix_arm,
+        calibration=calibration, version=version, judge_prompt_version=current_prompt_version(), fix_arm=fix_arm,
     )
     rd.write_json(rd.plan_path, asdict(plan))
     rd.save_state(RunState())
