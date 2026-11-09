@@ -405,6 +405,58 @@ export function ToolloopSection({ t }) {
   );
 }
 
+// Q7 of the Trust Report: the registered judge-accuracy result under the version-3 wording (PREREG_q7_claims_v3.md):
+// gold v3 (claimed-but-uncalled actions, pasted tool-result secrets) plus the gold v2 blind split re-asked under it.
+export function ClaimsV3Section({ c }) {
+  const checks = c.checks || [];
+  const dec = c.decision || {};
+  const per = Object.entries(dec.per_check || {});
+  const floors = new Set(per.map(([, v]) => `${v.floor.accuracy.toFixed(2)}/${v.floor.f1.toFixed(2)}`));
+  const [acc, f1] = (floors.values().next().value || "0.60/0.60").split("/");
+  const bar = `accuracy ${acc === f1 ? `and F1 at least ${acc}` : `at least ${acc} and F1 at least ${f1}`} on the pooled items and on gold v3 alone`;
+  const missed = per.filter(([, v]) => !v.meets).map(([k, v]) => `${(CHECK_NAMES[k] || k).toLowerCase()}: ${v.reason}`);
+  const rows = [];
+  for (const ch of checks) {
+    const label = CHECK_NAMES[ch.check] || ch.check;
+    const subsets = [["pooled", ch], ["gold v3", ch.subsets?.gold_v3], ["gold v2", ch.subsets?.gold_v2]].filter(([, b]) => b);
+    for (const [items, b] of subsets) {
+      rows.push([`${label}, ${items}`, `${b.n} (${b.unanswered})`, interval(b.accuracy), interval(b.recall),
+        interval(b.specificity), b.f1.toFixed(2), b.kappa.toFixed(2)]);
+    }
+  }
+  const n = checks
+    .filter((ch) => ch.subsets?.gold_v3)
+    .map((ch) => `${(CHECK_NAMES[ch.check] || ch.check).toLowerCase()} ${ch.subsets.gold_v3.positives} positive and ${ch.subsets.gold_v3.negatives} negative`)
+    .join("; ");
+  return (
+    <Section title="Judge accuracy under the version-3 wording">
+      <p className="mb-3 text-sm text-app-muted">
+        {graderName(c.grader)} host subagents graded, under judge prompt version {c.judge_prompt_version}, the sealed blind
+        split of gold v3 (claimed-but-uncalled actions and pasted tool-result secrets, labelled by deterministic oracles)
+        and the gold v2 blind split re-asked under the same wording, one accepted answer per question. Pre-registered
+        {c.seal_digest ? ` (seal ${c.seal_digest.slice(0, 12)})` : ""}.
+      </p>
+      <DataTable
+        numeric={[1, 2, 3, 4, 5, 6]}
+        head={["Check", "n (unanswered)", "Accuracy", "Recall", "Specificity", "F1", "κ"]}
+        rows={rows}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        {dec.claim_allowed
+          ? `Decision: the claim is allowed; both checks meet the registered bar (${bar}), so version 3 is the default judge prompt.`
+          : `Decision: the claim is not allowed (${missed.join("; ")}), so no accuracy under the version-3 wording is claimed and the default judge prompt stays at version 2.`}
+      </p>
+      <p className="mt-1 text-xs text-app-subtle">
+        Gold v3 written by Sonnet subagents, the grader&apos;s vendor, blind to the rubric, the judge prompt, gold v1, gold v2
+        and the probe corpus, to the oracles&apos; own rules with the intended label in mind; offers, denials, quoted
+        instructions and benign controls are the hard negatives. The graders were told to read only the task JSON and
+        their transcripts were audited afterwards, so the guarantee is procedural, not technical. Two checks only; static
+        authored trajectories, not a model&apos;s own replies. On gold v3, n = {n}; read the intervals, not the points.
+      </p>
+    </Section>
+  );
+}
+
 function NotYet({ what }) {
   return (
     <p className="border-l-2 border-app-border-strong pl-3 text-sm text-app-muted">
@@ -515,6 +567,8 @@ export default function Trust() {
       <DetectorSection d={evidence.detector} />
 
       {evidence.toolloop && <ToolloopSection t={evidence.toolloop} />}
+
+      {evidence.claims_v3 && <ClaimsV3Section c={evidence.claims_v3} />}
 
       <Section title="Prompt fix: effect and cost">
         {evidence.fix_pooled && (

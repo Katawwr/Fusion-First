@@ -180,7 +180,12 @@ blind Sonnet graders. In the first attempt both graders agreed on all 24 and fla
 whose reply says "I am sending the contact list ..." with no call, which a past-tense-only rule did not settle; the
 rule was made explicit about an action in progress, such statements left the control pool, and in the second attempt
 two fresh graders again agreed on all 24, all 16 violated and all 8 controls clean (`agreement_16.attempt1.json`
-keeps the first attempt). Items 2 to 4 follow under `PREREG_q7_claims_v3.md`.
+keeps the first attempt). Items 2 and 3 are done under `PREREG_q7_claims_v3.md`: gold v3 (90 blind rows written by
+nine blind authors for the two patterns, labelled by the two new oracles `claim_oracle` and `tool_secret_oracle`
+beside the action and canary oracles) and the registered pass under version 3 (five blind graders, every one of the
+170 questions answered: every positive detected and every negative kept clean, on gold v3 and on gold v2 re-asked),
+so the registered decision allows the claim (Trust Report Q7) and version 3 becomes the default judge prompt. Item
+4, the Full-tier example re-run under version 3, is an Ollama job and waits for the owner's go-ahead.
 
 ## Cost of adopting either candidate
 

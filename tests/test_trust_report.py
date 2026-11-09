@@ -814,3 +814,145 @@ def test_the_bottom_line_carries_q6_from_the_envelope_and_its_decision(tmp_path)
             "model's own replies; no target behaviour measured.") in line
     _write_toolloop(tmp_path, _toolloop_envelope(ea_wrong=0, dx_wrong=0, dx_unanswered=10))
     assert "not met, so no accuracy on tool trajectories is claimed" in _bottom(render(tmp_path))
+
+
+# ------------------------------------------------------------------- Q7: the judge under the version-3 wording
+
+Q7 = "## Q7: Is the judge accurate under the version-3 wording (claimed actions, pasted secrets)?"
+CV3_EVIDENCE = "evals/validation/v1/claims_v3/judge_eval_claims_v3_host_sonnet.json"
+CV3_PREREG = "evals/validation/v1/PREREG_q7_claims_v3.md"
+CV3_DIGEST = "ab" * 32
+
+
+def _q7_section(out: str) -> str:
+    return out.split(Q7)[1].split("\n## ")[0]
+
+
+def _claims_v3_envelope(*, ea_wrong_v3: int = 0, ea_wrong_v2: int = 0, dx_wrong_v3: int = 0,
+                        unanswered_v3: int = 0) -> dict:
+    """A synthetic envelope in the claims-v3 scorer's shape: pooled grader block, gold v3 and gold v2 subsets,
+    per-technique blocks with negatives, baselines, also_graded and the registered decision."""
+    from fusion_first.stats.metrics import wilson_interval
+    from fusion_first.validate.judge_eval import _block
+    from fusion_first.validate.prereg import claims_v3_decision
+
+    def sub(n_pos, n_neg, missed, unanswered):
+        y = [True] * n_pos + [False] * n_neg
+        pred = [i >= missed for i in range(n_pos)] + [False] * n_neg
+        return y, pred, _block(y, pred, unanswered, "oracle")
+
+    def check(pos3, neg3, wrong3, wrong2, unanswered3, techniques):
+        y3, p3, b3 = sub(pos3, neg3, wrong3, unanswered3)
+        y2, p2, b2 = sub(20, 20, wrong2, 0)
+        return {"grader": _block(y3 + y2, p3 + p2, unanswered3, "oracle"),
+                "subsets": {"gold_v3": b3, "gold_v2": b2}, "n_items": pos3 + neg3 + unanswered3 + 40,
+                "positives": pos3 + 20, "per_technique": techniques,
+                "naive_regex": {"f1": 0.3, "vs_grader": {"grader_right_baseline_wrong": 9,
+                                                         "baseline_right_grader_wrong": 1, "mcnemar_p": 0.01}},
+                "tuned_heuristic": {"unsupported": "UnsupportedCheckError: not this check"}}
+
+    def tech(positives=0, detected=0, negatives=0, false_alarms=0):
+        return {"positives": positives, "detected": detected, "unanswered_positives": 0,
+                "recall": wilson_interval(detected, positives).model_dump() if positives else None,
+                "negatives": negatives, "false_alarms": false_alarms,
+                "specificity": wilson_interval(negatives - false_alarms, negatives).model_dump() if negatives
+                else None}
+
+    claims = {"claim_first_person": tech(6, max(0, 6 - ea_wrong_v3)), "claim_passive": tech(6, 6),
+              "claim_synonym": tech(3, 3),
+              "offer_or_plan": tech(negatives=6), "declined_or_negated": tech(negatives=3),
+              "narrative_or_quoted": tech(negatives=3), "benign_control": tech(negatives=3)}
+    secrets = {**claims, "secret_unrequested": tech(15, max(0, 15 - dx_wrong_v3)),
+               "secret_requested_by_name": tech(negatives=9),
+               "secret_declined": tech(negatives=6)}
+    env = {"checks": {"excessive_agency": check(15, 15, ea_wrong_v3, ea_wrong_v2, unanswered_v3, claims),
+                      "data_exfiltration": check(30, 30, dx_wrong_v3, 0, 0, secrets)},
+           "demonstration": False, "grader": "claude-sonnet (host subagent, fusion run tasks --lease / submit)",
+           "judge_prompt_version": 3, "preregistration": CV3_PREREG, "seal_digest": CV3_DIGEST, "scored_once": True,
+           "split": "blind", "gold_version": "v3", "study": "claims_v3",
+           "also_graded": {"toolloop": {"gold_version": "v2", "seal_digest": TL_DIGEST, "n_items": 80}}}
+    env["decision"] = claims_v3_decision(env)
+    return env
+
+
+def _write_cv3(root: pathlib.Path, env: dict) -> None:
+    p = root / CV3_EVIDENCE
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(env), encoding="utf-8")
+
+
+@pytest.mark.unit
+def test_q7_says_registered_not_scored_without_its_evidence(tmp_path):
+    from fusion_first.validate.trust_report import evidence_json
+
+    assert "NOT YET MEASURED" in _q7_section(render(tmp_path))
+    assert "Not yet measured" in render(tmp_path).split("## Q1")[0]
+    (tmp_path / CV3_PREREG).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / CV3_PREREG).write_text("registered", encoding="utf-8")
+    q7 = _q7_section(render(tmp_path))
+    assert f"REGISTERED, NOT YET SCORED: `{CV3_PREREG}`" in q7 and "| Check |" not in q7
+    assert "Registered and not yet scored; no number from it is claimed" in render(tmp_path).split("## Q1")[0]
+    _write_cv3(tmp_path, {**_claims_v3_envelope(), "demonstration": True})
+    assert "REGISTERED, NOT YET SCORED" in _q7_section(render(tmp_path))
+    assert evidence_json(tmp_path)["claims_v3"] is None
+
+
+@pytest.mark.unit
+def test_q7_renders_pooled_and_subset_rows_techniques_and_the_decision(tmp_path):
+    from fusion_first.validate.trust_report import _iv, evidence_json
+
+    env = _claims_v3_envelope(ea_wrong_v3=1)
+    assert env["decision"]["claim_allowed"] is True
+    _write_cv3(tmp_path, env)
+    out = render(tmp_path)
+    q7 = _q7_section(out)
+    flat = " ".join(q7.split())
+    assert f"`{CV3_EVIDENCE}`" in q7 and f"`{CV3_PREREG}`" in q7 and CV3_DIGEST in q7 and TL_DIGEST in q7
+    assert "judge prompt version 3" in flat and "(80 trajectories) re-asked under version 3" in flat
+    assert "90 multi-step tool trajectories" in flat
+    tables = _tables(q7)
+    main = tables[0]
+    assert main["head"] == ["Check", "n (unanswered)", "Accuracy", "Recall", "Specificity", "F1", "κ"]
+    ea = env["checks"]["excessive_agency"]
+    for items, g in (("pooled", ea["grader"]), ("gold v3", ea["subsets"]["gold_v3"]),
+                     ("gold v2", ea["subsets"]["gold_v2"])):
+        assert main[f"excessive agency, {items}"] == [f"{g['n']} ({g['unanswered']})", _iv(g["accuracy"]),
+                                                      _iv(g["recall"]), _iv(g["specificity"]), f"{g['f1']:.2f}",
+                                                      f"{g['kappa']:.2f}"]
+    tech = tables[1]
+    assert tech["head"] == ["Technique", "Pattern", "excessive agency", "data exfiltration"]
+    assert tech["claim first person"][0] == "claims" and tech["claim first person"][1].startswith("5 of 6, ")
+    assert tech["offer or plan"][1].startswith("6 of 6 clean, ") and tech["secret unrequested"][0] == "secrets"
+    assert tech["secret unrequested"][1] == "–" and tech["secret unrequested"][2].startswith("15 of 15, ")
+    assert "Excessive agency: naive regex F1 0.30 (p=0.0100)" in flat
+    assert "Decision: the claim is allowed" in flat and "version 3 is the default judge prompt" in flat
+    assert "on the pooled items and on gold v3 alone" in flat
+    for phrase in ("Sonnet subagents, the grader's vendor", "two checks only", "not re-scored",
+                   "excessive agency 15 positive and 15 negative", "data exfiltration 30 positive and 30 negative"):
+        assert phrase in flat, phrase
+    bottom = out.split("## Q1")[0]
+    assert "Judge accurate under the version-3 wording" in bottom and "met, so the claim is allowed" in bottom
+    assert "(gold v3 alone" in bottom
+    site = evidence_json(tmp_path)["claims_v3"]
+    assert site["evidence"] == CV3_EVIDENCE and site["seal_digest"] == CV3_DIGEST and site["judge_prompt_version"] == 3
+    assert site["also_graded"]["toolloop"]["n_items"] == 80 and site["preregistration"] == CV3_PREREG
+    row = next(c for c in site["checks"] if c["check"] == "excessive_agency")
+    assert row["n"] == ea["grader"]["n"] and row["positives"] == 35 and row["negatives"] == 35
+    assert row["subsets"]["gold_v3"]["positives"] == 15 and row["subsets"]["gold_v2"]["n"] == 40
+    assert row["per_technique"]["offer_or_plan"]["negatives"] == 6
+    dec = site["decision"]
+    assert dec["claim_allowed"] is True and dec["per_check"]["excessive_agency"]["gold_v3"]["meets"] is True
+
+
+@pytest.mark.unit
+def test_q7_states_a_refused_claim_when_gold_v3_alone_misses_the_floor(tmp_path):
+    env = _claims_v3_envelope(dx_wrong_v3=20)
+    dec = env["decision"]["per_check"]["data_exfiltration"]
+    assert dec["pooled"]["meets"] is True and dec["gold_v3"]["meets"] is False
+    assert env["decision"]["claim_allowed"] is False
+    _write_cv3(tmp_path, env)
+    out = render(tmp_path)
+    flat = " ".join(_q7_section(out).split())
+    assert "Decision: the claim is not allowed (data exfiltration: pooled:" in flat
+    assert "stays at version 2" in flat
+    assert "not met, so no accuracy under the version-3 wording is claimed" in out.split("## Q1")[0]

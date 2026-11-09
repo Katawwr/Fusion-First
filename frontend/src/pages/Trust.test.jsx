@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { DetectorSection, Step2Section, Step3Section, Step4Section, ToolloopSection } from "./Trust";
+import Trust, { ClaimsV3Section, DetectorSection, Step2Section, Step3Section, Step4Section, ToolloopSection } from "./Trust";
 import { EXPERIMENT_NAMES } from "../components/trust/format";
 import { fixVerdict, graderName, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
@@ -395,11 +395,82 @@ describe("Trust page", () => {
         expect(screen.getAllByRole("cell", { name: `${c.n} (${c.unanswered})` }).length).toBeGreaterThan(0);
         expect(screen.getAllByRole("cell", { name: interval(c.accuracy) }).length).toBeGreaterThan(0);
       }
-      expect(screen.getByText(/^Decision: the claim is/)).toHaveTextContent(
+      // Q6's decision paragraph comes first; Q7 (the version-3 wording) renders its own right after
+      expect(screen.getAllByText(/^Decision: the claim is/)[0]).toHaveTextContent(
         evidence.toolloop.decision.claim_allowed ? "the claim is allowed" : "the claim is not allowed",
       );
       const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
       expect(titles.indexOf(TITLE)).toBe(titles.indexOf("Trained detector vs the phrase list") + 1);
+    });
+  });
+
+  describe("judge accuracy under the version-3 wording (Q7)", () => {
+    const TITLE = "Judge accuracy under the version-3 wording";
+    const iv = (point, low, high) => ({ point, low, high });
+    const floor = { accuracy: 0.6, f1: 0.6 };
+    const sub = (n, positives, negatives, accuracy) => ({
+      n, unanswered: 0, positives, negatives, accuracy, recall: iv(1, 0.8, 1), specificity: iv(1, 0.8, 1), f1: 1, kappa: 1,
+    });
+    const block = (allowed) => ({
+      evidence: "evals/validation/v1/claims_v3/judge_eval_claims_v3_host_sonnet.json",
+      preregistration: "evals/validation/v1/PREREG_q7_claims_v3.md",
+      seal_digest: "d1657d76deda98f9761becc68e1b370087a746607248a717df5c5f53885fc5c5",
+      also_graded: { toolloop: { gold_version: "v2", seal_digest: "b9236c20", n_items: 80 } },
+      grader: "claude-sonnet (host subagent, fusion run tasks --lease / submit)",
+      judge_prompt_version: 3,
+      checks: [
+        { check: "excessive_agency", ...sub(70, 35, 35, iv(1, 0.95, 1)), per_technique: {},
+          subsets: { gold_v3: sub(30, 15, 15, allowed ? iv(1, 0.89, 1) : iv(0.5, 0.33, 0.67)), gold_v2: sub(40, 20, 20, iv(1, 0.91, 1)) } },
+        { check: "data_exfiltration", ...sub(100, 50, 50, iv(1, 0.96, 1)), per_technique: {},
+          subsets: { gold_v3: sub(60, 30, 30, iv(1, 0.94, 1)), gold_v2: sub(40, 20, 20, iv(1, 0.91, 1)) } },
+      ],
+      decision: {
+        claim_allowed: allowed,
+        rule: "r",
+        per_check: {
+          excessive_agency: {
+            meets: allowed, floor, max_unscored_rate: 0.1, pooled: { meets: true, reason: "m" },
+            gold_v3: { meets: allowed, reason: "g" },
+            reason: allowed ? "meets" : "pooled: meets; gold v3: accuracy 0.5000 and F1 0.4000 (n=30) miss the floor 0.60 / 0.60",
+          },
+          data_exfiltration: { meets: true, reason: "meets", floor, max_unscored_rate: 0.1, pooled: { meets: true, reason: "m" }, gold_v3: { meets: true, reason: "m" } },
+        },
+      },
+    });
+
+    it.each([true, false])("renders pooled and subset rows and the registered decision (claim allowed=%s)", (allowed) => {
+      render(<ClaimsV3Section c={block(allowed)} />);
+      expect(screen.getByRole("heading", { name: TITLE })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "Excessive agency, pooled" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "Excessive agency, gold v3" })).toBeInTheDocument();
+      expect(screen.getByRole("cell", { name: "Data exfiltration, gold v2" })).toBeInTheDocument();
+      expect(screen.getAllByRole("cell", { name: "40 (0)" }).length).toBe(2);
+      expect(screen.getByRole("cell", { name: "100% (96%–100%)" })).toBeInTheDocument();
+      expect(screen.getByText(/^Decision: the claim is/)).toHaveTextContent(
+        allowed ? "version 3 is the default judge prompt" : "stays at version 2",
+      );
+      if (!allowed) expect(screen.getByText(/^Decision: the claim is/)).toHaveTextContent("excessive agency: pooled: meets; gold v3");
+      expect(screen.getByText(/On gold v3, n = /)).toHaveTextContent(
+        "excessive agency 15 positive and 15 negative; data exfiltration 30 positive and 30 negative",
+      );
+      expect(screen.getByText(/Pre-registered/)).toHaveTextContent("seal d1657d76deda");
+    });
+
+    it("renders the committed block after the tool-trajectory section, or nothing without it", () => {
+      renderTrust();
+      if (!evidence.claims_v3) {
+        expect(screen.queryByRole("heading", { name: TITLE })).toBeNull();
+        return;
+      }
+      expect(screen.getByRole("heading", { name: TITLE })).toBeInTheDocument();
+      for (const c of evidence.claims_v3.checks) {
+        expect(screen.getAllByRole("cell", { name: `${c.n} (${c.unanswered})` }).length).toBeGreaterThan(0);
+        expect(screen.getAllByRole("cell", { name: interval(c.accuracy) }).length).toBeGreaterThan(0);
+      }
+      const decisions = screen.getAllByText(/^Decision: the claim is/).map((el) => el.textContent);
+      expect(decisions.some((t) => t.includes(evidence.claims_v3.decision.claim_allowed ? "version 3 is the default" : "stays at version 2"))).toBe(true);
+      const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+      expect(titles.indexOf(TITLE)).toBe(titles.indexOf("Judge accuracy on tool trajectories") + 1);
     });
   });
 });

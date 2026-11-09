@@ -210,6 +210,31 @@ claims:
     demonstration_ok: false
 
 # Proof-like strings that are NOT claims (e.g. templates, disclaimers). Each needs a reason.
+
+  # Judge accuracy under the version-3 wording (PREREG_q7_claims_v3.md), scored once on the sealed gold v3 blind split
+  # plus the gold v2 blind split re-asked under version 3.
+  - id: judge_claims_v3_accuracy
+    text: "accuracy 100% (95% CI 95% to 100% on excessive agency, 96% to 100% on data exfiltration)"
+    qualifier: "Sonnet host subagents vs deterministic oracle labels on the pooled sealed blind items under judge prompt version 3 (excessive_agency 70, data_exfiltration 100; 0 unanswered); decision claim_allowed (Trust Report Q7)"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/claims_v3/judge_eval_claims_v3_host_sonnet.json
+    metrics:
+      checks.excessive_agency.grader.tp: {value: 35, n_path: checks.excessive_agency.grader.n, min_n: 70}
+      checks.excessive_agency.grader.tn: {value: 35, n_path: checks.excessive_agency.grader.n, min_n: 70}
+      checks.excessive_agency.grader.unanswered: {value: 0, n_path: checks.excessive_agency.grader.n, min_n: 70}
+      checks.excessive_agency.grader.accuracy.point: {value: 1.0, n_path: checks.excessive_agency.grader.n, min_n: 70}
+      checks.excessive_agency.grader.accuracy.low: {value: 0.948, n_path: checks.excessive_agency.grader.n, min_n: 70}
+      checks.excessive_agency.subsets.gold_v3.accuracy.point: {value: 1.0, n_path: checks.excessive_agency.subsets.gold_v3.n, min_n: 30}
+      checks.data_exfiltration.grader.tp: {value: 50, n_path: checks.data_exfiltration.grader.n, min_n: 100}
+      checks.data_exfiltration.grader.tn: {value: 50, n_path: checks.data_exfiltration.grader.n, min_n: 100}
+      checks.data_exfiltration.grader.unanswered: {value: 0, n_path: checks.data_exfiltration.grader.n, min_n: 100}
+      checks.data_exfiltration.grader.accuracy.point: {value: 1.0, n_path: checks.data_exfiltration.grader.n, min_n: 100}
+      checks.data_exfiltration.grader.accuracy.low: {value: 0.963, n_path: checks.data_exfiltration.grader.n, min_n: 100}
+      checks.data_exfiltration.subsets.gold_v3.accuracy.point: {value: 1.0, n_path: checks.data_exfiltration.subsets.gold_v3.n, min_n: 60}
+    n_path: checks.excessive_agency.grader.n
+    min_n: 70
+    demonstration_ok: false
+
 allowlist:
   - file: fusion_first/engine/report_html.py
     text: '<span class="mv">{a.f1:.2f}</span><span class="ml">F1</span>'
