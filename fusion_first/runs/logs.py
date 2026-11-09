@@ -239,7 +239,7 @@ async def new_log_run(
     run_id: str | None = None,
 ) -> RunDir:
     from fusion_first.goldset import load_gold
-    from fusion_first.judge.judge import JUDGE_PROMPT_VERSION, judge_prompt_version
+    from fusion_first.judge.judge import current_prompt_version, judge_prompt_version
     from fusion_first.stats.calibration import run_calibration
 
     unknown = [c for c in checks if c not in REGISTRY]
@@ -254,7 +254,7 @@ async def new_log_run(
     rd.write_json(rd.root / "transcripts.json", [{"id": t, **tr.model_dump(mode="json")} for t, tr in transcripts])
     collector = CollectingJudgeClient()
     items: dict[str, list[dict]] = {}
-    with judge_prompt_version(JUDGE_PROMPT_VERSION):
+    with judge_prompt_version(current_prompt_version()):  # the version the plan just recorded
         for tid, traj in transcripts:
             parts = windows(traj)
             for check in checks:

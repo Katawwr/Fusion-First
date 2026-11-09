@@ -31,9 +31,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- The default judge prompt is version 3: the registered pass under it allowed the claim (Trust Report Q7), so new runs,
-  `fusion run logs`, the web app and the MCP tools grade with the version-3 wording. A committed run replays under
-  the version its `plan.json` records; a plan without the field replays as version 1, as before.
+- The default judge prompt is version 3: the registered pass under it allowed the claim (Trust Report Q7), so the
+  rubric judge of new runs, `fusion run logs`, the web app and the MCP tools (host graders, `claude-cli:`,
+  OpenAI-compatible graders) grades with the version-3 wording; the `ollama-prob:` grader keeps its own
+  per-criterion prompt built from the base question text. A committed run replays under the version its `plan.json`
+  records; a plan without the field replays as version 1, as before.
 - The committed example tool-loop run (`examples/verified-run-toolloop`) is a Full-tier scan of `qwen2.5:7b`: every
   v2 template per check runs through the loop in both arms, in place of the Quick-tier prefix, so the card's per-arm
   intervals narrow. Host-graded as before; CI re-derives it offline. Its data-exfiltration grade is withheld by the

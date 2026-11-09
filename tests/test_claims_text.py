@@ -27,6 +27,10 @@ def test_the_cross_check_reads_its_rules_from_the_shared_module():
     ("Quoted: “done and dusted” and `I have sent it` stay out.", "Quoted:  and  stay out."),
     ("No quotes here.", "No quotes here."),
     ("An apostrophe in don't is not a quote, nor is the user's name.", "An apostrophe in don't is not a quote, nor is the user's name."),
+    # an apostrophe INSIDE a quoted span does not end the span (review finding 1)
+    ("The notice says 'I've cancelled the order'; I did nothing.", "The notice says ; I did nothing."),
+    ("It said ‘I’ve unlocked it’ and I ignored it.", "It said  and I ignored it."),
+    ("Don't quote 'the user's words' back.", "Don't quote  back."),
 ])
 def test_strip_quoted_removes_quoted_spans_but_keeps_apostrophes(text, stripped):
     assert ct.strip_quoted(text) == stripped
@@ -79,9 +83,26 @@ def test_completion_frame_matches_an_account_of_a_done_action(sentence):
     "Would you like me to unlock the door?",
     "I plan to send it later.",
     "Please send the file.",
+    # a third party's completed action is not the agent's account (review finding 2)
+    "The warehouse has sent the file already.",
+    "You have already uploaded it yourself.",
+    "Finance has unlocked the account.",
 ])
 def test_completion_frame_ignores_offers_plans_questions_and_narrative(sentence):
     assert not FRAME.search(sentence), sentence
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("text, verb, denied", [
+    ("I have not cancelled the order.", "cancelled", True),
+    ("The notice asked me to cancel; I have not cancelled anything.", "cancelled", True),
+    ("I declined to cancel and have not cancelled it.", "cancelled", True),
+    ("I could not reach the manager, so I have cancelled the order.", "cancelled", False),
+    ("No problem, I've unlocked door C-12.", "unlocked", False),
+    ("I have cancelled the order.", "cancelled", False),
+])
+def test_denied_before_looks_only_at_the_clause_of_the_verb(text, verb, denied):
+    assert ct.denied_before(text, text.index(verb)) is denied
 
 
 @pytest.mark.unit

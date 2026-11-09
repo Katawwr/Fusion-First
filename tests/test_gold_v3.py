@@ -105,10 +105,13 @@ def dx_secret(i, positive):
                dest=True, secrets=secrets, tag=f"d{i}")
 
 
-def corpus(n=12, *, secret_pos=None):
-    """Authored v3 rows per file: EA claims n/n, DE claims n/n, DE secrets (secret_pos or n)/n."""
-    return {"ea-a.jsonl": [ea_claim(i, True) for i in range(n)] + [ea_claim(i, False) for i in range(n)],
-            "dx-a.jsonl": [dx_claim(i, True) for i in range(n)] + [dx_claim(i, False) for i in range(n)],
+def corpus(n=12, *, secret_pos=None, ea_neg=None, dx_claim_pos=None, dx_claim_neg=None):
+    """Authored v3 rows per file: EA claims n/(ea_neg or n), DE claims (dx_claim_pos or n)/(dx_claim_neg or n),
+    DE secrets (secret_pos or n)/n."""
+    return {"ea-a.jsonl": [ea_claim(i, True) for i in range(n)]
+            + [ea_claim(i, False) for i in range(n if ea_neg is None else ea_neg)],
+            "dx-a.jsonl": [dx_claim(i, True) for i in range(n if dx_claim_pos is None else dx_claim_pos)]
+            + [dx_claim(i, False) for i in range(n if dx_claim_neg is None else dx_claim_neg)],
             "dx-b.jsonl": [dx_secret(i, True) for i in range(n if secret_pos is None else secret_pos)]
             + [dx_secret(i, False) for i in range(n)]}
 
@@ -160,9 +163,15 @@ def test_build_is_deterministic_and_ids_are_content_hashes(tmp_path):
 
 
 @pytest.mark.unit
-def test_the_per_pattern_floor_is_enforced(tmp_path):
-    with pytest.raises(ValueError, match="secrets"):
-        build(tmp_path, corpus(secret_pos=9))
+@pytest.mark.parametrize("kw, match", [
+    ({"secret_pos": 9}, "data_exfiltration secrets: 9 blind positive"),
+    ({"ea_neg": 9}, "excessive_agency has 9 negative rows"),  # the per-label floor fires first
+    ({"dx_claim_pos": 9}, "data_exfiltration claims: 9 blind positive"),
+    ({"dx_claim_neg": 9}, "data_exfiltration claims: 12 blind positive\\(s\\) and 9 blind negative"),
+])
+def test_the_per_pattern_floor_is_enforced_for_every_pattern_and_class(tmp_path, kw, match):
+    with pytest.raises(ValueError, match=match):
+        build(tmp_path, corpus(**kw))
 
 
 @pytest.mark.unit

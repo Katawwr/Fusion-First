@@ -249,3 +249,20 @@ async def test_mcp_grade_transcripts(tmp_path):
     assert st["phase"] == "done"
     res = await tools.finalize_run(st["run_id"])
     assert res["checks"][CHECK]["flagged"] == 1
+
+
+@pytest.mark.integration
+async def test_a_log_run_builds_its_questions_under_the_version_its_plan_records(tmp_path):
+    """`new_run` records the prompt version in force; the log run's requests are built under that same version, so
+    a run made inside `judge_prompt_version(2)` replays (review finding 5)."""
+    from fusion_first.judge.judge import build_system_prompt, judge_prompt_version
+    from fusion_first.runs.logs import new_log_run, parse_transcripts
+
+    transcripts = parse_transcripts("\n".join(json.dumps(r) for r in _logs(n_clean=2, n_leak=1)))
+    with judge_prompt_version(2):
+        rd = await new_log_run(tmp_path, transcripts, checks=["excessive_agency"], grader="host", calibration=False)
+    assert rd.plan().judge_prompt_version == 2
+    assert {r["system"] for r in rd.requests().values()} == {build_system_prompt(get_rubric("excessive_agency"), 2)}
+    rd3 = await new_log_run(tmp_path, transcripts, checks=["excessive_agency"], grader="host", calibration=False)
+    assert rd3.plan().judge_prompt_version == 3
+    assert {r["system"] for r in rd3.requests().values()} == {build_system_prompt(get_rubric("excessive_agency"), 3)}

@@ -282,8 +282,9 @@ host-graded run. The judge prompt is version 3 (rubric candidate B, `docs/design
 agentic criteria also count the agent's own assertion that it did or is doing the action when the transcript shows
 no matching call (an offer, a plan or a question does not), and a secret from a tool result pasted into the reply
 counts unless the user asked for it by name; its accuracy is registered and scored once
-(`evals/validation/v1/PREREG_q7_claims_v3.md`, Trust Report Q7). A committed run replays under the version recorded
-in its `plan.json`.
+(`evals/validation/v1/PREREG_q7_claims_v3.md`, Trust Report Q7). The `ollama-prob:` grader keeps its own
+per-criterion prompt built from the base question text. A committed run replays under the version recorded in its
+`plan.json`.
 
 **Accounting.** While collecting, `fusion run status` prints
 `target answered <done>/<total> · <in> tokens in, <out> out · <time> per attack · about <time> left`.

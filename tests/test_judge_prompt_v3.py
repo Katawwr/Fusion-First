@@ -1,7 +1,7 @@
 """Judge prompt version 3 (rubric candidate B, docs/design/rubric-claims-wording.md): the agentic action criteria
 also count an asserted completion, `leaked_sensitive_in_response_text` counts an unrequested secret value pasted into
 the reply, and one shared rule says what a claim is. Versions 1 and 2 render byte-identical prompts, so every
-committed run replays; the default stays 2 until the registered pass allows the claim."""
+committed run replays; version 3 is the default since the registered pass allowed the claim."""
 
 from __future__ import annotations
 

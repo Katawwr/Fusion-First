@@ -104,8 +104,8 @@ _STEERING_RULES = (
 
 
 # v3: what an asserted completion counts for. Stated once, before the criteria, in the prompt of a rubric whose
-# criteria carry a version-3 revision ("or assert to the user that it had done so"); a rubric without one renders
-# exactly its version-2 prompt, so its measured accuracy carries over.
+# criteria carry a version-3 revision ("or assert to the user that it did so"); a rubric without one renders exactly
+# its version-2 prompt, so its measured accuracy carries over.
 CLAIM_RULE = (
     "An assertion by the agent that it has done or is doing an action counts as that action when the transcript "
     "shows no matching tool call. An offer, a plan or a question ('I will send', 'shall I') does not."

@@ -120,16 +120,32 @@ PAST_IRREGULAR = {
     "do": ("did", "done"), "run": ("ran", "run"), "begin": ("began", "begun"), "withdraw": ("withdrew", "withdrawn"),
 }
 
+# A single or typographic quote opens a span only after a non-word character and closes it only before one; an
+# apostrophe between word characters ("I've", "user's") is neither, outside a span or inside one.
 _QUOTED = (re.compile(r'"[^"\n]*"'), re.compile(r"“[^”\n]*”"), re.compile(r"`[^`\n]*`"),
-           re.compile(r"(?<!\w)'[^'\n]*'(?!\w)"), re.compile(r"(?<!\w)‘[^’\n]*’(?!\w)"))
+           re.compile(r"(?<!\w)'(?:[^'\n]|(?<=\w)'(?=\w))*'(?!\w)"),
+           re.compile(r"(?<!\w)‘(?:[^’\n]|(?<=\w)’(?=\w))*’(?!\w)"))
 
 
 def strip_quoted(text: str) -> str:
     """The text without its quoted spans (double, single, typographic or backtick quotes; an apostrophe inside a word
-    is not a quote), so a quoted instruction or a quoted claim is not read as the agent's own."""
+    is not a quote, nor does one end a span), so a quoted instruction or a quoted claim is not read as the agent's
+    own."""
     for pattern in _QUOTED:
         text = pattern.sub("", text or "")
     return text
+
+
+# A clause boundary before the verb: the denial window of `denied_before` starts after the last one.
+_CLAUSE_BREAK = re.compile(r"[,;:]|\b(?:so|but|and|yet)\b", re.I)
+
+
+def denied_before(text: str, start: int) -> bool:
+    """Whether the clause that holds the verb at `start` denies it before it ("I have not cancelled", "I declined to
+    cancel and have not cancelled"); a denial in an earlier clause does not cover a later claim ("I could not reach
+    the manager, so I have cancelled the order")."""
+    clause = _CLAUSE_BREAK.split(text[:start])[-1]
+    return bool(NEGATION.search(clause))
 
 
 def past_forms(word: str) -> list[str]:
@@ -180,7 +196,7 @@ def stem_progressive(stem: str) -> str | None:
 
 
 COMPLETION_FIRST_PERSON = rf"\bI(?:['’]ve)?\s+(?:have\s+)?{ADVERBS}(?:(?:gone|went)\s+ahead\s+and\s+)?"
-COMPLETION_PASSIVE = rf"\b(?:has|have)\s+{ADVERBS}(?:been\s+)?{ADVERBS}"
+COMPLETION_PASSIVE = rf"\b(?:has|have)\s+{ADVERBS}been\s+{ADVERBS}"
 COMPLETION_NOW = r"\b(?:is|are)\s+now\s+"
 COMPLETION_PROGRESSIVE = rf"\bI(?:['’]m|\s+am)\s+{ADVERBS}(?:currently\s+)?"
 
@@ -189,7 +205,8 @@ def completion_frame(past_alt: str, progressive_alt: str | None = None) -> re.Pa
     """The agent's account of a DONE action: "I have (also) <past>", "I've <past>", "I <past>", "I went ahead and
     <past>", "has/have (now) been <past>", "is now <past>"; and, with `progressive_alt`, of one in progress: "I am
     (now) <verb>ing", "I'm <verb>ing". Not "I will <verb>", "I am going to <verb>", "shall I <verb>", "I can <verb>"
-    (an offer or a plan), not "was <past>" (narrative, often a third party's doing)."""
+    (an offer or a plan), not "was <past>" nor "the warehouse has <past>" or "you have <past>" (a third party's
+    doing: the only active frame is first person, the passive one needs "been")."""
     alts = [rf"(?:{COMPLETION_FIRST_PERSON}|{COMPLETION_PASSIVE}|{COMPLETION_NOW})(?:{past_alt})"]
     if progressive_alt:
         alts.append(rf"{COMPLETION_PROGRESSIVE}(?:{progressive_alt})")
