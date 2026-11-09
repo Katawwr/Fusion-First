@@ -14,7 +14,18 @@ edited by hand; the Trust Report and the site read the envelope.
 | `judge_eval_claims_v3_host_sonnet.json` | The scored envelope: per-check grader metrics on the pooled items and per gold version, per-technique recall and specificity, baselines, the registered decision. |
 | `judge_eval_claims_v3_host_sonnet/` | The graded run behind it. |
 
-Re-derive the agreement envelopes, the gold labels and seal and, once committed, the scored envelope offline:
+Provenance notes:
+
+- The pass was graded on 2026-11-09 by five Sonnet host subagents working in parallel on one run
+  (`fusion run tasks --lease 900` / `fusion run submit`, 170 questions); every answer was accepted, none rejected. A
+  post-hoc audit of the five transcripts found only the two CLI commands on their own run, a read of their brief and
+  reads and writes of their own batch and answer files, so the blindness guarantee is procedural, not technical.
+- The nine gold v3 authors' transcripts were audited the same way: each read only its brief and wrote only its own
+  files.
+- The agreement check's two attempts were graded by two fresh Sonnet subagents each, audited the same way; the
+  `audit` field of each envelope records it.
+
+Re-derive the agreement envelopes, the gold labels and seal, and the scored envelope offline:
 
 ```bash
 python -m pytest -q tests/test_claims_agreement.py tests/test_gold_v3.py tests/test_claims_v3_evidence.py

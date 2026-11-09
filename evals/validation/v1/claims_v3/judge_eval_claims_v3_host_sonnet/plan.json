@@ -1,0 +1,16 @@
+{
+  "calibration": false,
+  "checks": [
+    "excessive_agency",
+    "data_exfiltration"
+  ],
+  "fix_arm": true,
+  "grader": "host",
+  "judge_prompt_version": 3,
+  "prompt_sha256": "177e1340d1262e43f3c2e18c01ecffdf8da0c1d888c3a3821386a85124394dff",
+  "run_id": "cv3-1",
+  "target": "gold:v3",
+  "target_model": "gold-v3",
+  "tier": "quick",
+  "version": "v3"
+}
