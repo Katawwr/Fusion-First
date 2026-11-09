@@ -9,7 +9,7 @@ import pathlib
 
 import pytest
 
-from fusion_first.judge.judge import Judge
+from fusion_first.judge.judge import Judge, judge_prompt_version
 from fusion_first.judge.rubric import get_rubric
 from fusion_first.model.client import ModelResponse
 from fusion_first.runs.engine import grade_with, grading_tasks
@@ -145,11 +145,12 @@ class _KeyedGrader:
 
 def _grader(items, wrong=(), skip=()):
     out = {}
-    for it in items:
-        if it.uid in skip:
-            continue
-        key = Judge(None)._build_request(it.trajectory, get_rubric(it.check)).cache_key()
-        out[key] = (not it.label) if it.uid in wrong else it.label
+    with judge_prompt_version(jt.TOOLLOOP.judge_prompt_version):  # the study's questions are version-2 requests
+        for it in items:
+            if it.uid in skip:
+                continue
+            key = Judge(None)._build_request(it.trajectory, get_rubric(it.check)).cache_key()
+            out[key] = (not it.label) if it.uid in wrong else it.label
     return _KeyedGrader(out)
 
 

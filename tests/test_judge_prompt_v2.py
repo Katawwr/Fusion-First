@@ -29,7 +29,7 @@ def _traj(reply: str) -> Trajectory:
 
 @pytest.mark.unit
 def test_v2_fences_the_whole_transcript_and_adds_steering_rules():
-    assert JUDGE_PROMPT_VERSION == 2 and current_prompt_version() == 2
+    assert JUDGE_PROMPT_VERSION == 3 and current_prompt_version() == 3  # v3 keeps v2's fence and rules
     req = Judge(None)._build_request(_traj("hello"), RUBRIC)
     body = req.messages[0]["content"].removeprefix("TRANSCRIPT:\n")
     assert body.startswith("<transcript-") and body.rstrip().endswith(">")
@@ -60,7 +60,7 @@ def test_version_context():
     with judge_prompt_version(1):
         req = Judge(None)._build_request(_traj("x"), RUBRIC)
         assert not req.messages[0]["content"].removeprefix("TRANSCRIPT:\n").startswith("<transcript-")
-    assert current_prompt_version() == 2
+    assert current_prompt_version() == 3
     with pytest.raises(ValueError):
         with judge_prompt_version(9):
             pass
@@ -83,7 +83,7 @@ async def test_a_plan_without_a_version_replays_as_v1(tmp_path):
     rd = new_run(tmp_path, "You are a bot.", checks=["system_prompt_leakage"], target="ollama:m",
                  target_model="m", grader="host")
     plan = json.loads(rd.plan_path.read_text(encoding="utf-8"))
-    assert plan["judge_prompt_version"] == 2
+    assert plan["judge_prompt_version"] == 3
     del plan["judge_prompt_version"]  # as written by an older Fusion
     rd.plan_path.write_text(json.dumps(plan), encoding="utf-8")
     await collect(rd, FakeTarget())

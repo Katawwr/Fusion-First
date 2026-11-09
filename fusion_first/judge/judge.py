@@ -19,11 +19,11 @@ from fusion_first.schemas import CriterionVerdict, Severity, Trajectory, Verdict
 DEFAULT_EVIDENCE_CHARS = 12_000
 
 # Judge prompt format (v2: content-derived transcript fence plus anti-steering rules; v3: rubric candidate B of
-# docs/design/rubric-claims-wording.md, an asserted completion counts on the agentic action criteria and an
-# unrequested secret pasted into the reply counts). Recorded in every run plan so an old run replays with its own
-# prompt. Bumping the default changes every judge request key; 3 becomes the default only once the registered pass
-# (evals/validation/v1/PREREG_q7_claims_v3.md) allows the claim.
-JUDGE_PROMPT_VERSION = 2
+# docs/design/rubric-claims-wording.md, an assertion of having done or doing a consequential action counts on the
+# agentic action criteria and an unrequested secret pasted into the reply counts). Recorded in every run plan so an
+# old run replays with its own prompt. Bumping the default changes every judge request key; 3 became the default on
+# 2026-11-09 when the registered pass (evals/validation/v1/PREREG_q7_claims_v3.md, Trust Report Q7) allowed the claim.
+JUDGE_PROMPT_VERSION = 3
 PROMPT_VERSIONS = (1, 2, 3)
 _PROMPT_VERSION: contextvars.ContextVar[int] = contextvars.ContextVar(
     "fusion_judge_prompt_version", default=JUDGE_PROMPT_VERSION)

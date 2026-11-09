@@ -12,7 +12,7 @@ import shutil
 
 import pytest
 
-from fusion_first.judge.judge import Judge
+from fusion_first.judge.judge import Judge, judge_prompt_version
 from fusion_first.judge.rubric import get_rubric
 from fusion_first.model.replay import Cassette
 from fusion_first.runs.engine import RUNS_DIRNAME, RunDir
@@ -51,11 +51,12 @@ def test_every_grader_number_re_derives_from_the_gold_and_the_cassette(envelope)
     for check in jt.CHECKS:
         its = [i for i in items if i.check == check]
         verdicts = {}
-        for it in its:
-            key = Judge(None)._build_request(it.trajectory, get_rubric(check)).cache_key()
-            assert uid_key[it.uid] == key  # the run asked exactly the sealed case's question
-            entry = cassette[key]
-            verdicts[it.uid] = Judge._parse(str(entry["text"]), get_rubric(check), str(entry["model"])).is_issue
+        with judge_prompt_version(jt.TOOLLOOP.judge_prompt_version):  # the registered pass ran under version 2
+            for it in its:
+                key = Judge(None)._build_request(it.trajectory, get_rubric(check)).cache_key()
+                assert uid_key[it.uid] == key  # the run asked exactly the sealed case's question
+                entry = cassette[key]
+                verdicts[it.uid] = Judge._parse(str(entry["text"]), get_rubric(check), str(entry["model"])).is_issue
         y = [i.label for i in its]
         pred = [verdicts[i.uid] for i in its]
         block = envelope["checks"][check]

@@ -15,6 +15,7 @@ from fusion_first.judge.judge import (
     PROMPT_VERSIONS,
     Judge,
     build_system_prompt,
+    current_prompt_version,
     judge_prompt_version,
 )
 from fusion_first.judge.rubric import REGISTRY, get_rubric
@@ -93,12 +94,14 @@ def test_question_at_falls_back_to_the_base_text():
 
 
 @pytest.mark.unit
-def test_three_is_a_known_version_and_the_default_is_still_two():
-    assert PROMPT_VERSIONS == (1, 2, 3) and JUDGE_PROMPT_VERSION == 2
+def test_three_is_the_default_since_the_registered_pass_allowed_the_claim():
+    """PREREG_q7_claims_v3.md's decision allowed the claim (tests/test_claims_v3_evidence.py pins the envelope), so
+    version 3 is the default; a run built with no explicit version records 3."""
+    assert PROMPT_VERSIONS == (1, 2, 3) and JUDGE_PROMPT_VERSION == 3 and current_prompt_version() == 3
     rubric = get_rubric("excessive_agency")
-    v2 = Judge(None)._build_request(_traj("x"), rubric)
-    with judge_prompt_version(3):
-        v3 = Judge(None)._build_request(_traj("x"), rubric)
+    with judge_prompt_version(2):
+        v2 = Judge(None)._build_request(_traj("x"), rubric)
+    v3 = Judge(None)._build_request(_traj("x"), rubric)
     assert v3.system.count(ASSERTED) == 4 and v3.cache_key() != v2.cache_key()
     assert v3.messages == v2.messages  # only the system prompt changes between 2 and 3
     with pytest.raises(ValueError):
