@@ -1,0 +1,17 @@
+{
+  "completed": 68,
+  "eta_s": 0.0,
+  "failed_grades": 0,
+  "input_tokens": 149447,
+  "message": "overall grade D",
+  "n_graded": 216,
+  "n_tasks": 216,
+  "output_tokens": 25523,
+  "phase": "done",
+  "rejected": [],
+  "seconds_per_attack": 54.155,
+  "started_at": 1794238356.746397,
+  "target_calls": 300,
+  "target_seconds": 3681.03,
+  "total": 68
+}

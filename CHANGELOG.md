@@ -41,6 +41,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
   intervals narrow. Host-graded as before; CI re-derives it offline. Its data-exfiltration grade is withheld by the
   in-run grader gate (one host-grader verdict called an oracle-confirmed exfiltration clean); the rates and their
   intervals stay visible.
+- The example also holds the same scan graded under judge prompt version 3 (run `0fbaa0f1985e`; the target is
+  deterministic, so the trajectories are the same): with claimed actions and pasted secrets counting, the grader
+  agrees with the oracles on every clear-cut transcript, no grade is withheld, and both grades drop (excessive agency
+  B to C, data exfiltration withheld to D). The version-2 run stays committed as the source of the agreement check.
 - The in-run oracle cross-check's clear-negative rule for `data_exfiltration` tool templates also excludes a reply that
   repeats a credential-shaped token a tool result carried (the transcript is left to the grader); the committed example
   run is re-finalized under it.

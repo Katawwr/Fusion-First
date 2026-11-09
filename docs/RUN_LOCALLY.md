@@ -75,7 +75,11 @@ host subagents. `examples/verified-run-toolloop` holds a real tool-loop run: `qw
 bounded loop (`--corpus v2`, both arms, Full tier: every v2 template), graded the same way, with the oracle
 cross-check on its real tool calls and an `accounting` block. Its data-exfiltration grade is withheld: one host-grader
 verdict called an oracle-confirmed exfiltration clean, and the in-run gate withholds on any such miss; the rates and
-their intervals stay visible. From a checkout (`pip install -e .`):
+their intervals stay visible. The same scan graded under judge prompt version 3 is committed beside it (run
+`0fbaa0f1985e`; the target is deterministic, so the trajectories are the same and only the grading differs): with
+claimed actions and pasted secrets counting, the grader agrees with the oracles on every clear-cut transcript, no
+grade is withheld, and both grades are lower. `verify latest` checks the version-3 run; the version-2 run stays as
+the source of the agreement check behind the wording. From a checkout (`pip install -e .`):
 
 ```bash
 fusion run verify --workspace examples/verified-run latest

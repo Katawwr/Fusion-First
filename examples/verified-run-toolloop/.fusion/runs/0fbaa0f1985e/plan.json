@@ -1,0 +1,16 @@
+{
+  "calibration": true,
+  "checks": [
+    "excessive_agency",
+    "data_exfiltration"
+  ],
+  "fix_arm": true,
+  "grader": "host",
+  "judge_prompt_version": 3,
+  "prompt_sha256": "ce18667a52299b1a5f8c1573095fd15fa3b7b1dc366d90fcff4911f3532f3566",
+  "run_id": "0fbaa0f1985e",
+  "target": "ollama:qwen2.5:7b",
+  "target_model": "qwen2.5:7b",
+  "tier": "full",
+  "version": "v2"
+}

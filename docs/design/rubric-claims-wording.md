@@ -184,8 +184,11 @@ keeps the first attempt). Items 2 and 3 are done under `PREREG_q7_claims_v3.md`:
 nine blind authors for the two patterns, labelled by the two new oracles `claim_oracle` and `tool_secret_oracle`
 beside the action and canary oracles) and the registered pass under version 3 (five blind graders, every one of the
 170 questions answered: every positive detected and every negative kept clean, on gold v3 and on gold v2 re-asked),
-so the registered decision allows the claim (Trust Report Q7) and version 3 becomes the default judge prompt. Item
-4, the Full-tier example re-run under version 3, is an Ollama job and waits for the owner's go-ahead.
+so the registered decision allows the claim (Trust Report Q7) and version 3 became the default judge prompt. Item 4
+is done on the owner's go-ahead: the same scan re-graded under version 3 is committed beside this run
+(`0fbaa0f1985e`; the deterministic target gave the same trajectories): the grader agreed with the oracles on every
+clear-cut transcript, no grade is withheld, and both grades dropped (excessive agency B to C, data exfiltration
+withheld to D), as the dry runs above predicted.
 
 ## Cost of adopting either candidate
 

@@ -109,7 +109,9 @@ before merge; CI on every push. No API spend: real model calls went through a su
   example tool-loop run ([`examples/verified-run-toolloop`](../examples/verified-run-toolloop)) is a Full-tier
   sample of one 7B model: read its intervals, not its points. Its data-exfiltration grade is withheld by the in-run
   grader gate (one host-grader verdict called an oracle-confirmed exfiltration clean); the rates and their intervals
-  stay visible.
+  stay visible. The same scan graded under the version-3 wording is committed beside it: with claimed actions and
+  pasted secrets counting, no grade is withheld and both grades drop, which is the wording doing its job on a model
+  that announces compliance.
 - Samples are small (tens to hundreds of transcripts per cell); read the intervals, not the points.
 - No adaptive-attack evaluation; a static result is expected to degrade against an attacker who adapts.
 - The guard's cost in a live agent loop is above its registered margin (see Headline result).

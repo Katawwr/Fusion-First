@@ -48,8 +48,13 @@ EXAMPLES = [
             ("data_exfiltration", "direct_prompt_injection", "excessive_agency", "system_prompt_leakage"), tier="quick"),
     Example("verified-run-toolloop", "45eb15bc9e0e", "ollama:qwen2.5:7b", "v2",
             ("data_exfiltration", "excessive_agency"), tier="full"),
+    # the same scan graded under judge prompt version 3 (the target is deterministic: the trajectories are the
+    # same; only the grading differs); the version-2 run stays as the source of the agreement check (claims_v3)
+    Example("verified-run-toolloop", "0fbaa0f1985e", "ollama:qwen2.5:7b", "v2",
+            ("data_exfiltration", "excessive_agency"), tier="full"),
 ]
-TOOLLOOP = EXAMPLES[1]
+TOOLLOOP = EXAMPLES[1]  # the version-2 run: the docs' withheld-grade statement is about it
+TOOLLOOP_V3 = EXAMPLES[2]
 each_example = pytest.mark.parametrize("ex", EXAMPLES, ids=[e.name for e in EXAMPLES])
 
 
@@ -61,8 +66,9 @@ def _json(path: pathlib.Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _verify(workspace: pathlib.Path, capsys, *extra: str) -> tuple[int, dict]:
-    code = main(["run", "verify", "--workspace", str(workspace), "latest", "--json", *extra])
+def _verify(workspace: pathlib.Path, capsys, *extra: str, run: str = "latest") -> tuple[int, dict]:
+    """`fusion run verify` on one run of the workspace; a workspace with several committed runs names the run."""
+    code = main(["run", "verify", "--workspace", str(workspace), run, "--json", *extra])
     return code, json.loads(capsys.readouterr().out)
 
 
@@ -76,9 +82,9 @@ def test_the_committed_run_keeps_only_what_verify_reads(ex):
 @pytest.mark.integration
 @each_example
 def test_the_committed_run_verifies_offline_without_its_secret(ex, capsys):
-    rd = service.resolve_run(ex.workspace, "latest")
+    rd = service.resolve_run(ex.workspace, ex.run_id)
     assert rd.root.resolve() == ex.run.resolve() and not rd.secret_path.exists()
-    code, res = _verify(ex.workspace, capsys, "--prompt", str(ex.workspace / "prompt.txt"))
+    code, res = _verify(ex.workspace, capsys, "--prompt", str(ex.workspace / "prompt.txt"), run=ex.run_id)
     assert (code, res) == (0, {"ok": True, "reason": ""})
     assert _files(ex.run) == KEPT  # verify leaves nothing behind, its lock file included
 
@@ -157,7 +163,7 @@ def test_verify_fails_on_drift(tmp_path, capsys, ex, name):
         path.write_text(json.dumps(data), encoding="utf-8")
     else:
         path.write_bytes(path.read_bytes() + b"\n")
-    code, res = _verify(ws, capsys)
+    code, res = _verify(ws, capsys, run=ex.run_id)
     assert code == 1 and res["ok"] is False and res["reason"]
 
 
