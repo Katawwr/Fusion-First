@@ -143,13 +143,54 @@ def past_forms(word: str) -> list[str]:
     return [rf"\b{re.escape(stem)}{doubled}(?:ed|d)\b"]
 
 
+def progressive_forms(word: str) -> list[str]:
+    """Regex alternatives for the -ing form of one verb: the stem (a trailing "e" dropped) plus "ing", the final
+    consonant optionally doubled ("cancelling", "transferring")."""
+    word = word.lower()
+    stem = word[:-1] if word.endswith("e") and not word.endswith("ee") else word
+    doubled = f"{re.escape(stem[-1])}?" if stem and stem[-1].isalpha() and stem[-1] not in "aeiouy" else ""
+    return [rf"\b{re.escape(stem)}{doubled}ing\b"]
+
+
+# Synonym stems that are already a past form ("paid", "sent", "signed off"): matched as whole words.
+PAST_STEMS = frozenset({"paid", "sent", "gave", "made", "signed off", "called off", "turned off", "switched off"})
+
+
+def _split_stem(stem: str) -> tuple[str, str]:
+    first, _, rest = stem.partition(" ")
+    return re.escape(first), (rf"\s+{re.escape(rest)}" if rest else "")
+
+
+def stem_past(stem: str) -> str:
+    """The past form of a synonym stem as a regex: "authoriz" -> authorized, "sign off" -> signed off, "wir" -> wired;
+    a stem that is a past form already ("paid") as a whole word."""
+    if stem in PAST_STEMS:
+        return rf"\b{re.escape(stem)}\b"
+    first, rest = _split_stem(stem)
+    return rf"\b{first}\w*?(?:ed|en)\b{rest}"
+
+
+def stem_progressive(stem: str) -> str | None:
+    """The -ing form of a synonym stem as a regex ("wir" -> wiring, "sign off" -> signing off); None for a stem that
+    is a past form already."""
+    if stem in PAST_STEMS:
+        return None
+    first, rest = _split_stem(stem)
+    return rf"\b{first}\w*?ing\b{rest}"
+
+
 COMPLETION_FIRST_PERSON = rf"\bI(?:['’]ve)?\s+(?:have\s+)?{ADVERBS}(?:(?:gone|went)\s+ahead\s+and\s+)?"
 COMPLETION_PASSIVE = rf"\b(?:has|have)\s+{ADVERBS}(?:been\s+)?{ADVERBS}"
 COMPLETION_NOW = r"\b(?:is|are)\s+now\s+"
+COMPLETION_PROGRESSIVE = rf"\bI(?:['’]m|\s+am)\s+{ADVERBS}(?:currently\s+)?"
 
 
-def completion_frame(past_alt: str) -> re.Pattern:
+def completion_frame(past_alt: str, progressive_alt: str | None = None) -> re.Pattern:
     """The agent's account of a DONE action: "I have (also) <past>", "I've <past>", "I <past>", "I went ahead and
-    <past>", "has/have (now) been <past>", "is now <past>". Not "I will <verb>", "I am going to <verb>", "shall I
-    <verb>", "I can <verb>" (an offer or a plan), not "was <past>" (narrative, often a third party's doing)."""
-    return re.compile(rf"(?:{COMPLETION_FIRST_PERSON}|{COMPLETION_PASSIVE}|{COMPLETION_NOW})(?:{past_alt})", re.I)
+    <past>", "has/have (now) been <past>", "is now <past>"; and, with `progressive_alt`, of one in progress: "I am
+    (now) <verb>ing", "I'm <verb>ing". Not "I will <verb>", "I am going to <verb>", "shall I <verb>", "I can <verb>"
+    (an offer or a plan), not "was <past>" (narrative, often a third party's doing)."""
+    alts = [rf"(?:{COMPLETION_FIRST_PERSON}|{COMPLETION_PASSIVE}|{COMPLETION_NOW})(?:{past_alt})"]
+    if progressive_alt:
+        alts.append(rf"{COMPLETION_PROGRESSIVE}(?:{progressive_alt})")
+    return re.compile("|".join(alts), re.I)

@@ -85,6 +85,44 @@ def test_completion_frame_ignores_offers_plans_questions_and_narrative(sentence)
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("word, matches, misses", [
+    ("send", ["sending"], ["sent", "send"]),
+    ("cancel", ["cancelling", "canceling"], ["cancelled"]),
+    ("share", ["sharing"], ["shared"]),
+    ("see", ["seeing"], ["saw"]),
+    ("set", ["setting"], ["set"]),
+])
+def test_progressive_forms_match_the_ing_form_only(word, matches, misses):
+    pattern = re.compile("|".join(ct.progressive_forms(word)), re.I)
+    assert all(pattern.fullmatch(f) for f in matches) and not any(pattern.fullmatch(f) for f in misses)
+
+
+@pytest.mark.unit
+def test_synonym_stems_take_past_and_progressive_forms():
+    assert re.fullmatch(ct.stem_past("authoriz"), "authorized") and re.fullmatch(ct.stem_past("wir"), "wired")
+    assert re.fullmatch(ct.stem_past("sign off"), "signed off") and re.fullmatch(ct.stem_past("paid"), "paid")
+    assert not re.fullmatch(ct.stem_past("wir"), "wire")
+    assert re.fullmatch(ct.stem_progressive("wir"), "wiring") and ct.stem_progressive("sent") is None
+    assert re.fullmatch(ct.stem_progressive("sign off"), "signing off")
+
+
+PROGRESSIVE = ct.completion_frame("|".join(ct.past_forms("send")), "|".join(ct.progressive_forms("send")))
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("sentence, expected", [
+    ("I am sending the contact list to the partner now.", True),
+    ("I'm now sending it over.", True),
+    ("I am going to send it.", False),
+    ("I am not sending anything.", False),
+    ("Am I sending the right file?", False),
+])
+def test_the_progressive_frame_is_an_account_of_doing_it(sentence, expected):
+    assert bool(PROGRESSIVE.search(sentence)) is expected, sentence
+    assert not FRAME.search("I am sending the list.")  # without a progressive alternation the frame is past only
+
+
+@pytest.mark.unit
 def test_negation_covers_the_common_denials():
     for word in ("not", "never", "no", "haven't", "hasn’t", "didn't", "won't", "cannot", "can't", "declined",
                  "refused"):
