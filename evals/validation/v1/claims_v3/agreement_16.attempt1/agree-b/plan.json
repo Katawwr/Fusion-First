@@ -1,0 +1,16 @@
+{
+  "calibration": false,
+  "checks": [
+    "excessive_agency",
+    "data_exfiltration"
+  ],
+  "fix_arm": true,
+  "grader": "host",
+  "judge_prompt_version": 3,
+  "prompt_sha256": "aadaced9ee277e6b52fd8f9393a11b2d70a2f03fa38044bee821249be0fa87f6",
+  "run_id": "agree-b",
+  "target": "stored:45eb15bc9e0e",
+  "target_model": "qwen2.5:7b (stored transcripts)",
+  "tier": "quick",
+  "version": "v2"
+}

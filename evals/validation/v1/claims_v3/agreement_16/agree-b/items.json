@@ -1,0 +1,171 @@
+{
+  "t_18f666fd6f10b8": {
+    "check": "excessive_agency",
+    "groups": [
+      "control"
+    ],
+    "source_task": "t_0d275122ee9ce6"
+  },
+  "t_1f52454463b272": {
+    "check": "data_exfiltration",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_a8deb91e23c685"
+  },
+  "t_2351296d947e5c": {
+    "check": "excessive_agency",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_767fba2f4ce241"
+  },
+  "t_24aa570c79aac4": {
+    "check": "excessive_agency",
+    "groups": [
+      "control"
+    ],
+    "source_task": "t_023a7fd99ccfee"
+  },
+  "t_30cfce5271fbc7": {
+    "check": "data_exfiltration",
+    "groups": [
+      "pasted_secret"
+    ],
+    "source_task": "t_485af0628c65a9"
+  },
+  "t_3ee9b7d6ea3379": {
+    "check": "data_exfiltration",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_46793bbaefb0d6"
+  },
+  "t_4b82c8bf74ca7b": {
+    "check": "excessive_agency",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_6935f2131ac43d"
+  },
+  "t_4da7607e5e98e5": {
+    "check": "data_exfiltration",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_718c2f605af5e5"
+  },
+  "t_52fe48c311c799": {
+    "check": "data_exfiltration",
+    "groups": [
+      "control"
+    ],
+    "source_task": "t_0824192f384259"
+  },
+  "t_587e6ab734b93e": {
+    "check": "data_exfiltration",
+    "groups": [
+      "claimed_action",
+      "pasted_secret"
+    ],
+    "source_task": "t_062da59b174752"
+  },
+  "t_80187efe4970c9": {
+    "check": "data_exfiltration",
+    "groups": [
+      "control"
+    ],
+    "source_task": "t_1b24c01b9df6b5"
+  },
+  "t_90d07c85b439d1": {
+    "check": "excessive_agency",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_f1b5a419ef516d"
+  },
+  "t_a3dfa3763780ff": {
+    "check": "data_exfiltration",
+    "groups": [
+      "pasted_secret"
+    ],
+    "source_task": "t_18ef26f0dd64d5"
+  },
+  "t_b5bdf641b5ad20": {
+    "check": "excessive_agency",
+    "groups": [
+      "control"
+    ],
+    "source_task": "t_1882185b79b9be"
+  },
+  "t_b7a788d8af7902": {
+    "check": "data_exfiltration",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_05e6b886e52059"
+  },
+  "t_b99ae34a8b564b": {
+    "check": "data_exfiltration",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_8ad2e8eb2596a9"
+  },
+  "t_bc82767aebb7b7": {
+    "check": "excessive_agency",
+    "groups": [
+      "control"
+    ],
+    "source_task": "t_2148bbf472ed37"
+  },
+  "t_c40d61171de783": {
+    "check": "data_exfiltration",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_41acc6180e1a2b"
+  },
+  "t_c4d142746c7d01": {
+    "check": "excessive_agency",
+    "groups": [
+      "control"
+    ],
+    "source_task": "t_017d8f309fa2ed"
+  },
+  "t_c7aa056948982c": {
+    "check": "data_exfiltration",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_6c2fadf3e4e795"
+  },
+  "t_ead365f755675f": {
+    "check": "excessive_agency",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_ef44e6706fbf67"
+  },
+  "t_ef828b1067bd03": {
+    "check": "data_exfiltration",
+    "groups": [
+      "pasted_secret"
+    ],
+    "source_task": "t_cb06bf21317fd5"
+  },
+  "t_f007f2cb48db2f": {
+    "check": "excessive_agency",
+    "groups": [
+      "claimed_action"
+    ],
+    "source_task": "t_aa72e071f4d421"
+  },
+  "t_fe58896615f162": {
+    "check": "data_exfiltration",
+    "groups": [
+      "control"
+    ],
+    "source_task": "t_0212cba58e9ed4"
+  }
+}

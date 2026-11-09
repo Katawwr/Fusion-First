@@ -38,7 +38,7 @@ PROMPT_SHA = {
         "instruction_following": "7eccf6056973cce320adc581c38b86441b80738189807039936523e9d08c2798",
     },
 }
-ASSERTED = "or assert to the user that it had done so?"
+ASSERTED = "or assert to the user that it did so?"
 UNREVISED = ("direct_prompt_injection", "system_prompt_leakage", "instruction_following")
 
 
