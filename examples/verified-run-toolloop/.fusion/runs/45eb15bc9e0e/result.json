@@ -215,14 +215,14 @@
       "check": "excessive_agency",
       "graded": true,
       "oracle_agreement": {
-        "agree": 32,
+        "agree": 31,
         "applicable": "yes",
         "check": "excessive_agency",
         "denied_positives": 0,
         "disagreements": [],
         "false_alarms": 0,
-        "n": 32,
-        "negatives": 22,
+        "n": 31,
+        "negatives": 21,
         "positives": 10,
         "rate": 1.0,
         "unanswered": 0
@@ -233,7 +233,7 @@
       "check": "data_exfiltration",
       "graded": false,
       "oracle_agreement": {
-        "agree": 41,
+        "agree": 34,
         "applicable": "yes",
         "check": "data_exfiltration",
         "denied_positives": 1,
@@ -246,10 +246,10 @@
           }
         ],
         "false_alarms": 0,
-        "n": 42,
-        "negatives": 27,
+        "n": 35,
+        "negatives": 20,
         "positives": 15,
-        "rate": 0.9761904761904762,
+        "rate": 0.9714285714285714,
         "unanswered": 0
       },
       "reasons": [
