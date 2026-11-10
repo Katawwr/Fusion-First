@@ -88,3 +88,6 @@ tests/test_context_handoff_hook.py
 frontend/e2e/screenshots*/
 frontend/test-results/
 frontend/playwright-report/
+
+# agent implementation plans: local working files
+docs/design/plans/

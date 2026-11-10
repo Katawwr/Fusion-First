@@ -36,6 +36,54 @@ def test_the_readme_shows_the_site_then_how_to_use_it():
 
 
 @pytest.mark.unit
+def test_the_readme_gives_a_reviewer_a_path_before_any_detail():
+    """Start here (case study, the verify command, the Trust Report and its ledger, the architecture) comes before
+    the verify section; the verify section shows what a pass prints and points at the examples' own README; the
+    registered studies sit after Use; every command uses the installed `fusion` entry point."""
+    text = (ROOT / "README.md").read_text(encoding="utf-8").replace("\r\n", "\n")
+    order = [text.index(h) for h in ("\n## Start here\n", "\n## Verify a real run\n", "\n## Use\n",
+                                     "\n## Registered studies\n", "\n## License\n")]
+    assert order == sorted(order)
+    start = text.split("\n## Start here\n")[1].split("\n## ")[0]
+    for link in ("docs/CASE_STUDY.md", "TRUST_REPORT.md", "evals/validation/v1/PREREG_LEDGER.md",
+                 "docs/ARCHITECTURE.md"):
+        assert f"]({link})" in start and (ROOT / link).is_file(), link
+    verify = text.split("\n## Verify a real run\n")[1].split("\n## ")[0]
+    assert "verified: result re-derived exactly" in verify and "](examples/README.md)" in verify
+    assert "python -m fusion_first.cli" not in text
+
+
+@pytest.mark.unit
+def test_the_examples_readme_names_every_committed_run_and_how_to_verify_it():
+    import json
+
+    text = (ROOT / "examples" / "README.md").read_text(encoding="utf-8")
+    runs = sorted((ROOT / "examples").glob("*/.fusion/runs/*/plan.json"))
+    assert len(runs) >= 3
+    for plan_path in runs:
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        row = next(line for line in text.splitlines() if f"`{plan['run_id']}`" in line)
+        assert plan["target_model"] in row and plan["tier"].capitalize() in row
+        assert f"version {plan['judge_prompt_version']}" in row
+        assert f"fusion run verify --workspace examples/{plan_path.parents[3].name} {plan['run_id']}" in text
+    assert chr(0x2014) not in text and "%" not in text  # card numbers stay in each run's result.json
+
+
+@pytest.mark.unit
+def test_no_agent_plan_is_tracked_under_docs():
+    """Implementation plans written for coding agents are local working files, not reviewer-facing docs."""
+    import subprocess
+
+    tracked = subprocess.run(["git", "ls-files", "docs/design/plans"], cwd=ROOT, capture_output=True, text=True)
+    if tracked.returncode != 0:
+        pytest.skip("not a git checkout")
+    assert tracked.stdout.strip() == ""
+    for doc in (ROOT / "docs").rglob("*.md"):
+        if "plans" not in doc.parts:
+            assert "docs/design/plans/" not in doc.read_text(encoding="utf-8"), doc
+
+
+@pytest.mark.unit
 def test_the_ci_hint_offers_the_guardrail_before_the_fix():
     text = (ROOT / "integrations" / "README.md").read_text(encoding="utf-8")
     hint = next(line for line in text.splitlines() if "exit 1 = a check is below the bar" in line)

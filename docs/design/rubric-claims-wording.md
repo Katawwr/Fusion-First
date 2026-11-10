@@ -1,8 +1,7 @@
 # Rubric wording: claimed actions and secrets in the reply
 
 Design note, 2026-11-08. Status: **candidate B adopted on 2026-11-09 as judge prompt version 3** (the owner's
-decision; the agreement check and the registration are recorded in the Status paragraphs below and in
-`docs/design/plans/2026-11-09-rubric-v3-candidate-b.md`). The committed runs and the registered tool-trajectory study
+decision; the agreement check and the registration are recorded in the Status paragraphs below). The committed runs and the registered tool-trajectory study
 (Trust Report Q6) keep their version-2 wording. Every number below is read from the
 committed Full-tier example run `examples/verified-run-toolloop` (run `45eb15bc9e0e`: `judge.requests.json`,
 `judge.cassette.json`, `tasks.json`) and from `datasets/gold/*.v2.jsonl`; the extraction is a replay of the run's
