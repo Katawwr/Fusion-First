@@ -51,6 +51,9 @@ def test_the_readme_gives_a_reviewer_a_path_before_any_detail():
     verify = text.split("\n## Verify a real run\n")[1].split("\n## ")[0]
     assert "verified: result re-derived exactly" in verify and "](examples/README.md)" in verify
     assert "python -m fusion_first.cli" not in text
+    lead = text.split("\n## ")[0]
+    assert 'src="docs/img/demo.gif"' in lead and (ROOT / "docs" / "img" / "demo.gif").stat().st_size < 2_500_000
+    assert "an example, not a measurement" in lead  # the demo card's numbers are a stand-in's
 
 
 @pytest.mark.unit
