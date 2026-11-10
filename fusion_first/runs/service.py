@@ -256,17 +256,19 @@ def list_runs(workspace: str | os.PathLike | None = None) -> list[dict]:
     if not root.is_dir():
         return []
     runs = []
-    for d in sorted(root.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+    for d in root.iterdir():
         if (d / "plan.json").exists():
             rd = RunDir(workspace_dir(workspace), d.name)
             plan, st = rd.plan(), rd.state()
-            runs.append({"run_id": d.name, "phase": st.phase, "target": plan.target,
-                         "grader": plan.grader, "checks": plan.checks, "message": st.message})
-    return runs
+            # The recorded start orders runs: file times are the checkout's time on a fresh clone.
+            when = st.started_at if st.started_at is not None else d.stat().st_mtime
+            runs.append((when, {"run_id": d.name, "phase": st.phase, "target": plan.target,
+                                "grader": plan.grader, "checks": plan.checks, "message": st.message}))
+    return [r for _, r in sorted(runs, key=lambda t: t[0], reverse=True)]
 
 
 def resolve_run(workspace: str | os.PathLike | None, ref: str | None) -> RunDir:
-    """A run by full id, unique prefix, or "latest"/None (most recently touched)."""
+    """A run by full id, unique prefix, or "latest"/None (most recently started)."""
     runs = list_runs(workspace)
     if not runs:
         raise RunError("no runs in this workspace yet: start one with start_run / `fusion run start`")

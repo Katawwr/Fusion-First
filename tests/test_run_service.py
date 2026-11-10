@@ -116,6 +116,27 @@ def test_resolve_run_by_prefix_and_latest(tmp_path):
     assert [r["run_id"] for r in list_runs(tmp_path)] == [a.run_id]
 
 
+@pytest.mark.unit
+def test_latest_is_the_run_started_last_whatever_the_file_times(tmp_path):
+    """A fresh clone gives every file the checkout's time: "latest" must follow the recorded start, not mtime."""
+    import os
+    import pathlib
+    import shutil
+
+    src = pathlib.Path(__file__).resolve().parents[1] / "examples" / "verified-run-toolloop"
+    ws = tmp_path / "ws"
+    shutil.copytree(src, ws)
+    runs = ws / ".fusion" / "runs"
+    started = {d.name: json.loads((d / "state.json").read_text(encoding="utf-8"))["started_at"]
+               for d in runs.iterdir()}
+    newest, oldest = max(started, key=started.get), min(started, key=started.get)
+    assert newest != oldest
+    os.utime(runs / newest, (1_000_000_000, 1_000_000_000))
+    os.utime(runs / oldest, (2_000_000_000, 2_000_000_000))
+    assert resolve_run(ws, "latest").run_id == newest
+    assert [r["run_id"] for r in list_runs(ws)][0] == newest
+
+
 @pytest.mark.integration
 async def test_run_manager_runs_in_background_and_long_polls(tmp_path):
     rd = start_run(tmp_path, PROMPT, checks=["direct_prompt_injection"], target="ollama:m")
