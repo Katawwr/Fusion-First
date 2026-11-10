@@ -3,7 +3,7 @@
     fusion doctor                                             # what can run here (no model calls)
     fusion run start --prompt agent.txt --target ollama:llama3.2:1b --grader claude-cli
     fusion run start --prompt agent.txt --target ollama:llama3.2:1b      # grader=host: stops after collect
-    fusion run tasks  [RUN] --max 8 > tasks.json              # questions for an external grader
+    fusion run tasks  [RUN] --max 8 --out tasks.json          # questions for an external grader
     fusion run submit [RUN] --file answers.json               # validated, one answer per question
     fusion run grade  [RUN]                                   # finish grading with the run's built-in grader
     fusion run finalize [RUN] --min-grade B                   # the card; exit 1 below the bar
@@ -30,7 +30,13 @@ from fusion_first.backends.resolve import (
 )
 from fusion_first.errors import FusionError
 from fusion_first.runs import service
-from fusion_first.runs.engine import RunError, accounting_line, grading_tasks, submit_grades
+from fusion_first.runs.engine import (
+    RunError,
+    accounting_line,
+    grading_tasks,
+    lease_info,
+    submit_grades,
+)
 
 _GRADE_RANK = {"A": 0, "B": 1, "C": 2, "D": 3, "F": 4, "?": 5}
 
@@ -79,11 +85,14 @@ def add_parsers(sub) -> None:
     t = rs.add_parser("tasks", parents=[common], help="print ungraded questions (JSON)")
     t.add_argument("run", nargs="?", default=None)
     t.add_argument("--max", type=int, default=8)
-    t.add_argument("--lease", type=float, default=None, help="lease seconds (parallel graders)")
+    t.add_argument("--lease", type=float, default=None,
+                   help="hold the printed questions for this many seconds so parallel graders get different ones; "
+                        "a held question is not printed again until it is answered or the time is up")
+    t.add_argument("--out", default=None, help="also write the JSON to this file")
 
     sb = rs.add_parser("submit", parents=[common], help="submit answers (JSON list, file or '-')")
-    sb.add_argument("run", nargs="?", default=None)
-    sb.add_argument("--file", required=True)
+    sb.add_argument("run", nargs="?", default=None, help="the run, or the answers file when --file is not given")
+    sb.add_argument("--file", default=None, help="answers file (JSON list), or - for stdin")
     sb.add_argument("--grader", default="host", help="free-text name of who answered")
 
     g = rs.add_parser("resume", parents=[common], aliases=["grade"],
@@ -277,6 +286,12 @@ def cmd_run(args) -> int:
             _out(args, runs, "\n".join(f"{r['run_id']}  {r['phase']:16} {r['target']}  grader={r['grader']}"
                                         for r in runs) or "no runs yet")
             return 0
+        if args.run_cmd == "submit" and args.file is None:
+            # `fusion run submit answers.json`: the one plain argument is the file, not a run
+            if args.run and (args.run == "-" or pathlib.Path(args.run).is_file()):
+                args.file, args.run = args.run, None
+            else:
+                raise RunError("no answers file: fusion run submit --file answers.json (or - for stdin)")
         rd = service.resolve_run(args.workspace, args.run)
         if args.run_cmd == "status":
             st = service.status(rd)
@@ -287,8 +302,23 @@ def cmd_run(args) -> int:
             _out(args, st, text)
             return 0
         if args.run_cmd == "tasks":
-            print(json.dumps(grading_tasks(rd, max_tasks=args.max, lease_s=args.lease), indent=2,
-                             ensure_ascii=False))
+            tasks = grading_tasks(rd, max_tasks=args.max, lease_s=args.lease)
+            text = json.dumps(tasks, indent=2, ensure_ascii=False)
+            if args.out:
+                pathlib.Path(args.out).write_text(text + "\n", encoding="utf-8", newline="\n")
+            print(text)
+            if args.lease:  # stdout stays pure JSON; what is held, and for how long, goes to stderr
+                if tasks:
+                    print(f"leased {len(tasks)} task{'s' if len(tasks) != 1 else ''} for {args.lease:g} s: they are "
+                          "not printed again until answered (fusion run submit --file answers.json) or the lease "
+                          "ends" + (f"; saved to {args.out}" if args.out else "; keep this output (--out FILE "
+                                                                               "saves it)"), file=sys.stderr)
+                else:
+                    info = lease_info(rd)
+                    if info["leased_to_others"]:
+                        n = info["leased_to_others"]
+                        print(f"no free tasks: {n} ungraded task{'s are' if n != 1 else ' is'} leased; retry in "
+                              f"{info['retry_after_s']:g} s, or sooner once they are answered", file=sys.stderr)
             return 0
         if args.run_cmd == "submit":
             res = submit_grades(rd, _read_answers(args.file), grader=args.grader)

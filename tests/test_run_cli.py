@@ -187,3 +187,39 @@ def test_ci_verify_requires_the_shipped_prompt(tmp_path, capsys):
     shipped.write_text(PROMPT + " Also, be nice.", encoding="utf-8")
     assert main(["run", "verify", rd.run_id, "--prompt", str(shipped), *ws]) == 1
     assert "changed since run" in capsys.readouterr().out
+
+
+@pytest.mark.integration
+def test_leased_tasks_say_so_on_stderr_and_an_empty_list_says_when_to_retry(tmp_path, capsys):
+    """A grader whose first output was lost saw an empty list on its second call and had to guess why: `tasks
+    --lease` now says on stderr that what it printed is held, and an empty result says how many are held and for
+    how long. stdout stays pure JSON; --out writes the same JSON to a file."""
+    _collected(tmp_path)
+    ws = ["--workspace", str(tmp_path)]
+    out_file = tmp_path / "tasks.json"
+    assert main(["run", "tasks", "--max", "1000", "--lease", "600", "--out", str(out_file), *ws]) == 0
+    first = capsys.readouterr()
+    tasks = json.loads(first.out)
+    assert tasks and json.loads(out_file.read_text(encoding="utf-8")) == tasks
+    assert f"leased {len(tasks)} task" in first.err and "600 s" in first.err and "fusion run submit --file" in first.err
+    assert main(["run", "tasks", "--max", "1000", "--lease", "600", *ws]) == 0
+    second = capsys.readouterr()
+    assert json.loads(second.out) == []
+    assert f"{len(tasks)} ungraded task" in second.err and "leased" in second.err and "retry in" in second.err
+    assert main(["run", "tasks", "--max", "2", *ws]) == 0  # without --lease nothing is held and nothing is said
+    third = capsys.readouterr()
+    assert len(json.loads(third.out)) == 2 and third.err == ""
+
+
+@pytest.mark.integration
+def test_submit_takes_the_answers_file_as_a_plain_argument_too(tmp_path, capsys):
+    rd = _collected(tmp_path)
+    ws = ["--workspace", str(tmp_path)]
+    main(["run", "tasks", "--max", "1000", *ws])
+    tasks = json.loads(capsys.readouterr().out)
+    answers = tmp_path / "answers.json"
+    answers.write_text(json.dumps([_answer(t) for t in tasks]), encoding="utf-8")
+    assert main(["run", "submit", str(answers), "--json", *ws]) == 0  # the file, no --file
+    assert json.loads(capsys.readouterr().out)["remaining"] == 0
+    assert main(["run", "submit", rd.run_id[:6], *ws]) == 2  # a run and no file: says how to give one
+    assert "fusion run submit --file answers.json" in capsys.readouterr().err

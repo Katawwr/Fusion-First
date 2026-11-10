@@ -5,6 +5,13 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- `fusion run tasks --lease` says on stderr how many questions it has leased and for how long, and an empty result
+  says how many are leased and when to retry; `--out FILE` also writes the JSON to a file. stdout stays pure JSON.
+- `fusion run submit answers.json` works: the answers file may be given as a plain argument as well as with
+  `--file`, and a missing file is reported with the command to use.
+
 ### Removed
 
 - The recorded demo scan in the README and `frontend/scripts/record-demo.mjs`: the capture showed a torn frame

@@ -155,7 +155,7 @@ ungraded`, exit 2).
 **Needs a model.** Grade and finish:
 
 ```bash
-fusion run tasks > tasks.json                 # answer them yourself, or let a host agent do it over MCP
+fusion run tasks --out tasks.json             # answer them yourself, or let a host agent do it over MCP
 fusion run submit --file answers.json
 fusion run finalize --min-grade B             # report card; exit 1 below the bar
 fusion run verify                             # re-derive the card offline; exit 1 on drift
