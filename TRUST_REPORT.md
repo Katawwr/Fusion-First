@@ -1,7 +1,8 @@
 # Fusion First: Trust Report
 
-Six questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
-simpler checks, does a trained detector beat the phrase list, is the judge accurate on tool trajectories?**
+Seven questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat simpler
+checks, does a trained detector beat the phrase list, is the judge accurate on tool trajectories, does it stay
+accurate when claimed actions and pasted secrets count?**
 Generated from committed evidence by `python -m fusion_first.validate.trust_report`; a test fails if this file and
 its evidence disagree. Intervals are 95% Wilson unless noted. Demonstration evidence (the offline stand-in judge) is
 excluded.

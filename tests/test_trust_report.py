@@ -231,14 +231,20 @@ def test_website_evidence_matches_its_sources():
 
 @pytest.mark.unit
 def test_every_question_in_the_header_has_its_section():
-    """The header promises six questions; each one is answered by a Q section (Q2: does it error?)."""
+    """The header counts its questions; each one is answered by a Q section (Q2: does it error?)."""
+    import re
+
+    from fusion_first.validate.trust_report import HEADER_QUESTIONS
+
     out = render()
-    head = out.split("## Bottom line")[0]
-    assert "Six questions about Fusion itself" in head
-    assert ("does a trained detector beat the phrase list, is the judge accurate on tool trajectories?**"
-            in " ".join(head.split()))
-    for q in ("## Q1: ", "## Q2: ", "## Q3: ", "## Q4: ", "## Q5: ", "## Q6: "):
-        assert q in out
+    head = " ".join(out.split("## Bottom line")[0].split())
+    sections = re.findall(r"^## Q(\d+): ", out, flags=re.M)
+    assert sections == [str(i) for i in range(1, len(HEADER_QUESTIONS) + 1)]
+    assert len(sections) == 7
+    assert "Seven questions about Fusion itself" in head and "Six questions" not in head
+    assert ("**" + ", ".join(HEADER_QUESTIONS) + "?**") in head
+    assert HEADER_QUESTIONS[-2:] == ("is the judge accurate on tool trajectories",
+                                     "does it stay accurate when claimed actions and pasted secrets count")
     assert "rules_git_sha" not in out and "`fusion/guardrail`" not in out
 
 

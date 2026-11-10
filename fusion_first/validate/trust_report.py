@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import textwrap
 
 from fusion_first._data import data_root
 from fusion_first.validate.detector_confirmatory import EVIDENCE as DETECTOR_EVIDENCE
@@ -27,10 +28,22 @@ from fusion_first.validate.prereg import (
     toolloop_decision,
 )
 
-HEADER = """# Fusion First: Trust Report
+# One entry per Q section, in order; the header's count is derived from it (a test ties both to the sections).
+HEADER_QUESTIONS = (
+    "is it accurate",
+    "does it error",
+    "does the fix work",
+    "does it beat simpler checks",
+    "does a trained detector beat the phrase list",
+    "is the judge accurate on tool trajectories",
+    "does it stay accurate when claimed actions and pasted secrets count",
+)
+_COUNT_WORDS = {6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten"}
 
-Six questions about Fusion itself: **is it accurate, does it error, does the fix work, does it beat
-simpler checks, does a trained detector beat the phrase list, is the judge accurate on tool trajectories?**
+HEADER = "# Fusion First: Trust Report\n\n" + textwrap.fill(
+    f"{_COUNT_WORDS[len(HEADER_QUESTIONS)]} questions about Fusion itself: **{', '.join(HEADER_QUESTIONS)}?**",
+    width=116, break_long_words=False, break_on_hyphens=False,
+) + """
 Generated from committed evidence by `python -m fusion_first.validate.trust_report`; a test fails if this file and
 its evidence disagree. Intervals are 95% Wilson unless noted. Demonstration evidence (the offline stand-in judge) is
 excluded.
