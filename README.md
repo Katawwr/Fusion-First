@@ -34,12 +34,6 @@
   </a>
 </p>
 
-<p align="center">
-  <img alt="The offline demo scan on fusion serve: an example report card, then the runtime guard step" src="docs/img/demo.gif" width="820">
-</p>
-
-<p align="center"><sub>The offline demo scan (<code>fusion serve</code>): recorded responses and a stand-in grader, so its card is an example, not a measurement.</sub></p>
-
 ## Start here
 
 - **Read** the [case study](docs/CASE_STUDY.md): the problem, the headline result, a negative result, the limits.

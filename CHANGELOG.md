@@ -3,6 +3,13 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Removed
+
+- The recorded demo scan in the README and `frontend/scripts/record-demo.mjs`: the capture showed a torn frame
+  between pages. The screenshot stays.
+
 ## [0.1.3] - 2026-11-10
 
 ### Added
