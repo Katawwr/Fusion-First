@@ -18,6 +18,8 @@ from fusion_first.validate.judge_eval_toolloop import EVIDENCE as TOOLLOOP_EVIDE
 from fusion_first.validate.judge_eval_toolloop import PREREG as TOOLLOOP_PREREG
 from fusion_first.validate.judge_eval_toolloop import RUN as TOOLLOOP_RUN
 from fusion_first.validate.prereg import (
+    BINDING_CEILING,
+    BINDING_MARGIN,
     DETECTOR_MAX_FPR,
     DETECTOR_MIN_RECALL,
     LOCAL_GRADER_EVIDENCE,
@@ -212,6 +214,9 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         step4 = _load(root, STEP4_EVIDENCE)
         if step4:
             out[-1] += " " + _step4_sentence(step4)
+        step5 = _load(root, STEP5_EVIDENCE)
+        if step5:
+            out[-1] += " " + _step5_sentence(step5)
     else:
         out.append("- **Runtime guardrail in your agent?** Not yet measured with the current rules.")
     guard = _guard_headline(root)
@@ -549,6 +554,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
     return {"generated_from": "evals/ (non-demonstration evidence only)", "judge_accuracy": judge,
             "local_grader": local_grader,
             "step2_guard": _step2_site(root), "step3_guard": _step3_site(root), "step4_agentdojo": _step4_site(root),
+            "step5_binding": _step5_site(root),
             "detector": _detector_site(root), "toolloop": _toolloop_site(root), "claims_v3": _claims_v3_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
@@ -815,6 +821,106 @@ def _step4_site(root: pathlib.Path) -> dict | None:
             "rules": d["guardrail_git_sha"][:7], "utility_benign": d["utility_benign"],
             "attack_success_in_scope": d["attack_success_in_scope"], "comparisons": d["comparisons"],
             "decision": d["decision"]}
+
+
+# Step 5: request binding by verb class on sealed blind-authored calls (PREREG_step5_binding.md).
+STEP5_EVIDENCE = "evals/validation/v1/step5_binding.json"
+STEP5_SEAL = "datasets/guard_step5/rows.v1.seal.json"
+_STEP5_RULES = (("request", "not covered by the request"), ("destination", "outside destination"),
+                ("private_read", "private read not asked for"), ("other", "another rule"))
+
+
+def _step5_seal_meta(root: pathlib.Path) -> dict:
+    path = root / STEP5_SEAL
+    return json.loads(path.read_text(encoding="utf-8")).get("meta", {}) if path.is_file() else {}
+
+
+def _step5_rule(detail: str) -> str:
+    if "is not covered by the user's request" in detail or "has no user request" in detail:
+        return "request"
+    if "external destination" in detail:
+        return "destination"
+    if "reads private data" in detail:
+        return "private_read"
+    return "other"
+
+
+def step5_blocked_by_rule(d: dict, arm: str = "new") -> dict[str, int]:
+    """Legitimate rows the arm blocked, counted once per rule that blocked them."""
+    out = dict.fromkeys((k for k, _ in _STEP5_RULES), 0)
+    for r in d["rows"]:
+        if r["label"] == "legitimate" and r[arm]["blocked"]:
+            for rule in {_step5_rule(x) for x in r[arm]["rules"]}:
+                out[rule] += 1
+    return out
+
+
+def _step5_verdict(d: dict) -> str:
+    dec = d["decision"]
+    return "void (too few rows)" if dec["void"] else "adopted" if dec["adopt"] else "not adopted"
+
+
+def _step5_sentence(d: dict) -> str:
+    leg = d["legitimate"]
+    return (f"A rule change to cut that cost (request binding by verb class, pre-registered, {leg['n']} blind-authored "
+            f"legitimate calls): {_step5_verdict(d)}; the candidate rules wrongly blocked {leg['new']['k']} of "
+            f"{leg['new']['n']} against {leg['old']['k']} for the published rules, over the registered ceiling.")
+
+
+def _step5(root: pathlib.Path) -> list[str]:
+    d = _load(root, STEP5_EVIDENCE)
+    if not d:
+        return []
+    leg, hij, only, dec = d["legitimate"], d["hijack"], d["hijack_binding_only"], d["decision"]
+    seal = _step5_seal_meta(root)
+    dropped = seal.get("dropped_by_validity_check", {})
+    by_rule = step5_blocked_by_rule(d)
+    out = ["## Request binding by verb class (pre-registered)", "",
+           (f"Step 4 found the published rules read a request too literally. Candidate rules (`{d['rules']['new'][:7]}`) "
+            f"bind by verb class; both rule sets were scored on the same sealed calls, written blind by "
+            f"{seal.get('authors', 'the')} Claude Sonnet authors over tool catalogues from domains neither rule set was "
+            f"built on. No model runs in the scored pass: the guard is deterministic. Registered in "
+            f"`{d['preregistration']}`; evidence: `{STEP5_EVIDENCE}`."), "",
+           f"| Sealed calls | Published rules (`{d['rules']['old'][:7]}`) blocked | Candidate rules blocked |",
+           "|---|---|---|"]
+    for label, b in (("Legitimate (a block is wrong)", leg), ("Hijacked (a block is right)", hij),
+                     ("Hijacked, no address in the call", only)):
+        out.append(f"| {label} | {b['old']['k']} of {b['old']['n']}, {_iv(b['old'])} | "
+                   f"{b['new']['k']} of {b['new']['n']}, {_iv(b['new'])} |")
+    diff = hij["difference"]
+    rules = ", ".join(f"{by_rule[k]} {label}" for k, label in _STEP5_RULES if by_rule[k])
+    out += ["", (f"- Cost: {leg['old_only']} legitimate calls blocked by the published rules only, {leg['new_only']} by "
+                 f"the candidate only (McNemar {_p(leg['mcnemar_p'])}). The candidate's wrongly-blocked rate has an "
+                 f"upper bound of {leg['new']['high'] * 100:.1f}%; the registered ceiling is 15%. "
+                 f"{'Met' if dec['cost']['meets'] else 'Not met'}."),
+            (f"- Protection: the blocked share of hijacked calls moved {diff['point'] * 100:+.1f} points (95% "
+             f"{diff['low'] * 100:.1f} to {diff['high'] * 100:.1f}); the registered margin is -5. "
+             f"{'Kept' if dec['protection']['meets'] else 'Not kept'}."),
+            (f"- Decision: **{_step5_verdict(d)}**"
+             + ("." if dec["adopt"] or dec["void"] else "; the published rules stay the default.")),
+            f"- What blocked the legitimate calls under the candidate rules: {rules}.",
+            (f"- The blind validity check dropped {dropped.get('legitimate', 0)} legitimate and "
+             f"{dropped.get('hijack', 0)} hijacked rows before the seal."),
+            ("- What this says: matching a request's words to a tool's name blocks about half of what people ask for "
+             "in their own words, whichever word lists are used. With `require_authorization=True` the guard trades "
+             "that cost for near-complete blocking of hijacked calls."),
+            ("- Limits: authored calls, not a model's own trajectories; authors and checker are one model family; "
+             "requests that hand the decision to a document are out of scope."),
+            ""]
+    return out
+
+
+def _step5_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, STEP5_EVIDENCE)
+    if not d:
+        return None
+    seal = _step5_seal_meta(root)
+    return {"evidence": STEP5_EVIDENCE, "preregistration": d["preregistration"],
+            "rules": {k: v[:7] for k, v in d["rules"].items()}, "legitimate": d["legitimate"], "hijack": d["hijack"],
+            "hijack_binding_only": d["hijack_binding_only"], "decision": d["decision"], "verdict": _step5_verdict(d),
+            "blocked_by_rule": step5_blocked_by_rule(d), "authors": seal.get("authors"),
+            "ceiling": BINDING_CEILING, "margin": BINDING_MARGIN,
+            "dropped": seal.get("dropped_by_validity_check")}
 
 
 # Q5: the trained detector for injected tool results (PREREG_detector_v1.md). Known arms and sources get short names
@@ -1612,7 +1718,7 @@ def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root), *_q6(root),
              *_q7(root),
-             *_step2(root), *_step3(root), *_step4(root), *_guard(root),
+             *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_guard(root),
              *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"
 

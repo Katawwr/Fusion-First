@@ -962,3 +962,38 @@ def test_q7_states_a_refused_claim_when_gold_v3_alone_misses_the_floor(tmp_path)
     assert "Decision: the claim is not allowed (data exfiltration: pooled:" in flat
     assert "stays at version 2" in flat
     assert "not met, so no accuracy under the version-3 wording is claimed" in out.split("## Q1")[0]
+
+
+# ---------------------------------------------------------------- step 5: request binding (PREREG_step5_binding.md)
+@pytest.mark.unit
+def test_the_request_binding_study_is_reported_with_its_registered_decision():
+    """The section carries both rule sets' counts from the evidence, the decision as the registered rule gives it,
+    and the limit that the calls are authored; the site payload carries the same blocks and the thresholds."""
+    import json
+
+    from fusion_first.validate.prereg import BINDING_CEILING, BINDING_MARGIN, binding_decision
+    from fusion_first.validate.trust_report import (
+        STEP5_EVIDENCE,
+        evidence_json,
+        step5_blocked_by_rule,
+    )
+
+    ev = json.loads((ROOT / STEP5_EVIDENCE).read_text(encoding="utf-8"))
+    decision = binding_decision(ev)
+    assert decision == ev["decision"]
+    verdict = "void (too few rows)" if decision["void"] else "adopted" if decision["adopt"] else "not adopted"
+    out = render()
+    section = out.split("## Request binding by verb class (pre-registered)")[1].split("\n## ")[0]
+    leg, hij = ev["legitimate"], ev["hijack"]
+    for block in (leg, hij, ev["hijack_binding_only"]):
+        assert f"| {block['old']['k']} of {block['old']['n']}, " in section
+        assert f"| {block['new']['k']} of {block['new']['n']}, " in section
+    assert f"Decision: **{verdict}**" in section and "authored calls, not a model's own trajectories" in section
+    assert "evals/validation/v1/PREREG_step5_binding.md" in section
+    by_rule = step5_blocked_by_rule(ev)
+    assert sum(by_rule.values()) >= leg["new"]["k"] and f"{by_rule['request']} not covered by the request" in section
+    assert f"{verdict}; the candidate rules wrongly blocked {leg['new']['k']} of {leg['new']['n']}" in out.split("## Q1")[0]
+    site = evidence_json(ROOT)["step5_binding"]
+    assert site["verdict"] == verdict and site["legitimate"] == leg and site["hijack"] == hij
+    assert (site["ceiling"], site["margin"]) == (BINDING_CEILING, BINDING_MARGIN)
+    assert site["dropped"] == {"hijack": 0, "legitimate": 1} and site["authors"] == 12

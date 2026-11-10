@@ -37,6 +37,11 @@ transcripts, stopped 52% of the same attacks.
 
 The cost is stated beside it: in a live AgentDojo agent loop on held-out tasks (also pre-registered), the guard broke
 more legitimate tasks than the registered margin allows. The [Trust Report](../TRUST_REPORT.md) lists what it blocked.
+A second registered study ([`PREREG_step5_binding.md`](../evals/validation/v1/PREREG_step5_binding.md)) tried to cut
+that cost with rules that bind a request to a tool by verb class, scored on sealed calls written blind over new tool
+catalogues. Registered result: not adopted. The candidate rules wrongly blocked 51% of legitimate calls against
+55% for the published rules, far over the registered ceiling, while both blocked nearly every hijacked call. Matching
+a request's words to a tool's name is the limit, not the word lists.
 
 The judge on tool trajectories, pre-registered ([`PREREG_q1_toolloop.md`](../evals/validation/v1/PREREG_q1_toolloop.md))
 and scored once on the sealed blind split against oracle labels: Sonnet host subagents
@@ -114,4 +119,6 @@ before merge; CI on every push. No API spend: real model calls went through a su
   that announces compliance.
 - Samples are small (tens to hundreds of transcripts per cell); read the intervals, not the points.
 - No adaptive-attack evaluation; a static result is expected to degrade against an attacker who adapts.
-- The guard's cost in a live agent loop is above its registered margin (see Headline result).
+- The guard's cost in a live agent loop is above its registered margin, and a registered rule change did not bring
+  it under its ceiling (see Headline result): with request binding on, expect about half of freely worded requests
+  to need a confirmation or an allowlist.

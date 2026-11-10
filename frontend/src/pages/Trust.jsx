@@ -107,6 +107,38 @@ export function Step2Section({ s, fig = 1 }) {
   );
 }
 
+// A registered rule change that did not clear its bar: both rule sets on the same sealed calls.
+export function Step5Section({ s }) {
+  const pts = (x) => `${(x * 100).toFixed(1)}`;
+  const rows = [
+    ["Legitimate (a block is wrong)", s.legitimate],
+    ["Hijacked (a block is right)", s.hijack],
+    ["Hijacked, no address in the call", s.hijack_binding_only],
+  ];
+  const d = s.hijack.difference;
+  return (
+    <Section title="Request binding by verb class">
+      <p className="mb-3 text-sm text-app-muted">
+        Candidate rules ({s.rules.new}) that bind a request to a tool by verb class, against the published rules
+        ({s.rules.old}), on the same sealed calls written blind by {s.authors} Claude Sonnet authors over new tool
+        catalogues. No model runs in the scored pass. Pre-registered, scored once.
+      </p>
+      <DataTable
+        head={["Sealed calls", "Published rules blocked", "Candidate rules blocked"]}
+        rows={rows.map(([label, b]) => [label, `${b.old.k} of ${b.old.n}, ${interval(b.old)}`, `${b.new.k} of ${b.new.n}, ${interval(b.new)}`])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        Cost: {s.legitimate.old_only} legitimate calls blocked by the published rules only, {s.legitimate.new_only} by
+        the candidate only ({pShort(s.legitimate.mcnemar_p)}); the candidate's wrongly-blocked upper bound is{" "}
+        {pts(s.legitimate.new.high)}% against a registered ceiling of {pts(s.ceiling)}%. Protection: the blocked share
+        of hijacked calls moved {pts(d.point)} points (95% {pts(d.low)} to {pts(d.high)}) against a margin of -
+        {pts(s.margin)}. Decision: {s.verdict}{s.decision.adopt ? "." : "; the published rules stay the default."}{" "}
+        Authored calls, not a model's own trajectories.
+      </p>
+    </Section>
+  );
+}
+
 // The McNemar counts are one sentence, not a chart: the arms disagree on a handful of transcripts.
 export function Step4Section({ s }) {
   const u = s.utility_benign;
@@ -563,6 +595,8 @@ export default function Trust() {
       {evidence.step3_guard && <Step3Section s={evidence.step3_guard} fig={step3Fig} />}
 
       {evidence.step4_agentdojo && <Step4Section s={evidence.step4_agentdojo} />}
+
+      {evidence.step5_binding && <Step5Section s={evidence.step5_binding} />}
 
       <DetectorSection d={evidence.detector} />
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { ClaimsV3Section, DetectorSection, Step2Section, Step3Section, Step4Section, ToolloopSection } from "./Trust";
+import Trust, { ClaimsV3Section, DetectorSection, Step2Section, Step3Section, Step4Section, Step5Section, ToolloopSection } from "./Trust";
 import { EXPERIMENT_NAMES } from "../components/trust/format";
 import { fixVerdict, graderName, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
@@ -163,6 +163,16 @@ describe("Trust page", () => {
     const u = s.utility_benign;
     expect(screen.getByText(new RegExp(`^${u.none.k} of ${u.none.n}`))).toBeInTheDocument();
     expect(screen.getByText(s.comparisons.cost_none_vs_v3.non_inferior ? /within the margin/ : /over the margin/)).toBeInTheDocument();
+  });
+
+  it("states the request-binding study with both rule sets and its registered decision", () => {
+    const s = evidence.step5_binding;
+    render(<Step5Section s={s} />);
+    expect(screen.getByRole("heading", { name: "Request binding by verb class" })).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`^${s.legitimate.old.k} of ${s.legitimate.old.n}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`^${s.legitimate.new.k} of ${s.legitimate.new.n}`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Decision: ${s.verdict}`))).toBeInTheDocument();
+    expect(s.decision.adopt).toBe(s.verdict === "adopted");
   });
 
   it("says the trained detector study is registered and not yet scored until its evidence is committed", () => {

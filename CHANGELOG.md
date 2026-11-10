@@ -3,6 +3,16 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Guard step 5, a pre-registered study of request binding by verb class (`PREREG_step5_binding.md`): candidate
+  rules scored against the published rules on sealed calls written blind by twelve Claude Sonnet authors over new
+  tool catalogues. Registered result: not adopted; the published rules stay the default. The Trust Report and the
+  Trust page carry the result; `scripts/step5_binding.py` scores each rule set from its own commit, and
+  `datasets/guard_step5/` holds the rows, the seal, the authors' files and both briefs.
+
 ## [0.1.3] - 2026-11-10
 
 ### Added

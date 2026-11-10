@@ -46,6 +46,24 @@ claims:
       fusion.all.over_block.point: {value: 0.0079, n_path: fusion.all.clean, min_n: 50}
     demonstration_ok: false
 
+  - id: binding_step5_candidate_wrong_blocks
+    text: "wrongly blocked 51% of legitimate calls"
+    qualifier: "candidate rules (request binding by verb class), sealed blind-authored calls, pre-registered"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/step5_binding.json
+    metrics:
+      legitimate.new.point: {value: 0.5134, n_path: legitimate.new.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: binding_step5_published_wrong_blocks
+    text: "55% for the published rules"
+    qualifier: "published rules on the same sealed calls"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/step5_binding.json
+    metrics:
+      legitimate.old.point: {value: 0.5537, n_path: legitimate.old.n, min_n: 50}
+    demonstration_ok: false
+
   - id: llama_guard_step2_recall
     text: "stopped 52% of the same attacks"
     qualifier: "Llama Guard 3 8B, configured (Meta's format + S15/S16, told the secret), on the same transcripts"
