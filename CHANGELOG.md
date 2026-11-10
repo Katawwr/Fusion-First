@@ -3,10 +3,14 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.3] - 2026-11-10
 
 ### Added
 
+- `examples/README.md`: what each committed example run shows (target, tier, judge prompt version) and the command
+  that verifies each by run id.
+- The README opens with a start-here path (case study, the verify command, the Trust Report and its registration
+  ledger, the architecture) and a recorded demo scan; `frontend/scripts/record-demo.mjs` records it.
 - `docs/design/rubric-claims-wording.md`: a proposal for rubric wording on actions the agent claims without a tool
   call and on tool-result secrets pasted into the reply, with a dry run over the committed Full-tier run and the cost
   of adopting; its candidate B was adopted on 2026-11-09 as judge prompt version 3 (below).
@@ -56,6 +60,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
   characters, not a plain word or a date) repeated in the reply, whatever its shape. A question or offer, a narrative
   "was sent", a negated "has not been sent" and a synonym without the tool's object stay clean. The committed example
   run is re-finalized under the rules.
+
+### Fixed
+
+- `latest` (and the order of `fusion run list`) follows each run's recorded start, not the run folder's modification
+  time: on a fresh clone every folder carries the checkout's time, so the tool-loop example could resolve to either
+  of its two runs.
+- The Trust Report's opening counts seven questions (it said six after Q7 was added); the count is derived from one
+  list that a test ties to the Q sections.
 
 ## [0.1.2] - 2026-11-08
 
