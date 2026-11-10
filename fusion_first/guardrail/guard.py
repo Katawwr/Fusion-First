@@ -79,16 +79,17 @@ def _authorizes(user_request: str, tool: str, arguments=None, identities=()) -> 
         syns = _VERB_SYNONYMS.get(verb, (verb,))
         acted_on = {_stem(words[j]) for j in objects} | {_stem(verb)}
         implied = 0  # the request's verb names the object by itself ("pay" for a money tool)
+        asked: list[str] = []  # class verbs count only when the request asks for them ("pay", never "I paid")
         for class_objects, class_verbs, implying in _OBJECT_VERBS:
             if acted_on & {_stem(o) for o in class_objects}:
-                syns = syns + class_verbs
-                implied |= int(any(terms.has_verb(v) for v in implying))
-        used = [s for s in syns if terms.has_verb(s)]
+                asked += [v for v in class_verbs if terms.asks(v)]
+                implied |= int(any(terms.asks(v) for v in implying))
+        used = [s for s in syns if terms.has_verb(s)] + asked
         if not used:
             continue
         need = min(2, len(objects)) if objects else int(bool(service) or has_args)
-        if all(s in _SAYING_VERBS for s in used):
-            need = max(need, 1)  # "write an announcement" sends nothing until the request names where it goes
+        if all(s in _SAYING_VERBS for s in used) and not args_hit:
+            continue  # "write an announcement" sends nothing until the request names the recipient, channel or text
         if len(hit & set(objects)) + int(bool(hit & set(service))) + args_hit + implied >= need:
             return True
     return False
@@ -153,7 +154,7 @@ def _arg_values(arguments) -> list[str]:
 
 
 _SELF = re.compile(r"\b(me|myself|mine)\b")
-_ISO_STAMP = re.compile(r"(\d{4}-\d{2}-\d{2})[t ]\d")
+_ISO_STAMP = re.compile(r"(\d{4}-\d{2}-\d{2})[t ](\d{2}:\d{2})")
 
 
 def _args_mentioned(user_request: str, arguments, identities=()) -> bool:
@@ -170,8 +171,9 @@ def _args_mentioned(user_request: str, arguments, identities=()) -> bool:
             return True
         forms = [s] + ([s.split("@", 1)[0]] if "@" in s else [])
         stamp = _ISO_STAMP.match(s)
-        if stamp:
-            forms.append(stamp.group(1))  # the request gives the day of 2024-05-20T10:00
+        if stamp and (stamp.group(2) == "00:00" or re.search(rf"(?<![\d:]){stamp.group(2).lstrip('0')}(?![\d])", low)
+                      or re.search(rf"(?<![\d:]){stamp.group(2)}(?![\d])", low)):
+            forms.append(stamp.group(1))  # the request gives the day and the hour of 2024-05-20T10:00
         if any(len(f) >= 1 and re.search(rf"(?<![\w]){re.escape(f)}(?![\w])", flat if f[0].isdigit() else low)
                for f in forms if f and (len(f) >= 2 or f.isdigit())):
             return True
@@ -323,11 +325,11 @@ _VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
 # about a meeting until the request says so).
 _MONEY_OBJECTS = frozenset({"money", "fund", "funds", "payment", "transaction", "transfer", "wire", "payout",
                             "remittance"})
-_MONEY_VERBS = ("pay", "paid", "repay", "refund", "reimburse", "remit", "settle", "wire", "transfer")
+_MONEY_VERBS = ("pay", "repay", "refund", "reimburse", "remit", "settle", "wire", "transfer")
 _EVENT_OBJECTS = frozenset({"event", "calendar", "meeting", "appointment", "booking", "reservation"})
 _EVENT_VERBS = ("reschedule", "postpone", "move", "push", "shift", "delay")
 _OBJECT_VERBS = (
-    (_MONEY_OBJECTS, _MONEY_VERBS, ("pay", "paid", "repay", "refund", "reimburse", "remit", "settle")),
+    (_MONEY_OBJECTS, _MONEY_VERBS, ("pay", "repay", "refund", "reimburse", "remit", "settle")),
     (_EVENT_OBJECTS, _EVENT_VERBS, ("reschedule", "postpone")),
 )
 # Every verb the guard knows a tool can DO (the default consequential list plus the table's verbs).
@@ -370,8 +372,10 @@ _NOMINALIZATIONS = {
     "cancellation": "cancel", "trade": "trade", "sale": "sell", "wire": "wire", "update": "update",
     "change": "change", "invitation": "invite", "installation": "install", "removal": "remove",
 }
-# Verbs that say something without saying it is sent: they cover a send only with a named destination.
+# Verbs that say something without saying it is sent: they cover a send only when the request names one of the
+# call's argument values (the recipient, the channel, the text itself), not merely a word of the tool's name.
 _SAYING_VERBS = frozenset({"post", "write", "tell", "announce", "ping", "inform", "broadcast", "remind", "ask"})
+_STATEMENT_SUBJECTS = frozenset({"i", "we", "they", "he", "she", "it"})
 _ADDRESS_VERBS = frozenset({"tell", "ask", "write", "remind", "ping", "inform", "notify", "message", "text"})
 _DETERMINERS = frozenset({"a", "an", "the", "my", "this", "that", "our", "your", "one", "new"})
 # Request words that name a tool word in other terms (abbreviations, near-synonyms of common objects).
@@ -488,6 +492,15 @@ class _Terms:
             for i in range(len(toks) - len(parts) + 1):
                 window = toks[i:i + len(parts)]
                 if (window == parts or [_stem(t) for t in window] == stems) and self._verb_at(toks, i):
+                    return True
+        return False
+
+    def asks(self, verb: str) -> bool:
+        """The request asks for `verb` to be done: its base form in verb position, not after a subject that makes
+        the clause a statement ("I paid", "we pay monthly", "they refund late")."""
+        for toks in self.clauses:
+            for i, tok in enumerate(toks):
+                if tok == verb and self._verb_at(toks, i) and not (i and toks[i - 1] in _STATEMENT_SUBJECTS):
                     return True
         return False
 
