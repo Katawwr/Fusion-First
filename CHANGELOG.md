@@ -3,7 +3,7 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.3] - 2026-11-10
 
 ### Added
 
@@ -12,11 +12,6 @@ and versions follow [Semantic Versioning](https://semver.org/).
   tool catalogues. Registered result: not adopted; the published rules stay the default. The Trust Report and the
   Trust page carry the result; `scripts/step5_binding.py` scores each rule set from its own commit, and
   `datasets/guard_step5/` holds the rows, the seal, the authors' files and both briefs.
-
-## [0.1.3] - 2026-11-10
-
-### Added
-
 - `examples/README.md`: what each committed example run shows (target, tier, judge prompt version) and the command
   that verifies each by run id.
 - The README opens with a start-here path (case study, the verify command, the Trust Report and its registration
