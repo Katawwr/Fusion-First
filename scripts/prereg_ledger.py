@@ -44,6 +44,7 @@ GOVERNS = {
     f"{V1}/PREREG_step2_guard.md": [f"{V1}/step2_guard.json", f"{V1}/step2/lg_raw.jsonl", f"{V1}/step2/prior.jsonl"],
     f"{V1}/PREREG_step3_guard.md": [f"{V1}/step3_guard.json"],
     f"{V1}/PREREG_step4_agentdojo.md": [f"{V1}/step4_agentdojo.json", f"{V1}/agentdojo/heldout/qwen2.5-7b.jsonl"],
+    f"{V1}/PREREG_step5_binding.md": [f"{V1}/step5_binding.json"],
 }
 
 HEADER = f"""# Pre-registration ledger
