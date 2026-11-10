@@ -76,10 +76,20 @@ def _authorizes(user_request: str, tool: str, arguments=None, identities=()) -> 
             return False
         return len(hit & distinct) + args_hit >= (min(2, len(distinct)) if distinct else 1)
     for verb, service, objects in candidates:
-        if not any(terms.has_verb(s) for s in _VERB_SYNONYMS.get(verb, (verb,))):
+        syns = _VERB_SYNONYMS.get(verb, (verb,))
+        acted_on = {_stem(words[j]) for j in objects} | {_stem(verb)}
+        implied = 0  # the request's verb names the object by itself ("pay" for a money tool)
+        for class_objects, class_verbs, implying in _OBJECT_VERBS:
+            if acted_on & {_stem(o) for o in class_objects}:
+                syns = syns + class_verbs
+                implied |= int(any(terms.has_verb(v) for v in implying))
+        used = [s for s in syns if terms.has_verb(s)]
+        if not used:
             continue
         need = min(2, len(objects)) if objects else int(bool(service) or has_args)
-        if len(hit & set(objects)) + int(bool(hit & set(service))) + args_hit >= need:
+        if all(s in _SAYING_VERBS for s in used):
+            need = max(need, 1)  # "write an announcement" sends nothing until the request names where it goes
+        if len(hit & set(objects)) + int(bool(hit & set(service))) + args_hit + implied >= need:
             return True
     return False
 
@@ -143,6 +153,7 @@ def _arg_values(arguments) -> list[str]:
 
 
 _SELF = re.compile(r"\b(me|myself|mine)\b")
+_ISO_STAMP = re.compile(r"(\d{4}-\d{2}-\d{2})[t ]\d")
 
 
 def _args_mentioned(user_request: str, arguments, identities=()) -> bool:
@@ -158,6 +169,9 @@ def _args_mentioned(user_request: str, arguments, identities=()) -> bool:
         if s in own:
             return True
         forms = [s] + ([s.split("@", 1)[0]] if "@" in s else [])
+        stamp = _ISO_STAMP.match(s)
+        if stamp:
+            forms.append(stamp.group(1))  # the request gives the day of 2024-05-20T10:00
         if any(len(f) >= 1 and re.search(rf"(?<![\w]){re.escape(f)}(?![\w])", flat if f[0].isdigit() else low)
                for f in forms if f and (len(f) >= 2 or f.isdigit())):
             return True
@@ -245,7 +259,7 @@ _CREATE_SYN = ("create", "add", "make", "made", "set up", "setup", "open", "star
 _UPDATE_SYN = ("update", "edit", "change", "modify", "set", "rename", "adjust", "configure", "correct", "fix",
                "replace", "switch", "turn")
 _SEND_SYN = ("send", "sent", "email", "forward", "reply", "respond", "message", "text", "dm", "notify", "share",
-             "deliver")
+             "deliver", "post", "write", "tell", "announce", "ping", "inform", "broadcast", "remind", "ask")
 _GRANT_SYN = ("grant", "give", "gave", "allow", "permit", "share", "invite", "provision", "authorize", "add")
 _MONEY_SYN = ("transfer", "move", "send", "sent", "wire", "pay", "paid", "remit", "settle", "deposit", "withdraw",
               "withdrew", "venmo", "zelle")
@@ -274,6 +288,8 @@ _VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
     "buy": _BUY_SYN, "purchase": _BUY_SYN, "order": _BUY_SYN, "book": _BUY_SYN + ("schedule",), "reserve": _BUY_SYN,
     "sell": _SELL_SYN, "trade": _SELL_SYN + ("buy",), "place": ("place", "put", "submit", "make", "buy", "sell", "order"),
     "schedule": ("schedule", "reschedule", "book", "arrange", "set up", "plan"),
+    "reschedule": ("reschedule", "postpone", "move", "push", "shift", "delay", "change"),
+    "append": _CREATE_SYN + ("insert", "include", "append", "put"),
     "cancel": ("cancel", "stop", "terminate", "void", "call off", "abort", "unsubscribe"),
     "replace": _UPDATE_SYN, "overwrite": ("overwrite", "replace"), "report": ("report", "flag", "file"),
     "pin": ("pin",), "unpin": ("unpin",), "flag": ("flag", "mark", "report"), "star": ("star", "favorite"),
@@ -301,6 +317,19 @@ _VERB_SYNONYMS: dict[str, tuple[str, ...]] = {
     "suspend": ("suspend", "pause", "disable", "freeze"), "terminate": ("terminate", "end", "stop", "kill", "cancel"),
     "kill": ("kill", "stop", "terminate", "end"), "convert": ("convert", "change", "exchange", "swap"),
 }
+# What a tool acts on can widen the verbs that ask for it, whatever verb its name uses: paying is asked of
+# send_money and schedule_transaction, moving a meeting of update_meeting. (objects, request verbs that mean
+# acting on them, the ones among those that name the object by themselves: "pay" is about money, "move" is not
+# about a meeting until the request says so).
+_MONEY_OBJECTS = frozenset({"money", "fund", "funds", "payment", "transaction", "transfer", "wire", "payout",
+                            "remittance"})
+_MONEY_VERBS = ("pay", "paid", "repay", "refund", "reimburse", "remit", "settle", "wire", "transfer")
+_EVENT_OBJECTS = frozenset({"event", "calendar", "meeting", "appointment", "booking", "reservation"})
+_EVENT_VERBS = ("reschedule", "postpone", "move", "push", "shift", "delay")
+_OBJECT_VERBS = (
+    (_MONEY_OBJECTS, _MONEY_VERBS, ("pay", "paid", "repay", "refund", "reimburse", "remit", "settle")),
+    (_EVENT_OBJECTS, _EVENT_VERBS, ("reschedule", "postpone")),
+)
 # Every verb the guard knows a tool can DO (the default consequential list plus the table's verbs).
 _ACTION_VERBS = frozenset(_CONSEQUENTIAL_VERBS) | frozenset(_VERB_SYNONYMS)
 
@@ -341,6 +370,9 @@ _NOMINALIZATIONS = {
     "cancellation": "cancel", "trade": "trade", "sale": "sell", "wire": "wire", "update": "update",
     "change": "change", "invitation": "invite", "installation": "install", "removal": "remove",
 }
+# Verbs that say something without saying it is sent: they cover a send only with a named destination.
+_SAYING_VERBS = frozenset({"post", "write", "tell", "announce", "ping", "inform", "broadcast", "remind", "ask"})
+_ADDRESS_VERBS = frozenset({"tell", "ask", "write", "remind", "ping", "inform", "notify", "message", "text"})
 _DETERMINERS = frozenset({"a", "an", "the", "my", "this", "that", "our", "your", "one", "new"})
 # Request words that name a tool word in other terms (abbreviations, near-synonyms of common objects).
 _ALIASES = {
@@ -350,6 +382,13 @@ _ALIASES = {
     "conversation": ("thread", "chat"), "chat": ("thread", "conversation"), "thread": ("conversation", "chat"),
     "newsletter": ("subscription",), "unsubscribe": ("subscription",), "ticket": ("issue",),
     "vm": ("instance", "machine"), "calendar": ("event",),
+    "information": ("info",), "meeting": ("event",), "appointment": ("event",), "document": ("file",),
+    "colleague": ("user",), "colleagues": ("user",), "teammate": ("user",), "coworker": ("user",),
+    "member": ("user",), "members": ("user",), "employee": ("user",),
+    "payment": ("money", "transaction"), "payments": ("money", "transaction"), "bill": ("payment", "money"),
+    "bills": ("payment", "money"), "invoice": ("payment", "money"), "rent": ("payment", "transaction"),
+    "spending": ("transaction",), "spent": ("transaction",), "expense": ("transaction",),
+    "expenses": ("transaction",), "purchases": ("transaction",),
 }
 _CURRENCY = re.compile(r"[$€£]\s?\d|\b\d[\d,.]*\s?(usd|eur|gbp|dollars?|euros?|pounds?|btc|bitcoin|eth)\b")
 # Send-type verbs act on a recipient; the channel word in their name (GmailSendEmail) is not an object.
@@ -433,6 +472,10 @@ class _Terms:
             return False  # "stop showing", "keep sending": about what the agent does, not an action
         if toks[i] == "give" and nxt in ("me", "us") and _INFO_NOUNS.intersection(toks[i + 2:i + 6]):
             return False  # "give me the details of": a request for information
+        if toks[i] == "pay" and nxt in ("attention", "heed", "respect", "respects", "tribute", "homage"):
+            return False  # "pay attention to": no money moves
+        if toks[i] in _ADDRESS_VERBS and nxt in ("me", "us"):
+            return False  # "tell me", "write me", "remind me": the agent answers the user, it messages no one
         return True
 
     def has_verb(self, term: str) -> bool:
