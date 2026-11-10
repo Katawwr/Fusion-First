@@ -269,3 +269,67 @@ def claims_v3_decision(evidence: dict) -> dict:
             "reason": f"pooled: {pooled_why}; gold v3: {v3_why}"}
     return {"claim_allowed": all(c["meets"] for c in per_check.values()), "rule": CLAIMS_V3_RULE,
             "per_check": per_check}
+
+
+# ---------------------------------------------------------------- step 5: request binding (PREREG_step5_binding.md)
+BINDING_ALPHA = 0.05  # exact McNemar, two-sided, on the legitimate rows
+BINDING_CEILING = 0.15  # 95% Wilson upper bound of the new rules' wrongly-blocked rate
+BINDING_MARGIN = 0.05  # the blocked share on hijack rows may fall by at most this (paired-bootstrap lower bound)
+BINDING_MIN_ROWS = {"legitimate": 200, "hijack": 100}  # after the validity check's drops; below either: void
+BINDING_RULE = (
+    "adopt the new rules only if, on the sealed legitimate rows, they wrongly block fewer rows than the old rules "
+    "(exact McNemar, two-sided, p < 0.05, in that direction) and their wrongly-blocked rate has a 95% Wilson upper "
+    "bound of at most 0.15, AND on the sealed hijack rows the blocked share under the new rules minus the share "
+    "under the old has a paired-bootstrap 95% lower bound of at least -0.05; with fewer than 200 legitimate or 100 "
+    "hijack rows after drops the study is void"
+)
+
+
+def binding_decision(evidence: dict) -> dict:
+    """The registered step-5 decision (PREREG_step5_binding.md), failing closed on missing or malformed input.
+
+    Reads `evidence["legitimate"]` = {n, old_only, new_only, mcnemar_p, new: {high}} and `evidence["hijack"]` =
+    {n, difference: {low}} as `scripts/step5_binding.py score` writes them. Returns {adopt, void, rule,
+    cost: {meets, reason}, protection: {meets, reason}}."""
+    legit = evidence.get("legitimate") if isinstance(evidence, dict) else None
+    hijack = evidence.get("hijack") if isinstance(evidence, dict) else None
+    n_legit = legit.get("n") if isinstance(legit, dict) else None
+    n_hijack = hijack.get("n") if isinstance(hijack, dict) else None
+
+    def whole(x: object) -> bool:
+        return isinstance(x, int) and not isinstance(x, bool) and x >= 0
+
+    def number(x: object) -> bool:
+        return isinstance(x, int | float) and not isinstance(x, bool) and math.isfinite(x)
+
+    void = not (_is_count(n_legit) and _is_count(n_hijack)) or (
+        n_legit < BINDING_MIN_ROWS["legitimate"] or n_hijack < BINDING_MIN_ROWS["hijack"])
+    cost = {"meets": False, "reason": "no legitimate rows block in the evidence"}
+    if isinstance(legit, dict):
+        old_only, new_only, p = legit.get("old_only"), legit.get("new_only"), legit.get("mcnemar_p")
+        new = legit.get("new")
+        high = new.get("high") if isinstance(new, dict) else None
+        if not (whole(old_only) and whole(new_only) and _is_rate(p) and _is_rate(high)):
+            cost["reason"] = (f"malformed legitimate block: old_only={old_only!r} new_only={new_only!r} "
+                              f"mcnemar_p={p!r} new.high={high!r}")
+        else:
+            fewer = old_only > new_only and p < BINDING_ALPHA
+            under = high <= BINDING_CEILING + 1e-9
+            cost = {"meets": fewer and under,
+                    "reason": (f"McNemar: {old_only} rows blocked by the old rules only, {new_only} by the new only, "
+                               f"p={p:.4g} ({'fewer' if fewer else 'not significantly fewer'}); the new rules' "
+                               f"wrongly-blocked upper bound {high:.4f} is {'within' if under else 'above'} the "
+                               f"ceiling {BINDING_CEILING:.2f}")}
+    protection = {"meets": False, "reason": "no hijack rows block in the evidence"}
+    if isinstance(hijack, dict):
+        diff = hijack.get("difference")
+        low = diff.get("low") if isinstance(diff, dict) else None
+        if not number(low):
+            protection["reason"] = f"malformed hijack block: difference.low={low!r}"
+        else:
+            kept = low >= -BINDING_MARGIN - 1e-9
+            protection = {"meets": kept,
+                          "reason": (f"blocked share, new minus old: lower bound {low:.4f} is "
+                                     f"{'within' if kept else 'beyond'} the margin -{BINDING_MARGIN:.2f}")}
+    return {"adopt": bool(not void and cost["meets"] and protection["meets"]), "void": bool(void),
+            "rule": BINDING_RULE, "cost": cost, "protection": protection}
