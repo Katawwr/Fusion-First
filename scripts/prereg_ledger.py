@@ -35,6 +35,7 @@ GOVERNS = {
                                     f"{V1}/detector/lg3_raw.jsonl", f"{V1}/detector/lg3_subsample.json",
                                     f"{V1}/detector/dev_loso.json"],
     f"{V1}/PREREG_guard_on_fresh_transcripts.md": [f"{V1}/guard_on_fresh_transcripts.json"],
+    f"{V1}/PREREG_guard_vs_detectors.md": [],  # the raw records and the result are listed once they are committed
     f"{V1}/PREREG_guard_on_real_transcripts.md": [f"{V1}/guard_on_transcripts.json"],
     f"{V1}/PREREG_guard_vs_llama_guard.md": [f"{V1}/guard_vs_llama_guard.json", f"{V1}/guard_vs_llama_guard/raw.jsonl"],
     f"{V1}/PREREG_local_grader.md": [f"{V1}/judge_eval_prob_qwen7b.json"],

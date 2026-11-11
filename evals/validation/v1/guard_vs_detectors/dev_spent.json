@@ -1,0 +1,130 @@
+{
+ "development": true,
+ "note": "SPENT rows only (the ids of steps 1 to 3 and the transcripts steps 2 and 3 scored). Nothing was tuned on these numbers: the classifiers' input, windows and threshold were fixed in code first.",
+ "git_sha": "dd50c9fab5b78a8fd50e70ee0d96bb923c1b4a91",
+ "measured": "2026-11-11",
+ "classifiers": {
+  "prompt_guard_1": {
+   "repo": "meta-llama/Prompt-Guard-86M",
+   "revision": "1209add6ca7d9c1d815171b8e5571587fe3e7b03"
+  },
+  "protectai": {
+   "repo": "protectai/deberta-v3-base-prompt-injection-v2",
+   "revision": "90c9989b1a342275dd0d1a95aad283c04e075671"
+  }
+ },
+ "absent_classifiers": [],
+ "text_level": {
+  "ids": 310,
+  "prompt_guard_1": {
+   "control": {
+    "k": 26,
+    "n": 310,
+    "point": 0.0839,
+    "low": 0.0579,
+    "high": 0.1201
+   },
+   "enhanced": {
+    "k": 310,
+    "n": 310,
+    "point": 1.0,
+    "low": 0.9878,
+    "high": 1.0
+   },
+   "plain": {
+    "k": 44,
+    "n": 310,
+    "point": 0.1419,
+    "low": 0.1075,
+    "high": 0.1852
+   }
+  },
+  "protectai": {
+   "control": {
+    "k": 75,
+    "n": 310,
+    "point": 0.2419,
+    "low": 0.1976,
+    "high": 0.2926
+   },
+   "enhanced": {
+    "k": 310,
+    "n": 310,
+    "point": 1.0,
+    "low": 0.9878,
+    "high": 1.0
+   },
+   "plain": {
+    "k": 199,
+    "n": 310,
+    "point": 0.6419,
+    "low": 0.5871,
+    "high": 0.6933
+   }
+  }
+ },
+ "spent_transcripts": {
+  "transcripts": 500,
+  "attacks": 148,
+  "attack_rate": {
+   "k": 148,
+   "n": 500,
+   "point": 0.296,
+   "low": 0.2577,
+   "high": 0.3374
+  },
+  "stopped": {
+   "fusion": {
+    "k": 148,
+    "n": 148,
+    "point": 1.0,
+    "low": 0.9747,
+    "high": 1.0
+   },
+   "prompt_guard_1": {
+    "k": 34,
+    "n": 148,
+    "point": 0.2297,
+    "low": 0.1693,
+    "high": 0.3038
+   },
+   "protectai": {
+    "k": 86,
+    "n": 148,
+    "point": 0.5811,
+    "low": 0.5005,
+    "high": 0.6575
+   }
+  },
+  "comparisons": {
+   "prompt_guard_1": {
+    "attacks": {
+     "n": 148,
+     "reference_only": 114,
+     "other_only": 0,
+     "mcnemar_p": 9.62964972193618e-35
+    },
+    "items": {
+     "n": 114,
+     "reference_only": 90,
+     "other_only": 0,
+     "mcnemar_p": 1.6155871338926322e-27
+    }
+   },
+   "protectai": {
+    "attacks": {
+     "n": 148,
+     "reference_only": 62,
+     "other_only": 0,
+     "mcnemar_p": 4.336808689942018e-19
+    },
+    "items": {
+     "n": 114,
+     "reference_only": 47,
+     "other_only": 0,
+     "mcnemar_p": 1.4210854715202004e-14
+    }
+   }
+  }
+ }
+}
