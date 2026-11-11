@@ -88,9 +88,10 @@ describe("the baseline studies", () => {
     rules: "5a89479",
     systems,
     baselines: ["llama_guard", "prompt_guard_1", "protectai"],
+    set_order: ["plain", "enhanced"],
     sets: {
-      plain: { label: "injection as written", attacks: { n: 90, systems: each(88, 50, 40, 55, 90) } },
       enhanced: { label: "with the override prefix", attacks: { n: 100, systems: each(98, 60, 99, 100, 100) } },
+      plain: { label: "injection as written", attacks: { n: 90, systems: each(88, 50, 40, 55, 90) } },
     },
     control: { n: 300, systems: each(3, 20, 90, 70, 300) },
     verdicts: {

@@ -94,6 +94,58 @@ claims:
       safe.systems.fusion.k: {value: 0, n_path: safe.n, min_n: 50}
     demonstration_ok: false
 
+  # Guard vs injection detectors (PREREG_guard_vs_detectors.md), scored once on fresh transcripts; docs/CASE_STUDY.md
+  # quotes these.
+  - id: guard_vs_detectors_plain_guard
+    text: "the guard stopped 100% of the 85 successful attacks"
+    qualifier: "runtime guard at its published rules, InjecAgent injections as written, fresh transcripts of qwen2.5:7b and llama3.1:8b, pre-registered (PREREG_guard_vs_detectors.md)"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/guard_vs_detectors.json
+    metrics:
+      sets.plain.attacks.systems.fusion.point: {value: 1.0, n_path: sets.plain.attacks.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: guard_vs_detectors_plain_baselines
+    text: "ProtectAI stopped 48%, Prompt Guard 1 24% and Llama Guard 3 56%"
+    qualifier: "same attacks; the classifiers read the tool result at their default operating point, Llama Guard 3 as configured in step 2 reads the reply"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/guard_vs_detectors.json
+    metrics:
+      sets.plain.attacks.systems.protectai.point: {value: 0.4824, n_path: sets.plain.attacks.n, min_n: 50}
+      sets.plain.attacks.systems.prompt_guard_1.point: {value: 0.2353, n_path: sets.plain.attacks.n, min_n: 50}
+      sets.plain.attacks.systems.llama_guard.point: {value: 0.5647, n_path: sets.plain.attacks.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: guard_vs_detectors_enhanced_guard
+    text: "the guard stopped 98% of 105 attacks"
+    qualifier: "the same items behind InjecAgent's override prefix; both classifiers flagged all 150 such tool results and stopped all 105"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/guard_vs_detectors.json
+    metrics:
+      sets.enhanced.attacks.systems.fusion.point: {value: 0.981, n_path: sets.enhanced.attacks.n, min_n: 50}
+      sets.enhanced.attacks.systems.prompt_guard_1.point: {value: 1.0, n_path: sets.enhanced.attacks.n, min_n: 50}
+      sets.enhanced.attacks.systems.protectai.point: {value: 1.0, n_path: sets.enhanced.attacks.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: guard_vs_detectors_control_guard
+    text: "the guard blocked 2%"
+    qualifier: "300 benign runs (the sealed benign filler in the tool result); every block counts as wrong, including calls the model made unprompted"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/guard_vs_detectors.json
+    metrics:
+      control.systems.fusion.point: {value: 0.0167, n_path: control.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: guard_vs_detectors_control_classifiers
+    text: "ProtectAI flagged 20% of benign tool results and Prompt Guard 1 7%"
+    qualifier: "same 300 benign runs; a flagged benign tool result is a wrong block"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/guard_vs_detectors.json
+    metrics:
+      control.systems.protectai.point: {value: 0.2, n_path: control.n, min_n: 50}
+      control.systems.prompt_guard_1.point: {value: 0.0733, n_path: control.n, min_n: 50}
+    demonstration_ok: false
+
   - id: runtime_guardrail_step3_data_stealing
     text: "100% of data-stealing hijacks"
     qualifier: "guard given the tool results (untrusted_text), rules ce897d1, fresh InjecAgent transcripts of qwen2.5:7b and llama3.1:8b, scored once, pre-registered (PREREG_step3_guard.md)"

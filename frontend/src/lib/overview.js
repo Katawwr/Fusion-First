@@ -79,7 +79,7 @@ export function resultGroups(ev) {
       title: "Guard vs dedicated injection detectors",
       note: `Pre-registered; fresh transcripts of ${gd.models.join(" and ")}, the same for every system; rules ${gd.rules}.`,
       rows: [
-        ...Object.values(gd.sets).flatMap((set) =>
+        ...gd.set_order.map((name) => gd.sets[name]).flatMap((set) =>
           gd.systems.map(({ key, label }) =>
             rate(`${label}: attacks stopped, ${set.label}`, set.attacks.systems[key], key === "fusion" ? "good" : "neutral"),
           ),
@@ -217,7 +217,7 @@ function studyFindings(gd) {
   const named = (verdicts, v) => gd.baselines.filter((b) => verdicts[b] === v).map((b) => name[b]);
   const sentence = (title, parts) => (parts.length ? [`${title}: ${parts.join("; ")}.`] : []);
   const out = [];
-  for (const key of Object.keys(gd.sets)) {
+  for (const key of gd.set_order) {
     const v = gd.verdicts[key];
     const win = named(v, "fusion_better");
     const lose = named(v, "baseline_better");

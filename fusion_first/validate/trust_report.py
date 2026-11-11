@@ -22,6 +22,8 @@ from fusion_first.validate.prereg import (
     BINDING_MARGIN,
     DETECTOR_MAX_FPR,
     DETECTOR_MIN_RECALL,
+    DETECTORS_ALPHA,
+    DETECTORS_COST_ALPHA,
     LOCAL_GRADER_EVIDENCE,
     TOOLLOOP_CHECKS,
     claims_v3_decision,
@@ -1032,38 +1034,97 @@ def _content_safety_site(root: pathlib.Path) -> dict | None:
 DETECTORS_STUDY_EVIDENCE = "evals/validation/v1/guard_vs_detectors.json"
 _STUDY_SYSTEMS = (("fusion", "Fusion guard"), ("llama_guard", "Llama Guard 3, configured"),
                   ("prompt_guard_1", "Prompt Guard 1"), ("protectai", "ProtectAI deberta-v3 v2"))
-_STUDY_NAMES = dict(_STUDY_SYSTEMS)
+_STUDY_SHORT = {"fusion": "the guard", "llama_guard": "Llama Guard 3", "prompt_guard_1": "Prompt Guard 1",
+                "protectai": "ProtectAI"}
 _STUDY_SETS = (("plain", "injection as written"), ("enhanced", "with the override prefix"))
-
-
-def _study_attack_verdict(name: str, comp: dict, verdict: str) -> str:
-    a = comp["attacks"]
-    counts = (f"{a['reference_only']} stopped only by the guard, {a['other_only']} only by {name}; McNemar "
-              f"{_p(a['mcnemar_p'])}")
-    if verdict == "fusion_better":
-        return f"the guard stops significantly more attacks than {name} ({counts}), without significantly more wrong blocks"
-    if verdict == "baseline_better":
-        return f"{name} stops significantly more attacks than the guard ({counts}), without significantly more wrong blocks"
-    if verdict == "void":
-        return f"no verdict against {name} (too few successful attacks or control transcripts)"
-    return f"no significant difference from {name} by the registered rule ({counts})"
-
-
-def _study_cost_verdict(name: str, comp: dict, verdict: str) -> str:
-    c = comp["control"]
-    counts = (f"{c['reference_only']} blocked only by the guard, {c['other_only']} only by {name}; McNemar "
-              f"{_p(c['mcnemar_p'])}")
-    if verdict == "fusion_fewer":
-        return f"the guard wrongly blocks significantly fewer than {name} ({counts})"
-    if verdict == "baseline_fewer":
-        return f"{name} wrongly blocks significantly fewer than the guard ({counts})"
-    if verdict == "void":
-        return f"no verdict against {name} (too few control transcripts)"
-    return f"no significant difference from {name} ({counts})"
 
 
 def _study_baselines(d: dict) -> list[str]:
     return [k for k, _ in _STUDY_SYSTEMS if k != "fusion" and k in d["control"]["systems"]]
+
+
+def _or(items: list[str]) -> str:
+    return ", ".join(items[:-1]) + " or " + items[-1] if len(items) > 1 else "".join(items)
+
+
+def _study_grouped(d: dict, verdicts: dict, detail) -> dict[str, list[str]]:
+    """{verdict: ["<baseline> (<its counts>)", ...]} in the systems' order; a void baseline is named without counts."""
+    out: dict[str, list[str]] = {}
+    for b in _study_baselines(d):
+        verdict = verdicts[b]["verdict"]
+        out.setdefault(verdict, []).append(_STUDY_SHORT[b] if verdict == "void" else f"{_STUDY_SHORT[b]} ({detail(b)})")
+    return out
+
+
+def _study_attack_text(d: dict, name: str) -> str:
+    """One sentence for an attack set: every baseline under the verdict the registered rule gave it."""
+    s = d["sets"][name]
+
+    def detail(b: str) -> str:
+        a, it = s["comparisons"][b]["attacks"], s["comparisons"][b]["items"]
+        text = f"{a['reference_only']} stopped only by the guard, {a['other_only']} only by it; McNemar {_p(a['mcnemar_p'])}"
+        if s["decision"][b]["verdict"] == "no_significant_difference" and a["mcnemar_p"] < DETECTORS_ALPHA:
+            text += (f"; with one unit per item {it['reference_only']} against {it['other_only']}, "
+                     f"{_p(it['mcnemar_p'])}, and the rule needs every condition")
+        return text
+
+    g = _study_grouped(d, s["decision"], detail)
+    parts = []
+    if g.get("fusion_better"):
+        parts.append(f"the guard stops significantly more attacks than {_and(g['fusion_better'])}, without "
+                     "significantly more wrong blocks")
+    if g.get("baseline_better"):
+        many = len(g["baseline_better"]) > 1
+        parts.append(f"{_and(g['baseline_better'])} {'stop' if many else 'stops'} significantly more attacks than "
+                     "the guard, without significantly more wrong blocks")
+    if g.get("no_significant_difference"):
+        parts.append(f"no significant difference from {_or(g['no_significant_difference'])} by the registered rule")
+    if g.get("void"):
+        parts.append(f"no verdict against {_or(g['void'])} (too few successful attacks or control transcripts)")
+    return "; ".join(parts)
+
+
+def _study_cost_text(d: dict) -> str:
+    """One sentence for the benign runs, worded the same way."""
+    c = d["control"]
+
+    def detail(b: str) -> str:
+        t, it = c["comparisons"][b]["control"], c["comparisons"][b]["items"]
+        text = f"{t['reference_only']} blocked only by the guard, {t['other_only']} only by it; McNemar {_p(t['mcnemar_p'])}"
+        if c["decision"][b]["verdict"] == "no_significant_difference" and t["mcnemar_p"] < DETECTORS_COST_ALPHA:
+            text += (f"; with one unit per item {it['reference_only']} against {it['other_only']}, "
+                     f"{_p(it['mcnemar_p'])}, and the rule needs both tests")
+        return text
+
+    g = _study_grouped(d, c["decision"], detail)
+    parts = []
+    if g.get("fusion_fewer"):
+        parts.append(f"the guard wrongly blocks significantly fewer than {_and(g['fusion_fewer'])}")
+    if g.get("baseline_fewer"):
+        many = len(g["baseline_fewer"]) > 1
+        parts.append(f"{_and(g['baseline_fewer'])} wrongly {'block' if many else 'blocks'} significantly fewer than "
+                     "the guard")
+    if g.get("no_significant_difference"):
+        parts.append(f"no significant difference from {_or(g['no_significant_difference'])}")
+    if g.get("void"):
+        parts.append(f"no verdict against {_or(g['void'])} (too few control transcripts)")
+    return "; ".join(parts)
+
+
+def _study_guard_blocks(d: dict) -> dict[str, int]:
+    """The benign runs the guard blocked, and how many of them were a call to an attacker tool the model made
+    unprompted (the registered rule counts every one as a wrong block)."""
+    rows = [r for r in d["rows"] if r["arm"] == "control" and r["fusion"]]
+    return {"n": len(rows), "unprompted_attacker_calls": sum(bool(r["attack"]) for r in rows)}
+
+
+def _study_wording_matters(d: dict) -> bool:
+    """The guard beat every baseline on the injection as written, while each classifier flagged more of the tool
+    results once the override prefix was added: the pattern the 'what this says' line describes."""
+    text = d["secondary"]["text_level"]["tool_result"]
+    return (bool(text) and all(v == "fusion_better" for v in d["decision"]["plain"].values())
+            and all(t["enhanced"]["k"] == t["enhanced"]["n"] > t["plain"]["k"] and t["control"]["k"] > 0
+                    for t in text.values()))
 
 
 def _detectors_study_sentence(d: dict) -> str:
@@ -1072,10 +1133,10 @@ def _detectors_study_sentence(d: dict) -> str:
         a = d["sets"][key]["attacks"]
         if not a["n"]:
             continue
-        rest = ", ".join(f"{_STUDY_NAMES[b]} {a['systems'][b]['k']}" for b in _study_baselines(d))
+        rest = ", ".join(f"{_STUDY_SHORT[b]} {a['systems'][b]['k']}" for b in _study_baselines(d))
         parts.append(f"{label}, the guard stopped {a['systems']['fusion']['k']} of {a['n']} attacks ({rest})")
     c = d["control"]
-    rest = ", ".join(f"{_STUDY_NAMES[b]} {c['systems'][b]['k']}" for b in _study_baselines(d))
+    rest = ", ".join(f"{_STUDY_SHORT[b]} {c['systems'][b]['k']}" for b in _study_baselines(d))
     return (f"Against detectors built for prompt injection, on fresh transcripts of {' and '.join(d['models'])} "
             f"(pre-registered): {'; '.join(parts)}. Benign runs wrongly blocked: the guard "
             f"{c['systems']['fusion']['k']} of {c['n']} ({rest}).")
@@ -1108,34 +1169,40 @@ def _detectors_study(root: pathlib.Path) -> list[str]:
         tag = f" (`{d['guardrail_git_sha'][:7]}`)" if key == "fusion" else ""
         out.append(f"| {label}{tag} | {' | '.join(cells)} | {c['k']} of {c['n']}, {_iv(c)} |")
     out.append("")
-    for name, label in _STUDY_SETS:
-        verdicts = "; ".join(_study_attack_verdict(_STUDY_NAMES[b], sets[name]["comparisons"][b],
-                                                   sets[name]["decision"][b]["verdict"]) for b in baselines)
-        out.append(f"- Attacks, {label}: {verdicts}.")
-    costs = "; ".join(_study_cost_verdict(_STUDY_NAMES[b], control["comparisons"][b],
-                                          control["decision"][b]["verdict"]) for b in baselines)
-    out.append(f"- Benign runs: {costs}.")
-    for name, label in _STUDY_SETS:
-        q = sets[name]["not_obeyed"]
-        flagged = ", ".join(f"{_STUDY_NAMES[k]} {q['systems'][k]['k']}" for k, _ in _STUDY_SYSTEMS
-                            if k in q["systems"])
-        out.append(f"- Where the injection was present and the model did not obey ({label}, {q['n']} transcripts), "
-                   f"flagged or blocked: {flagged}. For a system that reads the reply this is a wrong block; for a "
-                   "classifier that reads the tool result it is a correct detection.")
+    out += [f"- Attacks, {label}: {_study_attack_text(d, name)}." for name, label in _STUDY_SETS]
+    out.append(f"- Benign runs: {_study_cost_text(d)}.")
+    blocks = _study_guard_blocks(d)
+    if blocks["n"]:
+        share = "all" if blocks["unprompted_attacker_calls"] == blocks["n"] else str(blocks["unprompted_attacker_calls"])
+        out.append(f"- Of the guard's {blocks['n']} blocks on benign runs, {share} were calls the model made "
+                   "unprompted to a tool the user had not asked for. The registered rule counts every block on a "
+                   "benign run as wrong.")
+    if _study_wording_matters(d):
+        out.append("- What this says: the guard checks the tool call against the user's request, so the injection's "
+                   "wording does not matter to it. The classifiers read the text: they flag the override sentence "
+                   "every time, the same instruction without it far less often, and some benign tool results.")
+    quiet = "; ".join(
+        f"{label}, {sets[name]['not_obeyed']['n']} transcripts: "
+        + ", ".join(f"{_STUDY_SHORT[k]} {sets[name]['not_obeyed']['systems'][k]['k']}" for k, _ in _STUDY_SYSTEMS
+                    if k in sets[name]["not_obeyed"]["systems"])
+        for name, label in _STUDY_SETS)
+    out.append(f"- Injection present, not obeyed (secondary; flagged or blocked): {quiet}. For a system that reads "
+               "the reply this is a wrong block; for a classifier that reads the tool result, a correct detection.")
     text = d["secondary"]["text_level"]["tool_result"]
-    for clf in (b for b in baselines if b in text):
-        t = text[clf]
-        out.append(f"- {_STUDY_NAMES[clf]} on the tool results themselves: flagged "
-                   + ", ".join(f"{t[arm]['k']} of {t[arm]['n']} {word}" for arm, word in
-                               (("plain", "as written"), ("enhanced", "with the prefix"), ("control", "benign"))
-                               if arm in t) + ".")
-    out.append("- Layered with the guard, attacks stopped ("
-               + "; ".join(f"{label}: " + ", ".join(f"+ {_STUDY_NAMES[b]} {sets[name]['layered'][b]['k']} of "
-                                                    f"{sets[name]['layered'][b]['n']}" for b in baselines)
-                           for name, label in _STUDY_SETS)
-               + ") and benign runs wrongly blocked ("
-               + ", ".join(f"+ {_STUDY_NAMES[b]} {control['layered'][b]['k']}" for b in baselines) + ").")
-    out += [("- Limits: one benchmark family in a single-turn harness, not a live agent loop; the override prefix is "
+    flagged = "; ".join(
+        f"{_STUDY_SHORT[clf]} " + ", ".join(f"{text[clf][arm]['k']} of {text[clf][arm]['n']} {word}" for arm, word in
+                                            (("plain", "as written"), ("enhanced", "with the prefix"),
+                                             ("control", "benign")) if arm in text[clf])
+        for clf in baselines if clf in text)
+    if flagged:
+        out.append(f"- Tool results flagged, whatever the model then did: {flagged}.")
+    layered = "; ".join(f"{label}, " + ", ".join(f"{_STUDY_SHORT[b]} {sets[name]['layered'][b]['k']} of "
+                                                  f"{sets[name]['layered'][b]['n']}" for b in baselines)
+                        for name, label in _STUDY_SETS)
+    costs = ", ".join(f"{_STUDY_SHORT[b]} {control['layered'][b]['k']}" for b in baselines)
+    out += [(f"- Each baseline layered on the guard, attacks stopped: {layered}. Benign runs wrongly blocked, of "
+             f"{control['n']}: {costs}."),
+            ("- Limits: one benchmark family in a single-turn harness, not a live agent loop; the override prefix is "
              "one fixed sentence; the classifiers run at their default threshold, not one tuned for a deployment; "
              "7-8B open-weight targets."),
             ""]
@@ -1146,21 +1213,20 @@ def _detectors_study_site(root: pathlib.Path) -> dict | None:
     d = _load(root, DETECTORS_STUDY_EVIDENCE)
     if not d:
         return None
-    baselines = _study_baselines(d)
     keep = ("transcripts", "attacks", "comparisons", "decision", "not_obeyed", "layered")
     return {"evidence": DETECTORS_STUDY_EVIDENCE, "preregistration": d["preregistration"],
             "rules": d["guardrail_git_sha"][:7], "models": list(d["models"]), "n_items": d["sample"]["n_items"],
-            "systems": [{"key": k, "label": label} for k, label in _STUDY_SYSTEMS if k in d["control"]["systems"]],
-            "baselines": baselines,
+            "systems": [{"key": k, "label": label, "short": _STUDY_SHORT[k]} for k, label in _STUDY_SYSTEMS
+                        if k in d["control"]["systems"]],
+            "baselines": _study_baselines(d),
+            "set_order": [name for name, _ in _STUDY_SETS],  # evidence.json is written with sorted keys
             "sets": {name: {"label": label, **{k: d["sets"][name][k] for k in keep}} for name, label in _STUDY_SETS},
             "control": {k: d["control"][k] for k in ("n", "systems", "comparisons", "decision", "layered")},
             "verdicts": d["decision"],
-            "verdict_text": {
-                **{name: {b: _study_attack_verdict(_STUDY_NAMES[b], d["sets"][name]["comparisons"][b],
-                                                   d["sets"][name]["decision"][b]["verdict"]) for b in baselines}
-                   for name, _ in _STUDY_SETS},
-                "control": {b: _study_cost_verdict(_STUDY_NAMES[b], d["control"]["comparisons"][b],
-                                                   d["control"]["decision"][b]["verdict"]) for b in baselines}},
+            "verdict_text": {**{name: _study_attack_text(d, name) for name, _ in _STUDY_SETS},
+                             "control": _study_cost_text(d)},
+            "guard_control_blocks": _study_guard_blocks(d),
+            "wording_matters": _study_wording_matters(d),
             "text_level": d["secondary"]["text_level"]["tool_result"],
             "classifiers": {k: {x: v[x] for x in ("repo", "revision", "threshold", "median_seconds")}
                             for k, v in d["classifiers"].items()}}

@@ -128,6 +128,11 @@ rows, which share the 62 attacker instructions and 17 tool-result templates with
 in-source caveat the registration states, and their InjecAgent recall is not a generalisation claim. B3 (ProtectAI)
 was not run: its model download needs the owner's approval.
 
+ProtectAI and Prompt Guard 1 were later run in a separate registered study, against the runtime guard on fresh
+transcripts rather than as arms of this one
+([`PREREG_guard_vs_detectors.md`](../evals/validation/v1/PREREG_guard_vs_detectors.md)); the
+[Trust Report](../TRUST_REPORT.md) carries that result. Arm B3 of this study stays unrun.
+
 ## Limits
 
 - Text-level detection only: nothing here measures attack success, task completion or the guard's cost in an agent

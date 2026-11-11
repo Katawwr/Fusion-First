@@ -1140,17 +1140,24 @@ def test_the_guard_vs_detectors_study_is_reported_per_attack_set_with_its_verdic
         assert f"| {label} | {plain['k']} of {plain['n']}, " in section
         assert f"| {control['k']} of {control['n']}, " in section
     # two attacks per set earn no verdict, and the section says so instead of naming a winner
-    assert "- Attacks, injection as written: no verdict against Llama Guard 3, configured" in section
-    assert "stops significantly more attacks" not in section
-    assert "- Benign runs: no verdict against Llama Guard 3, configured (too few control transcripts)" in section
-    assert ("ProtectAI deberta-v3 v2 on the tool results themselves: flagged 0 of 2 as written, 2 of 2 with the "
-            "prefix, 0 of 2 benign.") in section
+    assert ("- Attacks, injection as written: no verdict against Llama Guard 3, Prompt Guard 1 or ProtectAI (too few "
+            "successful attacks or control transcripts).") in section
+    assert "stops significantly more attacks" not in section and "What this says" not in section
+    assert ("- Benign runs: no verdict against Llama Guard 3, Prompt Guard 1 or ProtectAI (too few control "
+            "transcripts).") in section
+    assert "- Of the guard's 2 blocks on benign runs, all were calls the model made unprompted" in section
+    assert ("- Tool results flagged, whatever the model then did: Prompt Guard 1 0 of 2 as written, 2 of 2 with the "
+            "prefix, 0 of 2 benign; ProtectAI 0 of 2 as written, 2 of 2 with the prefix, 0 of 2 benign.") in section
+    assert "Injection present, not obeyed (secondary; flagged or blocked): injection as written, 2 transcripts:" in section
     assert "evals/validation/v1/PREREG_guard_vs_detectors.md" in section and "150 items" in section
     site = evidence_json(tmp_path)["guard_vs_detectors"]
     assert site["baselines"] == ["llama_guard", "prompt_guard_1", "protectai"]
-    assert site["sets"]["enhanced"]["label"] == "with the override prefix"
+    assert site["sets"]["enhanced"]["label"] == "with the override prefix" and site["set_order"] == ["plain", "enhanced"]
     assert site["sets"]["plain"]["attacks"] == ev["sets"]["plain"]["attacks"] and site["control"]["n"] == 4
     assert site["verdicts"] == ev["decision"] and set(site["verdict_text"]) == {"plain", "enhanced", "control"}
+    assert site["verdict_text"]["control"].startswith("no verdict against Llama Guard 3")
+    assert site["guard_control_blocks"] == {"n": 2, "unprompted_attacker_calls": 2} and site["wording_matters"] is False
+    assert site["systems"][3] == {"key": "protectai", "label": "ProtectAI deberta-v3 v2", "short": "ProtectAI"}
     assert site["classifiers"]["protectai"]["repo"] == "protectai/deberta-v3-base-prompt-injection-v2"
     assert "rows" not in site
 
@@ -1162,3 +1169,50 @@ def test_step_2_says_what_kind_of_baseline_llama_guard_is():
     assert ("Reading the baseline: Llama Guard 3 is a content-safety classifier, not a prompt-injection detector"
             in section)
     assert "Llama Guard 3 (configured), a content-safety classifier, " in out.split("## Q1")[0]
+
+
+@pytest.mark.unit
+def test_the_committed_guard_vs_detectors_result_is_reported_as_the_registered_rules_give_it():
+    """Real evidence: every committed verdict is what the rule gives on the committed counts, the table carries each
+    system's counts, and the sentences name whoever the verdicts name."""
+    from fusion_first.validate.prereg import detectors_cost_decision, detectors_decision
+    from fusion_first.validate.trust_report import DETECTORS_STUDY_EVIDENCE, evidence_json
+
+    path = ROOT / DETECTORS_STUDY_EVIDENCE
+    if not path.is_file():
+        pytest.skip("guard_vs_detectors.json is not scored yet")
+    ev = json.loads(path.read_text(encoding="utf-8"))
+    for name in ("plain", "enhanced"):
+        for b, comp in ev["sets"][name]["comparisons"].items():
+            assert detectors_decision(comp) == ev["sets"][name]["decision"][b]
+            assert ev["decision"][name][b] == ev["sets"][name]["decision"][b]["verdict"]
+    for b, comp in ev["control"]["comparisons"].items():
+        assert detectors_cost_decision(comp) == ev["control"]["decision"][b]
+        assert ev["decision"]["control"][b] == ev["control"]["decision"][b]["verdict"]
+
+    out = render(ROOT)
+    section = out.split("## Guard vs dedicated injection detectors (pre-registered)")[1].split("\n## ")[0]
+    for key in ("fusion", "llama_guard", "prompt_guard_1", "protectai"):
+        for block in (ev["sets"]["plain"]["attacks"]["systems"][key], ev["sets"]["enhanced"]["attacks"]["systems"][key],
+                      ev["control"]["systems"][key]):
+            assert f"| {block['k']} of {block['n']}, " in section
+    site = evidence_json(ROOT)["guard_vs_detectors"]
+    assert site["verdicts"] == ev["decision"]
+    short = {"llama_guard": "Llama Guard 3", "prompt_guard_1": "Prompt Guard 1", "protectai": "ProtectAI"}
+    for name in ("plain", "enhanced"):
+        text = site["verdict_text"][name]
+        winners = [short[b] for b, v in ev["decision"][name].items() if v == "fusion_better"]
+        assert ("the guard stops significantly more attacks than" in text) == bool(winners)
+        ties = [short[b] for b, v in ev["decision"][name].items() if v == "no_significant_difference"]
+        assert ("no significant difference from" in text) == bool(ties)
+        assert ("more attacks than the guard" in text) == ("baseline_better" in ev["decision"][name].values())
+        for who in (*winners, *ties):
+            assert who in text
+    cost = site["verdict_text"]["control"]
+    assert ("the guard wrongly blocks significantly fewer than" in cost) == (
+        "fusion_fewer" in ev["decision"]["control"].values())
+    assert ("fewer than the guard" in cost) == ("baseline_fewer" in ev["decision"]["control"].values())
+    blocks = site["guard_control_blocks"]
+    assert blocks["n"] == ev["control"]["systems"]["fusion"]["k"] >= blocks["unprompted_attacker_calls"]
+    assert "Against detectors built for prompt injection" in out.split("## Q1")[0]
+    assert "See 'Guard vs dedicated injection detectors' and 'Content safety' below." in out

@@ -41,6 +41,18 @@ on Llama Guard's own job: 650 XSTest and JBB-Behaviors prompts with their publis
 Llama Guard 3 flagged 86% of the 300 unsafe prompts and wrongly flagged 10% of the 350 safe ones. Fusion's guard,
 which has no content-safety rules, flagged none of either. The two tools do different jobs.
 
+A third registered study ([`PREREG_guard_vs_detectors.md`](../evals/validation/v1/PREREG_guard_vs_detectors.md))
+put the guard against two classifiers built to detect prompt injection, Prompt Guard 1 and ProtectAI deberta-v3 v2,
+on fresh InjecAgent transcripts of the same two models, scored once. With the injection as written,
+the guard stopped 100% of the 85 successful attacks;
+ProtectAI stopped 48%, Prompt Guard 1 24% and Llama Guard 3 56%.
+With InjecAgent's "ignore all previous instructions" prefix in front, both classifiers flagged every injected tool
+result and the guard stopped 98% of 105 attacks, which the registered rule calls no significant difference.
+On 300 benign runs the guard blocked 2%, every one a call the model made unprompted to a tool the user had not
+asked for, while ProtectAI flagged 20% of benign tool results and Prompt Guard 1 7%.
+The guard checks the tool call against the user's request, so the injection's wording does not matter to it; the
+classifiers read the text and catch the override sentence.
+
 The cost is stated beside it: in a live AgentDojo agent loop on held-out tasks (also pre-registered), the guard broke
 more legitimate tasks than the registered margin allows. The [Trust Report](../TRUST_REPORT.md) lists what it blocked.
 A second registered study ([`PREREG_step5_binding.md`](../evals/validation/v1/PREREG_step5_binding.md)) tried to cut

@@ -199,28 +199,40 @@ describe("Trust page", () => {
         { key: "protectai", label: "ProtectAI deberta-v3 v2" },
       ],
       baselines: ["llama_guard", "prompt_guard_1", "protectai"],
+      set_order: ["plain", "enhanced"],
       sets: {
-        plain: { label: "injection as written", attacks: { n: 90, systems: each(88, 50, 40, 55, 90) } },
         enhanced: { label: "with the override prefix", attacks: { n: 100, systems: each(98, 60, 99, 97, 100) } },
+        plain: { label: "injection as written", attacks: { n: 90, systems: each(88, 50, 40, 55, 90) } },
       },
       control: { n: 300, systems: each(3, 20, 91, 70, 300) },
       verdict_text: {
-        plain: { llama_guard: "the guard stops significantly more attacks than Llama Guard 3, configured (40 vs 2)", prompt_guard_1: "plain-pg", protectai: "plain-pa" },
-        enhanced: { llama_guard: "enh-lg", prompt_guard_1: "no significant difference from Prompt Guard 1 by the registered rule (1 vs 2)", protectai: "enh-pa" },
-        control: { llama_guard: "ctl-lg", prompt_guard_1: "the guard wrongly blocks significantly fewer than Prompt Guard 1 (1 vs 89)", protectai: "ctl-pa" },
+        plain: "the guard stops significantly more attacks than Llama Guard 3 (40 stopped only by the guard, 2 only by it; McNemar p<0.0001)",
+        enhanced: "no significant difference from Prompt Guard 1 (0 stopped only by the guard, 2 only by it; McNemar p=0.5000) by the registered rule",
+        control: "the guard wrongly blocks significantly fewer than ProtectAI (1 blocked only by the guard, 69 only by it; McNemar p<0.0001)",
       },
+      guard_control_blocks: { n: 3, unprompted_attacker_calls: 3 },
+      wording_matters: true,
     };
     render(<DetectorsStudySection s={s} />);
     expect(screen.getByRole("heading", { name: "Guard vs dedicated injection detectors" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Attacks stopped, with the override prefix" })).toBeInTheDocument();
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "System",
+      "Attacks stopped, injection as written",
+      "Attacks stopped, with the override prefix",
+      "Benign runs wrongly blocked",
+    ]);
     expect(screen.getByRole("columnheader", { name: "Benign runs wrongly blocked" })).toBeInTheDocument();
     expect(screen.getByText(/^88 of 90, 98%/)).toBeInTheDocument();
     expect(screen.getByText(/^91 of 300, 30%/)).toBeInTheDocument();
     expect(screen.getByText(/^Attacks, injection as written:/)).toHaveTextContent(
-      "Attacks, injection as written: the guard stops significantly more attacks than Llama Guard 3, configured (40 vs 2); plain-pg; plain-pa.",
+      "Attacks, injection as written: the guard stops significantly more attacks than Llama Guard 3 (40 stopped only by the guard, 2 only by it; McNemar p<0.0001).",
     );
     expect(screen.getByText(/^Attacks, with the override prefix:/)).toHaveTextContent("no significant difference from Prompt Guard 1");
-    expect(screen.getByText(/^Benign runs:/)).toHaveTextContent("ctl-lg; the guard wrongly blocks significantly fewer than Prompt Guard 1 (1 vs 89); ctl-pa.");
+    expect(screen.getByText(/^Benign runs:/)).toHaveTextContent(
+      "Benign runs: the guard wrongly blocks significantly fewer than ProtectAI (1 blocked only by the guard, 69 only by it; McNemar p<0.0001). " +
+        "Of the guard's 3 blocks, all were calls the model made unprompted to a tool the user had not asked for.",
+    );
+    expect(screen.getByText(/the injection's wording does not matter to it/)).toBeInTheDocument();
     expect(screen.getByText(/150 items/)).toBeInTheDocument();
   });
 

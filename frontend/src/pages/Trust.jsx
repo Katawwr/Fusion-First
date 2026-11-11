@@ -144,7 +144,8 @@ const countOf = (r) => `${r.k} of ${r.n}, ${interval(r)}`;
 // The guard against classifiers built to detect prompt injection. The verdict sentences come from the registered
 // rule (trust_report.py), so the copy follows the result whichever way it falls.
 export function DetectorsStudySection({ s }) {
-  const sets = Object.entries(s.sets);
+  const sets = s.set_order.map((name) => [name, s.sets[name]]);
+  const blocks = s.guard_control_blocks || { n: 0 };
   return (
     <Section title="Guard vs dedicated injection detectors">
       <p className="mb-3 text-sm text-app-muted">
@@ -163,12 +164,21 @@ export function DetectorsStudySection({ s }) {
       />
       {sets.map(([name, v], i) => (
         <p key={name} className={`${i ? "mt-1" : "mt-3"} text-xs text-app-subtle`}>
-          Attacks, {v.label}: {s.baselines.map((b) => s.verdict_text[name][b]).join("; ")}.
+          Attacks, {v.label}: {s.verdict_text[name]}.
         </p>
       ))}
       <p className="mt-1 text-xs text-app-subtle">
-        Benign runs: {s.baselines.map((b) => s.verdict_text.control[b]).join("; ")}.
+        Benign runs: {s.verdict_text.control}.
+        {blocks.n > 0 &&
+          ` Of the guard's ${blocks.n} blocks, ${blocks.unprompted_attacker_calls === blocks.n ? "all" : blocks.unprompted_attacker_calls} were calls the model made unprompted to a tool the user had not asked for.`}
       </p>
+      {s.wording_matters && (
+        <p className="mt-1 text-xs text-app-subtle">
+          The guard checks the tool call against the user's request, so the injection's wording does not matter to it.
+          The classifiers read the text: they flag the override sentence every time, the same instruction without it
+          far less often, and some benign tool results.
+        </p>
+      )}
       <p className="mt-1 text-xs text-app-subtle">
         One benchmark family in a single-turn harness; the classifiers run at their default threshold.
       </p>

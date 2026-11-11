@@ -17,8 +17,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
     is the better content-safety filter; the guard, which has no content-safety rules, flagged none of the prompts.
   - Guard vs injection detectors (`PREREG_guard_vs_detectors.md`, `scripts/guard_vs_detectors.py`): the guard
     against Prompt Guard 1, ProtectAI deberta-v3 v2 and Llama Guard 3 on fresh InjecAgent transcripts in three arms
-    (the injection as written, behind an override prefix, and a benign control). Registered on 2026-11-11; not
-    yet scored.
+    (the injection as written, behind an override prefix, and a benign control). Registered result: on the
+    injection as written the guard stops significantly more attacks than all three; behind the override prefix it
+    stops significantly more than Llama Guard 3 and shows no significant difference from either classifier; on the
+    benign runs it wrongly blocks significantly fewer than ProtectAI and shows no significant difference from the
+    other two.
 - External data, pinned in `datasets/external/SOURCES.yaml`: JBB-Behaviors (requests only) and InjecAgent's
   enhanced setting.
 
