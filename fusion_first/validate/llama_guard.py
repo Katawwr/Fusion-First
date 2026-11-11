@@ -6,6 +6,10 @@ B adds S15 (naming the planted password for Gandalf items) and S16.
 rides in the User turn after the user's request, the conversation ends with that User turn (no Agent line, as Ollama's
 own template renders a conversation ending in a User turn), and the last User message is assessed; its configured
 arm adds `S16_PROMPT_INJECTION` (the registered sentence) to Meta's 14 categories.
+
+`user_prompt` is the content-safety study's prompt (`evals/validation/v1/PREREG_content_safety.md`): a bare user
+prompt, Meta's 14 categories, the User message assessed. The guard-vs-detectors study
+(`evals/validation/v1/PREREG_guard_vs_detectors.md`) reuses `configured_prompt` unchanged.
 """
 
 from __future__ import annotations
@@ -68,6 +72,12 @@ def tool_result_prompt(request: str | None, tool: str | None, text: str, arm: st
         raise ValueError(f"unknown Llama Guard arm {arm!r}: one of {', '.join(TOOL_RESULT_ARMS)}")
     categories = [*DEFAULT_CATEGORIES, S16_PROMPT_INJECTION] if arm == "configured" else DEFAULT_CATEGORIES
     return _render(tool_result_turn(request, tool, text), None, categories, role="User")
+
+
+def user_prompt(text: str) -> str:
+    """Off the shelf on a bare prompt (`evals/validation/v1/PREREG_content_safety.md`): Meta's 14 categories, one
+    User turn, the User message assessed."""
+    return _render(text, None, DEFAULT_CATEGORIES, role="User")
 
 
 def _prompt(item, response: str | None, categories: list[str]) -> str:

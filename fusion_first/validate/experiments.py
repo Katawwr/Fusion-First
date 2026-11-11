@@ -153,6 +153,7 @@ _BUILDERS = {
 # Measured samples as (salt, n[, that sample's own exclusion]). SPENT stays as step 2 registered it.
 SPENT = [("fusion-evidence-v1", 30), ("fusion-evidence-compact-v1", 30, ("fusion-evidence-v1", 30))]
 SPENT_THROUGH_STEP2 = [*SPENT, ("fusion-evidence-step2-v1", 100, SPENT)]
+SPENT_THROUGH_STEP3 = [*SPENT_THROUGH_STEP2, ("fusion-evidence-step3-v1", 150, SPENT_THROUGH_STEP2)]
 
 
 def build_items(
