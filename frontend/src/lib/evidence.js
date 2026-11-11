@@ -64,7 +64,7 @@ export function guardResult(step2, step3) {
     `Pre-registered test on fresh attacks against ${step2.models.join(" and ")}: ` +
     `stopped ${pct(f.recall.point)} (${f.stopped} of ${f.attacks}), wrongly blocked ` +
     `${pct(f.over_block.point)} of clean transcripts (${f.blocked} of ${f.clean}). ` +
-    `Llama Guard 3, configured, stopped ${pct(lg.recall.point)}.`;
+    `Llama Guard 3, configured, a content-safety classifier, stopped ${pct(lg.recall.point)}.`;
   if (step3?.decision === "adopted") {
     const { v3, v2 } = step3.arms;
     const extra = step3.comparisons.clean.v3_only - step3.comparisons.clean.v2_only;

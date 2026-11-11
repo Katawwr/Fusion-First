@@ -3,7 +3,17 @@ import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
-import Trust, { ClaimsV3Section, DetectorSection, Step2Section, Step3Section, Step4Section, Step5Section, ToolloopSection } from "./Trust";
+import Trust, {
+  ClaimsV3Section,
+  ContentSafetySection,
+  DetectorSection,
+  DetectorsStudySection,
+  Step2Section,
+  Step3Section,
+  Step4Section,
+  Step5Section,
+  ToolloopSection,
+} from "./Trust";
 import { EXPERIMENT_NAMES } from "../components/trust/format";
 import { fixVerdict, graderName, interval, pct, significanceByGrader } from "../lib/evidence";
 import evidence from "../content/evidence.json";
@@ -173,6 +183,73 @@ describe("Trust page", () => {
     expect(screen.getByText(new RegExp(`^${s.legitimate.new.k} of ${s.legitimate.new.n}`))).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`Decision: ${s.verdict}`))).toBeInTheDocument();
     expect(s.decision.adopt).toBe(s.verdict === "adopted");
+  });
+
+  it("states the guard-vs-detectors study per attack set, with the registered verdicts as worded by the rule", () => {
+    const rate = (k, n) => ({ k, n, point: k / n, low: 0.1, high: 0.9 });
+    const each = (f, lg, pg, pa, n) => ({ fusion: rate(f, n), llama_guard: rate(lg, n), prompt_guard_1: rate(pg, n), protectai: rate(pa, n) });
+    const s = {
+      models: ["qwen2.5:7b", "llama3.1:8b"],
+      rules: "5a89479",
+      n_items: 150,
+      systems: [
+        { key: "fusion", label: "Fusion guard" },
+        { key: "llama_guard", label: "Llama Guard 3, configured" },
+        { key: "prompt_guard_1", label: "Prompt Guard 1" },
+        { key: "protectai", label: "ProtectAI deberta-v3 v2" },
+      ],
+      baselines: ["llama_guard", "prompt_guard_1", "protectai"],
+      sets: {
+        plain: { label: "injection as written", attacks: { n: 90, systems: each(88, 50, 40, 55, 90) } },
+        enhanced: { label: "with the override prefix", attacks: { n: 100, systems: each(98, 60, 99, 97, 100) } },
+      },
+      control: { n: 300, systems: each(3, 20, 91, 70, 300) },
+      verdict_text: {
+        plain: { llama_guard: "the guard stops significantly more attacks than Llama Guard 3, configured (40 vs 2)", prompt_guard_1: "plain-pg", protectai: "plain-pa" },
+        enhanced: { llama_guard: "enh-lg", prompt_guard_1: "no significant difference from Prompt Guard 1 by the registered rule (1 vs 2)", protectai: "enh-pa" },
+        control: { llama_guard: "ctl-lg", prompt_guard_1: "the guard wrongly blocks significantly fewer than Prompt Guard 1 (1 vs 89)", protectai: "ctl-pa" },
+      },
+    };
+    render(<DetectorsStudySection s={s} />);
+    expect(screen.getByRole("heading", { name: "Guard vs dedicated injection detectors" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Attacks stopped, with the override prefix" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Benign runs wrongly blocked" })).toBeInTheDocument();
+    expect(screen.getByText(/^88 of 90, 98%/)).toBeInTheDocument();
+    expect(screen.getByText(/^91 of 300, 30%/)).toBeInTheDocument();
+    expect(screen.getByText(/^Attacks, injection as written:/)).toHaveTextContent(
+      "Attacks, injection as written: the guard stops significantly more attacks than Llama Guard 3, configured (40 vs 2); plain-pg; plain-pa.",
+    );
+    expect(screen.getByText(/^Attacks, with the override prefix:/)).toHaveTextContent("no significant difference from Prompt Guard 1");
+    expect(screen.getByText(/^Benign runs:/)).toHaveTextContent("ctl-lg; the guard wrongly blocks significantly fewer than Prompt Guard 1 (1 vs 89); ctl-pa.");
+    expect(screen.getByText(/150 items/)).toBeInTheDocument();
+  });
+
+  it("states content safety as Llama Guard 3's job, with the registered verdict", () => {
+    const rate = (k, n) => ({ k, n, point: k / n, low: 0.1, high: 0.9 });
+    const s = {
+      rules: "5a89479",
+      sources: { jbb: "JBB-Behaviors", xstest: "XSTest" },
+      systems: [{ key: "llama_guard", label: "Llama Guard 3, off the shelf" }, { key: "fusion", label: "Fusion guard" }],
+      unsafe: { n: 300, systems: { llama_guard: rate(252, 300), fusion: rate(0, 300) } },
+      safe: { n: 350, systems: { llama_guard: rate(28, 350), fusion: rate(7, 350) } },
+      comparisons: { unsafe: { n: 300, reference_only: 252, other_only: 0, mcnemar_p: 1e-9 } },
+      verdict: "llama_guard_better",
+      verdict_text: "Llama Guard 3 flags significantly more of the unsafe prompts than Fusion's guard",
+    };
+    render(<ContentSafetySection s={s} />);
+    expect(screen.getByRole("heading", { name: "Content safety: Llama Guard 3 on its own job" })).toBeInTheDocument();
+    expect(screen.getByText(/650 prompts with published labels \(JBB-Behaviors, XSTest\)/)).toBeInTheDocument();
+    expect(screen.getByText(/^252 of 300, 84%/)).toBeInTheDocument();
+    expect(screen.getByText(/^7 of 350, 2%/)).toBeInTheDocument();
+    expect(screen.getByText(/^Verdict:/)).toHaveTextContent(
+      "Verdict: Llama Guard 3 flags significantly more of the unsafe prompts than Fusion's guard (252 flagged only by Llama Guard 3, 0 only by the guard; p<0.001). The guard has no content-safety rules",
+    );
+  });
+
+  it("mounts each baseline study only once its evidence is committed", () => {
+    renderTrust();
+    expect(Boolean(screen.queryByRole("heading", { name: "Guard vs dedicated injection detectors" }))).toBe(Boolean(evidence.guard_vs_detectors));
+    expect(Boolean(screen.queryByRole("heading", { name: "Content safety: Llama Guard 3 on its own job" }))).toBe(Boolean(evidence.content_safety));
   });
 
   it("says the trained detector study is registered and not yet scored until its evidence is committed", () => {

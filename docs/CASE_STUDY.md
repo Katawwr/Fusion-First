@@ -35,6 +35,12 @@ successful attacks against qwen2.5:7b and llama3.1:8b, the guardrail stopped 89%
 wrongly blocking 1% of clean transcripts. Llama Guard 3 8B, configured for the task and run on the same
 transcripts, stopped 52% of the same attacks.
 
+That baseline is a content-safety classifier, not an injection detector, so the comparison tests it outside its job.
+A registered study ([`PREREG_content_safety.md`](../evals/validation/v1/PREREG_content_safety.md)) ran both systems
+on Llama Guard's own job: 650 XSTest and JBB-Behaviors prompts with their published labels, scored once.
+Llama Guard 3 flagged 86% of the 300 unsafe prompts and wrongly flagged 10% of the 350 safe ones. Fusion's guard,
+which has no content-safety rules, flagged none of either. The two tools do different jobs.
+
 The cost is stated beside it: in a live AgentDojo agent loop on held-out tasks (also pre-registered), the guard broke
 more legitimate tasks than the registered margin allows. The [Trust Report](../TRUST_REPORT.md) lists what it blocked.
 A second registered study ([`PREREG_step5_binding.md`](../evals/validation/v1/PREREG_step5_binding.md)) tried to cut

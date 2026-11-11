@@ -139,6 +139,65 @@ export function Step5Section({ s }) {
   );
 }
 
+const countOf = (r) => `${r.k} of ${r.n}, ${interval(r)}`;
+
+// The guard against classifiers built to detect prompt injection. The verdict sentences come from the registered
+// rule (trust_report.py), so the copy follows the result whichever way it falls.
+export function DetectorsStudySection({ s }) {
+  const sets = Object.entries(s.sets);
+  return (
+    <Section title="Guard vs dedicated injection detectors">
+      <p className="mb-3 text-sm text-app-muted">
+        Fresh InjecAgent transcripts of {s.models.join(" and ")}: {s.n_items} items, each run with the injection as
+        written, behind an "ignore all previous instructions" prefix, and with a benign filler in its place. The guard
+        ({s.rules}) and Llama Guard 3 read the model's reply; the classifiers read the tool result. Pre-registered,
+        scored once.
+      </p>
+      <DataTable
+        head={["System", ...sets.map(([, v]) => `Attacks stopped, ${v.label}`), "Benign runs wrongly blocked"]}
+        rows={s.systems.map(({ key, label }) => [
+          label,
+          ...sets.map(([, v]) => countOf(v.attacks.systems[key])),
+          countOf(s.control.systems[key]),
+        ])}
+      />
+      {sets.map(([name, v], i) => (
+        <p key={name} className={`${i ? "mt-1" : "mt-3"} text-xs text-app-subtle`}>
+          Attacks, {v.label}: {s.baselines.map((b) => s.verdict_text[name][b]).join("; ")}.
+        </p>
+      ))}
+      <p className="mt-1 text-xs text-app-subtle">
+        Benign runs: {s.baselines.map((b) => s.verdict_text.control[b]).join("; ")}.
+      </p>
+      <p className="mt-1 text-xs text-app-subtle">
+        One benchmark family in a single-turn harness; the classifiers run at their default threshold.
+      </p>
+    </Section>
+  );
+}
+
+// Llama Guard 3 on the job it was built for, beside a guard that has no rules for it.
+export function ContentSafetySection({ s }) {
+  const c = s.comparisons.unsafe;
+  return (
+    <Section title="Content safety: Llama Guard 3 on its own job">
+      <p className="mb-3 text-sm text-app-muted">
+        Llama Guard 3 is a content-safety classifier. Both systems on {s.unsafe.n + s.safe.n} prompts with published
+        labels ({Object.values(s.sources).join(", ")}): Llama Guard 3 off the shelf, and the guard ({s.rules}) flagged
+        when either of its text entry points does not allow. Pre-registered, scored once.
+      </p>
+      <DataTable
+        head={["System", "Unsafe prompts flagged", "Safe prompts wrongly flagged"]}
+        rows={s.systems.map(({ key, label }) => [label, countOf(s.unsafe.systems[key]), countOf(s.safe.systems[key])])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        Verdict: {s.verdict_text} ({c.reference_only} flagged only by Llama Guard 3, {c.other_only} only by the guard;{" "}
+        {pShort(c.mcnemar_p)}). The guard has no content-safety rules: it gates tool calls and redacts secrets.
+      </p>
+    </Section>
+  );
+}
+
 // The McNemar counts are one sentence, not a chart: the arms disagree on a handful of transcripts.
 export function Step4Section({ s }) {
   const u = s.utility_benign;
@@ -597,6 +656,10 @@ export default function Trust() {
       {evidence.step4_agentdojo && <Step4Section s={evidence.step4_agentdojo} />}
 
       {evidence.step5_binding && <Step5Section s={evidence.step5_binding} />}
+
+      {evidence.guard_vs_detectors && <DetectorsStudySection s={evidence.guard_vs_detectors} />}
+
+      {evidence.content_safety && <ContentSafetySection s={evidence.content_safety} />}
 
       <DetectorSection d={evidence.detector} />
 

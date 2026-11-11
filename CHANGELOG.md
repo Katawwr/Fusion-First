@@ -5,7 +5,27 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Two pre-registered baseline studies, answering the objection that step 2's baseline, Llama Guard 3, is a
+  content-safety classifier and not an injection detector. `fusion_first/validate/guard_compare.py` scores any
+  number of systems on the same units (Wilson intervals, exact McNemar, one unit per item), and
+  `fusion_first/validate/injection_classifiers.py` runs pinned off-the-shelf classifiers from the local Hugging Face
+  cache, keeping their logits so every flag re-derives offline. Both are dev-only and stay out of the wheel.
+  - Content safety (`PREREG_content_safety.md`, `scripts/content_safety.py`): Llama Guard 3 off the shelf and the
+    guard on 650 XSTest and JBB-Behaviors prompts with their published labels. Registered result: Llama Guard 3
+    is the better content-safety filter; the guard, which has no content-safety rules, flagged none of the prompts.
+  - Guard vs injection detectors (`PREREG_guard_vs_detectors.md`, `scripts/guard_vs_detectors.py`): the guard
+    against Prompt Guard 1, ProtectAI deberta-v3 v2 and Llama Guard 3 on fresh InjecAgent transcripts in three arms
+    (the injection as written, behind an override prefix, and a benign control). Registered on 2026-11-11; not
+    yet scored.
+- External data, pinned in `datasets/external/SOURCES.yaml`: JBB-Behaviors (requests only) and InjecAgent's
+  enhanced setting.
+
 ### Changed
+
+- Wherever step 2's comparison is quoted (Trust Report, Trust page, overview, the Scan page's guard result), Llama
+  Guard 3 is named as a content-safety classifier.
 
 - `fusion run tasks --lease` says on stderr how many questions it has leased and for how long, and an empty result
   says how many are leased and when to retry; `--out FILE` also writes the JSON to a file. stdout stays pure JSON.

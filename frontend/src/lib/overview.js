@@ -52,7 +52,9 @@ export function resultGroups(ev) {
     groups.push({
       id: "step2",
       title: "Request-bound guard vs Llama Guard 3",
-      note: `Pre-registered; fresh transcripts of ${s2.models.join(" and ")}, the same for both; rules ${s2.rules}.`,
+      note:
+        `Pre-registered; fresh transcripts of ${s2.models.join(" and ")}, the same for both; rules ${s2.rules}. ` +
+        "Llama Guard 3 is a content-safety classifier.",
       rows: [
         { label: "Fusion guard: attacks stopped", n: f.attacks, est: f.recall, scale: "rate", tone: "good", detail: count(f.stopped, f.attacks) },
         { label: "Fusion guard: clean transcripts wrongly blocked", n: f.clean, est: f.over_block, scale: "rate", tone: "cost", detail: count(f.blocked, f.clean) },
@@ -66,6 +68,39 @@ export function resultGroups(ev) {
         },
         { label: "Llama Guard 3, configured: clean transcripts wrongly blocked", n: lg.clean, est: lg.over_block, scale: "rate", tone: "neutral", detail: count(lg.blocked, lg.clean) },
       ],
+    });
+  }
+
+  const gd = ev.guard_vs_detectors;
+  if (gd) {
+    const rate = (label, r, tone) => ({ label, n: r.n, est: r, scale: "rate", tone, detail: count(r.k, r.n) });
+    groups.push({
+      id: "detectors",
+      title: "Guard vs dedicated injection detectors",
+      note: `Pre-registered; fresh transcripts of ${gd.models.join(" and ")}, the same for every system; rules ${gd.rules}.`,
+      rows: [
+        ...Object.values(gd.sets).flatMap((set) =>
+          gd.systems.map(({ key, label }) =>
+            rate(`${label}: attacks stopped, ${set.label}`, set.attacks.systems[key], key === "fusion" ? "good" : "neutral"),
+          ),
+        ),
+        ...gd.systems.map(({ key, label }) =>
+          rate(`${label}: benign runs wrongly blocked`, gd.control.systems[key], key === "fusion" ? "cost" : "neutral"),
+        ),
+      ],
+    });
+  }
+
+  const cs = ev.content_safety;
+  if (cs) {
+    groups.push({
+      id: "content_safety",
+      title: "Content safety: Llama Guard 3 on its own job",
+      note: `Pre-registered; ${cs.unsafe.n + cs.safe.n} prompts with published labels. The guard has no content-safety rules.`,
+      rows: cs.systems.flatMap(({ key, label }) => [
+        { label: `${label}: unsafe prompts flagged`, n: cs.unsafe.n, est: cs.unsafe.systems[key], scale: "rate", tone: "neutral", detail: count(cs.unsafe.systems[key].k, cs.unsafe.n) },
+        { label: `${label}: safe prompts wrongly flagged`, n: cs.safe.n, est: cs.safe.systems[key], scale: "rate", tone: "neutral", detail: count(cs.safe.systems[key].k, cs.safe.n) },
+      ]),
     });
   }
 
@@ -161,7 +196,7 @@ export function headlineStats(ev) {
   const pc = (x) => `${Math.round(x * 100)}%`;
   const out = [
     { value: pc(f.recall.point), label: "of real attacks stopped by the guard", note: count(f.stopped, f.attacks) },
-    { value: pc(lg.recall.point), label: "stopped by Llama Guard 3 on the same attacks", note: count(lg.stopped, lg.attacks), muted: true },
+    { value: pc(lg.recall.point), label: "stopped by Llama Guard 3, a content-safety classifier, on the same attacks", note: count(lg.stopped, lg.attacks), muted: true },
     { value: pc(f.over_block.point), label: "of clean transcripts wrongly blocked", note: count(f.blocked, f.clean) },
   ];
   const s3 = ev.step3_guard;
@@ -170,6 +205,54 @@ export function headlineStats(ev) {
     out.push({ value: pc(ds.recall.point), label: "of data-stealing hijacks stopped, given the tool results", note: count(ds.stopped, ds.attacks) });
   }
   return out;
+}
+
+const SET_TITLES = { plain: "Injections as written", enhanced: "Injections behind an override prefix" };
+const listed = (xs) => (xs.length < 3 ? xs.join(" and ") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+
+// One sentence per registered verdict family, worded by the verdict keys: whoever the rule names is named.
+function studyFindings(gd) {
+  if (!gd) return [];
+  const name = Object.fromEntries(gd.systems.map((s) => [s.key, s.label.replace(/, configured$/, "")]));
+  const named = (verdicts, v) => gd.baselines.filter((b) => verdicts[b] === v).map((b) => name[b]);
+  const sentence = (title, parts) => (parts.length ? [`${title}: ${parts.join("; ")}.`] : []);
+  const out = [];
+  for (const key of Object.keys(gd.sets)) {
+    const v = gd.verdicts[key];
+    const win = named(v, "fusion_better");
+    const lose = named(v, "baseline_better");
+    const tie = named(v, "no_significant_difference");
+    out.push(
+      ...sentence(SET_TITLES[key] || key, [
+        ...(win.length ? [`the guard stops significantly more attacks than ${listed(win)}`] : []),
+        ...(lose.length ? [`${listed(lose)} ${lose.length > 1 ? "stop" : "stops"} significantly more attacks than the guard`] : []),
+        ...(tie.length ? [`no significant difference from ${listed(tie)}`] : []),
+      ]),
+    );
+  }
+  const c = gd.verdicts.control || {};
+  const fewer = named(c, "fusion_fewer");
+  const more = named(c, "baseline_fewer");
+  out.push(
+    ...sentence("Benign runs", [
+      ...(fewer.length ? [`the guard wrongly blocks significantly fewer than ${listed(fewer)}`] : []),
+      ...(more.length ? [`${listed(more)} wrongly ${more.length > 1 ? "block" : "blocks"} significantly fewer than the guard`] : []),
+    ]),
+  );
+  return out;
+}
+
+function contentSafetyFindings(cs) {
+  if (!cs) return [];
+  if (cs.verdict === "llama_guard_better") {
+    return ["On content safety, its own job, Llama Guard 3 flags significantly more unsafe prompts than the guard, which has no rules for it."];
+  }
+  if (cs.verdict === "fusion_better") {
+    return ["On content safety, the guard flags significantly more unsafe prompts than Llama Guard 3."];
+  }
+  return cs.verdict === "no_significant_difference"
+    ? ["On content safety, no significant difference between Llama Guard 3 and the guard on unsafe prompts."]
+    : [];
 }
 
 // What the table cannot show: the verdicts behind its rows. Numbers stay in the table.
@@ -188,6 +271,7 @@ export function findings(ev) {
         (fewer ? "significantly fewer clean transcripts." : "no more clean transcripts."),
     );
   }
+  out.push(...studyFindings(ev.guard_vs_detectors), ...contentSafetyFindings(ev.content_safety));
   const s4 = ev.step4_agentdojo;
   if (s4) {
     const c = s4.comparisons.cost_none_vs_v3;

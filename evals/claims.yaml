@@ -73,6 +73,27 @@ claims:
       llama_guard_b.all.recall.point: {value: 0.5203, n_path: llama_guard_b.all.attacks, min_n: 50}
     demonstration_ok: false
 
+  # Content safety (PREREG_content_safety.md), scored once on the sealed prompts; docs/CASE_STUDY.md quotes these.
+  - id: content_safety_llama_guard_unsafe_flagged
+    text: "Llama Guard 3 flagged 86% of the 300 unsafe prompts"
+    qualifier: "Llama Guard 3 8B off the shelf (Meta's 14 categories, the user's message assessed) on XSTest and JBB-Behaviors prompts, pre-registered (PREREG_content_safety.md)"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/content_safety.json
+    metrics:
+      unsafe.systems.llama_guard.point: {value: 0.8633, n_path: unsafe.n, min_n: 50}
+      unsafe.systems.fusion.k: {value: 0, n_path: unsafe.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: content_safety_llama_guard_safe_flagged
+    text: "wrongly flagged 10% of the 350 safe ones"
+    qualifier: "same study; the safe prompts are XSTest's risky-sounding safe prompts and JBB-Behaviors' benign twins"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/content_safety.json
+    metrics:
+      safe.systems.llama_guard.point: {value: 0.1029, n_path: safe.n, min_n: 50}
+      safe.systems.fusion.k: {value: 0, n_path: safe.n, min_n: 50}
+    demonstration_ok: false
+
   - id: runtime_guardrail_step3_data_stealing
     text: "100% of data-stealing hijacks"
     qualifier: "guard given the tool results (untrusted_text), rules ce897d1, fresh InjecAgent transcripts of qwen2.5:7b and llama3.1:8b, scored once, pre-registered (PREREG_step3_guard.md)"

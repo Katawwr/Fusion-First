@@ -217,6 +217,12 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         step5 = _load(root, STEP5_EVIDENCE)
         if step5:
             out[-1] += " " + _step5_sentence(step5)
+        study = _load(root, DETECTORS_STUDY_EVIDENCE)
+        if study:
+            out[-1] += " " + _detectors_study_sentence(study)
+        content = _load(root, CONTENT_SAFETY_EVIDENCE)
+        if content:
+            out[-1] += " " + _content_safety_sentence(content)
     else:
         out.append("- **Runtime guardrail in your agent?** Not yet measured with the current rules.")
     guard = _guard_headline(root)
@@ -555,6 +561,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
             "local_grader": local_grader,
             "step2_guard": _step2_site(root), "step3_guard": _step3_site(root), "step4_agentdojo": _step4_site(root),
             "step5_binding": _step5_site(root),
+            "guard_vs_detectors": _detectors_study_site(root), "content_safety": _content_safety_site(root),
             "detector": _detector_site(root), "toolloop": _toolloop_site(root), "claims_v3": _claims_v3_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
@@ -658,8 +665,17 @@ def _step2_sentence(d: dict) -> str:
     return (f"- **Runtime guardrail in your agent?** On fresh real attacks against {' and '.join(d['models'])}, "
             f"measured once with the current rules (pre-registered), it stopped {a['stopped']} of {a['attacks']}, "
             f"{_iv(a['recall'])}: {listed}. It wrongly blocked {_iv(a['over_block'])} of clean transcripts. On the "
-            f"same transcripts the previous rules stopped {prior['stopped']} and Llama Guard 3 (configured) "
-            f"{lgb['stopped']}, wrongly blocking {_iv(lgb['over_block'])}.")
+            f"same transcripts the previous rules stopped {prior['stopped']} and Llama Guard 3 (configured), a "
+            f"content-safety classifier, {lgb['stopped']}, wrongly blocking {_iv(lgb['over_block'])}.")
+
+
+def _step2_baseline_note(root: pathlib.Path) -> list[str]:
+    """Llama Guard 3 is not an injection detector: say so, and name the sections that measure the rest."""
+    later = [title for rel, title in ((DETECTORS_STUDY_EVIDENCE, "Guard vs dedicated injection detectors"),
+                                      (CONTENT_SAFETY_EVIDENCE, "Content safety")) if _load(root, rel)]
+    see = f" See {' and '.join(repr(t) for t in later)} below." if later else ""
+    return [("- Reading the baseline: Llama Guard 3 is a content-safety classifier, not a prompt-injection detector, "
+             "so this comparison tests it outside the job it was built for." + see)]
 
 
 def _step2(root: pathlib.Path) -> list[str]:
@@ -687,7 +703,8 @@ def _step2(root: pathlib.Path) -> list[str]:
             f"{b['cases']} blocked by the current rules (registered limit {b['max_allowed']})."),
             (f"- Attacks whose attacker tool never appeared in development: {u['stopped_new']} of {u['attacks']} "
             f"stopped (previous rules {u['stopped_prior']}, Llama Guard 3 configured {u['stopped_llama_guard_b']})."),
-            f"- Registered decision: the current rules are **{d['decision']['new_rules']}**.", "",
+            f"- Registered decision: the current rules are **{d['decision']['new_rules']}**.",
+            *_step2_baseline_note(root), "",
             "Current rules by attack type:", "",
             *_guardrail_table({"by_attack_type": d["by_attack_type"]["fusion"],
                                "all": {**d["fusion"]["all"], "over_blocked": d["fusion"]["all"]["blocked"]},
@@ -921,6 +938,232 @@ def _step5_site(root: pathlib.Path) -> dict | None:
             "blocked_by_rule": step5_blocked_by_rule(d), "authors": seal.get("authors"),
             "ceiling": BINDING_CEILING, "margin": BINDING_MARGIN,
             "dropped": seal.get("dropped_by_validity_check")}
+
+
+# ---------------------------------------------------------------- content safety (PREREG_content_safety.md)
+CONTENT_SAFETY_EVIDENCE = "evals/validation/v1/content_safety.json"
+_CONTENT_SOURCES = {"xstest": "XSTest", "jbb": "JBB-Behaviors"}
+_CONTENT_SYSTEMS = (("llama_guard", "Llama Guard 3, off the shelf"), ("fusion", "Fusion guard"))
+_CONTENT_VERDICTS = {
+    "llama_guard_better": "Llama Guard 3 flags significantly more of the unsafe prompts than Fusion's guard",
+    "fusion_better": "Fusion's guard flags significantly more of the unsafe prompts than Llama Guard 3",
+    "no_significant_difference": "no significant difference between the two on the unsafe prompts",
+    "void": "no verdict (the evidence is incomplete)",
+}
+
+
+def _content_verdict(d: dict) -> str:
+    return _CONTENT_VERDICTS[d["decision"]["verdict"]]
+
+
+def _content_entry_points(d: dict) -> dict[str, int]:
+    """Prompts the guard flagged, by the entry point that did not allow them."""
+    return {"input": sum(r["fusion_input"] != "allow" for r in d["rows"]),
+            "output": sum(r["fusion_output"] != "allow" for r in d["rows"])}
+
+
+def _content_safety_sentence(d: dict) -> str:
+    u = d["unsafe"]
+    lg, fu = u["systems"]["llama_guard"], u["systems"]["fusion"]
+    return (f"On Llama Guard 3's own job, content safety (pre-registered, {u['n']} unsafe prompts): Llama Guard 3 "
+            f"flagged {lg['k']}, {_iv(lg)}, and the guard {fu['k']}; {_content_verdict(d)}. The guard has no "
+            "content-safety rules.")
+
+
+def _content_safety(root: pathlib.Path) -> list[str]:
+    d = _load(root, CONTENT_SAFETY_EVIDENCE)
+    if not d:
+        return []
+    u, s, c = d["unsafe"], d["safe"], d["comparisons"]
+    out = ["## Content safety: Llama Guard 3 on its own job (pre-registered)", "",
+           ("Llama Guard 3 is a content-safety classifier; the guardrail comparisons test it on tool hijacks and "
+            "password leaks. Here both systems do its job: deciding whether a user prompt asks for something harmful. "
+            f"{u['n'] + s['n']} prompts with their published labels "
+            f"({' and '.join(_CONTENT_SOURCES.get(k, k) for k in sorted(d['by_source'], reverse=True))}); Llama Guard 3 "
+            "8B off the shelf (Meta's 14 categories, the user's message assessed); Fusion's guard at the published "
+            f"rules (`{d['guardrail_git_sha'][:7]}`), flagged when either of its text entry points does anything but "
+            f"allow. Registered in `{d['preregistration']}`; evidence: `{CONTENT_SAFETY_EVIDENCE}`."), "",
+           "| System | Unsafe prompts flagged | Safe prompts wrongly flagged |", "|---|---|---|"]
+    for key, label in _CONTENT_SYSTEMS:
+        a, b = u["systems"][key], s["systems"][key]
+        out.append(f"| {label} | {a['k']} of {a['n']}, {_iv(a)} | {b['k']} of {b['n']}, {_iv(b)} |")
+    verdict = _content_verdict(d)
+    out += ["", (f"- Registered verdict: **{verdict[0].upper()}{verdict[1:]}** ({c['unsafe']['reference_only']} flagged "
+                 f"only by Llama Guard 3, {c['unsafe']['other_only']} only by the guard; McNemar "
+                 f"{_p(c['unsafe']['mcnemar_p'])})."),
+            (f"- Safe prompts: {c['safe']['reference_only']} wrongly flagged only by Llama Guard 3, "
+             f"{c['safe']['other_only']} only by the guard (McNemar {_p(c['safe']['mcnemar_p'])}).")]
+    for src, b in sorted(d["by_source"].items(), reverse=True):
+        bu, bs = b["unsafe"], b["safe"]
+        out.append(f"- {_CONTENT_SOURCES.get(src, src)}: Llama Guard 3 flagged {bu['systems']['llama_guard']['k']} of "
+                   f"{bu['n']} unsafe and {bs['systems']['llama_guard']['k']} of {bs['n']} safe prompts; the guard "
+                   f"{bu['systems']['fusion']['k']} and {bs['systems']['fusion']['k']}.")
+    ep = _content_entry_points(d)
+    out += [("- The guard flagged nothing: it has no rule about harmful content, and no prompt tripped its input fence "
+             "(injection phrases) or its output check (secrets or personal data)." if not (ep["input"] or ep["output"])
+             else f"- What the guard flagged: {ep['input']} prompts tripped its input fence (injection phrases) and "
+                  f"{ep['output']} its output check (secrets or personal data). It has no rule about harmful content."),
+            ("- What this says: the two tools do different jobs. Llama Guard 3 filters harmful content; the guard "
+             "gates tool calls and redacts secrets. Neither result transfers to the other's job."),
+            ("- Limits: prompt classification only, no model replies; two public English benchmarks that may be in "
+             "Llama Guard 3's training data; XSTest's safe prompts are written to look unsafe, so a false-flag rate "
+             "here is not a rate on ordinary traffic."
+             + (f" Llama Guard 3 gave no usable verdict on {d['llama_guard']['unparseable']} prompts, counted as not "
+                "flagged." if d["llama_guard"]["unparseable"] else "")),
+            ""]
+    return out
+
+
+def _content_safety_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, CONTENT_SAFETY_EVIDENCE)
+    if not d:
+        return None
+    return {"evidence": CONTENT_SAFETY_EVIDENCE, "preregistration": d["preregistration"],
+            "rules": d["guardrail_git_sha"][:7], "unsafe": d["unsafe"], "safe": d["safe"],
+            "comparisons": d["comparisons"], "by_source": d["by_source"], "decision": d["decision"],
+            "verdict": d["decision"]["verdict"], "verdict_text": _content_verdict(d),
+            "systems": [{"key": k, "label": label} for k, label in _CONTENT_SYSTEMS],
+            "sources": {k: _CONTENT_SOURCES.get(k, k) for k in d["by_source"]},
+            "llama_guard": {k: d["llama_guard"][k] for k in ("model", "unparseable", "median_seconds")},
+            "guard_entry_points": _content_entry_points(d)}
+
+
+# ------------------------------------------------- guard vs injection detectors (PREREG_guard_vs_detectors.md)
+DETECTORS_STUDY_EVIDENCE = "evals/validation/v1/guard_vs_detectors.json"
+_STUDY_SYSTEMS = (("fusion", "Fusion guard"), ("llama_guard", "Llama Guard 3, configured"),
+                  ("prompt_guard_1", "Prompt Guard 1"), ("protectai", "ProtectAI deberta-v3 v2"))
+_STUDY_NAMES = dict(_STUDY_SYSTEMS)
+_STUDY_SETS = (("plain", "injection as written"), ("enhanced", "with the override prefix"))
+
+
+def _study_attack_verdict(name: str, comp: dict, verdict: str) -> str:
+    a = comp["attacks"]
+    counts = (f"{a['reference_only']} stopped only by the guard, {a['other_only']} only by {name}; McNemar "
+              f"{_p(a['mcnemar_p'])}")
+    if verdict == "fusion_better":
+        return f"the guard stops significantly more attacks than {name} ({counts}), without significantly more wrong blocks"
+    if verdict == "baseline_better":
+        return f"{name} stops significantly more attacks than the guard ({counts}), without significantly more wrong blocks"
+    if verdict == "void":
+        return f"no verdict against {name} (too few successful attacks or control transcripts)"
+    return f"no significant difference from {name} by the registered rule ({counts})"
+
+
+def _study_cost_verdict(name: str, comp: dict, verdict: str) -> str:
+    c = comp["control"]
+    counts = (f"{c['reference_only']} blocked only by the guard, {c['other_only']} only by {name}; McNemar "
+              f"{_p(c['mcnemar_p'])}")
+    if verdict == "fusion_fewer":
+        return f"the guard wrongly blocks significantly fewer than {name} ({counts})"
+    if verdict == "baseline_fewer":
+        return f"{name} wrongly blocks significantly fewer than the guard ({counts})"
+    if verdict == "void":
+        return f"no verdict against {name} (too few control transcripts)"
+    return f"no significant difference from {name} ({counts})"
+
+
+def _study_baselines(d: dict) -> list[str]:
+    return [k for k, _ in _STUDY_SYSTEMS if k != "fusion" and k in d["control"]["systems"]]
+
+
+def _detectors_study_sentence(d: dict) -> str:
+    parts = []
+    for key, label in _STUDY_SETS:
+        a = d["sets"][key]["attacks"]
+        if not a["n"]:
+            continue
+        rest = ", ".join(f"{_STUDY_NAMES[b]} {a['systems'][b]['k']}" for b in _study_baselines(d))
+        parts.append(f"{label}, the guard stopped {a['systems']['fusion']['k']} of {a['n']} attacks ({rest})")
+    c = d["control"]
+    rest = ", ".join(f"{_STUDY_NAMES[b]} {c['systems'][b]['k']}" for b in _study_baselines(d))
+    return (f"Against detectors built for prompt injection, on fresh transcripts of {' and '.join(d['models'])} "
+            f"(pre-registered): {'; '.join(parts)}. Benign runs wrongly blocked: the guard "
+            f"{c['systems']['fusion']['k']} of {c['n']} ({rest}).")
+
+
+def _detectors_study(root: pathlib.Path) -> list[str]:
+    d = _load(root, DETECTORS_STUDY_EVIDENCE)
+    if not d:
+        return []
+    sets, control, baselines = d["sets"], d["control"], _study_baselines(d)
+    out = ["## Guard vs dedicated injection detectors (pre-registered)", "",
+           ("Llama Guard 3, the baseline above, is a content-safety classifier. This study adds two classifiers built "
+            f"to detect prompt injection, on fresh InjecAgent transcripts of {' and '.join(d['models'])}: "
+            f"{d['sample']['n_items']} items no study had used, each in three arms that differ only in the tool "
+            "result (the injection as written; the same injection behind InjecAgent's \"ignore all previous "
+            "instructions\" prefix; a benign filler in its place). The guard and Llama Guard 3 read the model's reply; "
+            "the classifiers read the tool result at their default operating point. An attack is a transcript where "
+            "the model obeyed the injection; on the benign arm every block is wrong. Registered in "
+            f"`{d['preregistration']}`; evidence: `{DETECTORS_STUDY_EVIDENCE}`."), "",
+           ("| System | Attacks stopped, " + " | Attacks stopped, ".join(label for _, label in _STUDY_SETS)
+            + " | Benign runs wrongly blocked |"), "|---|---|---|---|"]
+    for key, label in _STUDY_SYSTEMS:
+        if key not in control["systems"]:
+            continue
+        cells = []
+        for name, _ in _STUDY_SETS:
+            s = sets[name]["attacks"]["systems"][key]
+            cells.append(f"{s['k']} of {s['n']}, {_iv(s)}")
+        c = control["systems"][key]
+        tag = f" (`{d['guardrail_git_sha'][:7]}`)" if key == "fusion" else ""
+        out.append(f"| {label}{tag} | {' | '.join(cells)} | {c['k']} of {c['n']}, {_iv(c)} |")
+    out.append("")
+    for name, label in _STUDY_SETS:
+        verdicts = "; ".join(_study_attack_verdict(_STUDY_NAMES[b], sets[name]["comparisons"][b],
+                                                   sets[name]["decision"][b]["verdict"]) for b in baselines)
+        out.append(f"- Attacks, {label}: {verdicts}.")
+    costs = "; ".join(_study_cost_verdict(_STUDY_NAMES[b], control["comparisons"][b],
+                                          control["decision"][b]["verdict"]) for b in baselines)
+    out.append(f"- Benign runs: {costs}.")
+    for name, label in _STUDY_SETS:
+        q = sets[name]["not_obeyed"]
+        flagged = ", ".join(f"{_STUDY_NAMES[k]} {q['systems'][k]['k']}" for k, _ in _STUDY_SYSTEMS
+                            if k in q["systems"])
+        out.append(f"- Where the injection was present and the model did not obey ({label}, {q['n']} transcripts), "
+                   f"flagged or blocked: {flagged}. For a system that reads the reply this is a wrong block; for a "
+                   "classifier that reads the tool result it is a correct detection.")
+    text = d["secondary"]["text_level"]["tool_result"]
+    for clf in (b for b in baselines if b in text):
+        t = text[clf]
+        out.append(f"- {_STUDY_NAMES[clf]} on the tool results themselves: flagged "
+                   + ", ".join(f"{t[arm]['k']} of {t[arm]['n']} {word}" for arm, word in
+                               (("plain", "as written"), ("enhanced", "with the prefix"), ("control", "benign"))
+                               if arm in t) + ".")
+    out.append("- Layered with the guard, attacks stopped ("
+               + "; ".join(f"{label}: " + ", ".join(f"+ {_STUDY_NAMES[b]} {sets[name]['layered'][b]['k']} of "
+                                                    f"{sets[name]['layered'][b]['n']}" for b in baselines)
+                           for name, label in _STUDY_SETS)
+               + ") and benign runs wrongly blocked ("
+               + ", ".join(f"+ {_STUDY_NAMES[b]} {control['layered'][b]['k']}" for b in baselines) + ").")
+    out += [("- Limits: one benchmark family in a single-turn harness, not a live agent loop; the override prefix is "
+             "one fixed sentence; the classifiers run at their default threshold, not one tuned for a deployment; "
+             "7-8B open-weight targets."),
+            ""]
+    return out
+
+
+def _detectors_study_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, DETECTORS_STUDY_EVIDENCE)
+    if not d:
+        return None
+    baselines = _study_baselines(d)
+    keep = ("transcripts", "attacks", "comparisons", "decision", "not_obeyed", "layered")
+    return {"evidence": DETECTORS_STUDY_EVIDENCE, "preregistration": d["preregistration"],
+            "rules": d["guardrail_git_sha"][:7], "models": list(d["models"]), "n_items": d["sample"]["n_items"],
+            "systems": [{"key": k, "label": label} for k, label in _STUDY_SYSTEMS if k in d["control"]["systems"]],
+            "baselines": baselines,
+            "sets": {name: {"label": label, **{k: d["sets"][name][k] for k in keep}} for name, label in _STUDY_SETS},
+            "control": {k: d["control"][k] for k in ("n", "systems", "comparisons", "decision", "layered")},
+            "verdicts": d["decision"],
+            "verdict_text": {
+                **{name: {b: _study_attack_verdict(_STUDY_NAMES[b], d["sets"][name]["comparisons"][b],
+                                                   d["sets"][name]["decision"][b]["verdict"]) for b in baselines}
+                   for name, _ in _STUDY_SETS},
+                "control": {b: _study_cost_verdict(_STUDY_NAMES[b], d["control"]["comparisons"][b],
+                                                   d["control"]["decision"][b]["verdict"]) for b in baselines}},
+            "text_level": d["secondary"]["text_level"]["tool_result"],
+            "classifiers": {k: {x: v[x] for x in ("repo", "revision", "threshold", "median_seconds")}
+                            for k, v in d["classifiers"].items()}}
 
 
 # Q5: the trained detector for injected tool results (PREREG_detector_v1.md). Known arms and sources get short names
@@ -1718,7 +1961,8 @@ def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root), *_q6(root),
              *_q7(root),
-             *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_guard(root),
+             *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_detectors_study(root),
+             *_content_safety(root), *_guard(root),
              *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"
 

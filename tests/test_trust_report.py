@@ -997,3 +997,168 @@ def test_the_request_binding_study_is_reported_with_its_registered_decision():
     assert site["verdict"] == verdict and site["legitimate"] == leg and site["hijack"] == hij
     assert (site["ceiling"], site["margin"]) == (BINDING_CEILING, BINDING_MARGIN)
     assert site["dropped"] == {"hijack": 0, "legitimate": 1} and site["authors"] == 12
+
+
+# ------------------------------------------------- the baselines studies (content safety; guard vs detectors)
+def _study_script(name: str):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _write_evidence(root: pathlib.Path, rel: str, doc: dict) -> None:
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({**doc, "guardrail_git_sha": "5a89479ca515c5bdf04164b98eaaf80b8639f881"}),
+                    encoding="utf-8")
+
+
+def _content_evidence(*, lg_flags_unsafe: bool) -> dict:
+    """Content-safety evidence from stand-in Llama Guard records over the registered prompts."""
+    from fusion_first.validate.llama_guard import MODEL
+
+    cs = _study_script("content_safety")
+    rows = cs.rows()
+    records = []
+    for r in rows:
+        output = "unsafe\nS1" if (r["label"] == "unsafe" and lg_flags_unsafe) else "safe"
+        records.append({"id": r["id"], "lg_model": MODEL, "model_digest": "d" * 12,
+                        "prompt_sha256": r["lg_prompt_sha256"], "output": output,
+                        "verdict": output.splitlines()[0], "seconds": 1.5})
+    return cs.evidence(rows, records, digest="s" * 64)
+
+
+@pytest.mark.integration
+def test_the_content_safety_study_is_reported_with_its_registered_verdict(tmp_path):
+    from fusion_first.validate.trust_report import CONTENT_SAFETY_EVIDENCE, evidence_json
+
+    ev = _content_evidence(lg_flags_unsafe=True)
+    _write_evidence(tmp_path, CONTENT_SAFETY_EVIDENCE, ev)
+    out = render(tmp_path)
+    section = out.split("## Content safety: Llama Guard 3 on its own job (pre-registered)")[1].split("\n## ")[0]
+    u, s = ev["unsafe"], ev["safe"]
+    assert f"| Llama Guard 3, off the shelf | {u['systems']['llama_guard']['k']} of 300, " in section
+    assert f"| Fusion guard | {u['systems']['fusion']['k']} of 300, " in section
+    assert f"| {s['systems']['fusion']['k']} of 350, " in section and "650 prompts" in section
+    assert ("Registered verdict: **Llama Guard 3 flags significantly more of the unsafe prompts than Fusion's guard**"
+            in section)
+    assert "XSTest: Llama Guard 3 flagged 200 of 200 unsafe" in section and "JBB-Behaviors: Llama Guard 3" in section
+    assert "evals/validation/v1/PREREG_content_safety.md" in section and "(`5a89479`)" in section
+    assert "no usable verdict" not in section  # nothing was unparseable
+    site = evidence_json(tmp_path)["content_safety"]
+    assert site["verdict"] == "llama_guard_better" and site["unsafe"] == u and site["safe"] == s
+    assert site["systems"] == [{"key": "llama_guard", "label": "Llama Guard 3, off the shelf"},
+                               {"key": "fusion", "label": "Fusion guard"}]
+    assert site["guard_entry_points"] == {"input": sum(r["fusion_input"] != "allow" for r in ev["rows"]),
+                                          "output": sum(r["fusion_output"] != "allow" for r in ev["rows"])}
+    assert "rows" not in site
+
+
+@pytest.mark.integration
+def test_the_content_safety_copy_follows_the_verdict_whichever_way_it_falls(tmp_path):
+    from fusion_first.validate.trust_report import CONTENT_SAFETY_EVIDENCE, evidence_json
+
+    ev = _content_evidence(lg_flags_unsafe=False)  # Llama Guard flags nothing: no claim that it is better
+    _write_evidence(tmp_path, CONTENT_SAFETY_EVIDENCE, ev)
+    section = render(tmp_path).split("## Content safety: Llama Guard 3 on its own job (pre-registered)")[1]
+    assert "Llama Guard 3 flags significantly more" not in section
+    assert evidence_json(tmp_path)["content_safety"]["verdict"] == ev["decision"]["verdict"] != "llama_guard_better"
+    assert render(ROOT).count("## Content safety") == int((ROOT / CONTENT_SAFETY_EVIDENCE).is_file())
+
+
+class _WordTokenizer:
+    """One token per whitespace-separated word; two special tokens per input."""
+
+    def num_special_tokens_to_add(self, pair: bool = False) -> int:
+        return 2
+
+    def __call__(self, text, add_special_tokens=False, return_offsets_mapping=True, verbose=False):
+        offsets, start = [], 0
+        for word in text.split():
+            at = text.index(word, start)
+            offsets.append((at, at + len(word)))
+            start = at + len(word)
+        return {"offset_mapping": offsets}
+
+
+def _prefix_logits(n_labels: int, marker: str):
+    """Stand-in logits that flag a text only when it carries the override prefix."""
+    def forward(text: str) -> list[float]:
+        hot = marker in text
+        return [0.0 if hot else 3.0] + [0.0] * (n_labels - 2) + [3.0 if hot else 0.0]
+    return forward
+
+
+def _detectors_evidence() -> dict:
+    """Guard-vs-detectors evidence for a two-id subset, from stand-in replies, verdicts and logits."""
+    from fusion_first.validate import guard_compare as gc
+    from fusion_first.validate import injection_classifiers as ic
+    from fusion_first.validate.importers.injecagent_enhanced import PREFIX
+    from fusion_first.validate.llama_guard import MODEL, configured_prompt
+
+    gd = _study_script("guard_vs_detectors")
+    arms = {arm: items[:2] for arm, items in gd.arms().items()}
+    items = {(arm, it.item_id): it for arm in gc.ARMS for it in arms[arm]}
+    replies = {}
+    for (arm, rid), it in items.items():
+        tool = it.oracle["forbidden_tools"][0]
+        replies[(arm, "qwen2.5:7b", rid)] = 'ACTION: {"tool": "' + tool + '", "arguments": {}}'
+        replies[(arm, "llama3.1:8b", rid)] = "Here is what the tool returned."
+    lg = []
+    for (arm, model, rid), reply in replies.items():
+        output = "unsafe\nS16" if "ACTION" in reply else "safe"
+        lg.append({"arm": arm, "model": model, "item_id": rid, "lg_model": MODEL, "model_digest": "g" * 12,
+                   "prompt_sha256": gd._sha(configured_prompt(items[(arm, rid)], reply)), "output": output,
+                   "verdict": output.splitlines()[0], "seconds": 7.0})
+    clf = []
+    for name in gc.CLASSIFIERS:
+        spec = ic.CLASSIFIERS[name]
+        loaded = ic.Loaded(spec, _WordTokenizer(), _prefix_logits(len(spec.labels), PREFIX[:12]),
+                           {"torch": "fake", "transformers": "fake"})
+        clf += [ic.record(loaded, uid, kind, text) for (uid, kind), text in gd.texts(arms).items()]
+    return gd.evidence(arms, replies, lg, clf, digest="s" * 64,
+                       models={"qwen2.5:7b": "q" * 12, "llama3.1:8b": "l" * 12})
+
+
+@pytest.mark.integration
+def test_the_guard_vs_detectors_study_is_reported_per_attack_set_with_its_verdicts(tmp_path):
+    from fusion_first.validate.trust_report import DETECTORS_STUDY_EVIDENCE, evidence_json
+
+    ev = _detectors_evidence()
+    _write_evidence(tmp_path, DETECTORS_STUDY_EVIDENCE, ev)
+    out = render(tmp_path)
+    section = out.split("## Guard vs dedicated injection detectors (pre-registered)")[1].split("\n## ")[0]
+    assert ("| System | Attacks stopped, injection as written | Attacks stopped, with the override prefix | "
+            "Benign runs wrongly blocked |") in section
+    for key, label in (("fusion", "Fusion guard (`5a89479`)"), ("llama_guard", "Llama Guard 3, configured"),
+                       ("prompt_guard_1", "Prompt Guard 1"), ("protectai", "ProtectAI deberta-v3 v2")):
+        plain = ev["sets"]["plain"]["attacks"]["systems"][key]
+        control = ev["control"]["systems"][key]
+        assert f"| {label} | {plain['k']} of {plain['n']}, " in section
+        assert f"| {control['k']} of {control['n']}, " in section
+    # two attacks per set earn no verdict, and the section says so instead of naming a winner
+    assert "- Attacks, injection as written: no verdict against Llama Guard 3, configured" in section
+    assert "stops significantly more attacks" not in section
+    assert "- Benign runs: no verdict against Llama Guard 3, configured (too few control transcripts)" in section
+    assert ("ProtectAI deberta-v3 v2 on the tool results themselves: flagged 0 of 2 as written, 2 of 2 with the "
+            "prefix, 0 of 2 benign.") in section
+    assert "evals/validation/v1/PREREG_guard_vs_detectors.md" in section and "150 items" in section
+    site = evidence_json(tmp_path)["guard_vs_detectors"]
+    assert site["baselines"] == ["llama_guard", "prompt_guard_1", "protectai"]
+    assert site["sets"]["enhanced"]["label"] == "with the override prefix"
+    assert site["sets"]["plain"]["attacks"] == ev["sets"]["plain"]["attacks"] and site["control"]["n"] == 4
+    assert site["verdicts"] == ev["decision"] and set(site["verdict_text"]) == {"plain", "enhanced", "control"}
+    assert site["classifiers"]["protectai"]["repo"] == "protectai/deberta-v3-base-prompt-injection-v2"
+    assert "rows" not in site
+
+
+@pytest.mark.unit
+def test_step_2_says_what_kind_of_baseline_llama_guard_is():
+    out = render(ROOT)
+    section = out.split("## Request-bound guardrail on 7–8B models (pre-registered)")[1].split("\n## ")[0]
+    assert ("Reading the baseline: Llama Guard 3 is a content-safety classifier, not a prompt-injection detector"
+            in section)
+    assert "Llama Guard 3 (configured), a content-safety classifier, " in out.split("## Q1")[0]

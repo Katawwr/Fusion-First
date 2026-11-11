@@ -15,7 +15,7 @@ describe("guardResult", () => {
   it("states the adopted rules' result with counts, and Llama Guard on the same attacks", () => {
     expect(guardResult(step2)).toBe(
       "Pre-registered test on fresh attacks against qwen2.5:7b and llama3.1:8b: stopped 89% (132 of 148), " +
-        "wrongly blocked 1% of clean transcripts (2 of 252). Llama Guard 3, configured, stopped 52%.",
+        "wrongly blocked 1% of clean transcripts (2 of 252). Llama Guard 3, configured, a content-safety classifier, stopped 52%.",
     );
   });
 
