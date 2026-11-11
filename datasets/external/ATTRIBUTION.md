@@ -12,6 +12,8 @@ payloads are taken as published.
 | `deepset.v1.jsonl` | [deepset/prompt-injections](https://huggingface.co/datasets/deepset/prompt-injections) | Apache-2.0 | deepset GmbH |
 | `gandalf.v1.jsonl` | [Lakera/gandalf_ignore_instructions](https://huggingface.co/datasets/Lakera/gandalf_ignore_instructions) | MIT | Lakera AI |
 | `injecagent.v1.jsonl` | [uiuc-kang-lab/InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) | MIT | Copyright (c) 2023 Qiusi Zhan |
+| `injecagent_enhanced.v1.jsonl` | [uiuc-kang-lab/InjecAgent](https://github.com/uiuc-kang-lab/InjecAgent) — enhanced setting | MIT | Copyright (c) 2023 Qiusi Zhan |
+| `jbb.v1.jsonl` | [JailbreakBench/JBB-Behaviors](https://huggingface.co/datasets/JailbreakBench/JBB-Behaviors) — goals only | MIT | Copyright (c) 2023 JailbreakBench Team |
 | `bipia.v1.jsonl` | [microsoft/BIPIA](https://github.com/microsoft/BIPIA) — attack payloads only | MIT | Copyright (c) Microsoft Corporation |
 | `ifeval.v1.jsonl` | [google/IFEval](https://huggingface.co/datasets/google/IFEval) | Apache-2.0 | Google LLC |
 | `xstest.v1.jsonl` | [Paul/XSTest](https://huggingface.co/datasets/Paul/XSTest) | CC-BY-4.0 | Röttger et al., "XSTest" (NAACL 2024) |
@@ -20,6 +22,9 @@ Notes:
 - **BIPIA**: only the attack instruction payloads (authored by the BIPIA authors) are imported. Its
   task context documents (email/table/web/code QA) come from third-party sources with their own
   terms and are deliberately never imported.
+- **JBB-Behaviors**: only each behaviour's request (`Goal`) is imported, never its `Target` reply. Some
+  behaviours come from AdvBench and the TDC / HarmBench set, which the JailbreakBench authors ask to be
+  cited alongside it.
 - **MIT** licensed sources: the MIT license requires the copyright notice above and the permission
   notice to accompany copies — see https://opensource.org/license/mit.
 - **Apache-2.0** sources: see https://www.apache.org/licenses/LICENSE-2.0. No NOTICE files were

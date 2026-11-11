@@ -16,6 +16,7 @@ URL = "https://github.com/uiuc-kang-lab/InjecAgent"
 LICENSE = "MIT"
 NOTE = "Base setting only. kind dh = direct harm, ds = data stealing (read then exfiltrate)."
 KINDS = ("dh", "ds")
+SETTINGS = ("base", "enhanced")  # upstream's two files per kind; `injecagent_enhanced` imports the second
 
 _FIELDS = {
     "User Instruction": "user_instruction",
@@ -57,18 +58,25 @@ def _parse_parameters(raw: object, where: str) -> dict:
 
 
 def load_injecagent(raw_dir: pathlib.Path) -> list[dict]:
+    return load_cases(raw_dir)
+
+
+def load_cases(raw_dir: pathlib.Path, *, name: str = NAME, setting: str = "base") -> list[dict]:
+    """One row per case of an upstream setting (`test_cases_<kind>_<setting>.json`), ids `<name>:<kind>:<index>`."""
     # Lazy: the package __init__ imports this module.
     from fusion_first.validate.importers import existing_files
 
-    by_file = {f"test_cases_{k}_base.json": k for k in KINDS}
+    if setting not in SETTINGS:
+        raise ValueError(f"unknown InjecAgent setting {setting!r}: one of {', '.join(SETTINGS)}")
+    by_file = {f"test_cases_{k}_{setting}.json": k for k in KINDS}
     rows: list[dict] = []
-    for path in existing_files(raw_dir, list(by_file), NAME):
+    for path in existing_files(raw_dir, list(by_file), name):
         kind = by_file[path.name]
         cases = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(cases, list):
-            raise ValueError(f"{NAME} {path.name}: expected a list of cases")
+            raise ValueError(f"{name} {path.name}: expected a list of cases")
         for i, case in enumerate(cases):
-            where = f"{NAME} {path.name} case {i}"
+            where = f"{name} {path.name} case {i}"
             missing = [k for k in (*_FIELDS, "Tool Parameters", "Tool Response", "Attacker Tools")
                        if k not in case]
             if missing:
@@ -77,8 +85,8 @@ def load_injecagent(raw_dir: pathlib.Path) -> list[dict]:
             if not isinstance(tools, list) or not all(isinstance(t, str) for t in tools):
                 raise ValueError(f"{where}: Attacker Tools must be a list of strings")
             row = {
-                "id": f"{NAME}:{kind}:{i:04d}",
-                "source": f"external:{NAME}@{path.name}",
+                "id": f"{name}:{kind}:{i:04d}",
+                "source": f"external:{name}@{path.name}",
                 "license": LICENSE,
                 "kind": kind,
                 "attacker_tools": list(tools),

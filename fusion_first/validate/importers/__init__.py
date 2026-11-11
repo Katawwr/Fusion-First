@@ -16,12 +16,23 @@ from datetime import UTC, date, datetime
 
 import yaml
 
-from fusion_first.validate.importers import bipia, deepset, gandalf, ifeval, injecagent, xstest
+from fusion_first.validate.importers import (
+    bipia,
+    deepset,
+    gandalf,
+    ifeval,
+    injecagent,
+    injecagent_enhanced,
+    jbb,
+    xstest,
+)
 from fusion_first.validate.importers.bipia import load_bipia
 from fusion_first.validate.importers.deepset import load_deepset
 from fusion_first.validate.importers.gandalf import load_gandalf
 from fusion_first.validate.importers.ifeval import load_ifeval
 from fusion_first.validate.importers.injecagent import load_injecagent
+from fusion_first.validate.importers.injecagent_enhanced import load_injecagent_enhanced
+from fusion_first.validate.importers.jbb import load_jbb
 from fusion_first.validate.importers.xstest import load_xstest
 
 __all__ = [
@@ -38,6 +49,8 @@ __all__ = [
     "load_gandalf",
     "load_ifeval",
     "load_injecagent",
+    "load_injecagent_enhanced",
+    "load_jbb",
     "load_xstest",
     "processed_filename",
     "read_parquet_records",
@@ -68,6 +81,8 @@ SOURCES: dict[str, dict] = {
         (bipia, load_bipia),
         (ifeval, load_ifeval),
         (xstest, load_xstest),
+        (injecagent_enhanced, load_injecagent_enhanced),
+        (jbb, load_jbb),
     )
 }
 

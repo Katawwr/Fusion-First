@@ -61,6 +61,8 @@ DEV_ONLY_MODULES = frozenset({
     "fusion_first.validate.importers.gandalf",
     "fusion_first.validate.importers.ifeval",
     "fusion_first.validate.importers.injecagent",
+    "fusion_first.validate.importers.injecagent_enhanced",
+    "fusion_first.validate.importers.jbb",
     "fusion_first.validate.importers.xstest",
     "fusion_first.validate.judge_eval",
     "fusion_first.validate.judge_eval_toolloop",
