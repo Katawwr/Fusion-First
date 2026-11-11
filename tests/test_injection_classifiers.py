@@ -139,6 +139,8 @@ def test_an_unpinned_classifier_is_never_loaded():
 @pytest.mark.parametrize("name", sorted(ic.CLASSIFIERS))
 def test_the_pinned_models_load_from_the_local_cache(name):
     spec = ic.CLASSIFIERS[name]
+    if not (spec.revision and spec.weights_sha256):
+        pytest.skip(f"{spec.repo} is not downloaded and pinned yet")
     try:
         loaded = ic.load(spec)
     except (OSError, ImportError) as exc:  # not downloaded on this machine, or no torch
