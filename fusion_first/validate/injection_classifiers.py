@@ -45,7 +45,9 @@ class Classifier:
 
 CLASSIFIERS: dict[str, Classifier] = {
     "prompt_guard_1": Classifier(
-        name="prompt_guard_1", repo="meta-llama/Prompt-Guard-86M", revision="", weights_sha256="",
+        name="prompt_guard_1", repo="meta-llama/Prompt-Guard-86M",
+        revision="1209add6ca7d9c1d815171b8e5571587fe3e7b03",
+        weights_sha256="1771712866662626517f2d85057de2d7078389a4c1f0bc93e461bdc4fdae4bd5",
         labels=("BENIGN", "INJECTION", "JAILBREAK"), positive=(1, 2), license="Llama 3.1 Community License"),
     "protectai": Classifier(
         name="protectai", repo="protectai/deberta-v3-base-prompt-injection-v2",
