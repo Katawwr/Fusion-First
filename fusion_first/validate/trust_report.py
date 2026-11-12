@@ -225,6 +225,9 @@ def _bottom_line(root: pathlib.Path) -> list[str]:
         content = _load(root, CONTENT_SAFETY_EVIDENCE)
         if content:
             out[-1] += " " + _content_safety_sentence(content)
+        stage = _load(root, CONTENT_STAGE_EVIDENCE)
+        if stage:
+            out[-1] += " " + _content_stage_sentence(stage)
     else:
         out.append("- **Runtime guardrail in your agent?** Not yet measured with the current rules.")
     guard = _guard_headline(root)
@@ -566,7 +569,8 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
             "guard_vs_detectors": _detectors_study_site(root), "content_safety": _content_safety_site(root),
             "detector": _detector_site(root), "toolloop": _toolloop_site(root), "claims_v3": _claims_v3_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
-            "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None)}
+            "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None),
+            **({"content_stage": stage} if (stage := _content_stage_site(root)) else {})}
 
 
 B3_EVIDENCE = "evals/validation/v1/b3_rubric_vs_plain_judge.json"
@@ -1028,6 +1032,126 @@ def _content_safety_site(root: pathlib.Path) -> dict | None:
             "sources": {k: _CONTENT_SOURCES.get(k, k) for k in d["by_source"]},
             "llama_guard": {k: d["llama_guard"][k] for k in ("model", "unparseable", "median_seconds")},
             "guard_entry_points": _content_entry_points(d)}
+
+
+# ---------------------------------------------------- the content-safety stage (PREREG_content_stage.md)
+CONTENT_STAGE_EVIDENCE = "evals/validation/v1/content_stage.json"
+_STAGE_ARMS = ("guard", "stage", "tuned")
+_STAGE_VERDICTS = {
+    "works": "the guard with the stage flags significantly more unsafe prompts than the guard alone",
+    "no_significant_gain": "no significant gain over the guard alone on the unsafe prompts was shown",
+    "void": "no verdict (the evidence is incomplete)",
+}
+_STAGE_FOLLOWS = {
+    "adopted": "The tuned policy is the stage's default.",
+    "not_adopted": "The stage's default stays Llama Guard's own categories.",
+    "void": "The stage's default stays Llama Guard's own categories.",
+}
+
+
+def _stage_arms(d: dict) -> list[str]:
+    return [a for a in _STAGE_ARMS if a in d["arms"]]
+
+
+def _stage_policy(d: dict) -> str | None:
+    return (d["arms"].get("tuned") or {}).get("policy")
+
+
+def _stage_label(d: dict, arm: str, *, inline: bool = False) -> str:
+    label = {"guard": "The guard alone", "stage": "With the stage, Meta's categories",
+             "tuned": f"With the tuned stage, `{_stage_policy(d)}` policy"}[arm]
+    return label[0].lower() + label[1:] if inline else label
+
+
+def _stage_word(verdict: str) -> str:
+    return verdict.replace("_", " ")
+
+
+def _content_stage_sentence(d: dict) -> str:
+    u, s = d["unsafe"], d["safe"]
+    g, st, sf = u["systems"]["guard"], u["systems"]["stage"], s["systems"]["stage"]
+    dec = d["decision"]
+    out = (f"With the optional content-safety stage switched on (Llama Guard 3, pre-registered, {u['n']} fresh unsafe "
+           f"prompts), the guard flagged {st['k']}, {_iv(st)}, against {g['k']} alone, and wrongly flagged {sf['k']} of "
+           f"{s['n']} safe prompts written to look unsafe; {_STAGE_VERDICTS[dec['stage']['verdict']]}.")
+    if "tuned" in d["arms"]:
+        out += f" The tuned `{_stage_policy(d)}` policy: {_stage_word(dec['tuned']['verdict'])}."
+    return out
+
+
+def _content_stage(root: pathlib.Path) -> list[str]:
+    d = _load(root, CONTENT_STAGE_EVIDENCE)
+    if not d:
+        return []
+    u, s, dec, lg = d["unsafe"], d["safe"], d["decision"], d["llama_guard"]
+    arms = _stage_arms(d)
+    out = ["## The guard's content-safety stage (pre-registered)", "",
+           ("An optional stage, off by default: the guard asks Llama Guard 3 (local Ollama) whether the user's prompt is "
+            "harmful (`Guardrail.guard_prompt`). It reads user prompts only. The content-safety study "
+            "(`PREREG_content_safety.md`) found that the guard alone flags none of the unsafe prompts: it has no "
+            "content-safety rules. A prompt is flagged when "
+            "any of the guard's text entry points does anything but allow. Guard rules "
+            f"`{d['guardrail_git_sha'][:7]}`; classifier `{lg['model']}`. Registered in `{d['preregistration']}`; "
+            f"evidence: `{CONTENT_STAGE_EVIDENCE}`."), "",
+           (f"Sample: OR-Bench, {u['n']} unsafe prompts and {s['n']} safe prompts written to look unsafe, none used "
+            "before in this project. Its labels come from a panel of models, not from people."), "",
+           "| Arm | Unsafe prompts flagged | Safe prompts wrongly flagged |", "|---|---|---|"]
+    for arm in arms:
+        a, b = u["systems"][arm], s["systems"][arm]
+        out.append(f"| {_stage_label(d, arm)} | {a['k']} of {a['n']}, {_iv(a)} | {b['k']} of {b['n']}, {_iv(b)} |")
+    out += ["", f"- Registered verdict, the stage: **{_stage_word(dec['stage']['verdict'])}** ({dec['stage']['reason']})."]
+    t = dec["tuned"]
+    if "tuned" in d["arms"]:
+        out.append(f"- Registered verdict, the tuned policy: **{_stage_word(t['verdict'])}**. The `{_stage_policy(d)}` "
+                   "policy rewords some of Meta's category lines; it was picked in one tuning round on prompts already "
+                   f"seen. Cost: {t['cost']['reason']}. Protection: {t['protection']['reason']}. Replies without a "
+                   f"verdict: {t['verdicts']['reason']}. {_STAGE_FOLLOWS[t['verdict']]}")
+    else:
+        out.append("- The tuning round selected no policy, so only the first rule applies and the stage keeps Llama "
+                   "Guard's own categories.")
+    lg_arms = [a for a in arms if a in lg["unparseable"]]
+    out.append("- Replies without a verdict (each flags nothing): "
+               + "; ".join(f"{_stage_label(d, a, inline=True)} {lg['unparseable'][a]}" for a in lg_arms) + ".")
+    secs = lg.get("median_seconds") or {}
+    out.append("- Median seconds per prompt for the Llama Guard call: "
+               + "; ".join(f"{_stage_label(d, a, inline=True)} "
+                           + ("–" if secs.get(a) is None else f"{secs[a]:.1f} s") for a in lg_arms) + ".")
+    if d.get("by_category"):
+        short = {"stage": "stage", "tuned": "tuned stage"}
+        head = ["Category"] + [f"{col} ({short[a]})" for a in lg_arms
+                               for col in ("Unsafe flagged", "Safe wrongly flagged")]
+        out += ["", "By OR-Bench category (reported, no decision):", "",
+                "| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
+        for cat, b in d["by_category"].items():
+            cells = [f"{b[label]['systems'][a]['k']} of {b[label]['n']}" for a in lg_arms for label in ("unsafe", "safe")]
+            out.append(f"| {cat or 'none'} | " + " | ".join(cells) + " |")
+        out.append("")
+    tuned = "tuned" in d["arms"]
+    out.append("- Limits: OR-Bench's labels come from a panel of models, so some safe prompts are arguable, and its safe "
+               "prompts were kept because models tend to refuse them: a wrong-flag rate on them is not a rate on "
+               "ordinary traffic. The first rule is close to a foregone conclusion, since the guard alone has no "
+               "content-safety rules; what informs is the stage's wrong flags"
+               + (" and the tuned comparison" if tuned else "") + ". "
+               "Wrapping Llama Guard 3 cannot beat its judgment: the stage decides how it is asked and what its answer "
+               "does. User prompts only, in English, each judged on its own: model replies are not classified, and a "
+               "request split across messages can pass."
+               + (" The tuned policy was written from Llama Guard 3's errors on seen prompts from two other "
+                  "benchmarks; the fresh prompts test whether it transfers." if tuned else ""))
+    return out + [""]
+
+
+def _content_stage_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, CONTENT_STAGE_EVIDENCE)
+    if not d:
+        return None
+    dec = d["decision"]
+    return {"prereg": d["preregistration"], "rules": d["guardrail_git_sha"][:7], "model": d["llama_guard"]["model"],
+            "n": {"unsafe": d["unsafe"]["n"], "safe": d["safe"]["n"]}, "arms": _stage_arms(d),
+            "tuned_policy": _stage_policy(d), "unsafe": d["unsafe"]["systems"], "safe": d["safe"]["systems"],
+            "verdict": {"stage": dec["stage"]["verdict"], "tuned": dec["tuned"]["verdict"]},
+            "reasons": {"stage": dec["stage"]["reason"], **{k: dec["tuned"][k]["reason"]
+                                                             for k in ("cost", "protection", "verdicts")}},
+            "median_seconds": d["llama_guard"]["median_seconds"], "unparseable": d["llama_guard"]["unparseable"]}
 
 
 # ------------------------------------------------- guard vs injection detectors (PREREG_guard_vs_detectors.md)
@@ -2028,7 +2152,7 @@ def render(root: pathlib.Path | None = None) -> str:
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root), *_q6(root),
              *_q7(root),
              *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_detectors_study(root),
-             *_content_safety(root), *_guard(root),
+             *_content_safety(root), *_content_stage(root), *_guard(root),
              *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"
 

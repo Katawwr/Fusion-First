@@ -141,10 +141,63 @@ describe("the baseline studies", () => {
     expect(findings({ content_safety: { ...content, verdict: "void" } })).toEqual([]);
   });
 
+  const stage = {
+    rules: "2238c2b",
+    n: { unsafe: 400, safe: 600 },
+    arms: ["guard", "stage", "tuned"],
+    tuned_policy: "privacy",
+    unsafe: { guard: rate(0, 400), stage: rate(380, 400), tuned: rate(370, 400) },
+    safe: { guard: rate(2, 600), stage: rate(60, 600), tuned: rate(20, 600) },
+    verdict: { stage: "works", tuned: "adopted" },
+  };
+  const untuned = {
+    ...stage,
+    arms: ["guard", "stage"],
+    tuned_policy: null,
+    unsafe: { guard: rate(0, 400), stage: rate(380, 400) },
+    safe: { guard: rate(2, 600), stage: rate(60, 600) },
+    verdict: { stage: "works", tuned: "not_registered" },
+  };
+
+  it("shows the content-safety stage arm by arm, from the evidence", () => {
+    const [g] = resultGroups({ content_stage: stage });
+    expect(g.id).toBe("content_stage");
+    expect(g.note).toMatch(/1000 fresh OR-Bench prompts/);
+    expect(g.note).toMatch(/Off by default/);
+    expect(g.rows.map((r) => r.label)).toEqual([
+      "The guard alone: unsafe prompts flagged",
+      "The guard alone: safe prompts wrongly flagged",
+      "The guard with the stage: unsafe prompts flagged",
+      "The guard with the stage: safe prompts wrongly flagged",
+      "The guard with the tuned stage (privacy): unsafe prompts flagged",
+      "The guard with the tuned stage (privacy): safe prompts wrongly flagged",
+    ]);
+    expect(g.rows.map((r) => r.detail)).toEqual(["0 of 400", "2 of 600", "380 of 400", "60 of 600", "370 of 400", "20 of 600"]);
+    expect(g.rows[2].est).toBe(stage.unsafe.stage);
+    expect(resultGroups({ content_stage: untuned })[0].rows).toHaveLength(4);
+  });
+
+  it("words the stage's verdicts as the registered rules gave them, with no numbers", () => {
+    expect(findings({ content_stage: stage })).toEqual([
+      "With the optional content-safety stage switched on, the guard flags significantly more unsafe prompts than alone.",
+      "The tuned category policy (privacy) met its registered bar and is the stage's default.",
+    ]);
+    expect(findings({ content_stage: { ...stage, verdict: { stage: "no_significant_gain", tuned: "not_adopted" } } })).toEqual([
+      "The optional content-safety stage showed no significant gain over the guard alone on unsafe prompts.",
+      "The tuned category policy (privacy) did not meet its registered bar; the stage keeps Llama Guard's own categories.",
+    ]);
+    expect(findings({ content_stage: untuned })).toEqual([
+      "With the optional content-safety stage switched on, the guard flags significantly more unsafe prompts than alone.",
+    ]);
+    expect(findings({ content_stage: { ...stage, verdict: { stage: "void", tuned: "void" } } })).toEqual([]);
+    for (const f of findings({ content_stage: stage })) expect(f).not.toMatch(/\d/);
+  });
+
   it("matches the committed evidence when the studies are scored", () => {
     const ids = resultGroups(evidence).map((g) => g.id);
     expect(ids.includes("detectors")).toBe(Boolean(evidence.guard_vs_detectors));
     expect(ids.includes("content_safety")).toBe(Boolean(evidence.content_safety));
+    expect(ids.includes("content_stage")).toBe(Boolean(evidence.content_stage));
   });
 });
 

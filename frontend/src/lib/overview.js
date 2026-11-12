@@ -17,6 +17,8 @@ const CHECK_LABELS = {
 
 const count = (k, n) => `${k} of ${n}`;
 
+const STAGE_ARM_NAMES = { guard: "The guard alone", stage: "The guard with the stage" };
+
 // Groups of rows: { id, title, note, rows: [{ label, n, est, scale, tone, detail }] }.
 // scale "rate" plots on 0–100%; scale "diff" plots a change around zero.
 export function resultGroups(ev) {
@@ -100,6 +102,20 @@ export function resultGroups(ev) {
       rows: cs.systems.flatMap(({ key, label }) => [
         { label: `${label}: unsafe prompts flagged`, n: cs.unsafe.n, est: cs.unsafe.systems[key], scale: "rate", tone: "neutral", detail: count(cs.unsafe.systems[key].k, cs.unsafe.n) },
         { label: `${label}: safe prompts wrongly flagged`, n: cs.safe.n, est: cs.safe.systems[key], scale: "rate", tone: "neutral", detail: count(cs.safe.systems[key].k, cs.safe.n) },
+      ]),
+    });
+  }
+
+  const st = ev.content_stage;
+  if (st) {
+    const name = (arm) => STAGE_ARM_NAMES[arm] || `The guard with the tuned stage (${st.tuned_policy})`;
+    groups.push({
+      id: "content_stage",
+      title: "The guard's optional content-safety stage",
+      note: `Pre-registered; ${st.n.unsafe + st.n.safe} fresh OR-Bench prompts, labels from a panel of models; rules ${st.rules}. Off by default.`,
+      rows: st.arms.flatMap((arm) => [
+        { label: `${name(arm)}: unsafe prompts flagged`, n: st.n.unsafe, est: st.unsafe[arm], scale: "rate", tone: arm === "guard" ? "neutral" : "good", detail: count(st.unsafe[arm].k, st.n.unsafe) },
+        { label: `${name(arm)}: safe prompts wrongly flagged`, n: st.n.safe, est: st.safe[arm], scale: "rate", tone: arm === "guard" ? "neutral" : "cost", detail: count(st.safe[arm].k, st.n.safe) },
       ]),
     });
   }
@@ -255,6 +271,22 @@ function contentSafetyFindings(cs) {
     : [];
 }
 
+function contentStageFindings(st) {
+  if (!st) return [];
+  const out = [];
+  if (st.verdict.stage === "works") {
+    out.push("With the optional content-safety stage switched on, the guard flags significantly more unsafe prompts than alone.");
+  } else if (st.verdict.stage === "no_significant_gain") {
+    out.push("The optional content-safety stage showed no significant gain over the guard alone on unsafe prompts.");
+  }
+  if (st.arms.includes("tuned") && st.verdict.tuned === "adopted") {
+    out.push(`The tuned category policy (${st.tuned_policy}) met its registered bar and is the stage's default.`);
+  } else if (st.arms.includes("tuned") && st.verdict.tuned === "not_adopted") {
+    out.push(`The tuned category policy (${st.tuned_policy}) did not meet its registered bar; the stage keeps Llama Guard's own categories.`);
+  }
+  return out;
+}
+
 // What the table cannot show: the verdicts behind its rows. Numbers stay in the table.
 export function findings(ev) {
   const out = [];
@@ -271,7 +303,11 @@ export function findings(ev) {
         (fewer ? "significantly fewer clean transcripts." : "no more clean transcripts."),
     );
   }
-  out.push(...studyFindings(ev.guard_vs_detectors), ...contentSafetyFindings(ev.content_safety));
+  out.push(
+    ...studyFindings(ev.guard_vs_detectors),
+    ...contentSafetyFindings(ev.content_safety),
+    ...contentStageFindings(ev.content_stage),
+  );
   const s4 = ev.step4_agentdojo;
   if (s4) {
     const c = s4.comparisons.cost_none_vs_v3;

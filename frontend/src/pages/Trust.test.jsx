@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import Trust, {
   ClaimsV3Section,
   ContentSafetySection,
+  ContentStageSection,
   DetectorSection,
   DetectorsStudySection,
   Step2Section,
@@ -262,6 +263,89 @@ describe("Trust page", () => {
     renderTrust();
     expect(Boolean(screen.queryByRole("heading", { name: "Guard vs dedicated injection detectors" }))).toBe(Boolean(evidence.guard_vs_detectors));
     expect(Boolean(screen.queryByRole("heading", { name: "Content safety: Llama Guard 3 on its own job" }))).toBe(Boolean(evidence.content_safety));
+  });
+
+  describe("the content-safety stage", () => {
+    const TITLE = "The guard's content-safety stage";
+    const rate = (k, n) => ({ k, n, point: k / n, low: Math.max(0, k / n - 0.1), high: Math.min(1, k / n + 0.1) });
+    const reasons = {
+      stage: "unsafe prompts: 380 flagged with the stage only, 0 by the guard alone only, p=1e-100",
+      cost: "safe prompts: 40 flagged under the default policy only, 5 under the tuned policy only, p=1e-08 (fewer wrong flags)",
+      protection: "unsafe prompts flagged, tuned minus default: lower bound -0.0200 is within the margin -0.05",
+      verdicts: "2 of the tuned policy's 1000 replies carry no verdict (within the limit of 1%)",
+    };
+    const tunedBlock = (tuned) => ({
+      prereg: "evals/validation/v1/PREREG_content_stage.md",
+      rules: "2238c2b",
+      model: "llama-guard3:8b",
+      n: { unsafe: 400, safe: 600 },
+      arms: ["guard", "stage", "tuned"],
+      tuned_policy: "privacy",
+      unsafe: { guard: rate(0, 400), stage: rate(380, 400), tuned: rate(375, 400) },
+      safe: { guard: rate(2, 600), stage: rate(60, 600), tuned: rate(25, 600) },
+      verdict: { stage: "works", tuned },
+      reasons,
+      median_seconds: { stage: 6.42, tuned: null },
+      unparseable: { stage: 0, tuned: 2 },
+    });
+    const untuned = {
+      ...tunedBlock("not_registered"),
+      arms: ["guard", "stage"],
+      tuned_policy: null,
+      unsafe: { guard: rate(0, 400), stage: rate(1, 400) },
+      safe: { guard: rate(2, 600), stage: rate(3, 600) },
+      verdict: { stage: "no_significant_gain", tuned: "not_registered" },
+      reasons: { stage: "unsafe prompts: 1 flagged with the stage only, 0 by the guard alone only, p=1", cost: "no tuned arm was registered", protection: "no tuned arm was registered", verdicts: "no tuned arm was registered" },
+      median_seconds: { stage: 6.42 },
+      unparseable: { stage: 0 },
+    };
+
+    it.each([
+      ["adopted", "adopted; it is the stage's default"],
+      ["not_adopted", "not adopted; the default stays Llama Guard's own categories"],
+      ["void", "no verdict (the evidence is incomplete); the default stays Llama Guard's own categories"],
+    ])("renders every arm and both registered verdicts (tuned=%s)", (tuned, words) => {
+      const s = tunedBlock(tuned);
+      render(<ContentStageSection s={s} />);
+      expect(screen.getByRole("heading", { name: TITLE })).toBeInTheDocument();
+      expect(screen.getByText(/off by default/)).toHaveTextContent("400 unsafe and 600 safe OR-Bench prompts");
+      expect(screen.getByText(/off by default/)).toHaveTextContent("labels from a panel of models. Rules 2238c2b.");
+      expect(screen.getAllByRole("cell").map((c) => c.textContent)).toEqual([
+        "The guard alone", `0 of 400, ${interval(s.unsafe.guard)}`, `2 of 600, ${interval(s.safe.guard)}`,
+        "With the stage, Meta's categories", `380 of 400, ${interval(s.unsafe.stage)}`, `60 of 600, ${interval(s.safe.stage)}`,
+        "With the tuned stage, privacy policy", `375 of 400, ${interval(s.unsafe.tuned)}`, `25 of 600, ${interval(s.safe.tuned)}`,
+      ]);
+      expect(screen.getByText(/^Verdict, the stage:/)).toHaveTextContent(
+        `Verdict, the stage: the guard with the stage flags significantly more unsafe prompts than the guard alone (${reasons.stage}).`,
+      );
+      const t = screen.getByText(/^Verdict, the tuned policy:/);
+      expect(t).toHaveTextContent(`Verdict, the tuned policy: ${words}.`);
+      expect(t).toHaveTextContent("picked in one tuning round on prompts already seen");
+      for (const r of [reasons.cost, reasons.protection, reasons.verdicts]) expect(t.textContent).toContain(r);
+      const secondary = screen.getByText(/^Replies without a verdict, each flagging nothing/);
+      expect(secondary).toHaveTextContent("with the stage, Meta's categories 0; with the tuned stage, privacy policy 2.");
+      expect(secondary).toHaveTextContent("Median time per prompt: with the stage, Meta's categories 6.4 s; with the tuned stage, privacy policy –.");
+      expect(screen.queryByText(/tuning round selected no policy/)).toBeNull();
+      expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
+    });
+
+    it("renders the first rule only without a tuned arm", () => {
+      render(<ContentStageSection s={untuned} />);
+      expect(screen.getAllByRole("row")).toHaveLength(3); // header, the guard alone, with the stage
+      expect(screen.queryByText(/tuned stage/)).toBeNull();
+      expect(screen.queryByText(/^Verdict, the tuned policy/)).toBeNull();
+      expect(screen.getByText(/^Verdict, the stage:/)).toHaveTextContent("no significant gain over the guard alone on the unsafe prompts was shown");
+      expect(screen.getByText(/tuning round selected no policy/)).toBeInTheDocument();
+    });
+
+    it("mounts right after content safety once its evidence is committed, and not before", () => {
+      renderTrust();
+      const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+      expect(titles.includes(TITLE)).toBe(Boolean(evidence.content_stage));
+      if (evidence.content_stage && evidence.content_safety) {
+        expect(titles.indexOf(TITLE)).toBe(titles.indexOf("Content safety: Llama Guard 3 on its own job") + 1);
+      }
+    });
   });
 
   it("says the trained detector study is registered and not yet scored until its evidence is committed", () => {

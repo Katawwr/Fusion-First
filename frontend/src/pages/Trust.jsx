@@ -208,6 +208,61 @@ export function ContentSafetySection({ s }) {
   );
 }
 
+const STAGE_ARMS = { guard: "The guard alone", stage: "With the stage, Meta's categories" };
+const STAGE_VERDICT = {
+  works: "the guard with the stage flags significantly more unsafe prompts than the guard alone",
+  no_significant_gain: "no significant gain over the guard alone on the unsafe prompts was shown",
+  void: "no verdict (the evidence is incomplete)",
+};
+const TUNED_VERDICT = {
+  adopted: "adopted; it is the stage's default",
+  not_adopted: "not adopted; the default stays Llama Guard's own categories",
+  void: "no verdict (the evidence is incomplete); the default stays Llama Guard's own categories",
+};
+
+// The optional content-safety stage: the guard alone, with the stage, and with the tuned stage when one was picked.
+// Verdicts and reasons come from the registered rule (prereg.content_stage_decision).
+export function ContentStageSection({ s }) {
+  const label = (arm) => (arm === "tuned" ? `With the tuned stage, ${s.tuned_policy} policy` : STAGE_ARMS[arm]);
+  const lgArms = s.arms.filter((a) => a in (s.unparseable || {}));
+  const inline = (a) => label(a).charAt(0).toLowerCase() + label(a).slice(1);
+  const secs = (x) => (x === null || x === undefined ? "–" : `${x.toFixed(1)} s`);
+  return (
+    <Section title="The guard's content-safety stage">
+      <p className="mb-3 text-sm text-app-muted">
+        An optional stage, off by default: the guard asks Llama Guard 3 ({s.model}, local Ollama) whether the user's
+        prompt is harmful. Without it the guard has no content-safety rules. {s.n.unsafe} unsafe and {s.n.safe} safe
+        OR-Bench prompts not used before, the safe ones written to look unsafe; labels from a panel of models. Rules{" "}
+        {s.rules}. Pre-registered, scored once.
+      </p>
+      <DataTable
+        head={["Arm", "Unsafe prompts flagged", "Safe prompts wrongly flagged"]}
+        rows={s.arms.map((a) => [label(a), countOf(s.unsafe[a]), countOf(s.safe[a])])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        Verdict, the stage: {STAGE_VERDICT[s.verdict.stage]} ({s.reasons.stage}).
+      </p>
+      {s.arms.includes("tuned") ? (
+        <p className="mt-1 text-xs text-app-subtle">
+          Verdict, the tuned policy: {TUNED_VERDICT[s.verdict.tuned]}. The {s.tuned_policy} policy rewords some of
+          Meta's categories and was picked in one tuning round on prompts already seen. Cost: {s.reasons.cost}.
+          Protection: {s.reasons.protection}. Replies without a verdict: {s.reasons.verdicts}.
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-app-subtle">
+          The tuning round selected no policy; the stage keeps Llama Guard's own categories.
+        </p>
+      )}
+      <p className="mt-1 text-xs text-app-subtle">
+        Replies without a verdict, each flagging nothing:{" "}
+        {lgArms.map((a) => `${inline(a)} ${s.unparseable[a]}`).join("; ")}. Median time per prompt:{" "}
+        {lgArms.map((a) => `${inline(a)} ${secs(s.median_seconds?.[a])}`).join("; ")}. Limits: user
+        prompts only, each judged on its own; the stage cannot beat Llama Guard 3's own judgment.
+      </p>
+    </Section>
+  );
+}
+
 // The McNemar counts are one sentence, not a chart: the arms disagree on a handful of transcripts.
 export function Step4Section({ s }) {
   const u = s.utility_benign;
@@ -670,6 +725,8 @@ export default function Trust() {
       {evidence.guard_vs_detectors && <DetectorsStudySection s={evidence.guard_vs_detectors} />}
 
       {evidence.content_safety && <ContentSafetySection s={evidence.content_safety} />}
+
+      {evidence.content_stage && <ContentStageSection s={evidence.content_stage} />}
 
       <DetectorSection d={evidence.detector} />
 
