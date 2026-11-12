@@ -1075,7 +1075,12 @@ def _content_stage_sentence(d: dict) -> str:
            f"prompts), the guard flagged {st['k']}, {_iv(st)}, against {g['k']} alone, and wrongly flagged {sf['k']} of "
            f"{s['n']} safe prompts written to look unsafe; {_STAGE_VERDICTS[dec['stage']['verdict']]}.")
     if "tuned" in d["arms"]:
-        out += f" The tuned `{_stage_policy(d)}` policy: {_stage_word(dec['tuned']['verdict'])}."
+        tu, ts = u["systems"]["tuned"], s["systems"]["tuned"]
+        word = {"adopted": "was adopted", "not_adopted": "was not adopted"}.get(dec["tuned"]["verdict"],
+                                                                              "was left without a verdict")
+        out += (f" A category wording tuned on seen prompts (`{_stage_policy(d)}`) {word}: on the fresh prompts it "
+                f"flagged {tu['k']} unsafe and {ts['k']} safe prompts, against {st['k']} and {sf['k']} under Llama "
+                "Guard's own categories.")
     return out
 
 
@@ -1102,10 +1107,13 @@ def _content_stage(root: pathlib.Path) -> list[str]:
     out += ["", f"- Registered verdict, the stage: **{_stage_word(dec['stage']['verdict'])}** ({dec['stage']['reason']})."]
     t = dec["tuned"]
     if "tuned" in d["arms"]:
+        tu = d["comparisons"]["tuned_vs_default"]["unsafe"]
         out.append(f"- Registered verdict, the tuned policy: **{_stage_word(t['verdict'])}**. The `{_stage_policy(d)}` "
                    "policy rewords some of Meta's category lines; it was picked in one tuning round on prompts already "
                    f"seen. Cost: {t['cost']['reason']}. Protection: {t['protection']['reason']}. Replies without a "
-                   f"verdict: {t['verdicts']['reason']}. {_STAGE_FOLLOWS[t['verdict']]}")
+                   f"verdict: {t['verdicts']['reason']}. On the unsafe prompts, {tu['reference_only']} were flagged "
+                   f"under the default policy only and {tu['other_only']} under the tuned policy only. "
+                   f"{_STAGE_FOLLOWS[t['verdict']]}")
     else:
         out.append("- The tuning round selected no policy, so only the first rule applies and the stage keeps Llama "
                    "Guard's own categories.")

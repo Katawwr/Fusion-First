@@ -94,6 +94,40 @@ claims:
       safe.systems.fusion.k: {value: 0, n_path: safe.n, min_n: 50}
     demonstration_ok: false
 
+  # The guard's content-safety stage (PREREG_content_stage.md), scored once on the sealed prompts; docs/CASE_STUDY.md
+  # quotes these.
+  - id: content_stage_unsafe_flagged
+    text: "the guard flagged 84% of the 400 unsafe prompts"
+    qualifier: "the guard with its optional content-safety stage (Llama Guard 3 8B, Meta's 14 categories) on fresh OR-Bench toxic prompts, against none without the stage; pre-registered (PREREG_content_stage.md)"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/content_stage.json
+    metrics:
+      unsafe.systems.stage.point: {value: 0.835, n_path: unsafe.n, min_n: 50}
+      unsafe.systems.guard.k: {value: 0, n_path: unsafe.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: content_stage_safe_flagged
+    text: "wrongly flagged 17% of the 600 safe prompts"
+    qualifier: "same study; the safe prompts are OR-Bench-Hard-1K prompts written to look unsafe, labelled by a panel of models, so the rate is not a rate on ordinary traffic"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/content_stage.json
+    metrics:
+      safe.systems.stage.point: {value: 0.1683, n_path: safe.n, min_n: 50}
+      safe.systems.guard.k: {value: 0, n_path: safe.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: content_stage_tuned_not_adopted
+    text: "flagged fewer of the fresh unsafe prompts and no fewer safe ones"
+    qualifier: "same study, registered rule 2: the five category wording, tuned on the content-safety study's 650 prompts, flagged 321 of 400 unsafe prompts against 334 and 105 of 600 safe prompts against 101 under Meta's categories; not adopted"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/content_stage.json
+    metrics:
+      unsafe.systems.tuned.k: {value: 321, n_path: unsafe.n, min_n: 50}
+      unsafe.systems.stage.k: {value: 334, n_path: unsafe.n, min_n: 50}
+      safe.systems.tuned.k: {value: 105, n_path: safe.n, min_n: 50}
+      safe.systems.stage.k: {value: 101, n_path: safe.n, min_n: 50}
+    demonstration_ok: false
+
   # Guard vs injection detectors (PREREG_guard_vs_detectors.md), scored once on fresh transcripts; docs/CASE_STUDY.md
   # quotes these.
   - id: guard_vs_detectors_plain_guard

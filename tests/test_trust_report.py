@@ -1184,6 +1184,9 @@ def test_the_content_stage_is_reported_with_both_registered_verdicts(monkeypatch
     assert f"Registered verdict, the tuned policy: **{case.replace('_', ' ')}**." in section
     for key in ("cost", "protection", "verdicts"):
         assert t[key]["reason"] in section
+    tu = ev["comparisons"]["tuned_vs_default"]["unsafe"]
+    assert (f"On the unsafe prompts, {tu['reference_only']} were flagged under the default policy only and "
+            f"{tu['other_only']} under the tuned policy only.") in section
     assert "picked in one tuning round on prompts already seen" in section
     assert ("The tuned policy is the stage's default." in section) == (case == "adopted")
     assert ("default stays Llama Guard's own categories" in section) == (case != "adopted")
@@ -1247,7 +1250,25 @@ def test_the_content_stage_bottom_line_follows_the_evidence_and_nothing_renders_
             f"prompts), the guard flagged {st['k']}, ") in bottom
     assert f"against {g['k']} alone, and wrongly flagged 3 of 14 safe prompts" in bottom
     assert "the guard with the stage flags significantly more unsafe prompts than the guard alone." in bottom
-    assert "The tuned `privacy` policy: not adopted." in bottom
+    assert "A category wording tuned on seen prompts (`privacy`) was not adopted: on the fresh prompts" in bottom
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("case, word", [("not_adopted", "was not adopted"), ("adopted", "was adopted"),
+                                        ("void", "was left without a verdict"), ("untuned", None)])
+def test_the_bottom_line_says_what_the_tuned_wording_did_on_the_fresh_prompts(monkeypatch, tmp_path, case, word):
+    from fusion_first.validate.trust_report import _content_stage_sentence
+
+    ev = _stage_cases(monkeypatch, tmp_path, case)
+    sentence = _content_stage_sentence(ev)
+    if word is None:
+        assert "tuned" not in sentence and "wording" not in sentence
+        return
+    u, s = ev["unsafe"]["systems"], ev["safe"]["systems"]
+    assert sentence.endswith(
+        f" A category wording tuned on seen prompts (`privacy`) {word}: on the fresh prompts it flagged "
+        f"{u['tuned']['k']} unsafe and {s['tuned']['k']} safe prompts, against {u['stage']['k']} and "
+        f"{s['stage']['k']} under Llama Guard's own categories.")
 
 
 def _write_evidence_as_is(root: pathlib.Path, rel: str, doc: dict) -> None:

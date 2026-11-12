@@ -107,6 +107,7 @@ user's prompt (`guard.guard_prompt(prompt)`; Llama Guard 3 on local Ollama, from
 ## Registered studies
 
 - The <a href="docs/DETECTOR.md">tool-result injection detector</a> study is pre-registered; its result is on the <a href="https://fusion-first-testing.com/trust">Trust page</a> (registered result: not adopted; the detector stays dev-only).
+- The guard's optional content-safety stage is <a href="evals/validation/v1/PREREG_content_stage.md">pre-registered</a>; its result is in the <a href="TRUST_REPORT.md#the-guards-content-safety-stage-pre-registered">Trust Report</a> (registered result: the stage works; a category wording tuned on seen prompts was not adopted).
 - The judge's accuracy on tool trajectories is <a href="evals/validation/v1/PREREG_q1_toolloop.md">pre-registered</a>; its result is on the <a href="https://fusion-first-testing.com/trust">Trust page</a> (registered result: it met its registered bar). The <a href="evals/validation/v1/PREREG_q7_claims_v3.md">version-three wording</a> (claimed actions, pasted secrets) is registered and scored the same way.
 
 ## License

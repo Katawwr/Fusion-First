@@ -18,6 +18,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
   too long for one call is read in overlapping windows, never truncated (one beyond the call limit is refused, not
   waved through). Without a classifier nothing changes: the published guard results are for that configuration. User
   prompts only; model replies are not classified, and a request split across messages can pass.
+  - Registered result (`PREREG_content_stage.md`, `scripts/content_stage.py`; 1,000 fresh OR-Bench prompts, scored
+    once): with the stage the guard flagged 334 of 400 unsafe prompts, against 0 without it, and wrongly flagged 101
+    of 600 safe prompts written to look unsafe. One tuning round on the content-safety study's 650 prompts picked a
+    category wording (`five`); on the fresh prompts it flagged fewer unsafe prompts (321) and no fewer safe ones
+    (105), so it was not adopted and the stage keeps Llama Guard's own categories.
 - Two pre-registered baseline studies, answering the objection that step 2's baseline, Llama Guard 3, is a
   content-safety classifier and not an injection detector. `fusion_first/validate/guard_compare.py` scores any
   number of systems on the same units (Wilson intervals, exact McNemar, one unit per item), and
@@ -33,8 +38,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
     stops significantly more than Llama Guard 3 and shows no significant difference from either classifier; on the
     benign runs it wrongly blocks significantly fewer than ProtectAI and shows no significant difference from the
     other two.
-- External data, pinned in `datasets/external/SOURCES.yaml`: JBB-Behaviors (requests only) and InjecAgent's
-  enhanced setting.
+- External data, pinned in `datasets/external/SOURCES.yaml`: JBB-Behaviors (requests only), InjecAgent's enhanced
+  setting and OR-Bench (the toxic and hard-1k prompts).
 
 ### Changed
 

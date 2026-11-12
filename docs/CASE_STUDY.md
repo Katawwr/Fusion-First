@@ -41,6 +41,14 @@ on Llama Guard's own job: 650 XSTest and JBB-Behaviors prompts with their publis
 Llama Guard 3 flagged 86% of the 300 unsafe prompts and wrongly flagged 10% of the 350 safe ones. Fusion's guard,
 which has no content-safety rules, flagged none of either. The two tools do different jobs.
 
+So the guard gained an optional stage, off by default, that asks Llama Guard 3 whether the user's prompt is harmful.
+A registered study ([`PREREG_content_stage.md`](../evals/validation/v1/PREREG_content_stage.md)) tested it once on
+1,000 fresh OR-Bench prompts. With the stage on,
+the guard flagged 84% of the 400 unsafe prompts, against none without it, and
+wrongly flagged 17% of the 600 safe prompts, which OR-Bench writes to look unsafe. A category wording tuned on the
+earlier 650 prompts
+flagged fewer of the fresh unsafe prompts and no fewer safe ones, so it was not adopted.
+
 A third registered study ([`PREREG_guard_vs_detectors.md`](../evals/validation/v1/PREREG_guard_vs_detectors.md))
 put the guard against two classifiers built to detect prompt injection, Prompt Guard 1 and ProtectAI deberta-v3 v2,
 on fresh InjecAgent transcripts of the same two models, scored once. With the injection as written,

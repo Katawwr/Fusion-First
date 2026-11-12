@@ -162,7 +162,7 @@ describe("the baseline studies", () => {
   it("shows the content-safety stage arm by arm, from the evidence", () => {
     const [g] = resultGroups({ content_stage: stage });
     expect(g.id).toBe("content_stage");
-    expect(g.note).toMatch(/1000 fresh OR-Bench prompts/);
+    expect(g.note).toMatch(/1,000 fresh OR-Bench prompts/);
     expect(g.note).toMatch(/Off by default/);
     expect(g.rows.map((r) => r.label)).toEqual([
       "The guard alone: unsafe prompts flagged",
