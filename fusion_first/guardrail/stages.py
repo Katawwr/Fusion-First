@@ -5,9 +5,10 @@ local Ollama server (no key, no spend); any `Callable[[str], SafetyVerdict]` can
 prompt and parser here are the ones every committed Llama Guard study used (`fusion_first/validate/llama_guard.py`
 imports them), so a recorded reply and a live one answer the same bytes.
 
-Limits: each prompt is judged on its own, so a request split across messages can pass; the verdict is Llama
-Guard's, and this module only decides how it is asked. Text written to talk the classifier round (an instruction
-to answer "safe") is still text it reads: only the prompt's structure is protected.
+Limits: each prompt is judged on its own, so a request split across messages can pass; a request longer than half
+a window (about 3.6 KB) can be split across calls; encoded text (base64, hex, ROT13) reaches the classifier
+undecoded. The verdict is Llama Guard's, and this module only decides how it is asked. Text written to talk the
+classifier round (an instruction to answer "safe") is still text it reads: only the prompt's structure is protected.
 """
 
 from __future__ import annotations
@@ -16,10 +17,12 @@ import dataclasses
 import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable, Sequence
 
 from fusion_first.offline import offline
+from fusion_first.security.normalize import fold
 
 LLAMA_GUARD_MODEL = "llama-guard3:8b"
 # IPv4 loopback, as the Ollama provider: on Windows `localhost` tries ::1 first.
@@ -37,28 +40,52 @@ DEFAULT_CATEGORIES = (
     "S13: Elections.", "S14: Code Interpreter Abuse.",
 )
 
-# Raw mode tokenizes control-token strings wherever they appear, and the classifier reads the prompt's own
-# delimiter lines as structure. Neither may come from the user.
-_CONTROL = re.compile(
-    r"<(?=\|)|<(?=(?:BEGIN|END)\s+(?:CONVERSATION|UNSAFE\s+CONTENT\s+CATEGORIES)\s*>)", re.IGNORECASE)
-# A line that opens like a turn of the conversation. Llama Guard is asked about the LAST User message, so text that
-# forges turns could hide a request in an earlier one.
-_TURN = re.compile(r"^[ \t]*(?:user|agent|assistant|human|system)[ \t]*:[ \t]*", re.IGNORECASE | re.MULTILINE)
+# Raw mode tokenizes control-token strings wherever they appear: none may come from the user.
+_CONTROL_TOKEN = re.compile(r"<(?=\|)")
+# The prompt's own delimiter lines, matched on a line's folded form (look-alike letters, zero-width and full-width
+# characters fold to ASCII), however they are spaced.
+_DELIMITER = re.compile(r"<\s*(?:BEGIN|END)\s+(?:CONVERSATION|UNSAFE\s+CONTENT\s+CATEGORIES)\s*>", re.IGNORECASE)
+_ANGLES = str.maketrans({"<": "\u2039", "\uff1c": "\u2039", "\ufe64": "\u2039",
+                         ">": "\u203a", "\uff1e": "\u203a", "\ufe65": "\u203a"})
+# A line that opens like a turn of the conversation, after any markdown or quote marks, matched on its folded form.
+# Llama Guard is asked about the LAST User message, so a forged turn could hide a request in an earlier one.
+_TURN_LABEL = re.compile(
+    r"^[\s>*_#`~|-]*(?:user|agent|assistant|human|system|ai|bot|chatbot|model)[\s*_`~]*:", re.IGNORECASE)
+_LABEL_SCAN = 80  # characters of a line read for a label
+# A lone surrogate cannot be encoded, so it would make the prompt unsendable.
+_SURROGATE = re.compile("[\ud800-\udfff]")
+
+
+def _strip_labels(line: str) -> str:
+    """The line without the conversation-turn labels it opens with (one or several), the line break kept."""
+    while _TURN_LABEL.match(fold(line[:_LABEL_SCAN])):
+        for end in range(1, min(len(line), _LABEL_SCAN) + 1):
+            if _TURN_LABEL.match(fold(line[:end])):
+                line = line[end:].lstrip(" \t\u00a0")
+                break
+        else:
+            break
+    return line
 
 
 def plain_text(text: str) -> str:
-    """User text that cannot act as part of the prompt: Llama 3's control tokens (`<|...|>`) and the template's
-    BEGIN/END delimiter lines (however they are spaced) get a space after their `<`, so the tokenizer and the
-    classifier read them as text. Text without them is returned unchanged."""
-    return _CONTROL.sub("< ", text)
+    """User text that cannot act as part of the prompt, whatever it holds:
 
+    - a lone surrogate becomes U+FFFD, so the text can always be sent;
+    - a conversation-turn label at a line start ("User:", "Agent:", look-alikes and markdown included) is dropped,
+      so the text stays one User message and is judged whole;
+    - a line holding a BEGIN/END delimiter of the prompt gets its angle brackets as \u2039 \u203a;
+    - Llama 3's control tokens (`<|...|>`) get a space after their `<`.
 
-def _parts(text: str) -> list[str]:
-    """`text` cut where a line opens like a conversation turn ("User:", "Agent:", ...), the labels dropped: each
-    part is judged alone, as the only User turn of its own prompt. Text with no such line is one part, unchanged."""
-    if not _TURN.search(text):
-        return [text]
-    return [part for part in (piece.strip() for piece in _TURN.split(text)) if part] or [text]
+    Text without any of these is returned unchanged, so recorded renderings keep their hashes. Idempotent."""
+    text = _SURROGATE.sub("\ufffd", text)
+    lines = []
+    for line in text.splitlines(keepends=True):
+        line = _strip_labels(line)
+        if _DELIMITER.search(fold(line)):
+            line = line.translate(_ANGLES)
+        lines.append(line)
+    return _CONTROL_TOKEN.sub("< ", "".join(lines))
 
 
 def render_prompt(user: str, agent: str | None, categories: Sequence[str], role: str = "Agent") -> str:
@@ -125,24 +152,35 @@ class ClassifierUnavailable(RuntimeError):
     """The classifier could not be asked: offline mode, no server, no model or no usable reply."""
 
 
+def _opener(base_url: str) -> urllib.request.OpenerDirector:
+    """No proxy for a server on this machine: a proxy cannot reach it, and the stage would fail open on every prompt
+    (urllib sends loopback requests to HTTP_PROXY unless NO_PROXY names them)."""
+    host = (urllib.parse.urlsplit(base_url).hostname or "").lower()
+    if host in ("localhost", "::1") or host.startswith("127."):
+        return urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    return urllib.request.build_opener()
+
+
 def _http(base_url: str, timeout: float) -> Callable[[str, dict], dict]:
+    opener = _opener(base_url)
+
     def call(path: str, payload: dict) -> dict:
         req = urllib.request.Request(f"{base_url}{path}", json.dumps(payload).encode("utf-8"),
                                      {"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with opener.open(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     return call
 
 
 def _windows(text: str, size: int) -> list[str]:
-    """`text` in pieces of at most `size` UTF-8 bytes, each starting an eighth of a window before the last one
-    ended, so nothing is read only across a cut. A character a cut splits is dropped from that piece and whole in
-    its neighbour."""
+    """`text` in pieces of at most `size` UTF-8 bytes, each starting half a window after the last one started, so
+    any span up to half a window is read whole by some piece. A character a cut splits is dropped from that piece
+    and whole in its neighbour."""
     data = text.encode("utf-8")
     if len(data) <= size:
         return [text]
-    step, pieces, start = size - size // 8, [], 0
+    step, pieces, start = size // 2, [], 0
     while True:
         pieces.append(data[start:start + size].decode("utf-8", "ignore"))
         if start + size >= len(data):
@@ -154,9 +192,9 @@ class LlamaGuard:
     """Llama Guard 3 on a user prompt, through a local Ollama server (`ollama pull llama-guard3:8b`).
 
     One User turn, the User message assessed, raw mode, temperature 0. `categories` replaces Meta's 14 (each a
-    line such as "S7: Privacy."). Synchronous: about two seconds a call on a small GPU. A prompt too long for one
-    call is read in overlapping windows, and one whose lines open like conversation turns is read turn by turn; it
-    is unsafe if any piece is, and nothing is truncated. One that would take
+    line such as "S7: Privacy."). Synchronous: about two seconds a call on a small GPU. The text is made plain
+    first (`plain_text`: turn labels dropped, so a message is judged whole). A prompt too long for one call is read
+    in windows that overlap by half; it is unsafe if any window is, and nothing is truncated. One that would take
     more than `MAX_WINDOWS` calls is not an outage: it comes back unsafe under the category `TOO_LONG`, so padding
     is no way past the stage (list `TOO_LONG` in `content_safety_flag_only` to let such prompts through). Raises
     `ClassifierUnavailable` when it cannot ask; the guard turns that into `GuardConfig.on_classifier_error`."""
@@ -183,8 +221,8 @@ class LlamaGuard:
         return user_prompt(piece, self.categories)
 
     def _pieces(self, text: str) -> list[str]:
-        """What each call carries: the text made plain, cut at forged turns, each part in windows that fit."""
-        return [window for part in _parts(plain_text(text)) for window in _windows(part, self.window)]
+        """What each call carries: the text made plain, in windows that fit the classifier's context."""
+        return _windows(plain_text(text), self.window)
 
     def _ask(self, piece: str) -> str:
         payload = {"model": self.model, "stream": False, "raw": True, "options": dict(OPTIONS),

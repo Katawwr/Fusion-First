@@ -11,11 +11,17 @@ Conservative by design: it errs toward flagging; GuardConfig decides block vs re
 
 from __future__ import annotations
 
+import inspect
 import re
 from collections.abc import Callable
 
 from fusion_first.guardrail.policy import Decision, GuardConfig, GuardEvent, GuardOutcome
-from fusion_first.guardrail.stages import ContentClassifier, SafetyVerdict
+from fusion_first.guardrail.stages import (
+    TOO_LONG,
+    ClassifierUnavailable,
+    ContentClassifier,
+    SafetyVerdict,
+)
 from fusion_first.security.normalize import normalized_views
 from fusion_first.security.redaction import contains_secret_strict, redact
 
@@ -549,7 +555,10 @@ _OWASP = {
 # The optional classifier stage (guard_prompt). Not an OWASP-mapped check: its events carry no code.
 CONTENT_SAFETY = "content_safety"
 BLOCKED_PROMPT = "[blocked: the request was classified as unsafe content]"
-NO_VERDICT = "content classifier gave no verdict"  # how the event of a failed classification starts
+BLOCKED_TOO_LONG = "[blocked: the request is too long to classify]"
+BLOCKED_NO_VERDICT = "[blocked: the content classifier gave no verdict]"
+BLOCKED_FAULT = "[blocked: the content classifier failed on this request]"
+NO_VERDICT = "content classifier gave no verdict"  # how the event of an outage or a reply without a verdict starts
 
 # Common words excluded when measuring system-prompt reproduction overlap.
 _PROMPT_STOP = {
@@ -649,6 +658,19 @@ def _asks_to_send_out(text: str, allow: list[str], user_request: str, identities
     return list(dict.fromkeys(r for r in found if r.lower() not in own and r.lower() not in mine))
 
 
+def _checked_classifier(classifier):
+    """The content classifier, refused at construction when the guard could never get a verdict from it."""
+    if classifier is None:
+        return None
+    if isinstance(classifier, type):
+        raise TypeError(f"content_safety takes an instance, such as {classifier.__name__}(), not the class")
+    if not callable(classifier):
+        raise TypeError(f"content_safety must be callable (prompt -> SafetyVerdict), got {type(classifier).__name__}")
+    if inspect.iscoroutinefunction(classifier) or inspect.iscoroutinefunction(type(classifier).__call__):
+        raise TypeError("content_safety must be synchronous: the guard calls it and reads the verdict it returns")
+    return classifier
+
+
 def _provably_internal(text: str, allow: list[str]) -> bool:
     """At least one hard recipient and all internal. Fails closed: an unidentifiable destination is not."""
     ext, intl = _hard_recipients(text, allow)
@@ -663,27 +685,37 @@ class Guardrail:
         (`fusion_first.guardrail.stages.LlamaGuard`, or any callable); without it that stage does nothing."""
         self.config = config or GuardConfig()
         self.detector = detector
-        self.content_safety = content_safety
+        self.content_safety = _checked_classifier(content_safety)
 
     def guard_prompt(self, prompt: str) -> GuardOutcome:
         """The content-safety stage on the user's own prompt. Off without a classifier: allows, records nothing.
 
         With one, a prompt it calls unsafe gets `on_unsafe_prompt` (block by default) unless every category it
-        names is in `content_safety_flag_only`, and a classifier that fails or gives no verdict gets
-        `on_classifier_error` (allow by default, with an event). Content safety is not one of the OWASP-mapped
-        checks, so the event's `owasp` is empty."""
+        names is in `content_safety_flag_only`. An outage (the classifier raises `ClassifierUnavailable`) or a reply
+        without a verdict gets `on_classifier_error` (allow by default, with an event). Any other failure happened on
+        this prompt, which may have been built to cause it: it is treated as unsafe. Content safety is not one of the
+        OWASP-mapped checks, so the event's `owasp` is empty. Never raises into the agent loop."""
         out = GuardOutcome(decision=Decision.ALLOW, content=prompt)
         if self.content_safety is None:
             return out
+        outage = fault = ""
         try:
             verdict = self.content_safety(prompt)
-        except Exception as exc:  # never raises into the agent loop
-            problem = f"it failed ({type(exc).__name__})"
+        except ClassifierUnavailable as exc:
+            outage = f"it could not be asked ({type(exc).__name__})"
+        except Exception as exc:
+            fault = f"it raised {type(exc).__name__}"
         else:
-            problem = (verdict.error if isinstance(verdict, SafetyVerdict)
-                       else f"it returned {type(verdict).__name__}, not a SafetyVerdict")
-        if problem:
-            decision, detail = self.config.on_classifier_error, f"{NO_VERDICT}: {problem}"
+            if not isinstance(verdict, SafetyVerdict):
+                fault = f"it returned {type(verdict).__name__}, not a SafetyVerdict"
+            elif verdict.error and not verdict.unsafe:
+                outage = verdict.error
+        reply = BLOCKED_PROMPT
+        if outage:
+            decision, detail, reply = self.config.on_classifier_error, f"{NO_VERDICT}: {outage}", BLOCKED_NO_VERDICT
+        elif fault:
+            decision, detail = self.config.on_unsafe_prompt, f"content classifier failed on this prompt: {fault}"
+            reply = BLOCKED_FAULT
         elif not verdict.unsafe:
             return out
         else:
@@ -697,9 +729,11 @@ class Guardrail:
                 decision, detail = Decision.ALLOW, f"content classifier: unsafe ({named}); flag-only, not blocked"
             else:
                 decision, detail = self.config.on_unsafe_prompt, f"content classifier: unsafe ({named})"
+            if TOO_LONG in categories:
+                reply = BLOCKED_TOO_LONG
         out.add(GuardEvent(stage="input", check=CONTENT_SAFETY, owasp="", decision=decision, detail=detail))
         if out.blocked:
-            out.content = BLOCKED_PROMPT
+            out.content = reply
         return out
 
     def _detector_event(self, content: str) -> GuardEvent | None:

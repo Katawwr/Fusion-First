@@ -164,16 +164,18 @@ plain question to the same model; that was tested and not shown (Trust Report, Q
 A fourth, optional stage is off unless a classifier is passed (`Guardrail(config, content_safety=...)`):
 `guard_prompt` asks it whether the user's prompt is harmful content. `guardrail/stages.py` ships `LlamaGuard`
 (Llama Guard 3 through local Ollama, Meta's prompt format); any `Callable[[str], SafetyVerdict]` works. An
-unsafe verdict blocks (`on_unsafe_prompt`), categories in `content_safety_flag_only` are recorded only, and a
-classifier that fails or gives no verdict fails open with an event (`on_classifier_error`). Its events carry no
-OWASP code: content safety is not one of the four mapped checks. Control-token strings and the template's own
-delimiters in the user's text are made plain before it is sent, text whose lines open like conversation turns is
-judged turn by turn, and a prompt too long for one call is read in overlapping windows, never truncated. Each prompt is judged on its own, so a request split across messages can
-pass. Its registered result is in the [Trust Report](../TRUST_REPORT.md).
+unsafe verdict blocks (`on_unsafe_prompt`), categories in `content_safety_flag_only` are recorded only, a
+classifier outage (`ClassifierUnavailable`) or a reply without a verdict fails open with an event
+(`on_classifier_error`), and any other failure on a prompt is treated as unsafe. Its events carry no
+OWASP code: content safety is not one of the four mapped checks. Control tokens and the template's own delimiters in the
+user's text are made plain and conversation-turn labels at line starts are dropped (look-alike characters folded),
+so a message is judged whole; a prompt too long for one call is read in windows that overlap by half, never
+truncated. Each prompt is judged on its own, so a request split across messages can pass, and encoded text reaches
+the classifier undecoded. Its registered result is in the [Trust Report](../TRUST_REPORT.md).
 
 `GuardedModelClient` applies `guard_output` to replies and, when the guard has a classifier, `guard_prompt` to
-every user message in the request first, each classified once (a request with a blocked message never reaches the
-model); tool calls must be checked separately with `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
+every user message in the request first (its text parts at any depth; tool results skipped; a part it cannot read
+gets `on_classifier_error`), each classified once (a request with a blocked message never reaches the model); tool calls must be checked separately with `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
 (`engine/guard_replay.py`) and reports, in-sample, what it would have stopped and which attacks were
 answered in prose with no tool call to check.
 

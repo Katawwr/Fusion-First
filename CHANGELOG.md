@@ -12,12 +12,17 @@ and versions follow [Semantic Versioning](https://semver.org/).
   harmful content: `fusion_first/guardrail/stages.py` ships `LlamaGuard` (Llama Guard 3 through local Ollama, no
   key, no spend) and accepts any `Callable[[str], SafetyVerdict]`. `GuardConfig` gains `on_unsafe_prompt` (block),
   `content_safety_flag_only` (categories that are recorded and never block) and `on_classifier_error` (allow, with
-  an event). `GuardedModelClient` checks every user message in the request first when a classifier is set, each
-  once, and a request with a blocked message never reaches the model. Control-token strings in the user's text are
-  made plain before Llama Guard reads it, text that forges conversation turns is judged turn by turn, and a prompt
-  too long for one call is read in overlapping windows, never truncated (one beyond the call limit is refused, not
-  waved through). Without a classifier nothing changes: the published guard results are for that configuration. User
-  prompts only; model replies are not classified, and a request split across messages can pass.
+  an event). An outage (`ClassifierUnavailable`) or a reply without a verdict follows `on_classifier_error`; any
+  other classifier failure on a prompt is treated as unsafe. `GuardedModelClient` checks every user message in the
+  request first when a classifier is set (text parts at any depth; tool results skipped; a part it cannot read, such
+  as an image, gets `on_classifier_error`), each once, and a request with a blocked message never reaches the model.
+  Before Llama Guard reads a prompt, control tokens and the template's delimiters are made plain and
+  conversation-turn labels at line starts are dropped (look-alike characters folded), so a message is judged whole;
+  a prompt too long for one call is read in windows that overlap by half, never truncated, and one beyond the call
+  limit is refused. The call to a local Ollama server never goes through a proxy. Without a classifier nothing
+  changes: the published guard results are for that configuration. User prompts only: model replies are not
+  classified, a request split across messages can pass, and encoded text (base64, hex, ROT13) reaches the classifier
+  undecoded.
   - Registered result (`PREREG_content_stage.md`, `scripts/content_stage.py`; 1,000 fresh OR-Bench prompts, scored
     once): with the stage the guard flagged 334 of 400 unsafe prompts, against 0 without it, and wrongly flagged 101
     of 600 safe prompts written to look unsafe. One tuning round on the content-safety study's 650 prompts picked a
