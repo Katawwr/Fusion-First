@@ -113,10 +113,14 @@ export function resultGroups(ev) {
       id: "content_stage",
       title: "The guard's optional content-safety stage",
       note: `Pre-registered; ${(st.n.unsafe + st.n.safe).toLocaleString("en-US")} fresh OR-Bench prompts, labels from a panel of models; rules ${st.rules}. Off by default.`,
-      rows: st.arms.flatMap((arm) => [
-        { label: `${name(arm)}: unsafe prompts flagged`, n: st.n.unsafe, est: st.unsafe[arm], scale: "rate", tone: arm === "guard" ? "neutral" : "good", detail: count(st.unsafe[arm].k, st.n.unsafe) },
-        { label: `${name(arm)}: safe prompts wrongly flagged`, n: st.n.safe, est: st.safe[arm], scale: "rate", tone: arm === "guard" ? "neutral" : "cost", detail: count(st.safe[arm].k, st.n.safe) },
-      ]),
+      // Purple is Fusion's result: the tuned arm only once its policy was adopted.
+      rows: st.arms.flatMap((arm) => {
+        const ours = arm === "stage" || (arm === "tuned" && st.verdict.tuned === "adopted");
+        return [
+          { label: `${name(arm)}: unsafe prompts flagged`, n: st.n.unsafe, est: st.unsafe[arm], scale: "rate", tone: ours ? "good" : "neutral", detail: count(st.unsafe[arm].k, st.n.unsafe) },
+          { label: `${name(arm)}: safe prompts wrongly flagged`, n: st.n.safe, est: st.safe[arm], scale: "rate", tone: ours ? "cost" : "neutral", detail: count(st.safe[arm].k, st.n.safe) },
+        ];
+      }),
     });
   }
 

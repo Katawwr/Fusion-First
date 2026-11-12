@@ -254,10 +254,12 @@ export function ContentStageSection({ s }) {
         </p>
       )}
       <p className="mt-1 text-xs text-app-subtle">
-        Replies without a verdict, each flagging nothing:{" "}
-        {lgArms.map((a) => `${inline(a)} ${s.unparseable[a]}`).join("; ")}. Median time per prompt:{" "}
-        {lgArms.map((a) => `${inline(a)} ${secs(s.median_seconds?.[a])}`).join("; ")}. Limits: user
-        prompts only, each judged on its own; the stage cannot beat Llama Guard 3's own judgment.
+        Replies without a verdict with Meta's categories, each flagging nothing: {s.unparseable.stage}. Median time
+        per prompt: {lgArms.map((a) => `${inline(a)} ${secs(s.median_seconds?.[a])}`).join("; ")}. The guard's own
+        rules fired on {s.guard_fired ? `${s.guard_fired} of the prompts` : "none of the prompts"}. Limits: labels from
+        a panel of models; safe prompts written to look unsafe; a public benchmark that may be in Llama Guard 3's
+        training data; user prompts only, each judged on its own, every prompt short enough for one classifier call;
+        the stage cannot beat Llama Guard 3's own judgment.
       </p>
     </Section>
   );

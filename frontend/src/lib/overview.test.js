@@ -175,6 +175,10 @@ describe("the baseline studies", () => {
     expect(g.rows.map((r) => r.detail)).toEqual(["0 of 400", "2 of 600", "380 of 400", "60 of 600", "370 of 400", "20 of 600"]);
     expect(g.rows[2].est).toBe(stage.unsafe.stage);
     expect(resultGroups({ content_stage: untuned })[0].rows).toHaveLength(4);
+    // purple is Fusion's result: the tuned arm only once its policy was adopted
+    expect(g.rows.map((r) => r.tone)).toEqual(["neutral", "neutral", "good", "cost", "good", "cost"]);
+    const [n] = resultGroups({ content_stage: { ...stage, verdict: { stage: "works", tuned: "not_adopted" } } });
+    expect(n.rows.map((r) => r.tone)).toEqual(["neutral", "neutral", "good", "cost", "neutral", "neutral"]);
   });
 
   it("words the stage's verdicts as the registered rules gave them, with no numbers", () => {

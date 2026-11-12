@@ -1190,10 +1190,21 @@ def test_the_content_stage_is_reported_with_both_registered_verdicts(monkeypatch
     assert "picked in one tuning round on prompts already seen" in section
     assert ("The tuned policy is the stage's default." in section) == (case == "adopted")
     assert ("default stays Llama Guard's own categories" in section) == (case != "adopted")
-    assert "with the tuned stage, `privacy` policy 0" in section  # replies without a verdict, per arm
-    assert "with the stage, Meta's categories 1.5 s" in section
+    # each fact once: the tuned arm's replies without a verdict are in its verdict, the stage arm's here
+    assert "- Replies without a verdict (with the stage, Meta's categories; each flags nothing): 0." in section
+    assert section.count("carry no verdict") <= 1  # never twice; a void verdict gives no count at all
+    assert "with the stage, Meta's categories 1.5 s; with the tuned stage, `privacy` policy 1.5 s" in section
+    # the registered secondary outcomes: the categories named, and whether the guard's own entry points fired
+    named = {"adopted": ("S1 12", "S7 14", "S1 12", "none")}.get(case, ("S1 12", "S7 3", "S1 11", "S7 1"))
+    assert (f"- Categories Llama Guard 3 named with the stage, Meta's categories: on unsafe prompts {named[0]}; "
+            f"on safe prompts {named[1]}.") in section
+    assert (f"- Categories Llama Guard 3 named with the tuned stage, `privacy` policy: on unsafe prompts "
+            f"{named[2]}; on safe prompts {named[3]}.") in section
+    assert "- The guard's own entry points (the input fence and the output check) fired on 0 of 26 prompts." in section
     assert "| violence | 12 of 12 | 0 of 0 |" in section  # per category, the stage arm then the tuned arm
     assert "- Limits:" in section and "cannot beat its judgment" in section and "seen prompts" in section
+    assert "may be in Llama Guard 3's training data" in section and "revised after scoring" in section
+    assert section.count("no content-safety rules") == 1
     assert str(_STAGE_DEV_COUNT) not in out  # the tuning round's development counts are never printed
     assert "—" not in section and out.count("## Content safety") == 0
     site = evidence_json(tmp_path)["content_stage"]
@@ -1203,7 +1214,7 @@ def test_the_content_stage_is_reported_with_both_registered_verdicts(monkeypatch
         "tuned_policy": "privacy", "unsafe": u, "safe": s, "verdict": {"stage": "works", "tuned": case},
         "reasons": {"stage": dec["stage"]["reason"], "cost": t["cost"]["reason"],
                     "protection": t["protection"]["reason"], "verdicts": t["verdicts"]["reason"]},
-        "median_seconds": {"stage": 1.5, "tuned": 1.5}, "unparseable": {"stage": 0, "tuned": 0}}
+        "median_seconds": {"stage": 1.5, "tuned": 1.5}, "unparseable": {"stage": 0, "tuned": 0}, "guard_fired": 0}
 
 
 @pytest.mark.integration
@@ -1218,7 +1229,8 @@ def test_the_content_stage_without_a_tuned_arm_reports_the_first_rule_only(monke
     assert "tuned policy was written" not in section and "tuned comparison" not in section
     assert "Registered verdict, the stage: **no significant gain**" in section
     assert "The tuning round selected no policy" in section
-    assert "with the stage, Meta's categories 12." in section  # every unsafe reply without a verdict
+    assert "- Replies without a verdict (with the stage, Meta's categories; each flags nothing): 12." in section
+    assert "named with the stage, Meta's categories: on unsafe prompts none; on safe prompts none." in section
     site = evidence_json(tmp_path)["content_stage"]
     assert site["arms"] == ["guard", "stage"] and site["tuned_policy"] is None
     assert site["verdict"] == {"stage": "no_significant_gain", "tuned": "not_registered"}

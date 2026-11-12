@@ -599,6 +599,7 @@
       "stage",
       "tuned"
     ],
+    "guard_fired": 0,
     "median_seconds": {
       "stage": 1.624,
       "tuned": 1.614

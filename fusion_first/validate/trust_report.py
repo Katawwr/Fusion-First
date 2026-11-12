@@ -1118,12 +1118,19 @@ def _content_stage(root: pathlib.Path) -> list[str]:
         out.append("- The tuning round selected no policy, so only the first rule applies and the stage keeps Llama "
                    "Guard's own categories.")
     lg_arms = [a for a in arms if a in lg["unparseable"]]
-    out.append("- Replies without a verdict (each flags nothing): "
-               + "; ".join(f"{_stage_label(d, a, inline=True)} {lg['unparseable'][a]}" for a in lg_arms) + ".")
+    rows = d.get("rows") or []
+    # the tuned arm's replies without a verdict are in its verdict above: each fact once
+    out.append(f"- Replies without a verdict ({_stage_label(d, 'stage', inline=True)}; each flags nothing): "
+               f"{lg['unparseable']['stage']}.")
     secs = lg.get("median_seconds") or {}
     out.append("- Median seconds per prompt for the Llama Guard call: "
                + "; ".join(f"{_stage_label(d, a, inline=True)} "
                            + ("–" if secs.get(a) is None else f"{secs[a]:.1f} s") for a in lg_arms) + ".")
+    for a in lg_arms:
+        out.append(f"- Categories Llama Guard 3 named {_stage_label(d, a, inline=True)}: on unsafe prompts "
+                   f"{_stage_named(rows, a, 'unsafe')}; on safe prompts {_stage_named(rows, a, 'safe')}.")
+    out.append("- The guard's own entry points (the input fence and the output check) fired on "
+               f"{_stage_guard_fired(rows)} of {len(rows):,} prompts.")
     if d.get("by_category"):
         short = {"stage": "stage", "tuned": "tuned stage"}
         head = ["Category"] + [f"{col} ({short[a]})" for a in lg_arms
@@ -1137,15 +1144,38 @@ def _content_stage(root: pathlib.Path) -> list[str]:
     tuned = "tuned" in d["arms"]
     out.append("- Limits: OR-Bench's labels come from a panel of models, so some safe prompts are arguable, and its safe "
                "prompts were kept because models tend to refuse them: a wrong-flag rate on them is not a rate on "
-               "ordinary traffic. The first rule is close to a foregone conclusion, since the guard alone has no "
-               "content-safety rules; what informs is the stage's wrong flags"
-               + (" and the tuned comparison" if tuned else "") + ". "
+               "ordinary traffic. OR-Bench is public and may be in Llama Guard 3's training data, which would favour "
+               "it and cannot be checked. The first rule is close to a foregone conclusion; what informs is the "
+               "stage's wrong flags" + (" and the tuned comparison" if tuned else "") + ". "
                "Wrapping Llama Guard 3 cannot beat its judgment: the stage decides how it is asked and what its answer "
                "does. User prompts only, in English, each judged on its own: model replies are not classified, and a "
-               "request split across messages can pass."
+               "request split across messages can pass. Every sampled prompt fit one classifier call and held no turn "
+               "label, delimiter or control token, so the stage's handling of those, revised after scoring, was not "
+               "measured live; replaying the recorded replies through the revised guard gives the same flags."
                + (" The tuned policy was written from Llama Guard 3's errors on seen prompts from two other "
                   "benchmarks; the fresh prompts test whether it transfers." if tuned else ""))
     return out + [""]
+
+
+def _stage_named(rows: list[dict], arm: str, label: str) -> str:
+    """The categories Llama Guard 3 named under `arm` on the `label` prompts, most named first: "S2 30, S1 12"."""
+    counts: dict[str, int] = {}
+    for r in rows:
+        said = (r.get("llama_guard") or {}).get(arm) or {}
+        if r.get("label") == label and said.get("label") == "unsafe":
+            for c in said.get("categories") or []:
+                counts[c] = counts.get(c, 0) + 1
+
+    def order(item: tuple[str, int]) -> tuple:
+        code, n = item
+        return (-n, int(code[1:]) if code[:1] == "S" and code[1:].isdigit() else 99, code)
+
+    return ", ".join(f"{c} {n}" for c, n in sorted(counts.items(), key=order)) or "none"
+
+
+def _stage_guard_fired(rows: list[dict]) -> int:
+    """Prompts on which the guard's own entry points did anything but allow (a registered secondary outcome)."""
+    return sum(1 for r in rows if r.get("fusion_input", "allow") != "allow" or r.get("fusion_output", "allow") != "allow")
 
 
 def _content_stage_site(root: pathlib.Path) -> dict | None:
@@ -1159,7 +1189,8 @@ def _content_stage_site(root: pathlib.Path) -> dict | None:
             "verdict": {"stage": dec["stage"]["verdict"], "tuned": dec["tuned"]["verdict"]},
             "reasons": {"stage": dec["stage"]["reason"], **{k: dec["tuned"][k]["reason"]
                                                              for k in ("cost", "protection", "verdicts")}},
-            "median_seconds": d["llama_guard"]["median_seconds"], "unparseable": d["llama_guard"]["unparseable"]}
+            "median_seconds": d["llama_guard"]["median_seconds"], "unparseable": d["llama_guard"]["unparseable"],
+            "guard_fired": _stage_guard_fired(d.get("rows") or [])}
 
 
 # ------------------------------------------------- guard vs injection detectors (PREREG_guard_vs_detectors.md)

@@ -358,8 +358,11 @@ Sample: OR-Bench, 400 unsafe prompts and 600 safe prompts written to look unsafe
 
 - Registered verdict, the stage: **works** (unsafe prompts: 334 flagged with the stage only, 0 by the guard alone only, p=5.715e-101).
 - Registered verdict, the tuned policy: **not adopted**. The `five` policy rewords some of Meta's category lines; it was picked in one tuning round on prompts already seen. Cost: safe prompts: 16 flagged under the default policy only, 20 under the tuned policy only, p=0.6177 (not significantly fewer wrong flags). Protection: unsafe prompts flagged, tuned minus default: lower bound -0.0575 is beyond the margin -0.05. Replies without a verdict: 0 of the tuned policy's 1000 replies carry no verdict (within the limit of 1%). On the unsafe prompts, 20 were flagged under the default policy only and 7 under the tuned policy only. The stage's default stays Llama Guard's own categories.
-- Replies without a verdict (each flags nothing): with the stage, Meta's categories 0; with the tuned stage, `five` policy 0.
+- Replies without a verdict (with the stage, Meta's categories; each flags nothing): 0.
 - Median seconds per prompt for the Llama Guard call: with the stage, Meta's categories 1.6 s; with the tuned stage, `five` policy 1.6 s.
+- Categories Llama Guard 3 named with the stage, Meta's categories: on unsafe prompts S2 177, S11 52, S12 33, S10 32, S1 15, S7 6, S8 6, S9 4, S3 2, S4 2, S5 2, S13 2, S14 1; on safe prompts S2 80, S7 6, S11 4, S9 3, S6 2, S8 2, S10 2, S1 1, S4 1.
+- Categories Llama Guard 3 named with the tuned stage, `five` policy: on unsafe prompts S2 140, S11 53, S10 43, S12 29, S5 17, S7 12, S1 10, S8 7, S9 4, S3 3, S4 2, S13 1; on safe prompts S2 80, S7 9, S6 3, S9 3, S8 2, S11 2, S1 1, S3 1, S4 1, S5 1, S10 1, S12 1.
+- The guard's own entry points (the input fence and the output check) fired on 0 of 1,000 prompts.
 
 By OR-Bench category (reported, no decision):
 
@@ -376,7 +379,7 @@ By OR-Bench category (reported, no decision):
 | unethical | 21 of 34 | 7 of 49 | 21 of 34 | 8 of 49 |
 | violence | 38 of 46 | 7 of 29 | 31 of 46 | 8 of 29 |
 
-- Limits: OR-Bench's labels come from a panel of models, so some safe prompts are arguable, and its safe prompts were kept because models tend to refuse them: a wrong-flag rate on them is not a rate on ordinary traffic. The first rule is close to a foregone conclusion, since the guard alone has no content-safety rules; what informs is the stage's wrong flags and the tuned comparison. Wrapping Llama Guard 3 cannot beat its judgment: the stage decides how it is asked and what its answer does. User prompts only, in English, each judged on its own: model replies are not classified, and a request split across messages can pass. The tuned policy was written from Llama Guard 3's errors on seen prompts from two other benchmarks; the fresh prompts test whether it transfers.
+- Limits: OR-Bench's labels come from a panel of models, so some safe prompts are arguable, and its safe prompts were kept because models tend to refuse them: a wrong-flag rate on them is not a rate on ordinary traffic. OR-Bench is public and may be in Llama Guard 3's training data, which would favour it and cannot be checked. The first rule is close to a foregone conclusion; what informs is the stage's wrong flags and the tuned comparison. Wrapping Llama Guard 3 cannot beat its judgment: the stage decides how it is asked and what its answer does. User prompts only, in English, each judged on its own: model replies are not classified, and a request split across messages can pass. Every sampled prompt fit one classifier call and held no turn label, delimiter or control token, so the stage's handling of those, revised after scoring, was not measured live; replaying the recorded replies through the revised guard gives the same flags. The tuned policy was written from Llama Guard 3's errors on seen prompts from two other benchmarks; the fresh prompts test whether it transfers.
 
 ## Runtime guard for Claude Code (fusion-guard hook)
 

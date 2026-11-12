@@ -287,6 +287,7 @@ describe("Trust page", () => {
       reasons,
       median_seconds: { stage: 6.42, tuned: null },
       unparseable: { stage: 0, tuned: 2 },
+      guard_fired: 0,
     });
     const untuned = {
       ...tunedBlock("not_registered"),
@@ -298,6 +299,7 @@ describe("Trust page", () => {
       reasons: { stage: "unsafe prompts: 1 flagged with the stage only, 0 by the guard alone only, p=1", cost: "no tuned arm was registered", protection: "no tuned arm was registered", verdicts: "no tuned arm was registered" },
       median_seconds: { stage: 6.42 },
       unparseable: { stage: 0 },
+      guard_fired: 3,
     };
 
     it.each([
@@ -322,9 +324,13 @@ describe("Trust page", () => {
       expect(t).toHaveTextContent(`Verdict, the tuned policy: ${words}.`);
       expect(t).toHaveTextContent("picked in one tuning round on prompts already seen");
       for (const r of [reasons.cost, reasons.protection, reasons.verdicts]) expect(t.textContent).toContain(r);
-      const secondary = screen.getByText(/^Replies without a verdict, each flagging nothing/);
-      expect(secondary).toHaveTextContent("with the stage, Meta's categories 0; with the tuned stage, privacy policy 2.");
+      const secondary = screen.getByText(/^Replies without a verdict with Meta's categories/);
+      expect(secondary).toHaveTextContent("Replies without a verdict with Meta's categories, each flagging nothing: 0.");
+      expect(secondary.textContent).not.toContain("privacy policy 2"); // the tuned arm's count is in its verdict
       expect(secondary).toHaveTextContent("Median time per prompt: with the stage, Meta's categories 6.4 s; with the tuned stage, privacy policy –.");
+      expect(secondary).toHaveTextContent("The guard's own rules fired on none of the prompts.");
+      expect(secondary).toHaveTextContent("may be in Llama Guard 3's training data");
+      expect(secondary).toHaveTextContent("every prompt short enough for one classifier call");
       expect(screen.queryByText(/tuning round selected no policy/)).toBeNull();
       expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
     });
@@ -336,6 +342,7 @@ describe("Trust page", () => {
       expect(screen.queryByText(/^Verdict, the tuned policy/)).toBeNull();
       expect(screen.getByText(/^Verdict, the stage:/)).toHaveTextContent("no significant gain over the guard alone on the unsafe prompts was shown");
       expect(screen.getByText(/tuning round selected no policy/)).toBeInTheDocument();
+      expect(screen.getByText(/^Replies without a verdict/)).toHaveTextContent("The guard's own rules fired on 3 of the prompts.");
     });
 
     it("mounts right after content safety once its evidence is committed, and not before", () => {

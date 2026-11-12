@@ -5,6 +5,10 @@ cassettes/**/*.json text eol=lf
 evals/**/*.json text eol=lf
 # The detector study's per-row scores and Llama Guard replies: detector_v1.json records their sha256.
 evals/validation/v1/detector/*.jsonl text eol=lf
+# The content-stage study's tuning and raw Llama Guard records (prompt hashes are checked line by line).
+evals/validation/v1/content_stage/**/*.jsonl text eol=lf
+# A fixture whose quoted field holds a line break: a CRLF checkout would change the parsed prompt.
+tests/fixtures/external/orbench/*.csv text eol=lf
 evals/**/*.yaml text eol=lf
 crosswalk/**/*.yaml text eol=lf
 # The committed example run: `fusion run verify` hashes these bytes exactly, so git never converts them.
