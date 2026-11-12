@@ -8,6 +8,7 @@ import dataclasses
 import enum
 import errno
 import hashlib
+import http.client
 import importlib.util
 import json
 import pathlib
@@ -576,6 +577,8 @@ _URL = "http://127.0.0.1:11434/api/generate"
 @pytest.mark.parametrize("failure", [
     urllib.error.URLError(ConnectionRefusedError(errno.ECONNREFUSED, "refused")),
     urllib.error.URLError(OSError(errno.EHOSTUNREACH, "no route to host")),
+    urllib.error.URLError(OSError(errno.ENETUNREACH, "network is unreachable")),
+    urllib.error.URLError(OSError(errno.EADDRNOTAVAIL, "cannot assign requested address")),
     urllib.error.URLError(socket.gaierror(socket.EAI_NONAME, "unknown host")),
     urllib.error.HTTPError(_URL, 404, "Not Found", None, None),
 ])
@@ -596,6 +599,12 @@ def test_a_server_that_cannot_be_reached_or_lacks_the_model_is_an_outage(monkeyp
     urllib.error.HTTPError(_URL, 400, "Bad Request", None, None), urllib.error.HTTPError(_URL, 503, "Busy", None, None),
     ConnectionResetError(errno.ECONNRESET, "reset after the request was sent"), KeyError("response"),
     ValueError("Expecting value: line 1 column 1 (char 0)"),
+    # urllib wraps a failure while the request is being sent in URLError: the server may have crashed on the prompt
+    urllib.error.URLError(ConnectionResetError(errno.ECONNRESET, "reset while sending")),
+    urllib.error.URLError(BrokenPipeError(errno.EPIPE, "broken pipe")),
+    urllib.error.URLError(ConnectionAbortedError(errno.ECONNABORTED, "aborted")),
+    urllib.error.URLError(OSError(errno.EIO, "input/output error")),
+    urllib.error.URLError(http.client.RemoteDisconnected("Remote end closed connection without response")),
 ])
 def test_a_call_that_fails_on_the_prompt_is_a_fault_not_an_outage(monkeypatch, failure):
     """Token-dense padding can make one call outlast the timeout. A timeout, an HTTP error other than 404, a dropped

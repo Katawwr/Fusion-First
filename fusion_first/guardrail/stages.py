@@ -14,9 +14,11 @@ classifier round (an instruction to answer "safe") is still text it reads: only 
 from __future__ import annotations
 
 import dataclasses
+import errno
 import functools
 import json
 import re
+import socket
 import unicodedata
 import urllib.error
 import urllib.parse
@@ -209,13 +211,25 @@ class ClassifierFault(RuntimeError):
     makes a call slow), so the guard treats it as unsafe (`on_unsafe_prompt`)."""
 
 
+# Errors raised before a request reaches the server: nothing in the prompt can cause them.
+_UNREACHABLE = frozenset(code for code in (getattr(errno, name, None) for name in (
+    "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL", "WSAEHOSTUNREACH", "WSAENETUNREACH", "WSAEADDRNOTAVAIL"))
+    if code is not None)
+
+
 def _outage(exc: BaseException) -> bool:
-    """A failure no prompt can cause: a refused or unreachable connection (a `URLError` whose reason is a connection
-    error, not a timeout) or HTTP 404 (the model is not pulled)."""
+    """A failure no prompt can cause, because the request never reached the server: a refused connection, a host
+    name that does not resolve, an unreachable host or network, or HTTP 404 (the model is not pulled). A reset,
+    broken pipe or abort while the request was being sent may have been caused by the prompt: not an outage."""
     if isinstance(exc, urllib.error.HTTPError):
         return exc.code == 404
-    return (isinstance(exc, urllib.error.URLError) and isinstance(exc.reason, OSError)
-            and not isinstance(exc.reason, TimeoutError))
+    if not isinstance(exc, urllib.error.URLError):
+        return False
+    reason = exc.reason
+    if isinstance(reason, ConnectionRefusedError | socket.gaierror):
+        return True
+    return (isinstance(reason, OSError) and not isinstance(reason, TimeoutError | ConnectionError)
+            and reason.errno in _UNREACHABLE)
 
 
 def _opener(base_url: str) -> urllib.request.OpenerDirector:
