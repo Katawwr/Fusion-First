@@ -25,7 +25,8 @@ LLAMA_GUARD_MODEL = "llama-guard3:8b"
 OLLAMA_URL = "http://127.0.0.1:11434"
 # Deterministic, and room for two lines only: the verdict and the categories.
 OPTIONS = {"temperature": 0, "num_ctx": 8192, "num_predict": 24}
-MAX_WINDOWS = 32  # calls one prompt may take; a longer prompt is not classified
+MAX_WINDOWS = 32  # calls one prompt may take
+TOO_LONG = "too long to classify"  # the category LlamaGuard gives a prompt that would take more calls: refused
 
 # Meta's 14 hazard categories, as Llama Guard 3's own template lists them.
 DEFAULT_CATEGORIES = (
@@ -108,8 +109,7 @@ def verdict_from_reply(reply: str | None) -> SafetyVerdict:
 
 
 class ClassifierUnavailable(RuntimeError):
-    """The classifier could not be asked: offline mode, no server, no model, no usable reply, or a prompt too
-    long to classify."""
+    """The classifier could not be asked: offline mode, no server, no model or no usable reply."""
 
 
 def _http(base_url: str, timeout: float) -> Callable[[str, dict], dict]:
@@ -142,7 +142,9 @@ class LlamaGuard:
 
     One User turn, the User message assessed, raw mode, temperature 0. `categories` replaces Meta's 14 (each a
     line such as "S7: Privacy."). Synchronous: about two seconds a call on a small GPU. A prompt too long for one
-    call is read in overlapping windows and is unsafe if any window is; nothing is truncated. Raises
+    call is read in overlapping windows and is unsafe if any window is; nothing is truncated. One that would take
+    more than `MAX_WINDOWS` calls is not an outage: it comes back unsafe under the category `TOO_LONG`, so padding
+    is no way past the stage (list `TOO_LONG` in `content_safety_flag_only` to let such prompts through). Raises
     `ClassifierUnavailable` when it cannot ask; the guard turns that into `GuardConfig.on_classifier_error`."""
 
     def __init__(self, model: str = LLAMA_GUARD_MODEL, categories: Sequence[str] | None = None,
@@ -177,12 +179,11 @@ class LlamaGuard:
                 f"running and the model pulled (`ollama pull {self.model}`)?") from exc
 
     def __call__(self, text: str) -> SafetyVerdict:
-        if offline():
-            raise ClassifierUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
         pieces = _windows(plain_text(text), self.window)
         if len(pieces) > MAX_WINDOWS:
-            raise ClassifierUnavailable(
-                f"the prompt is too long to classify: {len(pieces)} calls, and the limit is {MAX_WINDOWS}")
+            return SafetyVerdict(unsafe=True, categories=(TOO_LONG,))  # refused whether or not a server answers
+        if offline():
+            raise ClassifierUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
         undecided = verdict = None
         for piece in pieces:
             verdict = verdict_from_reply(self._ask(piece))
@@ -193,7 +194,7 @@ class LlamaGuard:
 
 
 __all__ = [
-    "DEFAULT_CATEGORIES", "LLAMA_GUARD_MODEL", "MAX_WINDOWS", "OLLAMA_URL", "OPTIONS", "ClassifierUnavailable",
-    "ContentClassifier", "LlamaGuard", "SafetyVerdict", "parse_verdict", "plain_text", "render_prompt",
-    "user_prompt", "verdict_from_reply",
+    "DEFAULT_CATEGORIES", "LLAMA_GUARD_MODEL", "MAX_WINDOWS", "OLLAMA_URL", "OPTIONS", "TOO_LONG",
+    "ClassifierUnavailable", "ContentClassifier", "LlamaGuard", "SafetyVerdict", "parse_verdict", "plain_text",
+    "render_prompt", "user_prompt", "verdict_from_reply",
 ]

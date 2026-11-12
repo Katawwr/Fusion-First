@@ -199,13 +199,21 @@ def test_windows_never_split_a_character(monkeypatch):
 
 
 @pytest.mark.unit
-def test_a_prompt_beyond_the_call_limit_is_not_classified(monkeypatch):
+def test_a_prompt_beyond_the_call_limit_is_refused_not_waved_through(monkeypatch):
+    """Padding must not be a way past the stage: a prompt it cannot read whole is not an outage, so it does not
+    get the fail-open treatment of one."""
     monkeypatch.delenv(OFFLINE_ENV)
     ollama = _Ollama("safe")
     stage = LlamaGuard(transport=ollama)
-    with pytest.raises(ClassifierUnavailable, match="too long"):
-        stage("x" * (stage.window * (stages.MAX_WINDOWS + 1)))
+    padded = "x" * (stage.window * (stages.MAX_WINDOWS + 1))
+    verdict = stage(padded)
+    assert verdict.unsafe and verdict.categories == (stages.TOO_LONG,) and not verdict.error
     assert ollama.calls == []
+
+    out = Guardrail(content_safety=stage).guard_prompt(padded)  # default policy: fail open on errors, yet blocked
+    assert out.blocked and stages.TOO_LONG in out.events[0].detail
+    lenient = Guardrail(GuardConfig(content_safety_flag_only=[stages.TOO_LONG]), content_safety=stage)
+    assert lenient.guard_prompt(padded).decision == Decision.ALLOW  # a deployment can choose to let them through
 
 
 @pytest.mark.unit
