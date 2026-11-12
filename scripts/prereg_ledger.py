@@ -31,6 +31,7 @@ GOVERNS = {
                                            f"{V1}/b3_rubric_vs_plain_judge/b3_answers.json"],
     f"{V1}/PREREG_compact_fix.md": [f"{V1}/compact_fix.json"],
     f"{V1}/PREREG_content_safety.md": [f"{V1}/content_safety.json", f"{V1}/content_safety/lg_raw.jsonl"],
+    f"{V1}/PREREG_content_stage.md": [],
     f"{V1}/PREREG_detector_v1.md": [f"{V1}/detector/detector_v1.json", f"{V1}/detector/scores.jsonl",
                                     f"{V1}/detector/lg3_raw.jsonl", f"{V1}/detector/lg3_subsample.json",
                                     f"{V1}/detector/dev_loso.json"],
