@@ -167,8 +167,8 @@ A fourth, optional stage is off unless a classifier is passed (`Guardrail(config
 unsafe verdict blocks (`on_unsafe_prompt`), categories in `content_safety_flag_only` are recorded only, and a
 classifier that fails or gives no verdict fails open with an event (`on_classifier_error`). Its events carry no
 OWASP code: content safety is not one of the four mapped checks. Control-token strings and the template's own
-delimiters in the user's text are made plain before it is sent, and a prompt too long for one call is read in
-overlapping windows, never truncated. Each prompt is judged on its own, so a request split across messages can
+delimiters in the user's text are made plain before it is sent, text whose lines open like conversation turns is
+judged turn by turn, and a prompt too long for one call is read in overlapping windows, never truncated. Each prompt is judged on its own, so a request split across messages can
 pass.
 
 `GuardedModelClient` applies `guard_output` to replies and, when the guard has a classifier, `guard_prompt` to

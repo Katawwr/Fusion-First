@@ -687,9 +687,13 @@ class Guardrail:
         elif not verdict.unsafe:
             return out
         else:
-            named = ", ".join(verdict.categories) or "no category named"
+            try:  # a custom classifier's categories may be anything: unreadable ones excuse nothing
+                categories = tuple(str(c) for c in verdict.categories)
+            except TypeError:
+                categories = ()
+            named = ", ".join(categories) or "no category named"
             flag_only = {c.strip().upper() for c in self.config.content_safety_flag_only}
-            if verdict.categories and all(c.strip().upper() in flag_only for c in verdict.categories):
+            if categories and all(c.strip().upper() in flag_only for c in categories):
                 decision, detail = Decision.ALLOW, f"content classifier: unsafe ({named}); flag-only, not blocked"
             else:
                 decision, detail = self.config.on_unsafe_prompt, f"content classifier: unsafe ({named})"

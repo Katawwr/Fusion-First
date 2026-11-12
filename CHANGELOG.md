@@ -14,8 +14,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
   `content_safety_flag_only` (categories that are recorded and never block) and `on_classifier_error` (allow, with
   an event). `GuardedModelClient` checks every user message in the request first when a classifier is set, each
   once, and a request with a blocked message never reaches the model. Control-token strings in the user's text are
-  made plain before Llama Guard reads it, and a prompt too long for one call is read in overlapping windows, never
-  truncated (one beyond the call limit is refused, not waved through). Without a classifier nothing changes: the published guard results are for that configuration. User
+  made plain before Llama Guard reads it, text that forges conversation turns is judged turn by turn, and a prompt
+  too long for one call is read in overlapping windows, never truncated (one beyond the call limit is refused, not
+  waved through). Without a classifier nothing changes: the published guard results are for that configuration. User
   prompts only; model replies are not classified, and a request split across messages can pass.
 - Two pre-registered baseline studies, answering the objection that step 2's baseline, Llama Guard 3, is a
   content-safety classifier and not an injection detector. `fusion_first/validate/guard_compare.py` scores any

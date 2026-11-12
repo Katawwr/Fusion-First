@@ -6,7 +6,8 @@ prompt and parser here are the ones every committed Llama Guard study used (`fus
 imports them), so a recorded reply and a live one answer the same bytes.
 
 Limits: each prompt is judged on its own, so a request split across messages can pass; the verdict is Llama
-Guard's, and this module only decides how it is asked.
+Guard's, and this module only decides how it is asked. Text written to talk the classifier round (an instruction
+to answer "safe") is still text it reads: only the prompt's structure is protected.
 """
 
 from __future__ import annotations
@@ -38,14 +39,26 @@ DEFAULT_CATEGORIES = (
 
 # Raw mode tokenizes control-token strings wherever they appear, and the classifier reads the prompt's own
 # delimiter lines as structure. Neither may come from the user.
-_CONTROL = re.compile(r"<(?=\|)|<(?=(?:BEGIN|END) (?:CONVERSATION|UNSAFE CONTENT CATEGORIES)>)", re.IGNORECASE)
+_CONTROL = re.compile(
+    r"<(?=\|)|<(?=(?:BEGIN|END)\s+(?:CONVERSATION|UNSAFE\s+CONTENT\s+CATEGORIES)\s*>)", re.IGNORECASE)
+# A line that opens like a turn of the conversation. Llama Guard is asked about the LAST User message, so text that
+# forges turns could hide a request in an earlier one.
+_TURN = re.compile(r"^[ \t]*(?:user|agent|assistant|human|system)[ \t]*:[ \t]*", re.IGNORECASE | re.MULTILINE)
 
 
 def plain_text(text: str) -> str:
     """User text that cannot act as part of the prompt: Llama 3's control tokens (`<|...|>`) and the template's
-    BEGIN/END delimiter lines get a space after their `<`, so the tokenizer and the classifier read them as text.
-    Text without them is returned unchanged."""
+    BEGIN/END delimiter lines (however they are spaced) get a space after their `<`, so the tokenizer and the
+    classifier read them as text. Text without them is returned unchanged."""
     return _CONTROL.sub("< ", text)
+
+
+def _parts(text: str) -> list[str]:
+    """`text` cut where a line opens like a conversation turn ("User:", "Agent:", ...), the labels dropped: each
+    part is judged alone, as the only User turn of its own prompt. Text with no such line is one part, unchanged."""
+    if not _TURN.search(text):
+        return [text]
+    return [part for part in (piece.strip() for piece in _TURN.split(text)) if part] or [text]
 
 
 def render_prompt(user: str, agent: str | None, categories: Sequence[str], role: str = "Agent") -> str:
@@ -142,7 +155,8 @@ class LlamaGuard:
 
     One User turn, the User message assessed, raw mode, temperature 0. `categories` replaces Meta's 14 (each a
     line such as "S7: Privacy."). Synchronous: about two seconds a call on a small GPU. A prompt too long for one
-    call is read in overlapping windows and is unsafe if any window is; nothing is truncated. One that would take
+    call is read in overlapping windows, and one whose lines open like conversation turns is read turn by turn; it
+    is unsafe if any piece is, and nothing is truncated. One that would take
     more than `MAX_WINDOWS` calls is not an outage: it comes back unsafe under the category `TOO_LONG`, so padding
     is no way past the stage (list `TOO_LONG` in `content_safety_flag_only` to let such prompts through). Raises
     `ClassifierUnavailable` when it cannot ask; the guard turns that into `GuardConfig.on_classifier_error`."""
@@ -163,10 +177,14 @@ class LlamaGuard:
 
     def prompt(self, text: str) -> str:
         """The exact prompt Llama Guard is sent for `text`, when one call carries it (`ValueError` otherwise)."""
-        piece, *more = _windows(plain_text(text), self.window)
+        piece, *more = self._pieces(text)
         if more:
             raise ValueError("this text takes more than one call, so it has no single prompt")
         return user_prompt(piece, self.categories)
+
+    def _pieces(self, text: str) -> list[str]:
+        """What each call carries: the text made plain, cut at forged turns, each part in windows that fit."""
+        return [window for part in _parts(plain_text(text)) for window in _windows(part, self.window)]
 
     def _ask(self, piece: str) -> str:
         payload = {"model": self.model, "stream": False, "raw": True, "options": dict(OPTIONS),
@@ -179,7 +197,7 @@ class LlamaGuard:
                 f"running and the model pulled (`ollama pull {self.model}`)?") from exc
 
     def __call__(self, text: str) -> SafetyVerdict:
-        pieces = _windows(plain_text(text), self.window)
+        pieces = self._pieces(text)
         if len(pieces) > MAX_WINDOWS:
             return SafetyVerdict(unsafe=True, categories=(TOO_LONG,))  # refused whether or not a server answers
         if offline():
