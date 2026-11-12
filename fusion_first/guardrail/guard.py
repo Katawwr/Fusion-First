@@ -549,6 +549,7 @@ _OWASP = {
 # The optional classifier stage (guard_prompt). Not an OWASP-mapped check: its events carry no code.
 CONTENT_SAFETY = "content_safety"
 BLOCKED_PROMPT = "[blocked: the request was classified as unsafe content]"
+NO_VERDICT = "content classifier gave no verdict"  # how the event of a failed classification starts
 
 # Common words excluded when measuring system-prompt reproduction overlap.
 _PROMPT_STOP = {
@@ -682,7 +683,7 @@ class Guardrail:
             problem = (verdict.error if isinstance(verdict, SafetyVerdict)
                        else f"it returned {type(verdict).__name__}, not a SafetyVerdict")
         if problem:
-            decision, detail = self.config.on_classifier_error, f"content classifier gave no verdict: {problem}"
+            decision, detail = self.config.on_classifier_error, f"{NO_VERDICT}: {problem}"
         elif not verdict.unsafe:
             return out
         else:

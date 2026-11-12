@@ -12,9 +12,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
   harmful content: `fusion_first/guardrail/stages.py` ships `LlamaGuard` (Llama Guard 3 through local Ollama, no
   key, no spend) and accepts any `Callable[[str], SafetyVerdict]`. `GuardConfig` gains `on_unsafe_prompt` (block),
   `content_safety_flag_only` (categories that are recorded and never block) and `on_classifier_error` (allow, with
-  an event). `GuardedModelClient` checks the last user message first when a classifier is set, and a blocked
-  prompt never reaches the model. Without a classifier nothing changes: the published guard results are for that
-  configuration. User prompts only; model replies are not classified.
+  an event). `GuardedModelClient` checks every user message in the request first when a classifier is set, each
+  once, and a request with a blocked message never reaches the model. Control-token strings in the user's text are
+  made plain before Llama Guard reads it, and a prompt too long for one call is read in overlapping windows, never
+  truncated. Without a classifier nothing changes: the published guard results are for that configuration. User
+  prompts only; model replies are not classified, and a request split across messages can pass.
 - Two pre-registered baseline studies, answering the objection that step 2's baseline, Llama Guard 3, is a
   content-safety classifier and not an injection detector. `fusion_first/validate/guard_compare.py` scores any
   number of systems on the same units (Wilson intervals, exact McNemar, one unit per item), and

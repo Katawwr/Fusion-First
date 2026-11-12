@@ -166,11 +166,14 @@ A fourth, optional stage is off unless a classifier is passed (`Guardrail(config
 (Llama Guard 3 through local Ollama, Meta's prompt format); any `Callable[[str], SafetyVerdict]` works. An
 unsafe verdict blocks (`on_unsafe_prompt`), categories in `content_safety_flag_only` are recorded only, and a
 classifier that fails or gives no verdict fails open with an event (`on_classifier_error`). Its events carry no
-OWASP code: content safety is not one of the four mapped checks.
+OWASP code: content safety is not one of the four mapped checks. Control-token strings and the template's own
+delimiters in the user's text are made plain before it is sent, and a prompt too long for one call is read in
+overlapping windows, never truncated. Each prompt is judged on its own, so a request split across messages can
+pass.
 
 `GuardedModelClient` applies `guard_output` to replies and, when the guard has a classifier, `guard_prompt` to
-the last user message first (a blocked prompt never reaches the model); tool calls must be checked separately with
-`guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
+every user message in the request first, each classified once (a request with a blocked message never reaches the
+model); tool calls must be checked separately with `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
 (`engine/guard_replay.py`) and reports, in-sample, what it would have stopped and which attacks were
 answered in prose with no tool call to check.
 
