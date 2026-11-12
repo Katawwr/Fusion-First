@@ -161,7 +161,15 @@ plain question to the same model; that was tested and not shown (Trust Report, Q
   non-allowlisted outside address; no send call is needed. Consequential calls to non-allowlisted
   hosts are blocked (allowlist: exact host or subdomain).
 
-`GuardedModelClient` applies `guard_output` to replies; tool calls must be checked separately with
+A fourth, optional stage is off unless a classifier is passed (`Guardrail(config, content_safety=...)`):
+`guard_prompt` asks it whether the user's prompt is harmful content. `guardrail/stages.py` ships `LlamaGuard`
+(Llama Guard 3 through local Ollama, Meta's prompt format); any `Callable[[str], SafetyVerdict]` works. An
+unsafe verdict blocks (`on_unsafe_prompt`), categories in `content_safety_flag_only` are recorded only, and a
+classifier that fails or gives no verdict fails open with an event (`on_classifier_error`). Its events carry no
+OWASP code: content safety is not one of the four mapped checks.
+
+`GuardedModelClient` applies `guard_output` to replies and, when the guard has a classifier, `guard_prompt` to
+the last user message first (a blocked prompt never reaches the model); tool calls must be checked separately with
 `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
 (`engine/guard_replay.py`) and reports, in-sample, what it would have stopped and which attacks were
 answered in prose with no tool call to check.

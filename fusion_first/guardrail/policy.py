@@ -17,8 +17,8 @@ class GuardEvent(BaseModel):
     """One thing the guardrail noticed, tagged to the OWASP check it maps to."""
 
     stage: str  # "input" | "output" | "tool_call"
-    check: str  # e.g. "system_prompt_leakage"
-    owasp: str  # e.g. "LLM07/ASI06"
+    check: str  # e.g. "system_prompt_leakage"; "content_safety" for the optional classifier stage
+    owasp: str  # e.g. "LLM07/ASI06"; empty for content safety, which is not one of the OWASP-mapped checks
     decision: Decision
     detail: str = ""
 
@@ -82,3 +82,11 @@ class GuardConfig(BaseModel):
     user_identities: list[str] = Field(default_factory=list)
     # With Guardrail(detector=...): a score at or above this adds an observe-only input event (never a decision).
     detector_observe_threshold: float = 0.5
+
+    # The content-safety stage, only with Guardrail(content_safety=...) and guard_prompt(prompt).
+    # A prompt the classifier calls unsafe: block, or allow (log only).
+    on_unsafe_prompt: Decision = Decision.BLOCK
+    # Classifier categories (Llama Guard's "S7", ...) that are recorded but never block.
+    content_safety_flag_only: list[str] = Field(default_factory=list)
+    # A classifier that fails or gives no verdict: allow with an event (fail open), or block.
+    on_classifier_error: Decision = Decision.ALLOW

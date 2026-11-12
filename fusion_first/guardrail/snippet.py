@@ -1,4 +1,5 @@
-"""Render the copy-paste runtime-guardrail snippet: the configuration the published result measured."""
+"""Render the copy-paste runtime-guardrail snippet: the configuration the published result measured. The
+content-safety stage is opt-in and appears as a comment only."""
 
 from __future__ import annotations
 
@@ -30,6 +31,11 @@ guard = Guardrail(GuardConfig(
 
 # Replies: secrets and PII are redacted; a system-prompt dump is blocked.
 client = GuardedModelClient(your_model_client, guard)
+
+# Optional, off by default: a content-safety check on each user prompt by
+# Llama Guard 3 on local Ollama. Pass content_safety=LlamaGuard() (from
+# fusion_first.guardrail.stages) to Guardrail(...); the client then blocks
+# a prompt it calls unsafe before the model sees it.
 
 # Tool calls: check each one before it runs. user_request is the user's own
 # message, never tool output. tool_results is the text of the tool results

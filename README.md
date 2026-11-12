@@ -97,6 +97,9 @@ outcome = guard.guard_tool_call(tool_name, tool_args, user_request=user_message,
 if outcome.blocked: ...
 ```
 
+Optional, off by default: `Guardrail(config, content_safety=LlamaGuard())` adds a content-safety check on the
+user's prompt (`guard.guard_prompt(prompt)`; Llama Guard 3 on local Ollama, from `fusion_first.guardrail.stages`).
+
 **Claude Code**: `claude plugin marketplace add "$(fusion plugin-dir)" && claude plugin install fusion@fusion-first`.
 **MCP**: `{ "mcpServers": { "fusion": { "command": "fusion-mcp" } } }` exposes the run engine and the guard's
 `guardrail_snippet` / `check_tool_call` tools.

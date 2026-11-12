@@ -103,6 +103,16 @@ def test_the_snippet_lists_only_what_the_guard_covers():
 
 
 @pytest.mark.unit
+def test_the_content_safety_step_is_offered_in_comments_only():
+    """The stage is opt-in: the snippet that runs stays the configuration the published results measured."""
+    code = guardrail_snippet(CHECKS)
+    offer = [ln for ln in code.splitlines() if "content_safety" in ln or "LlamaGuard" in ln or "Llama Guard" in ln]
+    assert offer and all(ln.startswith("#") for ln in offer)
+    assert "content_safety=LlamaGuard()" in code and "off by default" in code
+    assert "fusion_first.guardrail.stages" in code
+
+
+@pytest.mark.unit
 def test_the_snippet_fits_the_code_box_without_scrolling():
     assert max(len(line) for line in guardrail_snippet(CHECKS).splitlines()) <= 80
 

@@ -3,6 +3,8 @@
 - guard_input -> LLM01/ASI01 (fence untrusted content, flag injection)
 - guard_output -> LLM02/LLM07 (block/redact secret, PII, or system-prompt leakage)
 - guard_tool_call -> LLM06/ASI02 (block unrequested or external consequential actions)
+- guard_prompt -> the optional content-safety stage: a classifier on the user's prompt (`stages.py`); off unless
+  `Guardrail(content_safety=...)` is given, and not one of the OWASP-mapped checks
 
 Conservative by design: it errs toward flagging; GuardConfig decides block vs redact.
 """
@@ -13,6 +15,7 @@ import re
 from collections.abc import Callable
 
 from fusion_first.guardrail.policy import Decision, GuardConfig, GuardEvent, GuardOutcome
+from fusion_first.guardrail.stages import ContentClassifier, SafetyVerdict
 from fusion_first.security.normalize import normalized_views
 from fusion_first.security.redaction import contains_secret_strict, redact
 
@@ -543,6 +546,9 @@ _OWASP = {
     "system_prompt_leakage": "LLM07/ASI06",
     "excessive_agency": "LLM06/ASI02",
 }
+# The optional classifier stage (guard_prompt). Not an OWASP-mapped check: its events carry no code.
+CONTENT_SAFETY = "content_safety"
+BLOCKED_PROMPT = "[blocked: the request was classified as unsafe content]"
 
 # Common words excluded when measuring system-prompt reproduction overlap.
 _PROMPT_STOP = {
@@ -649,10 +655,47 @@ def _provably_internal(text: str, allow: list[str]) -> bool:
 
 
 class Guardrail:
-    def __init__(self, config: GuardConfig | None = None, *, detector: Callable[[str], float] | None = None):
-        """`detector(text) -> probability` scores untrusted input; it only adds an ALLOW event (observe-only)."""
+    def __init__(self, config: GuardConfig | None = None, *, detector: Callable[[str], float] | None = None,
+                 content_safety: ContentClassifier | None = None):
+        """`detector(text) -> probability` scores untrusted input; it only adds an ALLOW event (observe-only).
+        `content_safety(prompt) -> SafetyVerdict` switches on the content-safety stage of `guard_prompt`
+        (`fusion_first.guardrail.stages.LlamaGuard`, or any callable); without it that stage does nothing."""
         self.config = config or GuardConfig()
         self.detector = detector
+        self.content_safety = content_safety
+
+    def guard_prompt(self, prompt: str) -> GuardOutcome:
+        """The content-safety stage on the user's own prompt. Off without a classifier: allows, records nothing.
+
+        With one, a prompt it calls unsafe gets `on_unsafe_prompt` (block by default) unless every category it
+        names is in `content_safety_flag_only`, and a classifier that fails or gives no verdict gets
+        `on_classifier_error` (allow by default, with an event). Content safety is not one of the OWASP-mapped
+        checks, so the event's `owasp` is empty."""
+        out = GuardOutcome(decision=Decision.ALLOW, content=prompt)
+        if self.content_safety is None:
+            return out
+        try:
+            verdict = self.content_safety(prompt)
+        except Exception as exc:  # never raises into the agent loop
+            problem = f"it failed ({type(exc).__name__})"
+        else:
+            problem = (verdict.error if isinstance(verdict, SafetyVerdict)
+                       else f"it returned {type(verdict).__name__}, not a SafetyVerdict")
+        if problem:
+            decision, detail = self.config.on_classifier_error, f"content classifier gave no verdict: {problem}"
+        elif not verdict.unsafe:
+            return out
+        else:
+            named = ", ".join(verdict.categories) or "no category named"
+            flag_only = {c.strip().upper() for c in self.config.content_safety_flag_only}
+            if verdict.categories and all(c.strip().upper() in flag_only for c in verdict.categories):
+                decision, detail = Decision.ALLOW, f"content classifier: unsafe ({named}); flag-only, not blocked"
+            else:
+                decision, detail = self.config.on_unsafe_prompt, f"content classifier: unsafe ({named})"
+        out.add(GuardEvent(stage="input", check=CONTENT_SAFETY, owasp="", decision=decision, detail=detail))
+        if out.blocked:
+            out.content = BLOCKED_PROMPT
+        return out
 
     def _detector_event(self, content: str) -> GuardEvent | None:
         """The learned detector's observe-only event: a score at or above the threshold, or its failure."""

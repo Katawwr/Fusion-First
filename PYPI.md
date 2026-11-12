@@ -40,6 +40,9 @@ if outcome.blocked:
     ...  # don't run it
 ```
 
+Optional, off by default: `Guardrail(config, content_safety=LlamaGuard())` adds a content-safety check on the
+user's prompt (`guard.guard_prompt(prompt)`; Llama Guard 3 on local Ollama, from `fusion_first.guardrail.stages`).
+
 Claude Code plugin: `claude plugin marketplace add "$(fusion plugin-dir)"`, then
 `claude plugin install fusion@fusion-first`.
 

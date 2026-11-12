@@ -7,6 +7,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- An optional content-safety stage for the runtime guard, off by default. `Guardrail(config,
+  content_safety=LlamaGuard())` and the new `guard_prompt(prompt)` ask a classifier whether the user's prompt is
+  harmful content: `fusion_first/guardrail/stages.py` ships `LlamaGuard` (Llama Guard 3 through local Ollama, no
+  key, no spend) and accepts any `Callable[[str], SafetyVerdict]`. `GuardConfig` gains `on_unsafe_prompt` (block),
+  `content_safety_flag_only` (categories that are recorded and never block) and `on_classifier_error` (allow, with
+  an event). `GuardedModelClient` checks the last user message first when a classifier is set, and a blocked
+  prompt never reaches the model. Without a classifier nothing changes: the published guard results are for that
+  configuration. User prompts only; model replies are not classified.
 - Two pre-registered baseline studies, answering the objection that step 2's baseline, Llama Guard 3, is a
   content-safety classifier and not an injection detector. `fusion_first/validate/guard_compare.py` scores any
   number of systems on the same units (Wilson intervals, exact McNemar, one unit per item), and

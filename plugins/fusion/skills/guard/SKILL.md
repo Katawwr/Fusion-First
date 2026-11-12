@@ -10,7 +10,8 @@ The guard is the measured protection on small open-weight models; the prompt fix
 there (Trust Report).
 
 - **Add it to code:** call `guardrail_snippet(checks)` and adapt it to the user's agent loop. The
-  `GuardedModelClient` wrapper checks replies only. Tool calls need `guard.guard_tool_call(name, args,
+  `GuardedModelClient` wrapper checks replies (and the user's prompt, only if the optional
+  content-safety step in the snippet's comment is switched on). Tool calls need `guard.guard_tool_call(name, args,
   user_request=..., untrusted_context=True, untrusted_text=<tool results so far>)` before each one
   runs, as in the snippet. Put the config (allowlisted domains, secret values) where the project keeps
   settings. Never hard-code real secrets. Set the allowlist: without one, step 2's destination rule
