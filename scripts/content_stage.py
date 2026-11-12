@@ -42,17 +42,23 @@ from fusion_first.validate.llama_guard import MODEL as LG_MODEL  # noqa: E402
 from fusion_first.validate.seal import (  # noqa: E402
     compute_seal,
     load_seal,
+    load_seal_meta,
     seal_digest,
     verify_seal,
     write_seal,
 )
 
 # Registered (PREREG_content_stage.md); changing any of these after registration voids the run.
-GUARD_SHA = "db3ebc15535777128f34cdfc8ffea140a6f98882"  # the stage as shipped: last commit to fusion_first/guardrail
+GUARD_SHA = "2238c2b08e59899a97ced146d2e4f8595fbcd730"  # the stage as shipped: last commit to fusion_first/guardrail
 RULE_PATHS = ("fusion_first/guardrail",)
-PINNED = (*RULE_PATHS, "datasets/external/orbench.v1.jsonl", "datasets/external/xstest.v1.jsonl",
-          "datasets/external/jbb.v1.jsonl", "scripts/content_stage.py", "fusion_first/validate/guard_compare.py",
-          "fusion_first/validate/llama_guard.py", "fusion_first/validate/prereg.py")
+# Everything a flag or a statistic depends on. `seal` records each path's git object id; `classify` and `score`
+# refuse a tree in which any of them differs.
+PINNED = (*RULE_PATHS, "fusion_first/security", "fusion_first/stats", "fusion_first/offline.py",
+          "fusion_first/validate/guard_compare.py", "fusion_first/validate/prereg.py",
+          "fusion_first/validate/llama_guard.py", "fusion_first/validate/seal.py",
+          "fusion_first/validate/experiments.py", "fusion_first/validate/importers/orbench.py",
+          "scripts/content_stage.py", "scripts/detector_lg3.py", "datasets/external/orbench.v1.jsonl",
+          "datasets/external/xstest.v1.jsonl", "datasets/external/jbb.v1.jsonl")
 PREREG = "evals/validation/v1/PREREG_content_stage.md"
 DIR = ROOT / "evals/validation/v1/content_stage"
 DEV_DIR = DIR / "dev"
@@ -98,6 +104,37 @@ def _lg3():
 
 def prompt_sha256(prompt: str) -> str:
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+
+
+def code_pins() -> dict[str, str]:
+    """{path: its git object id at HEAD} for the code and data every flag and statistic depends on (PINNED).
+    Refuses a path that is modified in the working tree or missing from HEAD: what is sealed is what is committed."""
+    if _git("status", "--porcelain", "--", *PINNED):
+        raise SystemExit("pinned code or data is modified in the working tree: commit it first")
+    pins = {path: _git("rev-parse", "--verify", "--quiet", f"HEAD:{path}") for path in PINNED}
+    missing = [path for path, oid in pins.items() if not oid]
+    if missing:
+        raise SystemExit(f"not committed: {', '.join(missing)}")
+    return pins
+
+
+def committed(*paths: str) -> None:
+    """Refuses unless every path is tracked and unmodified: the registration is committed before any fresh prompt
+    is classified, the raw records before they are scored."""
+    tracked = set(_git("ls-files", "--", *paths).splitlines())
+    missing = [path for path in paths if path not in tracked]
+    if missing:
+        raise SystemExit(f"not committed: {', '.join(missing)}")
+    if _git("status", "--porcelain", "--", *paths):
+        raise SystemExit(f"modified in the working tree, commit first: {', '.join(paths)}")
+
+
+def _sealed_code() -> dict[str, str]:
+    """The code pins, only when they are the ones the seal recorded."""
+    pins = code_pins()
+    if pins != load_seal_meta(SEAL).get("code"):
+        raise SystemExit("the pinned code or data changed since the seal: this tree is not the registered one")
+    return pins
 
 
 def raw_path(arm: str) -> pathlib.Path:
@@ -336,12 +373,11 @@ def cmd_select() -> int:
     baseline_records = _jsonl(SEEN_RAW)
     weights = {r.get("model_digest") for r in baseline_records}
     baseline = dev_counts("default", baseline_records)
-    counts, not_run = {}, []
+    counts = {}
     for name in gc.TUNING_CANDIDATES:
         records = _jsonl(dev_path(name))
         if not records:
-            not_run.append(name)
-            continue
+            continue  # select_tuned refuses: every candidate runs before the rule is applied
         try:
             if {r.get("lg_model") for r in records} != {LG_MODEL}:
                 raise ValueError(f"not every reply is from the registered {LG_MODEL!r}")
@@ -350,17 +386,23 @@ def cmd_select() -> int:
             counts[name] = dev_counts(name, records)
         except ValueError as exc:
             raise SystemExit(f"select: {name}: {exc}") from exc
-    chosen = gc.select_tuned(baseline, counts)
+    if {"unsafe": baseline["n_unsafe"], "safe": baseline["n_safe"]} != gc.TUNING_SEEN:
+        raise SystemExit(f"select: the seen prompts are not the {sum(gc.TUNING_SEEN.values())} of the content-safety "
+                         "study the rule was written for")
+    try:
+        chosen = gc.select_tuned(baseline, counts)
+    except ValueError as exc:
+        raise SystemExit(f"select: {exc}") from exc
     doc = {"development": True,
            "note": ("the tuning round on the 650 prompts of the content-safety study: seen data, used to pick the "
                     "tuned arm and not evidence of anything"),
            "llama_guard": {"model": LG_MODEL, "digest": next(iter(weights)) if len(weights) == 1 else None},
-           "measured": _dt.date.today().isoformat(), **chosen, "not_run": not_run, "counts": counts,
+           "measured": _dt.date.today().isoformat(), **chosen, "counts": counts,
            "policies": {name: _policy_block(name, spell_out=True) for name in counts}}
     SELECTION.parent.mkdir(parents=True, exist_ok=True)
     SELECTION.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps({"selection": _rel(SELECTION), "tuned": chosen["tuned"], "baseline": baseline,
-                      "candidates": chosen["candidates"], "not_run": not_run}, indent=1))
+                      "candidates": chosen["candidates"]}, indent=1))
     return 0
 
 
@@ -376,7 +418,8 @@ def cmd_seal() -> int:
     write_seal(SEAL, compute_seal(rs), meta={
         "study": "the guard's content-safety stage on fresh OR-Bench prompts",
         "rows": dict(sorted(collections.Counter(r["label"] for r in rs).items())), "sample": sample,
-        "salt": gc.STAGE_SALT, "arms": arms, "llama_guard_model": LG_MODEL, "guardrail_git_sha": GUARD_SHA})
+        "salt": gc.STAGE_SALT, "arms": arms, "llama_guard_model": LG_MODEL, "guardrail_git_sha": GUARD_SHA,
+        "code": code_pins()})
     print(json.dumps({"seal": _rel(SEAL), "rows": len(rs), "arms": sorted(arms), "sample": sample}))
     return 0
 
@@ -388,6 +431,8 @@ def cmd_classify(arm: str, model: str, force: bool, ollama: str | None, transpor
     arms = policies(tuned)
     if arm not in arms:
         raise SystemExit(f"{arm!r} is not a registered arm of this study (registered: {', '.join(arms)})")
+    committed(PREREG, _rel(SEAL), _rel(SELECTION))  # registered first, classified after
+    _sealed_code()
     path = raw_path(arm)
     done = {r["id"] for r in _jsonl(path)}
     todo = [r for r in rs if r["id"] not in done]
@@ -427,10 +472,8 @@ def cmd_score() -> int:
     if OUT.exists():
         raise SystemExit(f"{_rel(OUT)} exists: the sealed prompts are scored once")
     tuned = selection()["tuned"]
-    tracked = [*PINNED, _rel(SEAL), _rel(SELECTION), *(_rel(raw_path(arm)) for arm in policies(tuned))]
-    if _git("status", "--porcelain", "--", *tracked):
-        raise SystemExit("the rules, the prompts, the selection, the seal, the raw records or the scorer are modified "
-                         "in the working tree: commit them first")
+    committed(PREREG, _rel(SEAL), _rel(SELECTION), *(_rel(raw_path(arm)) for arm in policies(tuned)))
+    pins = _sealed_code()
     rules = _git("log", "-1", "--format=%H", "--", *RULE_PATHS)
     if rules != GUARD_SHA:
         raise SystemExit(f"{RULE_PATHS} are at {rules}, not the registered {GUARD_SHA}")
@@ -440,7 +483,7 @@ def cmd_score() -> int:
         raise SystemExit(f"score: {exc}") from exc
     head = ("demonstration", "kind", "preregistration")
     doc = {**{k: doc[k] for k in head}, "measured": _dt.date.today().isoformat(), "git_sha": _git("rev-parse", "HEAD"),
-           "guardrail_git_sha": rules, **{k: v for k, v in doc.items() if k not in head}}
+           "guardrail_git_sha": rules, "code": pins, **{k: v for k, v in doc.items() if k not in head}}
     OUT.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     for label in ("unsafe", "safe"):
         s = doc[label]["systems"]
