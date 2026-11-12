@@ -168,14 +168,17 @@ unsafe verdict blocks (`on_unsafe_prompt`), categories in `content_safety_flag_o
 classifier outage (`ClassifierUnavailable`) or a reply without a verdict fails open with an event
 (`on_classifier_error`), and any other failure on a prompt is treated as unsafe. Its events carry no
 OWASP code: content safety is not one of the four mapped checks. Control tokens and the template's own delimiters in the
-user's text are made plain and conversation-turn labels at line starts are dropped (look-alike characters folded),
-so a message is judged whole; a prompt too long for one call is read in windows that overlap by half, never
-truncated. Each prompt is judged on its own, so a request split across messages can pass, and encoded text reaches
-the classifier undecoded. Its registered result is in the [Trust Report](../TRUST_REPORT.md).
+user's text are made plain and conversation-turn labels at line starts are dropped, both found on a per-character
+form that drops invisible and combining characters and folds look-alikes, so a message is judged whole; a prompt too
+long for one call is read in windows that overlap by half, never truncated, and a prompt over the length limit is
+refused before it is read. Each prompt is judged on its own, so a request split across messages can pass, and
+encoded text reaches the classifier undecoded. Its registered result is in the [Trust Report](../TRUST_REPORT.md).
 
 `GuardedModelClient` applies `guard_output` to replies and, when the guard has a classifier, `guard_prompt` to
-every user message in the request first (its text parts at any depth; tool results skipped; a part it cannot read
-gets `on_classifier_error`), each classified once (a request with a blocked message never reaches the model); tool calls must be checked separately with `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
+every user message in the request first (every text field at any depth; tool results skipped; a part it cannot read,
+such as an image, gets `on_classifier_error`), each classified once (a request with a blocked message never reaches
+the model). It trusts message roles: assistant, system and tool turns are not classified, so give it only history
+the application produced. Tool calls must be checked separately with `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
 (`engine/guard_replay.py`) and reports, in-sample, what it would have stopped and which attacks were
 answered in prose with no tool call to check.
 

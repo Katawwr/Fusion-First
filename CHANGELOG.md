@@ -14,12 +14,14 @@ and versions follow [Semantic Versioning](https://semver.org/).
   `content_safety_flag_only` (categories that are recorded and never block) and `on_classifier_error` (allow, with
   an event). An outage (`ClassifierUnavailable`) or a reply without a verdict follows `on_classifier_error`; any
   other classifier failure on a prompt is treated as unsafe. `GuardedModelClient` checks every user message in the
-  request first when a classifier is set (text parts at any depth; tool results skipped; a part it cannot read, such
-  as an image, gets `on_classifier_error`), each once, and a request with a blocked message never reaches the model.
-  Before Llama Guard reads a prompt, control tokens and the template's delimiters are made plain and
-  conversation-turn labels at line starts are dropped (look-alike characters folded), so a message is judged whole;
-  a prompt too long for one call is read in windows that overlap by half, never truncated, and one beyond the call
-  limit is refused. The call to a local Ollama server never goes through a proxy. Without a classifier nothing
+  request first when a classifier is set (every text field at any depth; tool results skipped; a part it cannot
+  read, such as an image, gets `on_classifier_error`), each once, and a request with a blocked message never reaches
+  the model. It trusts message roles: assistant, system and tool turns are not classified, so give it only history
+  the application produced. Before Llama Guard reads a prompt, control tokens and the template's delimiters are made
+  plain and conversation-turn labels at line starts are dropped, both found on a per-character form that drops
+  invisible and combining characters and folds look-alikes, so a message is judged whole; a prompt too long for one
+  call is read in windows that overlap by half, never truncated, and a prompt over the length limit is refused
+  before it is read. The call to a local Ollama server never goes through a proxy. Without a classifier nothing
   changes: the published guard results are for that configuration. User prompts only: model replies are not
   classified, a request split across messages can pass, and encoded text (base64, hex, ROT13) reaches the classifier
   undecoded.

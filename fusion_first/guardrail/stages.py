@@ -14,8 +14,10 @@ classifier round (an instruction to answer "safe") is still text it reads: only 
 from __future__ import annotations
 
 import dataclasses
+import functools
 import json
 import re
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -31,6 +33,8 @@ OLLAMA_URL = "http://127.0.0.1:11434"
 OPTIONS = {"temperature": 0, "num_ctx": 8192, "num_predict": 24}
 MAX_WINDOWS = 32  # calls one prompt may take
 TOO_LONG = "too long to classify"  # the category LlamaGuard gives a prompt that would take more calls: refused
+# UTF-8 bytes a rendered prompt may take: the context less the reply, with room for the begin-of-text token.
+_PROMPT_BYTES = OPTIONS["num_ctx"] - OPTIONS["num_predict"] - 16
 
 # Meta's 14 hazard categories, as Llama Guard 3's own template lists them.
 DEFAULT_CATEGORIES = (
@@ -42,30 +46,85 @@ DEFAULT_CATEGORIES = (
 
 # Raw mode tokenizes control-token strings wherever they appear: none may come from the user.
 _CONTROL_TOKEN = re.compile(r"<(?=\|)")
-# The prompt's own delimiter lines, matched on a line's folded form (look-alike letters, zero-width and full-width
-# characters fold to ASCII), however they are spaced.
+# Labels and delimiters are matched on each character's canonical form (`_canon`). These default-ignorable fillers and
+# selectors read as nothing, as do format characters, combining marks and controls other than whitespace.
+_IGNORABLE = frozenset([0x034F, 0x115F, 0x1160, 0x3164, 0xFFA0, *range(0x180B, 0x1810), *range(0xFE00, 0xFE10)])
+# Look-alikes fold() keeps: small capitals, Latin-looking Cyrillic, Greek and Armenian letters, colons and angle
+# brackets. Not U+2039 or U+203A: a delimiter's brackets become them, so plain_text stays idempotent.
+_LOOKALIKES = str.maketrans(
+    dict(zip("\u1d00\u0299\u1d04\u1d05\u1d07\ua730\u0262\u029c\u026a\u1d0a\u1d0b\u029f\u1d0d\u0274\u1d0f\u1d18"
+             "\u0280\ua731\u1d1b\u1d1c\u1d20\u1d21\u028f\u1d22", "abcdefghijklmnoprstuvwyz", strict=True))
+    | dict(zip("\u0410\u0412\u0415\u041a\u041c\u041d\u041e\u0420\u0421\u0422\u0423\u0425\u0405\u0406\u0408\u051a"
+               "\u051c\u04ae\u04c0", "ABEKMHOPCTYXSIJQWYI", strict=True))
+    | dict(zip("\u0396\u0397\u039a\u039c\u039d\u03a5\u037f\u057d\u0555", "ZHKMNYJuO", strict=True))
+    | dict.fromkeys("\u2236\ua789\u02f8\u0589\u05c3", ":")
+    | dict.fromkeys("\u02c2\u1438\u3008\u27e8", "<") | dict.fromkeys("\u02c3\u1433\u3009\u27e9", ">"))
+# The prompt's own delimiters, however they are spaced, matched on the canonical form of the whole text.
 _DELIMITER = re.compile(r"<\s*(?:BEGIN|END)\s+(?:CONVERSATION|UNSAFE\s+CONTENT\s+CATEGORIES)\s*>", re.IGNORECASE)
-_ANGLES = str.maketrans({"<": "\u2039", "\uff1c": "\u2039", "\ufe64": "\u2039",
-                         ">": "\u203a", "\uff1e": "\u203a", "\ufe65": "\u203a"})
-# A line that opens like a turn of the conversation, after any markdown or quote marks, matched on its folded form.
-# Llama Guard is asked about the LAST User message, so a forged turn could hide a request in an earlier one.
-_TURN_LABEL = re.compile(
-    r"^[\s>*_#`~|-]*(?:user|agent|assistant|human|system|ai|bot|chatbot|model)[\s*_`~]*:", re.IGNORECASE)
-_LABEL_SCAN = 80  # characters of a line read for a label
+_QUOTED = {"<": "\u2039", ">": "\u203a"}  # what a delimiter's brackets become
+# A conversation-turn label, matched on the canonical form of a line's start once its lead is skipped. Llama Guard is
+# asked about the LAST User message, so a forged turn could hide a request in an earlier one.
+_TURN_LABEL = re.compile(r"(?:user|agent|assistant|human|system|ai|bot|chatbot|model)[\s*_`~]*:", re.IGNORECASE)
+_LEAD = frozenset(">*_#`~|-\u2022\u00b7")  # markdown, quote marks and bullets a label may follow, besides spaces
+_LABEL_READ = 4096  # characters read for one label, after its lead
+_LABEL_CHARS = 48  # canonical characters that can hold a label
+_BREAKS = frozenset("\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029")  # where str.splitlines breaks a line
 # A lone surrogate cannot be encoded, so it would make the prompt unsendable.
 _SURROGATE = re.compile("[\ud800-\udfff]")
 
 
+def _invisible(ch: str) -> bool:
+    """A format character (zero-width, bidi, soft hyphen, tag), a combining mark, a default-ignorable filler or
+    selector, or a control character other than whitespace (tab, line breaks)."""
+    cp, category = ord(ch), unicodedata.category(ch)
+    return (category in ("Cf", "Mn", "Me") or (category == "Cc" and not ch.isspace()) or cp in _IGNORABLE
+            or 0xE0000 <= cp <= 0xE0FFF)
+
+
+@functools.lru_cache(maxsize=4096)
+def _canon(ch: str) -> str:
+    """One character as the label and delimiter checks read it: nothing when it is invisible, otherwise its NFKD
+    form without combining marks, folded (`fold`: NFKC, zero-width, confusables) and with the look-alikes above
+    mapped. One character at a time, so nothing composes across characters: ">" + U+0338 reads ">", not U+226F."""
+    if _invisible(ch):
+        return ""
+    return fold("".join(c for c in unicodedata.normalize("NFKD", ch) if not _invisible(c))).translate(_LOOKALIKES)
+
+
 def _strip_labels(line: str) -> str:
-    """The line without the conversation-turn labels it opens with (one or several), the line break kept."""
-    while _TURN_LABEL.match(fold(line[:_LABEL_SCAN])):
-        for end in range(1, min(len(line), _LABEL_SCAN) + 1):
-            if _TURN_LABEL.match(fold(line[:end])):
-                line = line[end:].lstrip(" \t\u00a0")
-                break
-        else:
-            break
-    return line
+    """The line without the conversation-turn labels it opens with (one or several), the line break kept. Linear: a
+    label's lead (invisible, space and markdown characters) is skipped whatever its length, the label is read on at
+    most `_LABEL_READ` characters after it, and the line is sliced once."""
+    start, size = 0, len(line)
+    while True:
+        i = start
+        while i < size and all(c.isspace() or c in _LEAD for c in _canon(line[i])):
+            i += 1
+        read, end = "", i
+        while end < min(size, i + _LABEL_READ) and ":" not in read and len(read) < _LABEL_CHARS:
+            read += _canon(line[end])
+            end += 1
+        if not _TURN_LABEL.match(read):
+            return line[start:]
+        start = end  # past the character that gave the label's colon, then past spaces and invisible characters
+        while start < size and all(c.isspace() and c not in _BREAKS for c in _canon(line[start])):
+            start += 1
+
+
+def _quote_delimiters(text: str) -> str:
+    """`text` with every BEGIN/END delimiter of the prompt read as text. Delimiters are matched once, on the canonical
+    form of the whole text (across line breaks, past invisible and combining characters, look-alikes folded), and
+    each character of a match whose canonical form is an angle bracket becomes \u2039 or \u203a."""
+    canon = [_canon(ch) for ch in text]
+    spans = [m.span() for m in _DELIMITER.finditer("".join(canon))]
+    if not spans:
+        return text
+    source = [i for i, c in enumerate(canon) for _ in c]  # the character each canonical one comes from
+    chars = list(text)
+    for start, end in spans:
+        for i in range(source[start], source[end - 1] + 1):
+            chars[i] = _QUOTED.get(canon[i], chars[i])
+    return "".join(chars)
 
 
 def plain_text(text: str) -> str:
@@ -74,18 +133,15 @@ def plain_text(text: str) -> str:
     - a lone surrogate becomes U+FFFD, so the text can always be sent;
     - a conversation-turn label at a line start ("User:", "Agent:", look-alikes and markdown included) is dropped,
       so the text stays one User message and is judged whole;
-    - a line holding a BEGIN/END delimiter of the prompt gets its angle brackets as \u2039 \u203a;
+    - a BEGIN/END delimiter of the prompt, even one split across lines, gets its angle brackets as \u2039 \u203a;
     - Llama 3's control tokens (`<|...|>`) get a space after their `<`.
 
-    Text without any of these is returned unchanged, so recorded renderings keep their hashes. Idempotent."""
+    Labels and delimiters are matched on each character's canonical form (`_canon`), which drops invisible and
+    combining characters. Text without any of these is returned unchanged, so recorded renderings keep their
+    hashes. Idempotent."""
     text = _SURROGATE.sub("\ufffd", text)
-    lines = []
-    for line in text.splitlines(keepends=True):
-        line = _strip_labels(line)
-        if _DELIMITER.search(fold(line)):
-            line = line.translate(_ANGLES)
-        lines.append(line)
-    return _CONTROL_TOKEN.sub("< ", "".join(lines))
+    text = "".join(_strip_labels(line) for line in text.splitlines(keepends=True))
+    return _CONTROL_TOKEN.sub("< ", _quote_delimiters(text))
 
 
 def render_prompt(user: str, agent: str | None, categories: Sequence[str], role: str = "Agent") -> str:
@@ -194,10 +250,12 @@ class LlamaGuard:
     One User turn, the User message assessed, raw mode, temperature 0. `categories` replaces Meta's 14 (each a
     line such as "S7: Privacy."). Synchronous: about two seconds a call on a small GPU. The text is made plain
     first (`plain_text`: turn labels dropped, so a message is judged whole). A prompt too long for one call is read
-    in windows that overlap by half; it is unsafe if any window is, and nothing is truncated. One that would take
-    more than `MAX_WINDOWS` calls is not an outage: it comes back unsafe under the category `TOO_LONG`, so padding
-    is no way past the stage (list `TOO_LONG` in `content_safety_flag_only` to let such prompts through). Raises
-    `ClassifierUnavailable` when it cannot ask; the guard turns that into `GuardConfig.on_classifier_error`."""
+    in windows that overlap by half, each sent as cut; it is unsafe if any window is, and nothing is truncated. One
+    that would take more than `MAX_WINDOWS` calls is not an outage: it comes back unsafe under the category
+    `TOO_LONG`, so padding is no way past the stage (list `TOO_LONG` in `content_safety_flag_only` to let such
+    prompts through), and one with more than twice as many characters as those calls read bytes is refused before
+    it is read. Raises `ClassifierUnavailable` when it cannot ask; the guard turns that into
+    `GuardConfig.on_classifier_error`."""
 
     def __init__(self, model: str = LLAMA_GUARD_MODEL, categories: Sequence[str] | None = None,
                  base_url: str | None = None, *, timeout: float = 120.0,
@@ -208,25 +266,37 @@ class LlamaGuard:
         self._transport = transport or _http(self.base_url, timeout)
         # Llama 3's byte-level tokenizer never makes more tokens than UTF-8 bytes, so a window is sized in bytes:
         # the frame, a full window and the reply fit the context whatever the text is.
-        frame = len(user_prompt("", self.categories).encode("utf-8"))
-        self.window = OPTIONS["num_ctx"] - OPTIONS["num_predict"] - frame - 16
+        self.window = _PROMPT_BYTES - len(self._render("").encode("utf-8"))
         if self.window < 1024:
             raise ValueError("these categories leave no room for a prompt in the classifier's context")
+        self._reach = self.window + (MAX_WINDOWS - 1) * (self.window // 2)  # bytes MAX_WINDOWS calls read
 
     def prompt(self, text: str) -> str:
         """The exact prompt Llama Guard is sent for `text`, when one call carries it (`ValueError` otherwise)."""
-        piece, *more = self._pieces(text)
-        if more:
+        pieces = self._pieces(text)
+        if pieces is None or len(pieces) > 1:
             raise ValueError("this text takes more than one call, so it has no single prompt")
-        return user_prompt(piece, self.categories)
+        return self._render(pieces[0])
 
-    def _pieces(self, text: str) -> list[str]:
-        """What each call carries: the text made plain, in windows that fit the classifier's context."""
-        return _windows(plain_text(text), self.window)
+    def _pieces(self, text: str) -> list[str] | None:
+        """What each call carries: the text made plain, in windows that fit the classifier's context; None when that
+        takes more than `MAX_WINDOWS` calls. Text with more than twice as many characters as those calls read bytes
+        is not made plain at all: that is linear, but not free."""
+        if len(text) > 2 * self._reach:
+            return None
+        plain = plain_text(text)
+        if len(plain.encode("utf-8")) > self._reach:
+            return None
+        return _windows(plain, self.window)
+
+    def _render(self, piece: str) -> str:
+        """The prompt for one piece of plain text. A window is never made plain again: a cut can change what that
+        finds, and what it adds could push the prompt past the context."""
+        return render_prompt(piece, None, self.categories, role="User")
 
     def _ask(self, piece: str) -> str:
         payload = {"model": self.model, "stream": False, "raw": True, "options": dict(OPTIONS),
-                   "prompt": user_prompt(piece, self.categories)}
+                   "prompt": self._render(piece)}
         try:
             return self._transport("/api/generate", payload)["response"]
         except (urllib.error.URLError, TimeoutError, OSError, KeyError, TypeError, ValueError) as exc:
@@ -236,8 +306,10 @@ class LlamaGuard:
 
     def __call__(self, text: str) -> SafetyVerdict:
         pieces = self._pieces(text)
-        if len(pieces) > MAX_WINDOWS:
-            return SafetyVerdict(unsafe=True, categories=(TOO_LONG,))  # refused whether or not a server answers
+        # Refused whether or not a server answers. A rendered prompt over the context's budget (each piece fits a
+        # window, so never expected) would be cut or rejected by the server: refused too, before any call.
+        if pieces is None or any(len(self._render(piece).encode("utf-8")) > _PROMPT_BYTES for piece in pieces):
+            return SafetyVerdict(unsafe=True, categories=(TOO_LONG,))
         if offline():
             raise ClassifierUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
         undecided = verdict = None

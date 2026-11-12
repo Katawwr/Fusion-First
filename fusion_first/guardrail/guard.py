@@ -693,36 +693,40 @@ class Guardrail:
         With one, a prompt it calls unsafe gets `on_unsafe_prompt` (block by default) unless every category it
         names is in `content_safety_flag_only`. An outage (the classifier raises `ClassifierUnavailable`) or a reply
         without a verdict gets `on_classifier_error` (allow by default, with an event). Any other failure happened on
-        this prompt, which may have been built to cause it: it is treated as unsafe. Content safety is not one of the
-        OWASP-mapped checks, so the event's `owasp` is empty. Never raises into the agent loop."""
+        this prompt, which may have been built to cause it: it is treated as unsafe, and so is a verdict whose fields
+        fail when read (each is read once). Content safety is not one of the OWASP-mapped checks, so the event's
+        `owasp` is empty. Raises `TypeError` for a prompt that is not a str; otherwise never raises into the agent
+        loop."""
+        if not isinstance(prompt, str):
+            raise TypeError("guard_prompt takes the prompt's text (str)")
         out = GuardOutcome(decision=Decision.ALLOW, content=prompt)
         if self.content_safety is None:
             return out
         outage = fault = ""
+        unsafe, categories = False, ()
         try:
             verdict = self.content_safety(prompt)
+            if not isinstance(verdict, SafetyVerdict):
+                fault = f"it returned {type(verdict).__name__}, not a SafetyVerdict"
+            else:  # a custom classifier's verdict may be anything: each field read once, here, or it is a fault
+                unsafe, error = bool(verdict.unsafe), str(verdict.error or "")
+                found = verdict.categories
+                categories = () if found is None else tuple(str(c) for c in found)
+                if error and not unsafe:
+                    outage = error
         except ClassifierUnavailable as exc:
             outage = f"it could not be asked ({type(exc).__name__})"
         except Exception as exc:
             fault = f"it raised {type(exc).__name__}"
-        else:
-            if not isinstance(verdict, SafetyVerdict):
-                fault = f"it returned {type(verdict).__name__}, not a SafetyVerdict"
-            elif verdict.error and not verdict.unsafe:
-                outage = verdict.error
         reply = BLOCKED_PROMPT
         if outage:
             decision, detail, reply = self.config.on_classifier_error, f"{NO_VERDICT}: {outage}", BLOCKED_NO_VERDICT
         elif fault:
             decision, detail = self.config.on_unsafe_prompt, f"content classifier failed on this prompt: {fault}"
             reply = BLOCKED_FAULT
-        elif not verdict.unsafe:
+        elif not unsafe:
             return out
         else:
-            try:  # a custom classifier's categories may be anything: unreadable ones excuse nothing
-                categories = tuple(str(c) for c in verdict.categories)
-            except TypeError:
-                categories = ()
             named = ", ".join(categories) or "no category named"
             flag_only = {c.strip().upper() for c in self.config.content_safety_flag_only}
             if categories and all(c.strip().upper() in flag_only for c in categories):
