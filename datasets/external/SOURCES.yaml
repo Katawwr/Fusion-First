@@ -93,6 +93,18 @@ sources:
       harmful-behaviors.csv: 4a8ec6832056b631eb092dccc60d37a61c3d441268268888b3d006288afeffa1
     rows: 200
     url: https://huggingface.co/datasets/JailbreakBench/JBB-Behaviors
+  orbench:
+    import_date: '2026-11-12'
+    license: CC-BY-4.0
+    note: 'Over-refusal benchmark: or-bench-toxic rows are unsafe; or-bench-hard-1k rows are safe prompts
+      written to look unsafe. Labels come from a panel of models, not people.'
+    processed: orbench.v1.jsonl
+    processed_sha256: 5cd8bcc1acf14acc9204f08c31a43b337c48685f6a7c2313c4bacda7ca23b702
+    raw_files:
+      or-bench-hard-1k.csv: a6e2f1166416efe5901f3bb05c47dc92ab3aca3acfe143693d38b8057d841e6d
+      or-bench-toxic.csv: 3be45901faae3b4b2b51bf7f8a2784c1650a1cc8c631dbc8b171d5312d4e0057
+    rows: 1974
+    url: https://huggingface.co/datasets/bench-llm/or-bench
   xstest:
     import_date: '2026-09-26'
     license: CC-BY-4.0

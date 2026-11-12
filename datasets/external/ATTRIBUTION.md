@@ -17,6 +17,7 @@ payloads are taken as published.
 | `bipia.v1.jsonl` | [microsoft/BIPIA](https://github.com/microsoft/BIPIA) — attack payloads only | MIT | Copyright (c) Microsoft Corporation |
 | `ifeval.v1.jsonl` | [google/IFEval](https://huggingface.co/datasets/google/IFEval) | Apache-2.0 | Google LLC |
 | `xstest.v1.jsonl` | [Paul/XSTest](https://huggingface.co/datasets/Paul/XSTest) | CC-BY-4.0 | Röttger et al., "XSTest" (NAACL 2024) |
+| `orbench.v1.jsonl` | [bench-llm/or-bench](https://huggingface.co/datasets/bench-llm/or-bench): the toxic and hard-1k prompts | CC-BY-4.0 | Cui et al., "OR-Bench: An Over-Refusal Benchmark for Large Language Models" (2024) |
 
 Notes:
 - **BIPIA**: only the attack instruction payloads (authored by the BIPIA authors) are imported. Its
@@ -29,6 +30,8 @@ Notes:
   notice to accompany copies — see https://opensource.org/license/mit.
 - **Apache-2.0** sources: see https://www.apache.org/licenses/LICENSE-2.0. No NOTICE files were
   distributed with the imported data.
-- **CC-BY-4.0** (XSTest): attribution as above; see https://creativecommons.org/licenses/by/4.0/.
+- **OR-Bench**: its labels (toxic, or safe but written to look unsafe) come from a panel of models, not from
+  people; they are imported as published.
+- **CC-BY-4.0** (XSTest, OR-Bench): attribution as above; see https://creativecommons.org/licenses/by/4.0/.
 - Fusion's own code re-implements ideas from IFEval (Apache-2.0), NVIDIA garak (Apache-2.0) and
   promptfoo (MIT) without copying their source; attributions are in the respective modules.
