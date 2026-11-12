@@ -12,16 +12,17 @@ and versions follow [Semantic Versioning](https://semver.org/).
   harmful content: `fusion_first/guardrail/stages.py` ships `LlamaGuard` (Llama Guard 3 through local Ollama, no
   key, no spend) and accepts any `Callable[[str], SafetyVerdict]`. `GuardConfig` gains `on_unsafe_prompt` (block),
   `content_safety_flag_only` (categories that are recorded and never block) and `on_classifier_error` (allow, with
-  an event). An outage (`ClassifierUnavailable`) or a reply without a verdict follows `on_classifier_error`; any
-  other classifier failure on a prompt is treated as unsafe. `GuardedModelClient` checks every user message in the
-  request first when a classifier is set (every text field at any depth; tool results skipped; a part it cannot
-  read, such as an image, gets `on_classifier_error`), each once, and a request with a blocked message never reaches
-  the model. It trusts message roles: assistant, system and tool turns are not classified, so give it only history
-  the application produced. Before Llama Guard reads a prompt, control tokens and the template's delimiters are made
-  plain and conversation-turn labels at line starts are dropped, both found on a per-character form that drops
-  invisible and combining characters and folds look-alikes, so a message is judged whole; a prompt too long for one
-  call is read in windows that overlap by half, never truncated, and a prompt over the length limit is refused
-  before it is read. The call to a local Ollama server never goes through a proxy. Without a classifier nothing
+  an event). An outage (`ClassifierUnavailable`: no server or no model) or a reply without a verdict follows
+  `on_classifier_error`; any other classifier failure on a prompt, a timeout included, is treated as unsafe.
+  `GuardedModelClient` checks every user message in the request first when a classifier is set (every field at any
+  depth, keys read as Ollama reads them; tool results skipped; a part it cannot read, such as an image, gets
+  `on_classifier_error`), each once, and a request with a blocked message never reaches the model; a request with
+  more unclassified user text than its budget is refused before any call. It trusts message roles: assistant,
+  system and tool turns are not classified, so give it only history the application produced. Before Llama Guard
+  reads a prompt, the user's text is rendered on one line with angle brackets replaced, so it cannot open a turn,
+  close the conversation or form a control token, and tag characters are decoded; a prompt too long for one call is
+  read in windows that overlap by half, never truncated, and a prompt over the length limit is refused before it is
+  read. The call to a local Ollama server never goes through a proxy. Without a classifier nothing
   changes: the published guard results are for that configuration. User prompts only: model replies are not
   classified, a request split across messages can pass, and encoded text (base64, hex, ROT13) reaches the classifier
   undecoded.

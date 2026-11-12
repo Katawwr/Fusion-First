@@ -692,11 +692,11 @@ class Guardrail:
 
         With one, a prompt it calls unsafe gets `on_unsafe_prompt` (block by default) unless every category it
         names is in `content_safety_flag_only`. An outage (the classifier raises `ClassifierUnavailable`) or a reply
-        without a verdict gets `on_classifier_error` (allow by default, with an event). Any other failure happened on
-        this prompt, which may have been built to cause it: it is treated as unsafe, and so is a verdict whose fields
-        fail when read (each is read once). Content safety is not one of the OWASP-mapped checks, so the event's
-        `owasp` is empty. Raises `TypeError` for a prompt that is not a str; otherwise never raises into the agent
-        loop."""
+        without a verdict gets `on_classifier_error` (allow by default, with an event). Any other failure, such as a
+        timeout (`ClassifierFault`), happened on this prompt, which may have been built to cause it: it is treated as
+        unsafe, and so is a verdict whose fields fail when read (each is read once). Content safety is not one of the
+        OWASP-mapped checks, so the event's `owasp` is empty. Raises `TypeError` for a prompt that is not a str;
+        otherwise never raises into the agent loop."""
         if not isinstance(prompt, str):
             raise TypeError("guard_prompt takes the prompt's text (str)")
         out = GuardOutcome(decision=Decision.ALLOW, content=prompt)
