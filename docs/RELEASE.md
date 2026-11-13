@@ -13,7 +13,7 @@ repository `Fusion-First`, workflow `release.yml`, environment `pypi`. Delete an
 
 1. Bump the version in `pyproject.toml`, `fusion_first/__init__.py` and `plugins/fusion/.mcp.json`, add the
    CHANGELOG entry, commit, and push `main` once CI is green.
-2. Tag and push the tag: `git tag v0.1.3 && git push origin v0.1.3`. `scripts/release_tag_check.py` refuses a tag
+2. Tag and push the tag: `git tag v0.1.4 && git push origin v0.1.4`. `scripts/release_tag_check.py` refuses a tag
    that does not name the version.
 3. Watch the release run (`gh run watch`), then check https://pypi.org/project/fusion-safety/ shows the version.
 4. Redeploy the site from `main`: `bash scripts/deploy_site.sh`, then date the CHANGELOG heading and commit.
@@ -49,7 +49,7 @@ python -m build
 python -m twine check dist/*
 ```
 
-Expect `dist/fusion_safety-0.1.3-py3-none-any.whl` and `dist/fusion_safety-0.1.3.tar.gz`. A recent setuptools
+Expect `dist/fusion_safety-0.1.4-py3-none-any.whl` and `dist/fusion_safety-0.1.4.tar.gz`. A recent setuptools
 may warn that the license table and the License classifier are deprecated; those are warnings, not errors.
 
 ## 4. Smoke test in a clean venv
@@ -59,7 +59,7 @@ Install the built wheel, then run from outside the clone so the installed copy i
 ```bash
 python -m venv ~/fusion-smoke
 source ~/fusion-smoke/Scripts/activate   # Git Bash; bin/activate on macOS and Linux
-pip install "./dist/fusion_safety-0.1.3-py3-none-any.whl[serve,mcp]"
+pip install "./dist/fusion_safety-0.1.4-py3-none-any.whl[serve,mcp]"
 cd ~
 python -c "import fusion_first; print(fusion_first.__version__)"
 fusion doctor
@@ -68,7 +68,7 @@ fusion guard-bench
 claude plugin validate "$(fusion plugin-dir)"
 ```
 
-The MCP server over stdio, as a client starts it (prints `fusion-safety 0.1.3 18`):
+The MCP server over stdio, as a client starts it (prints `fusion-safety 0.1.4 18`):
 
 ```bash
 python - <<'EOF'
