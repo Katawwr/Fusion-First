@@ -100,8 +100,8 @@ def _mark(value) -> object:
 
 def _fields(part) -> Mapping | None:
     """An SDK object's fields: `model_dump()` (pydantic) with any field it leaves out (`exclude=True` still shows in
-    the repr claude-cli prints), else its dataclass fields, `__slots__` and `vars()` together; None when it has
-    none."""
+    its repr, which a provider that prints the part shows), else its dataclass fields, `__slots__` and `vars()`
+    together; None when it has none."""
     dump = getattr(part, "model_dump", None)
     if callable(dump):
         try:
@@ -124,9 +124,9 @@ def _fields(part) -> Mapping | None:
 
 
 def _renderings(text: str) -> list[str]:
-    """A string as providers send it: its characters (json), and for a str subclass how it prints when that is other
-    text (claude-cli renders a message with str(), f-strings and, inside a list, repr()). A repr that wraps str's own
-    adds nothing, and a way of printing that fails is one no provider can send."""
+    """A string as providers send it: its characters (json, claude-cli), and for a str subclass how it prints when
+    that is other text (a provider that prints a message uses str(), an f-string or, inside a list, repr()). A repr
+    that wraps str's own adds nothing, and a way of printing that fails is one no provider can send."""
     plain = str.__str__(text)
     out = [plain]
     if type(text) is str:

@@ -17,7 +17,7 @@ import shutil
 import subprocess
 import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from fusion_first.errors import (
     FatalRunError,
@@ -209,6 +209,50 @@ class ClaudeCliPromptTooLong(ClaudeCliUnavailable, PromptTooLong):
     """The request can't be passed to the CLI without exceeding the OS command-line limit."""
 
 
+class ClaudeCliUnsupportedContent(ClaudeCliUnavailable):
+    """A message holds a part the CLI cannot send as text (an image, audio, a file, a part of no known text type)."""
+
+
+_TEXT_PARTS = frozenset({"text", "input_text", "output_text"})
+_TOOL_CALLS = frozenset({"tool_use", "server_tool_use", "mcp_tool_use", "function_call", "custom_tool_call"})
+_TOOL_RESULTS = {"tool_result": "content", "function_call_output": "output"}  # part type -> the field with the text
+
+
+def _field(part, name: str):
+    return part.get(name) if isinstance(part, Mapping) else getattr(part, name, None)
+
+
+def _part_text(part) -> str:
+    """One part of a message's content as the text the CLI is sent: a str's characters, a text part's text, a tool
+    call or result as a labelled line. Anything else is refused, never printed as its fields."""
+    if isinstance(part, str):
+        return str.__str__(part)  # its characters, as json sends them, whatever a subclass prints
+    kind = _field(part, "type") if isinstance(part, Mapping) or hasattr(part, "type") else None
+    if kind in _TEXT_PARTS and isinstance(_field(part, "text"), str):
+        return str.__str__(_field(part, "text"))
+    if kind in _TOOL_RESULTS:
+        return f"Tool result: {_content_text(_field(part, _TOOL_RESULTS[kind]))}"
+    if kind in _TOOL_CALLS:
+        name, args = _field(part, "name"), _field(part, "input")
+        args = _field(part, "arguments") if args is None else args
+        shown = str.__str__(args) if isinstance(args, str) else json.dumps(args, ensure_ascii=False, default=str)
+        return f"Tool call: {str.__str__(name) if isinstance(name, str) else ''} {shown}"
+    what = f"type {kind[:40]!r}" if isinstance(kind, str) else f"a {type(part).__name__} with no text type"
+    raise ClaudeCliUnsupportedContent(f"the claude CLI sends text only: it cannot send a part of {what} (an image, "
+                                      "audio or a file included); send text parts")
+
+
+def _content_text(content) -> str:
+    """A message's content as the text the CLI is sent: none as nothing, a str as its characters, a list of parts
+    (or one part) as the text of each, one per line."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return str.__str__(content)
+    parts = content if isinstance(content, list | tuple) else [content]
+    return "\n".join(_part_text(part) for part in parts)
+
+
 def classify_cli_error(text: str) -> ClaudeCliUnavailable:
     low = (text or "").lower()
     if any(m in low for m in _QUOTA_MARKERS):
@@ -284,13 +328,15 @@ class ClaudeCliModelClient:
 
     @staticmethod
     def _flatten_messages(messages: list[dict]) -> str:
-        """A single user turn verbatim; a multi-turn conversation as a labelled transcript."""
+        """A single user turn verbatim; a multi-turn conversation as a labelled transcript. Content goes as text only
+        (`_content_text`): the text of text parts, tool calls and results as labelled lines; a part the CLI cannot
+        send as text (an image, audio, a file) raises `ClaudeCliUnsupportedContent` rather than being printed."""
         if len(messages) == 1 and messages[0].get("role") == "user":
-            return messages[0].get("content", "")
+            return _content_text(messages[0].get("content", ""))
         lines = []
         for m in messages:
             role = str(m.get("role", "user")).capitalize()
-            lines.append(f"{role}: {m.get('content', '')}")
+            lines.append(f"{role}: {_content_text(m.get('content', ''))}")
         return "\n\n".join(lines)
 
     def _build_argv(self, binary: str, request: ModelRequest, cli_model: str) -> list[str]:
@@ -356,13 +402,13 @@ class ClaudeCliModelClient:
     async def complete(self, request: ModelRequest) -> ModelResponse:
         if offline():
             raise ClaudeCliUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
+        prompt = self._flatten_messages(request.messages)  # content it cannot send is refused before any process
         binary = self._resolve_binary()
         cli_model = self._cli_model(request)
         argv = self._build_argv(binary, request, cli_model)
         self._check_argv_budget(argv)  # refuse up front, never a silently truncated prompt
         # Zero spend: verify subscription auth before calling.
         await asyncio.to_thread(assert_subscription_auth, binary)
-        prompt = self._flatten_messages(request.messages)
         env = self._build_env()
 
         last_exc: Exception | None = None

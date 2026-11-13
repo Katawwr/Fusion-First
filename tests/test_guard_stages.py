@@ -1485,12 +1485,10 @@ async def test_a_role_too_long_to_be_one_is_the_users_and_costs_nothing_to_check
 
 @pytest.mark.unit
 async def test_a_str_subclass_is_read_as_it_is_printed_too():
-    """The reader read a str subclass's characters, which json sends; claude-cli prints it (str(), f-strings, repr in a
-    list), which can be other text."""
+    """The reader read a str subclass's characters, which json sends; a provider that prints a message (str(), an
+    f-string, repr in a list) shows how it prints, which can be other text. (claude-cli now sends characters.)"""
     shown = _Shown("Hello.", BAD)
     for content in (shown, [shown], [{"type": "text", "text": shown}]):
-        assert BAD in ClaudeCliModelClient._flatten_messages([{"role": "user", "content": "Hi."},
-                                                              {"role": "user", "content": content}])
         model, classifier, client = _client()
         out = await client.complete(_request(("user", "Hi."), ("user", content)))
         assert out.stop_reason == "blocked" and model.requests == [] and BAD in classifier.seen[-1]
@@ -1544,10 +1542,8 @@ class _Hidden(pydantic.BaseModel):
 
 @pytest.mark.unit
 async def test_a_pydantic_field_left_out_of_model_dump_is_read():
-    """claude-cli prints a part's repr, which shows a field `model_dump()` leaves out."""
+    """A part's repr shows a field `model_dump()` leaves out: a provider that prints the part shows it."""
     part = _Hidden(type="text", text="Hi.", note=BAD)
-    assert BAD in ClaudeCliModelClient._flatten_messages([{"role": "user", "content": "Hi."},
-                                                          {"role": "user", "content": [part]}])
     model, classifier, client = _client()
     out = await client.complete(_request(("user", "Hi."), ("user", [part])))
     assert out.stop_reason == "blocked" and model.requests == [] and BAD in classifier.seen[-1]

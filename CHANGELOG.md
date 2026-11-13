@@ -62,6 +62,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
   says how many are leased and when to retry; `--out FILE` also writes the JSON to a file. stdout stays pure JSON.
 - `fusion run submit answers.json` works: the answers file may be given as a plain argument as well as with
   `--file`, and a missing file is reported with the command to use.
+- The `claude-cli` target sends text only: the text of text parts, and tool calls and results as labelled lines. A
+  part it cannot send as text (an image, audio, a file, a part of no known type) raises
+  `ClaudeCliUnsupportedContent` before any process starts. It no longer prints the part, so a media payload cannot
+  reach the model as text the content-safety stage did not read. A string goes as its characters, and missing content
+  as nothing.
 
 ### Removed
 
