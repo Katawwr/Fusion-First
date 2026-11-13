@@ -52,9 +52,14 @@ DEFAULT_CATEGORIES = (
 # conversation or form a control token.
 # Each line break str.splitlines finds ("\r\n" is one) becomes a space.
 _LINE_BREAK = re.compile("\r\n|[\n\x0b\x0c\r\x1c\x1d\x1e\x85\u2028\u2029]")
-# Angle brackets and their look-alikes, every character whose NFKC form is one included: each becomes ( or ).
-_LEFT_ANGLES = "<\u2039\u276e\u276c\u2770\u02c2\u1438\u3008\u27e8\u2329\uff1c\ufe64\u29fc\ufe3f\U0001d236\u16b2\u226e"
-_RIGHT_ANGLES = ">\u203a\u276f\u276d\u2771\u02c3\u1433\u3009\u27e9\u232a\uff1e\ufe65\u29fd\ufe40\U0001d237\u226f"
+# Angle brackets and their look-alikes, each becomes ( or ): every character whose NFKC form is one, every character
+# named as one (angle brackets, angle quotation marks, left and right arrowhead letters, less-than and greater-than
+# brackets), every character whose TR39 confusable skeleton holds one (ICU), and the Canadian syllabics drawn as one.
+_LEFT_ANGLES = ("<\u2039\u276e\u276c\u2770\u02c2\u1438\u3008\u27e8\u2329\uff1c\ufe64\u29fc\ufe3f\U0001d236\u16b2\u226e"
+                "\u00ab\u02f1\u27ea\u2991\u2993\u2995\u300a\ufe3d\u1439\u1444\u1445\u150c\u226a\u22d6\u22d8\u2cb4")
+_RIGHT_ANGLES = (">\u203a\u276f\u276d\u2771\u02c3\u1433\u3009\u27e9\u232a\uff1e\ufe65\u29fd\ufe40\U0001d237\u226f"
+                 "\u00bb\u02f2\u27eb\u2992\u2994\u2996\u300b\ufe3e\u1434\u1437\u1440\u1441\u226b\u22d7\u22d9\u2a20"
+                 "\u2aa5\U00016f3f")
 _ANGLES = str.maketrans(dict.fromkeys(_LEFT_ANGLES, "(") | dict.fromkeys(_RIGHT_ANGLES, ")"))
 # Tag characters U+E0020..U+E007E spell ASCII that shows as nothing: each becomes the character it spells. The rest
 # of the block (U+E0000..U+E001F, U+E007F) is dropped.
@@ -79,8 +84,15 @@ _TURN_LABEL = re.compile(r"(?:user|agent|assistant|human|system|ai|bot|chatbot|m
 _LEAD = frozenset(">*_#`~|-\u2022\u00b7")  # markdown, quote marks and bullets a label may follow, besides spaces
 _LABEL_READ = 4096  # characters read for one label, after its lead
 _LABEL_CHARS = 48  # canonical characters that can hold a label
+# A character written as its two UTF-16 halves: a model's JSON decoder joins them, so they are joined here too.
+_PAIR = re.compile("[\ud800-\udbff][\udc00-\udfff]")
 # A lone surrogate cannot be encoded, so it would make the prompt unsendable.
 _SURROGATE = re.compile("[\ud800-\udfff]")
+
+
+def _joined(pair: re.Match) -> str:
+    high, low = pair[0]
+    return chr(0x10000 + (ord(high) - 0xD800) * 0x400 + ord(low) - 0xDC00)
 
 
 def _invisible(ch: str) -> bool:
@@ -124,7 +136,8 @@ def _strip_labels(text: str) -> str:
 def plain_text(text: str) -> str:
     """User text that cannot act as part of the prompt, whatever it holds:
 
-    - a lone surrogate becomes U+FFFD, so the text can always be sent;
+    - two UTF-16 halves of a character become that character, as a model's JSON decoder reads them, and a lone half
+      becomes U+FFFD, so the text can always be sent;
     - a tag character spelling ASCII (U+E0020..U+E007E) becomes that character and the other tag characters are
       dropped, so text hidden that way is text the classifier reads;
     - every line break becomes a space: the text is one line in the User turn, so it cannot open a turn or a
@@ -136,7 +149,7 @@ def plain_text(text: str) -> str:
 
     By shape, not spelling: no way of writing a label or a delimiter changes the outcome. Text without any of these
     is returned unchanged, so recorded renderings keep their hashes. Idempotent."""
-    text = _LINE_BREAK.sub(" ", _SURROGATE.sub("\ufffd", text).translate(_TAGS))
+    text = _LINE_BREAK.sub(" ", _SURROGATE.sub("\ufffd", _PAIR.sub(_joined, text)).translate(_TAGS))
     return _strip_labels(text).translate(_ANGLES)
 
 
@@ -207,8 +220,9 @@ class ClassifierUnavailable(RuntimeError):
 
 class ClassifierFault(RuntimeError):
     """The classifier was asked and failed on this prompt: a timeout, an HTTP error other than 404, a connection
-    dropped after the request went out, or a malformed reply. A prompt can be built to cause one (token-dense text
-    makes a call slow), so the guard treats it as unsafe (`on_unsafe_prompt`)."""
+    dropped after the request went out, a malformed reply, or a reply without a verdict. A prompt can be built to
+    cause one (token-dense text makes a call slow, other text an answer that is no verdict), so the guard treats it as
+    unsafe (`on_unsafe_prompt`)."""
 
 
 # Errors raised before a request reaches the server: nothing in the prompt can cause them.
@@ -278,10 +292,12 @@ class LlamaGuard:
     and nothing is truncated. One that would take more than `MAX_WINDOWS` calls is not an outage: it comes back
     unsafe under the category `TOO_LONG`, so padding is no way past the stage (list `TOO_LONG` in
     `content_safety_flag_only` to let such prompts through), and one with more than twice as many characters as
-    those calls read bytes is refused before it is read. Raises `ClassifierUnavailable` when it cannot ask (offline,
-    no server, no model); the guard turns that into `GuardConfig.on_classifier_error`. Raises `ClassifierFault` when
-    a call fails on the prompt (a timeout, an HTTP error other than 404, a malformed reply); the guard treats that
-    as unsafe."""
+    those calls read bytes is refused before it is read. `calls(text)` says how many calls a prompt takes. Raises
+    `ClassifierUnavailable` when it cannot ask (offline, no server, no model); the guard turns that into
+    `GuardConfig.on_classifier_error`. Raises `ClassifierFault` when a call fails on the prompt (a timeout, an HTTP
+    error other than 404, a malformed reply, a reply whose first line is neither `safe` nor `unsafe`); the guard
+    treats that as unsafe. (`verdict_from_reply` reads a recorded reply without a verdict as no verdict, as the
+    registered studies scored them.)"""
 
     def __init__(self, model: str = LLAMA_GUARD_MODEL, categories: Sequence[str] | None = None,
                  base_url: str | None = None, *, timeout: float = 120.0,
@@ -315,6 +331,21 @@ class LlamaGuard:
             return None
         return _windows(plain, self.window)
 
+    def _plan(self, text: str) -> list[str] | None:
+        """The pieces the calls carry; None when the prompt is refused unread (`TOO_LONG`): too many calls, or a
+        rendered prompt over the context's budget (each piece fits a window, so never expected), which the server
+        would cut or reject."""
+        pieces = self._pieces(text)
+        if pieces is None or any(len(self._render(piece).encode("utf-8")) > _PROMPT_BYTES for piece in pieces):
+            return None
+        return pieces
+
+    def calls(self, text: str) -> int:
+        """The calls `self(text)` makes when every window is safe: one for each window, none for a prompt refused
+        unread. A caller can budget the work of many prompts before asking about any."""
+        pieces = self._plan(text)
+        return 0 if pieces is None else len(pieces)
+
     def _render(self, piece: str) -> str:
         """The prompt for one piece of plain text. A window is never made plain again: a cut can change what that
         finds (a window may open with what reads like a label)."""
@@ -340,20 +371,20 @@ class LlamaGuard:
         return response
 
     def __call__(self, text: str) -> SafetyVerdict:
-        pieces = self._pieces(text)
-        # Refused whether or not a server answers. A rendered prompt over the context's budget (each piece fits a
-        # window, so never expected) would be cut or rejected by the server: refused too, before any call.
-        if pieces is None or any(len(self._render(piece).encode("utf-8")) > _PROMPT_BYTES for piece in pieces):
+        pieces = self._plan(text)
+        if pieces is None:  # refused whether or not a server answers
             return SafetyVerdict(unsafe=True, categories=(TOO_LONG,))
         if offline():
             raise ClassifierUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
-        undecided = verdict = None
         for piece in pieces:
             verdict = verdict_from_reply(self._ask(piece))
+            if verdict.error:
+                first = verdict.raw.strip().split("\n", 1)[0][:40]
+                raise ClassifierFault(f"{self.model} at {self.base_url} gave no verdict on this prompt (its reply "
+                                      f"opens {first!r}, neither 'safe' nor 'unsafe')")
             if verdict.unsafe:
                 return verdict  # one unsafe window settles it
-            undecided = undecided or (verdict if verdict.error else None)
-        return undecided or verdict
+        return verdict
 
 
 __all__ = [

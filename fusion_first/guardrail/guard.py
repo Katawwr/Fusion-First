@@ -691,10 +691,11 @@ class Guardrail:
         """The content-safety stage on the user's own prompt. Off without a classifier: allows, records nothing.
 
         With one, a prompt it calls unsafe gets `on_unsafe_prompt` (block by default) unless every category it
-        names is in `content_safety_flag_only`. An outage (the classifier raises `ClassifierUnavailable`) or a reply
-        without a verdict gets `on_classifier_error` (allow by default, with an event). Any other failure, such as a
-        timeout (`ClassifierFault`), happened on this prompt, which may have been built to cause it: it is treated as
-        unsafe, and so is a verdict whose fields fail when read (each is read once). Content safety is not one of the
+        names is in `content_safety_flag_only`. An outage (the classifier raises `ClassifierUnavailable`) or a verdict
+        that says it is none (`SafetyVerdict.error`) gets `on_classifier_error` (allow by default, with an event). Any
+        other failure, such as a timeout or a Llama Guard reply without a verdict (`ClassifierFault`), happened on this
+        prompt, which may have been built to cause it: it is treated as unsafe, and so is a verdict whose fields fail
+        when read (each is read once). Content safety is not one of the
         OWASP-mapped checks, so the event's `owasp` is empty. Raises `TypeError` for a prompt that is not a str;
         otherwise never raises into the agent loop."""
         if not isinstance(prompt, str):

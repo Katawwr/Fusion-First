@@ -165,21 +165,23 @@ A fourth, optional stage is off unless a classifier is passed (`Guardrail(config
 `guard_prompt` asks it whether the user's prompt is harmful content. `guardrail/stages.py` ships `LlamaGuard`
 (Llama Guard 3 through local Ollama, Meta's prompt format); any `Callable[[str], SafetyVerdict]` works. An
 unsafe verdict blocks (`on_unsafe_prompt`), categories in `content_safety_flag_only` are recorded only, a
-classifier outage (`ClassifierUnavailable`: no server or no model) or a reply without a verdict fails open with an
-event (`on_classifier_error`), and any other failure on a prompt, a timeout included, is treated as unsafe. Its
+classifier outage (`ClassifierUnavailable`: no server or no model) fails open with an event (`on_classifier_error`),
+and any other failure on a prompt, a timeout or a reply without a verdict included, is treated as unsafe. Its
 events carry no OWASP code: content safety is not one of the four mapped checks. The user's text is rendered on one
-line with angle brackets replaced, so it cannot open a turn, close the conversation or form a control token, and tag
-characters are decoded; a prompt too long for one call is read in windows that overlap by half, never truncated,
+line with angle brackets and their look-alikes replaced, so it cannot open a turn, close the conversation or form a
+control token, and tag characters are decoded; a prompt too long for one call is read in windows that overlap by half, never truncated,
 and a prompt over the length limit is refused before it is read. Each prompt is judged on its own, so a request
 split across messages can pass, and encoded text reaches the classifier undecoded. Its registered result is in the
 [Trust Report](../TRUST_REPORT.md).
 
 `GuardedModelClient` applies `guard_output` to replies and, when the guard has a classifier, `guard_prompt` to
-every user message in the request first (every field at any depth, keys read as Ollama reads them; tool results
-skipped; a part it cannot read, such as an image, gets `on_classifier_error`), each classified once (a request with
-a blocked message never reaches the model). A request with more unclassified user text than its budget is refused
-before any call. It trusts message roles: assistant, system and tool turns are not classified, so give it only
-history the application produced. Tool calls must be checked separately with `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
+every user message in the request first (any message a provider would send as the user's; every field at any depth,
+keys read as Ollama reads them; the results of tool calls the request made skipped; a part it cannot read, such as
+an image, gets `on_classifier_error`), each classified once (a request with a blocked message never reaches the
+model, which is sent the client's own copy of what was read). A request whose new user text would take more
+characters or classifier calls than its budget is refused once what fits is classified; what was classified is
+remembered, so the same request goes further the next time. It trusts message roles otherwise:
+assistant, system and tool turns are not classified, so give it only history the application produced. Tool calls must be checked separately with `guard_tool_call` before they run. Every live scan replays the guard over the target's own replies
 (`engine/guard_replay.py`) and reports, in-sample, what it would have stopped and which attacks were
 answered in prose with no tool call to check.
 
