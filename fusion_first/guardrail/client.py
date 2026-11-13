@@ -8,7 +8,8 @@ user's when any provider would send it as a user turn: when it has no `role` key
 that reads `role` as Ollama reads keys (any case) holds a role that is not text or that reads "user" or "human" on the
 stage's canonical form (invisible characters dropped, look-alikes folded), as text or as it prints. Every string in it
 is read, at any depth: text, dict keys, metadata values, bytes (as UTF-8), the fields of SDK objects, and how a str
-subclass prints; a tool result that answers a tool call made in the request is skipped. After a block, drop that
+subclass prints. A tool result is skipped only where a provider takes one: as one of the message's own blocks right
+after the turn that made the call, once per call; any other is read. After a block, drop that
 message from the history you send: while it is there, the request stays blocked. A part the classifier cannot read
 (an image, audio, video, a file, a base64, URL or file source, Ollama's `images`) gets
 `GuardConfig.on_classifier_error`, recorded once for each message that holds one: its bytes or address are not read,
@@ -145,12 +146,22 @@ def _renderings(text: str) -> list[str]:
     return out
 
 
-def _answers(fields: Mapping, calls: frozenset[str]) -> bool:
-    """A tool result that answers one of `calls` (by its `tool_use_id` or `call_id`)."""
-    return any(isinstance(fields.get(key), str) and fields.get(key) in calls for key in ("tool_use_id", "call_id"))
+def _as_fields(part) -> Mapping:
+    return part if isinstance(part, Mapping) else _fields(part) or {}
 
 
-def _children(value, media: bool, unread: list[str], marks: list, calls: frozenset[str]) -> list[tuple[object, bool]]:
+def _answered(part, calls: set[str]) -> str | None:
+    """The id of the call in `calls` that `part` answers as a tool result (`tool_use_id` of a tool_result,
+    `call_id` of a function_call_output), or None."""
+    fields = _as_fields(part)
+    kind = _kind(fields)
+    if kind not in _TOOL_OUTPUT:
+        return None
+    call = fields.get("tool_use_id" if kind == "tool_result" else "call_id")
+    return call if isinstance(call, str) and call in calls else None
+
+
+def _children(value, media: bool, unread: list[str], marks: list) -> list[tuple[object, bool]]:
     """What `_Reader.read` reads next in `value`, in order, each with whether it sits in media. Parts the classifier
     cannot read go to `unread`, and a mark for each skipped payload to `marks`."""
     if isinstance(value, enum.Enum):
@@ -163,8 +174,6 @@ def _children(value, media: bool, unread: list[str], marks: list, calls: frozens
         unread.append(type(value).__name__)
         return []
     kind = _kind(fields)
-    if kind in _TOOL_OUTPUT and _answers(fields, calls):
-        return []  # the output of a tool call the request made: not the user's
     if kind in _MEDIA and not media:
         unread.append(kind)
     media = media or kind in _MEDIA
@@ -193,8 +202,7 @@ class _Reader:
     """Reads the user messages of one request: the values walked are counted across the request (`_NODES`), the
     characters read within each message (`_BUDGET`)."""
 
-    def __init__(self, calls: frozenset[str]):
-        self.calls = calls  # ids of the tool calls the request's other turns made
+    def __init__(self):
         self.nodes = 0
 
     def read(self, *content) -> tuple[list[str], list[str], list, str]:
@@ -203,8 +211,7 @@ class _Reader:
 
         Iterative, with no depth limit; each container is read once, so a cycle ends and a shared part is read once.
         Every string is read: dict keys and metadata values too, bytes as UTF-8, SDK objects through their fields
-        (`_fields`), a str subclass as it prints too (`_renderings`); the result of a tool call the request made is
-        skipped. Media (a media
+        (`_fields`), a str subclass as it prints too (`_renderings`). Media (a media
         part, a media field such as vLLM's `image_url`, a base64, URL or file `source`) cannot be read: its bytes or
         address are skipped, its other fields read."""
         texts: list[str] = []
@@ -231,7 +238,7 @@ class _Reader:
                 if value is None or isinstance(value, numbers.Number) or id(value) in seen:
                     continue
                 seen[id(value)] = value
-                children = _children(value, media, unread, marks, self.calls)
+                children = _children(value, media, unread, marks)
             except Exception:  # an object that fails when read is a part the stage cannot read
                 unread.append(type(value).__name__)
                 continue
@@ -263,11 +270,30 @@ def _is_users(items: list[tuple]) -> bool:
     return any(_is_user(value) for key, value in items if _key(key) == "role")
 
 
-def _user_message(message, reader: _Reader) -> tuple[str, list[str], list, str] | None:
+def _results_skipped(blocks, calls: set[str], answered: set[str]) -> list:
+    """`blocks` without the tool results that answer `calls`, each call once: what a provider takes as the tools'
+    output, not the user's text. The ids answered go to `answered`."""
+    kept = []
+    for block in blocks:
+        try:
+            call = _answered(block, calls - answered)
+        except Exception:
+            call = None
+        if call is None:
+            kept.append(block)
+        else:
+            answered.add(call)
+    return kept
+
+
+def _user_message(message, reader: _Reader, calls: set[str] | None = None,
+                  answered: set[str] | None = None) -> tuple[str, list[str], list, str] | None:
     """(text, parts the stage cannot read, marks of skipped payloads, "" or why the read stopped) of a user message;
     None for another role (`_is_users`). One that is not a mapping has no role. Keys are matched as Ollama matches
     them (`_key`): every key that reads `content` is read first, every one that reads `images` holds Ollama's images,
-    and every other key is read with its value."""
+    and every other key is read with its value. Of the blocks under the `content` key itself, a tool result that
+    answers one of `calls` (the calls the turn just before made, not answered yet) is skipped, once per call; any
+    other tool result is read."""
     if not isinstance(message, Mapping):
         texts, unread, marks, stopped = reader.read(message)
         return "\n".join(t for t in texts if t), unread, marks, stopped
@@ -281,6 +307,8 @@ def _user_message(message, reader: _Reader) -> tuple[str, list[str], list, str] 
     for key, value in items:
         name = _key(key)
         if name == "content":
+            if calls and isinstance(key, str) and key == "content" and isinstance(value, list | tuple):
+                value = _results_skipped(value, calls, set() if answered is None else answered)
             content.append(value)
         elif name == "images":
             images += len(value) if isinstance(value, list | tuple) else int(not _empty(value))
@@ -295,25 +323,20 @@ def _listed(value) -> list:
     return list(value) if isinstance(value, list | tuple) else []
 
 
-def _ids(part) -> list[str]:
-    fields = part if isinstance(part, Mapping) else _fields(part) or {}
-    return [v for v in (fields.get("id"), fields.get("call_id")) if isinstance(v, str)]
-
-
-def _tool_calls(messages) -> frozenset[str]:
-    """The ids of the tool calls made in a request's turns that are not the user's: the tool_use and function_call
-    blocks in their `content` (`_TOOL_CALLS`)."""
+def _tool_calls(message) -> set[str]:
+    """The ids of the tool calls a turn that is not the user's makes: the tool_use and function_call blocks under its
+    `content` key (`_TOOL_CALLS`). Empty for the user's turn or one that cannot be read."""
     ids: set[str] = set()
-    for message in messages:
-        try:
-            if not isinstance(message, Mapping) or _is_users(list(message.items())):
-                continue
-            for part in _listed(message.get("content")):
-                if _kind(part if isinstance(part, Mapping) else _fields(part) or {}) in _TOOL_CALLS:
-                    ids.update(_ids(part))
-        except Exception:
-            continue
-    return frozenset(ids)
+    try:
+        if not isinstance(message, Mapping) or _is_users(list(message.items())):
+            return ids
+        for part in _listed(message.get("content")):
+            fields = _as_fields(part)
+            if _kind(fields) in _TOOL_CALLS:
+                ids.update(v for v in (fields.get("id"), fields.get("call_id")) if isinstance(v, str))
+    except Exception:
+        return set()
+    return ids
 
 
 def _with_copies(request: ModelRequest, users: set[int]) -> tuple[ModelRequest, list[int]]:
@@ -446,12 +469,13 @@ class GuardedModelClient:
         self._settle()
         classifier = self.guard.content_safety
         cost = classifier.calls if isinstance(classifier, LlamaGuard) else (lambda text: 1)
-        made = _tool_calls(request.messages)
-        reader = _Reader(made)
+        reader = _Reader()
         verdicts: dict[bytes, object] = {}  # this request's: those remembered, then those classified
-        users, reads = [], []
-        for message in request.messages:
-            read = _user_message(message, reader)
+        users, reads, answerable, answered = [], [], [], set()
+        for i, message in enumerate(request.messages):
+            # A tool result counts as one only right after the turn that made the call, and once per call.
+            answerable.append(_tool_calls(request.messages[i - 1]) - answered if i else set())
+            read = _user_message(message, reader, answerable[i], answered)
             reads.append(read)
             if read is None:
                 continue
@@ -489,8 +513,8 @@ class GuardedModelClient:
             if unread and self._unreadable(unread, _digest(repr((key, sorted(unread), marks)))) == Decision.BLOCK:
                 return sent, ModelResponse(text=BLOCKED_UNREADABLE, model=BLOCKED_MODEL, stop_reason="blocked")
         # A message that could not be copied is sent as the caller's own object: it must still read as it did.
-        again = _Reader(made)
-        if any(_user_message(request.messages[i], again) != reads[i] for i in fragile):
+        again = _Reader()
+        if any(_user_message(request.messages[i], again, answerable[i]) != reads[i] for i in fragile):
             return sent, self._refuse("content classifier: a user message changed while it was classified",
                                       BLOCKED_CHANGED)
         return sent, None

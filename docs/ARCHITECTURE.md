@@ -176,7 +176,8 @@ split across messages can pass, and encoded text reaches the classifier undecode
 
 `GuardedModelClient` applies `guard_output` to replies and, when the guard has a classifier, `guard_prompt` to
 every user message in the request first (any message a provider would send as the user's; every field at any depth,
-keys read as Ollama reads them; the results of tool calls the request made skipped; a part it cannot read, such as
+keys read as Ollama reads them; a tool's result skipped only right after the turn that made the call, once; a part
+it cannot read, such as
 an image, gets `on_classifier_error`), each classified once (a request with a blocked message never reaches the
 model, which is sent the client's own copy of what was read). A request whose new user text would take more
 characters or classifier calls than its budget is refused once what fits is classified; what was classified is

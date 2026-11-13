@@ -16,7 +16,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
   classifier failure on a prompt, a timeout or a Llama Guard reply without a verdict included, is treated as unsafe
   (the registered study read such a reply as flagging nothing, and had none). `GuardedModelClient` checks every user
   message in the request first when a classifier is set (any message a provider would send as the user's; every
-  field at any depth, keys read as Ollama reads them; the results of tool calls the request made skipped; a part it
+  field at any depth, keys read as Ollama reads them; a tool's result skipped only right after the turn that made
+  the call, once; a part it
   cannot read, such as an image, gets `on_classifier_error`), each once, and a request with a blocked message never
   reaches the model, which is sent the client's own copy of what was read; a request whose new user text would take
   more characters or classifier calls than its budget is refused once what fits is classified, and what was
