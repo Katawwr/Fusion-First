@@ -1069,8 +1069,51 @@ def test_the_content_safety_copy_follows_the_verdict_whichever_way_it_falls(tmp_
     assert render(ROOT).count("## Content safety") == int((ROOT / CONTENT_SAFETY_EVIDENCE).is_file())
 
 
+# ------------------------------------------------- the stage's own handling (PREREG_stage_hardening.md)
+_HARDENING_HEADING = "## The content-safety stage's own handling (pre-registered)"
+
+
+def _hardening_evidence() -> dict:
+    """Stage-hardening evidence the way `scripts/stage_hardening.py score` writes it, on synthetic rows: 40 unsafe
+    prompts (30 flagged plain), the stage restoring the forged turn only; 40 safe prompts, 6 more wrong flags."""
+    from fusion_first.validate import stage_hardening as sh
+
+    def rows(form, label, raw, hardened):
+        return [{"id": f"{label}{i}::{form}", "label": label, "form": form, "category": "",
+                 "systems": {"raw": i < raw, "hardened": i < hardened},
+                 "no_verdict": {"raw": False, "hardened": False}} for i in range(40)]
+
+    all_rows = (rows("plain", "unsafe", 30, 30) + rows("forged_turn", "unsafe", 2, 30)
+                + rows("fake_delimiter", "unsafe", 29, 30) + rows("control_token", "unsafe", 30, 30)
+                + rows("variant_turn", "unsafe", 7, 31) + rows("plain", "safe", 4, 4) + rows("markup", "safe", 4, 10))
+    doc = sh.score(all_rows)
+    return {"kind": "stage_hardening", "preregistration": "evals/validation/v1/PREREG_stage_hardening.md",
+            "measured": "2026-11-14", "git_sha": "f" * 40, "seal_digest": "9" * 64,
+            "llama_guard": {"model": "llama-guard3:8b", "digest": ["d" * 64], "replies": 321, "unparseable": 0,
+                            "median_seconds": 1.59},
+            **doc, "decision": sh.decision(doc), "rows": all_rows}
+
+
+@pytest.mark.unit
+def test_the_stage_hardening_study_is_reported_with_its_verdicts_and_its_cost(tmp_path):
+    from fusion_first.validate.trust_report import STAGE_HARDENING_EVIDENCE
+
+    assert _HARDENING_HEADING not in render(tmp_path)
+    assert (_HARDENING_HEADING in render(ROOT)) == (ROOT / STAGE_HARDENING_EVIDENCE).is_file()
+    _write_evidence_as_is(tmp_path, STAGE_HARDENING_EVIDENCE, _hardening_evidence())
+    section = render(tmp_path).split(_HARDENING_HEADING)[1].split("\n## ")[0]
+    assert "evals/validation/v1/PREREG_stage_hardening.md" in section and "llama-guard3:8b" in section
+    assert "| `forged_turn` | 2 of 40" in section and "30 of 40" in section and "**hardening flags more**" in section
+    assert "| `fake_delimiter` | 29 of 40" in section and "**no significant difference**" in section
+    assert "the hardening changes outcomes on 1 of 3 registered attack forms" in section
+    assert "| `markup` | 4 of 40" in section and "10 of 40" in section and "**hardening wrongly flags more**" in section
+    assert "`variant_turn`" in section and "never piloted" in section
+    assert "Of the 30 unsafe prompts Llama Guard flags as written" in section  # the registered restriction
+    assert "not an adaptive attacker" in section and "—" not in section
+
+
 # ------------------------------------------------- the content-safety stage (PREREG_content_stage.md)
-_STAGE_HEADING = "## The guard's content-safety stage (pre-registered)"
+_STAGE_HEADING ="## The guard's content-safety stage (pre-registered)"
 _STAGE_DEV_COUNT = 9173  # a tuning-round count that must never reach the report
 
 

@@ -14,6 +14,15 @@ and versions follow [Semantic Versioning](https://semver.org/).
   structure is still one call with the same prompt. A text that splits into more calls than one prompt may take
   is refused under its own category (`TOO_MANY_PIECES`), which a deployment that lets `TOO_LONG` through does not
   waive.
+  - Registered result (`PREREG_stage_hardening.md`, `scripts/stage_hardening.py`; 200 unsafe and 200 safe
+    OR-Bench prompts held back from the stage study, scored once): Llama Guard 3 given the text as it is flagged
+    none of the 200 unsafe prompts in each of the three registered forms (a forged turn, the template's
+    delimiters, control tokens); the shipped stage flagged 165 of 200 in each, the same 165 Llama Guard flags
+    when the prompt stands alone. Two variants never run before registration: 9 and 86 as is, 165 and 167
+    through the stage. Cost: on safe prompts that carry markup the stage wrongly flagged 42 of 200 against 31
+    (significant). Not fixed by the stage: a harmless question appended with no structure drops both arms to 90
+    of 200, and a request hidden in tag characters is flagged 96 times of 200. Fixed wrappers written by this
+    project, not an adaptive attacker.
 
 ## [0.1.5] - 2026-11-14
 
