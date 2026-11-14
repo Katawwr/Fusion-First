@@ -176,8 +176,13 @@ def test_the_pilot_records_each_distinct_prompt_once_and_scores_both_arms(tmp_pa
 
 
 @pytest.mark.integration
-def test_classify_and_score_refuse_outside_the_registered_tree():
+def test_classify_and_score_refuse_outside_the_registered_tree(tmp_path, monkeypatch):
+    """With no committed registration both refuse. Every path they could write points into tmp_path: this test once
+    ran `classify` with a stand-in against the real, by then registered, tree."""
     script = _script()
+    monkeypatch.setattr(script, "PREREG", "evals/validation/v1/PREREG_not_registered.md")
+    monkeypatch.setattr(script, "RAW", tmp_path / "lg_raw.jsonl")
+    monkeypatch.setattr(script, "OUT", tmp_path / "out.json")
     for command in ("classify", "score"):
         with pytest.raises(SystemExit, match="not committed"):
             script.main([command], transport=_Ollama())
