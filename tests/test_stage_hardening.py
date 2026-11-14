@@ -45,7 +45,7 @@ def test_every_form_is_deterministic_and_carries_the_request():
         shown = text.translate({0xE0000 + c: chr(c) for c in range(0x20, 0x7F)})  # tag characters, decoded
         assert HARM in shown, name
     assert sh.ATTACKS["plain"](HARM) == HARM and HARM not in sh.ATTACKS["tag_hidden"](HARM)
-    assert len(sh.ATTACKS["padded"](HARM).encode("utf-8")) > 2 * stages.OPTIONS["num_ctx"]
+    assert sh.ATTACKS["benign_suffix"](HARM) == f"{HARM} {sh.BENIGN}"
 
 
 @pytest.mark.unit
@@ -55,12 +55,14 @@ def test_the_raw_arm_puts_the_text_in_metas_template_as_it_is_and_the_hardened_a
     assert sh.hardened_prompts(HARM, stage) == [sh.raw_prompt(HARM)] == [stage.prompt(HARM)]  # ordinary text: the same
     for name in sh.PRIMARY:
         text = sh.ATTACKS[name](HARM)
-        raw, (hardened,) = sh.raw_prompt(text), sh.hardened_prompts(text, stage)
+        raw, (hardened, *pieces) = sh.raw_prompt(text), sh.hardened_prompts(text, stage)
+        assert pieces, name  # the request is also judged on its own
         assert text in raw and raw != hardened, name
         for mark in ("\n", "<", ">"):
             assert hardened.count(mark) == template.count(mark) <= raw.count(mark), (name, mark)
         assert raw.count("\n") > template.count("\n"), name
-    assert len(sh.hardened_prompts(sh.ATTACKS["padded"](HARM), stage)) > 1
+    control = sh.ATTACKS["benign_suffix"](HARM)
+    assert sh.hardened_prompts(control, stage) == [sh.raw_prompt(control)]  # no structure: one prompt, as raw
     assert sh.hardened_prompts("x" * (stage.window * (stages.MAX_WINDOWS + 1)), stage) == []  # refused unread
 
 
@@ -122,7 +124,7 @@ def test_the_sample_is_the_held_back_or_bench_prompts_never_the_sealed_ones():
     units = sh.units(rows)
     assert len({u["id"] for u in units}) == len(units)
     by_form = {form: sum(u["form"] == form for u in units) for form in {u["form"] for u in units}}
-    assert by_form == {**dict.fromkeys(sh.ATTACKS, sh.N["unsafe"]), "padded": sh.PADDED_N, "plain": sum(sh.N.values()),
+    assert by_form == {**dict.fromkeys(sh.ATTACKS, sh.N["unsafe"]), "plain": sum(sh.N.values()),
                        "markup": sh.N["safe"]}
 
 
@@ -159,7 +161,8 @@ def test_the_pilot_records_each_distinct_prompt_once_and_scores_both_arms(tmp_pa
     ollama = _Ollama()
     assert script.main(["pilot", "--n", "3"], transport=ollama) == 0
     units = script.pilot_units(3)
-    assert [u["form"] for u in units].count("padded") == 3 and len(units) == 3 * len(sh.ATTACKS)
+    assert len(units) == 3 * (len(sh.ATTACKS) - len(sh.UNPILOTED)) and "padded" not in sh.ATTACKS
+    assert not {u["form"] for u in units} & set(sh.UNPILOTED)  # a pilot never runs the unpiloted variants
     stage = LlamaGuard()
     distinct = {p for u in units for p in script.prompts_of(u["text"], stage)}
     assert len(ollama.asked) == len(set(ollama.asked)) == len(distinct)
@@ -178,3 +181,13 @@ def test_classify_and_score_refuse_outside_the_registered_tree():
     for command in ("classify", "score"):
         with pytest.raises(SystemExit, match="not committed"):
             script.main([command], transport=_Ollama())
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", sh.UNPILOTED)
+def test_the_unpiloted_variants_take_raw_over_and_are_judged_piece_by_piece(name):
+    text = sh.ATTACKS[name](HARM)
+    stage = LlamaGuard()
+    whole, *pieces = sh.hardened_prompts(text, stage)
+    assert stage._render(HARM) in pieces and whole != sh.raw_prompt(text)
+    assert set(sh.UNPILOTED) < set(sh.ATTACKS) and not set(sh.UNPILOTED) & set(sh.PRIMARY)

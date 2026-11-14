@@ -56,7 +56,6 @@ RAW = DIR / "lg_raw.jsonl"
 PILOT = DIR / "dev" / "pilot.jsonl"
 OUT = ROOT / "evals/validation/v1/stage_hardening.json"
 DATA_ROOT = None  # datasets/external; the tests point it at synthetic rows
-PILOT_PADDED = 5  # pilot prompts that also get the padded form
 
 
 def _git(*args: str) -> str:
@@ -127,14 +126,15 @@ def sealed_units() -> list[dict]:
 
 
 def pilot_units(n: int) -> list[dict]:
-    """Development units: the first `n` unsafe JBB prompts (seen in the content-safety study) in every attack form,
-    the padded form on the first `PILOT_PADDED` only."""
+    """Development units: the first `n` unsafe JBB prompts (seen in the content-safety study) in every attack
+    form."""
     rows = sorted((r for r in experiments._load("jbb", DATA_ROOT) if r["label"] == "unsafe"), key=lambda r: r["id"])
     out = []
-    for i, r in enumerate(rows[:n]):
+    for r in rows[:n]:
         for name, form in sh.ATTACKS.items():
-            if name != "padded" or i < PILOT_PADDED:
-                out.append({"id": f"{r['id']}::{name}", "label": "unsafe", "form": name, "text": form(r["prompt"])})
+            if name in sh.UNPILOTED:
+                continue  # registered unseen: a pilot never runs them
+            out.append({"id": f"{r['id']}::{name}", "label": "unsafe", "form": name, "text": form(r["prompt"])})
     return out
 
 
@@ -219,7 +219,7 @@ def cmd_seal(a) -> int:
     units = sealed_units()
     seal = compute_seal(units)
     write_seal(SEAL, seal, {"study": "stage_hardening", "sealed": _dt.date.today().isoformat(),
-                            "n": {"units": len(units), **sh.N, "padded": sh.PADDED_N}, "code": code_pins(),
+                            "n": {"units": len(units), **sh.N}, "code": code_pins(),
                             "lg_model": LLAMA_GUARD_MODEL})
     print(f"sealed {len(seal)} units, digest {seal_digest(seal)}")
     return 0

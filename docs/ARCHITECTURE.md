@@ -170,7 +170,7 @@ and any other failure on a prompt, a timeout or a reply without a verdict includ
 events carry no OWASP code: content safety is not one of the four mapped checks. The user's text is rendered on one
 line with angle brackets and their look-alikes replaced, so it cannot open a turn, close the conversation or form a
 control token, and tag characters are decoded; a prompt too long for one call is read in windows that overlap by half, never truncated,
-and a prompt over the length limit is refused before it is read. Each prompt is judged on its own, so a request
+and a prompt over the length limit is refused before it is read. The text is judged whole and also piece by piece where a turn label, a template delimiter or a control token splits it: unsafe if any piece is. Each prompt is judged on its own, so a request
 split across messages can pass, and encoded text reaches the classifier undecoded. Its registered result is in the
 [Trust Report](../TRUST_REPORT.md).
 

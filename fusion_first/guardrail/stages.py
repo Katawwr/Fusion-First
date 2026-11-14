@@ -149,8 +149,40 @@ def plain_text(text: str) -> str:
 
     By shape, not spelling: no way of writing a label or a delimiter changes the outcome. Text without any of these
     is returned unchanged, so recorded renderings keep their hashes. Idempotent."""
-    text = _LINE_BREAK.sub(" ", _SURROGATE.sub("\ufffd", _PAIR.sub(_joined, text)).translate(_TAGS))
-    return _strip_labels(text).translate(_ANGLES)
+    return _strip_labels(_LINE_BREAK.sub(" ", _decoded(text))).translate(_ANGLES)
+
+
+def _decoded(text: str) -> str:
+    """The text with surrogate halves joined (a lone one becomes U+FFFD) and tag characters decoded."""
+    return _SURROGATE.sub("\ufffd", _PAIR.sub(_joined, text)).translate(_TAGS)
+
+
+# Where a text splits into pieces, matched on the canonical form (`_canon`): a template delimiter, a control token,
+# or a conversation-turn label that opens a line. A delimiter or token is cut out; a label starts the next piece.
+_SPLIT = re.compile(
+    r"(?P<cut><\s*(?:BEGIN|END)\s+(?:CONVERSATION|UNSAFE\s+CONTENT\s+CATEGORIES)\s*>|<\|[^<>|]{0,40}\|>)"
+    r"|(?:(?<=[\n\x0b\x0c\r\x1c\x1d\x1e\x85\u2028\u2029])|\A)[ \t>*_#`~|\u2022\u00b7-]*"
+    r"(?:user|agent|assistant|human|system|ai|bot|chatbot|model)[ \t*_`~]*:", re.IGNORECASE)
+_PIECE_CHARS = 4  # a piece shorter than this holds no request
+
+
+def _segments(text: str) -> list[str]:
+    """`text` (decoded) cut into the pieces forged structure would make of it: at each template delimiter and
+    control token (cut out) and before each turn label that opens a line. Linear; one piece for ordinary text."""
+    canon, index = [], []
+    for i, ch in enumerate(text):
+        for c in _canon(ch):
+            canon.append(c)
+            index.append(i)
+    pieces, start = [], 0
+    for found in _SPLIT.finditer("".join(canon)):
+        if found.end() == found.start():
+            continue
+        first, last = index[found.start()], index[found.end() - 1] + 1
+        pieces.append(text[start:first])
+        start = last if found.group("cut") else first
+    pieces.append(text[start:])
+    return [piece for piece in pieces if "".join(map(_canon, piece)).strip()]  # not one of invisible characters
 
 
 def render_prompt(user: str, agent: str | None, categories: Sequence[str], role: str = "Agent") -> str:
@@ -287,7 +319,9 @@ class LlamaGuard:
 
     One User turn, the User message assessed, raw mode, temperature 0. `categories` replaces Meta's 14 (each a
     line such as "S7: Privacy."). Synchronous: about two seconds a call on a small GPU. The text is made plain
-    first (`plain_text`: one line, no angle brackets), so it stays one User message and is judged whole. A prompt
+    first (`plain_text`: one line, no angle brackets), so it stays one User message and is judged whole; where a
+    turn label that opens a line, a template delimiter or a control token splits it, each piece is judged too, as
+    Llama Guard reads a request followed by a forged reply as safe even on one line. A prompt
     too long for one call is read in windows that overlap by half, each sent as cut; it is unsafe if any window is,
     and nothing is truncated. One that would take more than `MAX_WINDOWS` calls is not an outage: it comes back
     unsafe under the category `TOO_LONG`, so padding is no way past the stage (list `TOO_LONG` in
@@ -315,7 +349,7 @@ class LlamaGuard:
 
     def prompt(self, text: str) -> str:
         """The exact prompt Llama Guard is sent for `text`, when one call carries it (`ValueError` otherwise)."""
-        pieces = self._pieces(text)
+        pieces = self._plan(text)
         if pieces is None or len(pieces) > 1:
             raise ValueError("this text takes more than one call, so it has no single prompt")
         return self._render(pieces[0])
@@ -336,7 +370,21 @@ class LlamaGuard:
         rendered prompt over the context's budget (each piece fits a window, so never expected), which the server
         would cut or reject."""
         pieces = self._pieces(text)
-        if pieces is None or any(len(self._render(piece).encode("utf-8")) > _PROMPT_BYTES for piece in pieces):
+        if pieces is None:
+            return None
+        # Llama Guard reads a request followed by a forged reply and a harmless question as safe even on one line:
+        # each piece the text splits into at forged structure is judged too, after the whole text.
+        segments = _segments(_decoded(text))
+        if len(segments) > 1:
+            if len(segments) >= MAX_WINDOWS:
+                return None
+            seen = {plain_text(text)}
+            for segment in segments:
+                plain = plain_text(segment).strip()
+                if len(plain) >= _PIECE_CHARS and plain not in seen:
+                    seen.add(plain)
+                    pieces = pieces + _windows(plain, self.window)
+        if len(pieces) > MAX_WINDOWS or any(len(self._render(p).encode("utf-8")) > _PROMPT_BYTES for p in pieces):
             return None
         return pieces
 

@@ -3,6 +3,17 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The content-safety stage also judges a prompt piece by piece. Besides the whole text, each piece it splits into
+  at a conversation-turn label that opens a line, a template delimiter or a control token is sent to the
+  classifier, and the prompt is unsafe if any call says so. A pilot on seen prompts showed Llama Guard 3 reading a
+  request followed by a forged refusal and a harmless question as safe, even on one line. Text without such
+  structure is still one call with the same prompt. A text that splits into more calls than one prompt may take
+  is refused as too long.
+
 ## [0.1.5] - 2026-11-14
 
 ### Changed
