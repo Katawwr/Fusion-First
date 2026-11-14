@@ -10,7 +10,7 @@ describe("quality checks are not described as attacks or OWASP items", () => {
   it("only a safety check's code label carries the OWASP tooltip", () => {
     render(<CheckToggleCard check="direct_prompt_injection" enabled onToggle={() => {}} />);
     expect(screen.getByText("LLM01 · ASI01").getAttribute("title")).toMatch(/OWASP/);
-    expect(screen.getByText("LLM01 · ASI01").getAttribute("title")).toMatch(/ASI \(Agentic\) codes are provisional/);
+    expect(screen.getByText("LLM01 · ASI01").getAttribute("title")).toMatch(/the mapping is Fusion's own/);
     render(<CheckToggleCard check="instruction_following" enabled onToggle={() => {}} />);
     expect(screen.getByText("Quality").getAttribute("title") || "").not.toMatch(/OWASP/);
   });

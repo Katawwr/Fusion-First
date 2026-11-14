@@ -3,6 +3,16 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The OWASP Agentic 2026 codes are verified against the published "OWASP Top 10 for Agentic Applications for 2026"
+  (2025-12-09). The codes were right; five titles now read as published (ASI03 Identity and Privilege Abuse, ASI04
+  Agentic Supply Chain Vulnerabilities, ASI05 Unexpected Code Execution (RCE), ASI06 Memory & Context Poisoning,
+  ASI08 Cascading Failures). The "provisional" wording is gone; the check-to-code mapping is Fusion's own. The
+  committed example runs are re-finalized, since each records the crosswalk's hash; no number in them changed.
+
 ## [0.1.4] - 2026-11-13
 
 ### Added

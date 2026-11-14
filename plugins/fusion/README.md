@@ -1,7 +1,7 @@
 # Fusion First: Claude Code plugin
 
 Test an AI agent's system prompt for **safety** (prompt injection, excessive agency, data
-exfiltration, system-prompt leakage; OWASP LLM 2025 / Agentic 2026 mapped, Agentic codes provisional) and **quality**
+exfiltration, system-prompt leakage; OWASP LLM 2025 / Agentic 2026 mapped) and **quality**
 (instruction following), with **no API key**.
 
 - **Target**: a local open-weight model via Ollama (free), or Claude over your `claude` CLI

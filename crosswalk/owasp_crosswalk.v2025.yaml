@@ -1,12 +1,11 @@
 # Single source of truth for taxonomy codes. fusion/attacks/taxonomy.py imports codes from
 # here; nothing hardcodes them. Codes below are transcribed from the published OWASP lists.
 #
-# NOTE (verification task, Phase 2): the ASI (Agentic 2026) numbering must be re-verified against
-# the current published "OWASP Top 10 for Agentic Applications" document via a build-time WebFetch
-# before any public report card asserts these mappings. Until verified, treat ASI codes as
-# provisional (the LLM 2025 codes below are stable).
+# ASI (Agentic 2026) codes and titles verified on 2026-11-14 against "OWASP Top 10 for Agentic Applications
+# for 2026" (genai.owasp.org, published 2025-12-09). The check -> code mapping below is Fusion's own reading,
+# not OWASP's.
 
-version: "2025.1-provisional-asi"
+version: "2025.2"
 
 llm_2025:
   LLM01: Prompt Injection
@@ -23,12 +22,12 @@ llm_2025:
 asi_2026:
   ASI01: Agent Goal Hijack
   ASI02: Tool Misuse and Exploitation
-  ASI03: Agent Identity and Privilege Abuse
-  ASI04: Agentic Supply Chain Compromise
-  ASI05: Unexpected Code Execution
-  ASI06: Memory and Context Poisoning
+  ASI03: Identity and Privilege Abuse
+  ASI04: Agentic Supply Chain Vulnerabilities
+  ASI05: Unexpected Code Execution (RCE)
+  ASI06: Memory & Context Poisoning
   ASI07: Insecure Inter-Agent Communication
-  ASI08: Cascading Agent Failures
+  ASI08: Cascading Failures
   ASI09: Human-Agent Trust Exploitation
   ASI10: Rogue Agents
 

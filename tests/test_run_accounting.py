@@ -256,12 +256,16 @@ async def test_a_tampered_accounting_block_fails_verify(tmp_path, path, value):
 
 
 @pytest.mark.integration
-async def test_the_committed_example_run_verifies_without_re_finalizing(tmp_path):
+async def test_a_result_finalized_before_accounting_existed_verifies_without_re_finalizing(tmp_path):
+    """A result with no accounting block (the committed example was one until it was re-finalized on 2026-11-14)
+    verifies as it is: the block is checked only where it is stored."""
     ws = tmp_path / "ws"
     shutil.copytree(EXAMPLE, ws)
     rd = service.resolve_run(ws, "latest")
+    stored = json.loads(rd.result_path.read_text(encoding="utf-8"))
+    assert stored.pop("accounting")["target_calls"] > 0
+    rd.result_path.write_text(json.dumps(stored, indent=2, sort_keys=True), encoding="utf-8")
     before = rd.result_path.read_bytes()
-    assert "accounting" not in json.loads(before)  # finalized before accounting existed
     assert (await verify(rd))["ok"] is True
     assert rd.result_path.read_bytes() == before
     acc = accounting_of(Cassette.load(rd.target_path))

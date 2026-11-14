@@ -369,6 +369,6 @@ export function limitations(ev) {
         "grades for the other checks are not yet validated against oracles.",
     );
   }
-  out.push("The guard is defense in depth, not a sandbox. OWASP Agentic 2026 codes are provisional.");
+  out.push("The guard is defense in depth, not a sandbox.");
   return out;
 }

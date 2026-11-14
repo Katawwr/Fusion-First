@@ -1,10 +1,17 @@
 {
   "completed": 32,
+  "eta_s": null,
   "failed_grades": 0,
+  "input_tokens": 0,
   "message": "overall grade D",
   "n_graded": 98,
   "n_tasks": 98,
+  "output_tokens": 0,
   "phase": "done",
   "rejected": [],
+  "seconds_per_attack": null,
+  "started_at": null,
+  "target_calls": 0,
+  "target_seconds": 0.0,
   "total": 32
 }
