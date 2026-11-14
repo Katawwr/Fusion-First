@@ -118,7 +118,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST -H "Content-Type: application/j
 ```
 
 ```text
-{"status":"ok","mode":"demo","version":"0.1.4"}
+{"status":"ok","mode":"demo","version":"0.1.5"}
 400
 403
 ```

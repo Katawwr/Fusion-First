@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fusion-safety"
-version = "0.1.4"
+version = "0.1.5"
 description = "Measure and guard AI agents: safety and quality evaluation with a runtime guardrail"
 readme = "PYPI.md"  # the PyPI page; README.md is the repository page
 requires-python = ">=3.11"
