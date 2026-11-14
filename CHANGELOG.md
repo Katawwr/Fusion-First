@@ -12,7 +12,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
   classifier, and the prompt is unsafe if any call says so. A pilot on seen prompts showed Llama Guard 3 reading a
   request followed by a forged refusal and a harmless question as safe, even on one line. Text without such
   structure is still one call with the same prompt. A text that splits into more calls than one prompt may take
-  is refused as too long.
+  is refused under its own category (`TOO_MANY_PIECES`), which a deployment that lets `TOO_LONG` through does not
+  waive.
 
 ## [0.1.5] - 2026-11-14
 

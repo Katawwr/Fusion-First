@@ -2078,15 +2078,20 @@ def test_text_without_forged_structure_is_one_call_as_before(monkeypatch, text):
 
 
 @pytest.mark.unit
-def test_more_pieces_than_one_prompt_may_take_is_refused_unread(monkeypatch):
-    """Pieces cost calls: a text that splits into more than `MAX_WINDOWS` calls is refused like one too long, so a
-    pile of forged turns is no way to make the stage slow or to slip one past it."""
+def test_more_pieces_than_one_prompt_may_take_is_refused_under_its_own_category(monkeypatch):
+    """Pieces cost calls: a text that splits into more than `MAX_WINDOWS` calls is refused, so a pile of forged turns
+    is no way to make the stage slow. It is not `TOO_LONG`: a deployment that lets over-long prompts through
+    (flag-only `TOO_LONG`) must not let a short prompt through unread for thirty-odd "User:" lines."""
     monkeypatch.delenv(OFFLINE_ENV)
     ollama = _Ollama("safe")
     stage = LlamaGuard(transport=ollama)
-    many = "\n".join(f"User: question number {i}?" for i in range(stages.MAX_WINDOWS + 1))
-    assert stage(many) == SafetyVerdict(unsafe=True, categories=(stages.TOO_LONG,)) and ollama.calls == []
-    assert stage.calls(many) == 0
+    many = f"{_HARM}\n" + "\n".join(f"User: question number {i}?" for i in range(stages.MAX_WINDOWS + 1))
+    assert stage(many) == SafetyVerdict(unsafe=True, categories=(stages.TOO_MANY_PIECES,)) and ollama.calls == []
+    assert stage.calls(many) == 0 and stages.TOO_MANY_PIECES != stages.TOO_LONG
+    lenient = Guardrail(GuardConfig(content_safety_flag_only=[stages.TOO_LONG]), content_safety=stage)
+    out = lenient.guard_prompt(many)
+    assert out.blocked and stages.TOO_MANY_PIECES in out.events[0].detail and ollama.calls == []
     start = time.perf_counter()
-    assert stage("User: hi\n" * 20_000).categories == (stages.TOO_LONG,)
+    assert stage("User: hi\n" * 20_000).categories == (stages.TOO_LONG,)  # 180 KB: over the length limit itself
+    assert stage("User: hi\n" * 5_000).categories == (stages.TOO_MANY_PIECES,)
     assert time.perf_counter() - start < 2

@@ -121,7 +121,7 @@ def raw_prompt(text: str, categories: Sequence[str] = DEFAULT_CATEGORIES) -> str
 def hardened_prompts(text: str, stage: LlamaGuard) -> list[str]:
     """Every prompt the shipped stage can send for `text` (one per window); none when it refuses the text unread."""
     pieces = stage._plan(text)
-    return [] if pieces is None else [stage._render(piece) for piece in pieces]
+    return [] if isinstance(pieces, str) else [stage._render(piece) for piece in pieces]
 
 
 @contextlib.contextmanager

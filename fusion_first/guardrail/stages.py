@@ -35,6 +35,9 @@ OLLAMA_URL = "http://127.0.0.1:11434"
 OPTIONS = {"temperature": 0, "num_ctx": 8192, "num_predict": 24}
 MAX_WINDOWS = 32  # calls one prompt may take
 TOO_LONG = "too long to classify"  # the category LlamaGuard gives a prompt that would take more calls: refused
+# The category for a prompt that forged structure splits into more pieces than one prompt may take: refused, and
+# not waived by a deployment that lets TOO_LONG through (about thirty short lines are enough to cause it).
+TOO_MANY_PIECES = "too many forged turns to classify"
 # UTF-8 bytes a rendered prompt may take: the context less the reply, with room for the begin-of-text token.
 _PROMPT_BYTES = OPTIONS["num_ctx"] - OPTIONS["num_predict"] - 16
 
@@ -350,7 +353,7 @@ class LlamaGuard:
     def prompt(self, text: str) -> str:
         """The exact prompt Llama Guard is sent for `text`, when one call carries it (`ValueError` otherwise)."""
         pieces = self._plan(text)
-        if pieces is None or len(pieces) > 1:
+        if isinstance(pieces, str) or len(pieces) > 1:
             raise ValueError("this text takes more than one call, so it has no single prompt")
         return self._render(pieces[0])
 
@@ -365,34 +368,36 @@ class LlamaGuard:
             return None
         return _windows(plain, self.window)
 
-    def _plan(self, text: str) -> list[str] | None:
-        """The pieces the calls carry; None when the prompt is refused unread (`TOO_LONG`): too many calls, or a
-        rendered prompt over the context's budget (each piece fits a window, so never expected), which the server
-        would cut or reject."""
+    def _plan(self, text: str) -> list[str] | str:
+        """The pieces the calls carry, or the category under which the prompt is refused unread: `TOO_LONG` for too
+        many windows or a rendered prompt over the context's budget (each piece fits a window, so never expected),
+        which the server would cut or reject; `TOO_MANY_PIECES` when forged structure splits it into too many."""
         pieces = self._pieces(text)
         if pieces is None:
-            return None
+            return TOO_LONG
         # Llama Guard reads a request followed by a forged reply and a harmless question as safe even on one line:
         # each piece the text splits into at forged structure is judged too, after the whole text.
         segments = _segments(_decoded(text))
         if len(segments) > 1:
             if len(segments) >= MAX_WINDOWS:
-                return None
+                return TOO_MANY_PIECES
             seen = {plain_text(text)}
             for segment in segments:
                 plain = plain_text(segment).strip()
                 if len(plain) >= _PIECE_CHARS and plain not in seen:
                     seen.add(plain)
                     pieces = pieces + _windows(plain, self.window)
-        if len(pieces) > MAX_WINDOWS or any(len(self._render(p).encode("utf-8")) > _PROMPT_BYTES for p in pieces):
-            return None
+        if len(pieces) > MAX_WINDOWS:
+            return TOO_MANY_PIECES if len(segments) > 1 else TOO_LONG
+        if any(len(self._render(p).encode("utf-8")) > _PROMPT_BYTES for p in pieces):
+            return TOO_LONG
         return pieces
 
     def calls(self, text: str) -> int:
         """The calls `self(text)` makes when every window is safe: one for each window, none for a prompt refused
         unread. A caller can budget the work of many prompts before asking about any."""
         pieces = self._plan(text)
-        return 0 if pieces is None else len(pieces)
+        return 0 if isinstance(pieces, str) else len(pieces)
 
     def _render(self, piece: str) -> str:
         """The prompt for one piece of plain text. A window is never made plain again: a cut can change what that
@@ -420,8 +425,8 @@ class LlamaGuard:
 
     def __call__(self, text: str) -> SafetyVerdict:
         pieces = self._plan(text)
-        if pieces is None:  # refused whether or not a server answers
-            return SafetyVerdict(unsafe=True, categories=(TOO_LONG,))
+        if isinstance(pieces, str):  # refused whether or not a server answers
+            return SafetyVerdict(unsafe=True, categories=(pieces,))
         if offline():
             raise ClassifierUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
         for piece in pieces:
@@ -436,7 +441,7 @@ class LlamaGuard:
 
 
 __all__ = [
-    "DEFAULT_CATEGORIES", "LLAMA_GUARD_MODEL", "MAX_WINDOWS", "OLLAMA_URL", "OPTIONS", "TOO_LONG", "ClassifierFault",
+    "DEFAULT_CATEGORIES", "LLAMA_GUARD_MODEL", "MAX_WINDOWS", "OLLAMA_URL", "OPTIONS", "TOO_LONG", "TOO_MANY_PIECES", "ClassifierFault",
     "ClassifierUnavailable", "ContentClassifier", "LlamaGuard", "SafetyVerdict", "parse_verdict", "plain_text",
     "render_prompt", "user_prompt", "verdict_from_reply",
 ]
