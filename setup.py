@@ -71,6 +71,7 @@ DEV_ONLY_MODULES = frozenset({
     "fusion_first.validate.judge_eval_toolloop",
     "fusion_first.validate.llama_guard",
     "fusion_first.validate.seal",
+    "fusion_first.validate.stage_hardening",
     "fusion_first.validate.transcripts",
     "fusion_first.validate.trust_report",
     "fusion_first.validate.value_ledger",
