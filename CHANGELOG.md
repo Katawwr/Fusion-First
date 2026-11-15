@@ -3,6 +3,18 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The content-safety stage judges text hidden in tag characters on its own, and the visible text beside it, as well
+  as the whole prompt. Ordinary text takes the same calls as before.
+
+### Added
+
+- `LlamaGuard(sentences=True)`: the stage also judges each sentence (a call a sentence, grouped to fit the call
+  limit, never a reason to refuse a prompt). Off by default; its cost on ordinary text is not measured yet.
+
 ## [0.1.6] - 2026-11-14
 
 ### Changed

@@ -188,6 +188,33 @@ def _segments(text: str) -> list[str]:
     return [piece for piece in pieces if "".join(map(_canon, piece)).strip()]  # not one of invisible characters
 
 
+def _hidden(text: str) -> list[str]:
+    """The visible text and the text hidden in tag characters, each on its own, when `text` holds both; nothing
+    otherwise. Hidden text beside a harmless question reads to the classifier as part of that question."""
+    spelled = [ch for ch in text if 0xE0020 <= ord(ch) <= 0xE007E]
+    if not spelled or len(spelled) == len(text):
+        return []
+    visible = "".join(ch for ch in text if not 0xE0000 <= ord(ch) <= 0xE007F)
+    return [visible, "".join(spelled).translate(_TAGS)]
+
+
+# A sentence ends at ., ? or ! before a space, or at a line break.
+_SENTENCE_END = re.compile(r"(?<=[.?!])[ \t]+|[\n\x0b\x0c\r\x1c\x1d\x1e\x85  ]+")
+_SENTENCE_CHARS = 12  # a sentence shorter than this holds no request worth a call
+
+
+def _sentences(text: str, room: int) -> list[str]:
+    """The sentences of `text` (decoded) long enough to hold a request, when there are at least two; more than `room`
+    are joined, neighbours together, into `room` groups, so sentences never cost more calls than there is room for."""
+    found = [s for s in (part.strip() for part in _SENTENCE_END.split(text)) if len(s) >= _SENTENCE_CHARS]
+    if len(found) < 2 or room < 2:
+        return []
+    if len(found) <= room:
+        return found
+    size = -(-len(found) // room)
+    return [" ".join(found[i:i + size]) for i in range(0, len(found), size)]
+
+
 def render_prompt(user: str, agent: str | None, categories: Sequence[str], role: str = "Agent") -> str:
     """Meta's Llama Guard 3 format (Ollama adds the begin-of-text token), assessing the last message of `role`: a
     (User, Agent) exchange, or with `agent=None` a conversation that ends with the User turn. Renders its
@@ -334,12 +361,15 @@ class LlamaGuard:
     `GuardConfig.on_classifier_error`. Raises `ClassifierFault` when a call fails on the prompt (a timeout, an HTTP
     error other than 404, a malformed reply, a reply whose first line is neither `safe` nor `unsafe`); the guard
     treats that as unsafe. (`verdict_from_reply` reads a recorded reply without a verdict as no verdict, as the
-    registered studies scored them.)"""
+    registered studies scored them.) Text hidden in tag characters beside visible text is judged on its own as well.
+    `sentences=True` also judges each sentence (a call a sentence, grouped to fit `MAX_WINDOWS`): Llama Guard reads
+    a request with a harmless question appended as safe about half the time. Off by default."""
 
     def __init__(self, model: str = LLAMA_GUARD_MODEL, categories: Sequence[str] | None = None,
                  base_url: str | None = None, *, timeout: float = 120.0,
-                 transport: Callable[[str, dict], dict] | None = None):
+                 transport: Callable[[str, dict], dict] | None = None, sentences: bool = False):
         self.model = model
+        self.sentences = sentences
         self.categories = DEFAULT_CATEGORIES if categories is None else tuple(categories)
         self.base_url = (base_url or OLLAMA_URL).rstrip("/")
         self._transport = transport or _http(self.base_url, timeout)
@@ -377,18 +407,29 @@ class LlamaGuard:
             return TOO_LONG
         # Llama Guard reads a request followed by a forged reply and a harmless question as safe even on one line:
         # each piece the text splits into at forged structure is judged too, after the whole text.
-        segments = _segments(_decoded(text))
-        if len(segments) > 1:
-            if len(segments) >= MAX_WINDOWS:
-                return TOO_MANY_PIECES
-            seen = {plain_text(text)}
-            for segment in segments:
+        decoded = _decoded(text)
+        segments = _segments(decoded)
+        seen = {plain_text(text)}
+
+        def add(extra: Sequence[str]) -> None:
+            nonlocal pieces
+            for segment in extra:
                 plain = plain_text(segment).strip()
                 if len(plain) >= _PIECE_CHARS and plain not in seen:
                     seen.add(plain)
                     pieces = pieces + _windows(plain, self.window)
+
+        if len(segments) > 1:
+            if len(segments) >= MAX_WINDOWS:
+                return TOO_MANY_PIECES
+            add(segments)
+        # Text hidden in tag characters reads as part of the visible text around it: each is judged on its own too.
+        add(_hidden(_SURROGATE.sub("�", _PAIR.sub(_joined, text))))
         if len(pieces) > MAX_WINDOWS:
             return TOO_MANY_PIECES if len(segments) > 1 else TOO_LONG
+        if self.sentences:  # after the refusals: sentences fill the room left and never refuse a prompt
+            add(_sentences(decoded, MAX_WINDOWS - len(pieces)))
+            pieces = pieces[:MAX_WINDOWS]
         if any(len(self._render(p).encode("utf-8")) > _PROMPT_BYTES for p in pieces):
             return TOO_LONG
         return pieces

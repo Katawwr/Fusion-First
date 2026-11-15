@@ -2095,3 +2095,67 @@ def test_more_pieces_than_one_prompt_may_take_is_refused_under_its_own_category(
     assert stage("User: hi\n" * 20_000).categories == (stages.TOO_LONG,)  # 180 KB: over the length limit itself
     assert stage("User: hi\n" * 5_000).categories == (stages.TOO_MANY_PIECES,)
     assert time.perf_counter() - start < 2
+
+
+# ------------------------------------------------- dilution: hidden text and sentences judged on their own
+def _tags(text: str) -> str:
+    return "".join(chr(0xE0000 + ord(c)) for c in text)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("text", [
+    f"{_BENIGN} {_tags(_HARM)}",  # the request hidden after a visible question
+    "".join(a + _tags(b) for a, b in zip(_BENIGN.ljust(len(_HARM)), _HARM, strict=True)),  # interleaved
+])
+def test_text_hidden_in_tag_characters_is_also_judged_on_its_own(monkeypatch, text):
+    """The registered study (stage_hardening, 2026-11-14): a request hidden in tag characters behind a harmless
+    question was decoded but then read as part of that question, and Llama Guard 3 called about half of them safe.
+    The hidden text is a piece of its own, and so is the visible text."""
+    monkeypatch.delenv(OFFLINE_ENV)
+    ollama = _Ollama(_fooled)
+    stage = LlamaGuard(transport=ollama)
+    assert Guardrail(content_safety=stage).guard_prompt(text).blocked
+    assert ollama.texts[0] == stages.plain_text(text) and ollama.texts[-1] == _HARM
+    assert stage.calls(text) == 3
+    ollama = _Ollama("safe")
+    LlamaGuard(transport=ollama)(text)
+    assert [t.strip() for t in ollama.texts[1:]] == [_BENIGN, _HARM]  # visible, then hidden
+    hidden_only = _tags(_HARM)
+    assert LlamaGuard(transport=_Ollama("safe")).calls(hidden_only) == 1  # nothing beside it: one call, as before
+
+
+@pytest.mark.unit
+def test_sentences_are_judged_on_their_own_only_when_asked(monkeypatch):
+    """The same study: a harmless question appended to a request, with no structure at all, made Llama Guard 3 call
+    75 of 165 flagged requests safe. `sentences=True` also judges each sentence. Off by default: it costs a call a
+    sentence."""
+    monkeypatch.delenv(OFFLINE_ENV)
+    text = f"{_HARM} {_BENIGN}"
+    plain = _Ollama(_fooled)
+    assert not Guardrail(content_safety=LlamaGuard(transport=plain)).guard_prompt(text).blocked
+    assert plain.texts == [text]
+    ollama = _Ollama(_fooled)
+    stage = LlamaGuard(transport=ollama, sentences=True)
+    assert Guardrail(content_safety=stage).guard_prompt(text).blocked and ollama.texts == [text, _HARM]
+    ollama = _Ollama("safe")
+    stage = LlamaGuard(transport=ollama, sentences=True)
+    many = "First point here. Second point here!\nThird line without a stop\nA fourth? Yes."
+    stage(many)
+    assert ollama.texts == [stages.plain_text(many), "First point here.", "Second point here!",
+                            "Third line without a stop"]  # "A fourth?" and "Yes." are too short to hold a request
+    assert stage.calls(many) == 4
+    one = "Just one sentence, with a comma, e.g. this."
+    assert LlamaGuard(transport=_Ollama("safe"), sentences=True).calls("A single question?") == 1
+    assert LlamaGuard(transport=_Ollama("safe"), sentences=True).calls(one) >= 1
+
+
+@pytest.mark.unit
+def test_sentences_never_refuse_a_prompt_they_are_grouped_to_fit(monkeypatch):
+    monkeypatch.delenv(OFFLINE_ENV)
+    ollama = _Ollama("safe")
+    stage = LlamaGuard(transport=ollama, sentences=True)
+    long = " ".join(f"This is ordinary sentence number {i}." for i in range(200))
+    assert stage(long) == SafetyVerdict(unsafe=False, raw="safe")
+    assert 1 < len(ollama.calls) <= stages.MAX_WINDOWS and stage.calls(long) == len(ollama.calls)
+    covered = " ".join(ollama.texts[1:])
+    assert all(f"number {i}." in covered for i in range(200))  # every sentence is in some group
