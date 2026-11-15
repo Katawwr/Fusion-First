@@ -55,6 +55,9 @@ DEFAULT_CATEGORIES = (
 # conversation or form a control token.
 # Each line break str.splitlines finds ("\r\n" is one) becomes a space.
 _LINE_BREAK = re.compile("\r\n|[\n\x0b\x0c\r\x1c\x1d\x1e\x85\u2028\u2029]")
+# With `lines=True`: a run of white space holding a line break becomes one "\n", so the text keeps its lines but
+# never holds the blank line that separates the template's turns and delimiters.
+_LINE_RUN = re.compile(r"\s*[\n\x0b\x0c\r\x1c\x1d\x1e\x85\u2028\u2029]\s*")
 # Angle brackets and their look-alikes, each becomes ( or ): every character whose NFKC form is one, every character
 # named as one (angle brackets, angle quotation marks, left and right arrowhead letters, less-than and greater-than
 # brackets), every character whose TR39 confusable skeleton holds one (ICU), and the Canadian syllabics drawn as one.
@@ -136,7 +139,7 @@ def _strip_labels(text: str) -> str:
             start += 1
 
 
-def plain_text(text: str) -> str:
+def plain_text(text: str, *, lines: bool = False) -> str:
     """User text that cannot act as part of the prompt, whatever it holds:
 
     - two UTF-16 halves of a character become that character, as a model's JSON decoder reads them, and a lone half
@@ -151,8 +154,13 @@ def plain_text(text: str) -> str:
       matched on each character's canonical form (`_canon`).
 
     By shape, not spelling: no way of writing a label or a delimiter changes the outcome. Text without any of these
-    is returned unchanged, so recorded renderings keep their hashes. Idempotent."""
-    return _strip_labels(_LINE_BREAK.sub(" ", _decoded(text))).translate(_ANGLES)
+    is returned unchanged, so recorded renderings keep their hashes. Idempotent.
+
+    `lines=True` keeps the lines instead: each run of white space holding a line break becomes one "\n". The text
+    then cannot hold a blank line, which is what separates the template's turns, but a line of it can open like a
+    turn the label check does not know. A weaker guarantee, for text whose layout matters."""
+    decoded = _decoded(text)
+    return _strip_labels(_LINE_RUN.sub("\n", decoded) if lines else _LINE_BREAK.sub(" ", decoded)).translate(_ANGLES)
 
 
 def _decoded(text: str) -> str:
@@ -363,13 +371,17 @@ class LlamaGuard:
     treats that as unsafe. (`verdict_from_reply` reads a recorded reply without a verdict as no verdict, as the
     registered studies scored them.) Text hidden in tag characters beside visible text is judged on its own as well.
     `sentences=True` also judges each sentence (a call a sentence, grouped to fit `MAX_WINDOWS`): Llama Guard reads
-    a request with a harmless question appended as safe about half the time. Off by default."""
+    a request with a harmless question appended as safe about half the time. Off by default.
+    `lines=True` keeps the text's line breaks, one "\n" for each run (`plain_text`): Llama Guard flags more safe
+    prompts that carry markup once they are put on one line. Off by default: one line is the stronger guarantee."""
 
     def __init__(self, model: str = LLAMA_GUARD_MODEL, categories: Sequence[str] | None = None,
                  base_url: str | None = None, *, timeout: float = 120.0,
-                 transport: Callable[[str, dict], dict] | None = None, sentences: bool = False):
+                 transport: Callable[[str, dict], dict] | None = None, sentences: bool = False,
+                 lines: bool = False):
         self.model = model
         self.sentences = sentences
+        self.lines = lines
         self.categories = DEFAULT_CATEGORIES if categories is None else tuple(categories)
         self.base_url = (base_url or OLLAMA_URL).rstrip("/")
         self._transport = transport or _http(self.base_url, timeout)
@@ -393,7 +405,7 @@ class LlamaGuard:
         is not made plain at all: that is linear, but not free."""
         if len(text) > 2 * self._reach:
             return None
-        plain = plain_text(text)
+        plain = plain_text(text, lines=self.lines)
         if len(plain.encode("utf-8")) > self._reach:
             return None
         return _windows(plain, self.window)
@@ -409,12 +421,12 @@ class LlamaGuard:
         # each piece the text splits into at forged structure is judged too, after the whole text.
         decoded = _decoded(text)
         segments = _segments(decoded)
-        seen = {plain_text(text)}
+        seen = {plain_text(text, lines=self.lines)}
 
         def add(extra: Sequence[str]) -> None:
             nonlocal pieces
             for segment in extra:
-                plain = plain_text(segment).strip()
+                plain = plain_text(segment, lines=self.lines).strip()
                 if len(plain) >= _PIECE_CHARS and plain not in seen:
                     seen.add(plain)
                     pieces = pieces + _windows(plain, self.window)

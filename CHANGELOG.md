@@ -14,6 +14,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 - `LlamaGuard(sentences=True)`: the stage also judges each sentence (a call a sentence, grouped to fit the call
   limit, never a reason to refuse a prompt). Off by default; its cost on ordinary text is not measured yet.
+- `LlamaGuard(lines=True)`: the stage keeps the prompt's line breaks, one newline for each run, instead of putting
+  it on one line. Off by default: one line is the stronger guarantee; its effect is not measured yet.
 
 ## [0.1.6] - 2026-11-14
 

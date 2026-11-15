@@ -21,6 +21,7 @@ import datetime as _dt
 import hashlib
 import importlib.util
 import json
+import os
 import pathlib
 import statistics
 import subprocess
@@ -79,6 +80,8 @@ def _append(path: pathlib.Path, record: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        f.flush()
+        os.fsync(f.fileno())  # two runs each ended one record short on disk (cause not established)
 
 
 def _lg3():
