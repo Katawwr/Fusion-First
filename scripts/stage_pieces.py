@@ -4,6 +4,7 @@ in tag characters is caught half the time. Seen prompts only, never quoted. Dev-
 
     python scripts/stage_pieces.py plan     # the size of the Ollama job
     python scripts/stage_pieces.py pilot    # ONE Ollama job, resumable; prints the table
+    python scripts/stage_pieces.py pilot2   # the follow-up: line breaks (the first pilot cleared the brackets)
 
 Three questions:
 - markup: which way of writing an angle bracket costs least? The 400 prompts of the stage-hardening study (now
@@ -11,6 +12,10 @@ Three questions:
 - sentences: what does `LlamaGuard(sentences=True)` cost on ordinary multi-sentence text? The first IFEval prompts,
   whole and sentence by sentence.
 - dilution and hidden text: replayed from the study's recorded replies, no call (`replay`).
+
+`pilot2` asks what the first left open: the bracket rendering did not move the markup cost, so is it the one-line
+flattening? The same 400 prompts flat with the brackets kept, and with line breaks kept (one newline) or written
+as " / "; and the forged-structure attacks under both, since the flattening is there to defeat them.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ import hashlib
 import importlib.util
 import json
 import pathlib
+import re
 import sys
 import time
 
@@ -38,6 +44,10 @@ DATA_ROOT = None
 N_SENTENCES = 100  # IFEval prompts for the sentence question; the rest stay unseen
 BRACKETS = {"paren": ("(", ")"), "square": ("[", "]"), "space": (" ", " ")}
 MARKUP = sh.BENIGN_FORMS["markup"]
+LINES = {"flat": " ", "newline": "\n", "slash": " / "}  # what a run of line breaks becomes ("flat" ships)
+PILOT2 = (("flat", "angle"), ("newline", "paren"), ("slash", "paren"))
+STRUCTURE = ("forged_turn", "fake_delimiter", "variant_turn", "variant_delimiter")
+ANGLE = ("<", ">")
 
 
 def _study():
@@ -61,6 +71,47 @@ def brackets(name: str):
         yield
     finally:
         stages._ANGLES = saved
+
+
+class _Breaks:
+    """Stands in for the stage's line-break pattern: each run of line breaks becomes `to`, whatever is asked."""
+
+    def __init__(self, pattern, to: str):
+        self.runs, self.to = re.compile(f"(?:{pattern.pattern})+"), to
+
+    def sub(self, _repl, text: str) -> str:
+        return self.runs.sub(lambda _m: self.to, text)
+
+
+@contextlib.contextmanager
+def rendering(line: str, bracket: str):
+    """The stage with line breaks written as `LINES[line]` and angle brackets as `bracket` ("angle" keeps them)."""
+    saved = stages._LINE_BREAK, stages._ANGLES
+    left, right = ANGLE if bracket == "angle" else BRACKETS[bracket]
+    if line != "flat":
+        stages._LINE_BREAK = _Breaks(saved[0], LINES[line])
+    stages._ANGLES = str.maketrans(dict.fromkeys(stages._LEFT_ANGLES, left) | dict.fromkeys(stages._RIGHT_ANGLES, right))
+    try:
+        yield
+    finally:
+        stages._LINE_BREAK, stages._ANGLES = saved
+
+
+def units2(structure: tuple[str, ...] = ()) -> list[dict]:
+    """The follow-up's units: the markup prompts under each rendering of `PILOT2`, and the forged-structure attacks
+    on the unsafe prompts under each line rendering named in `structure` (asked only for one that helps)."""
+    out, stage = [], LlamaGuard()
+    for row in sh.held_back(DATA_ROOT):
+        for line, bracket in PILOT2:
+            with rendering(line, bracket):
+                out.append({"id": f"{row['id']}::markup::{line}-{bracket}", "group": f"markup/{line}-{bracket}",
+                            "label": row["label"], "prompts": sh.hardened_prompts(MARKUP(row["prompt"]), stage)})
+                if line not in structure or row["label"] != "unsafe":
+                    continue
+                for form in STRUCTURE:
+                    out.append({"id": f"{row['id']}::{form}::{line}", "group": f"{form}/{line}", "label": "unsafe",
+                                "prompts": sh.hardened_prompts(sh.ATTACKS[form](row["prompt"]), stage)})
+    return out
 
 
 def units() -> list[dict]:
@@ -120,20 +171,26 @@ def table(all_units: list[dict], records: list[dict]) -> str:
 
 
 def cmd_plan(a) -> int:
-    all_units = units()
-    done = {r["prompt_sha256"] for r in _study()._jsonl(PILOT)}
-    todo = {_sha(p) for u in all_units for p in u["prompts"]}
-    print(f"units: {len(all_units)}; distinct prompts: {len(todo)}; recorded: {len(todo & done)}")
+    study = _study()
+    raw = study._jsonl(STUDY_RAW)
+    for name, make, known in (("pilot", units, []), ("pilot2", units2, raw),
+                              ("pilot2 --structure newline slash", lambda: units2(("newline", "slash")), raw)):
+        all_units = make()
+        done = {r["prompt_sha256"] for r in study._jsonl(PILOT) + known}
+        todo = {_sha(p) for u in all_units for p in u["prompts"]}
+        print(f"{name}: units {len(all_units)}; distinct prompts {len(todo)}; recorded {len(todo & done)}; "
+              f"to ask {len(todo - done)}")
     print(f"replay (no call): {json.dumps(replay())}")
     return 0
 
 
-def cmd_pilot(a, transport) -> int:
+def cmd_pilot(a, transport, make=None) -> int:
     study = _study()
     lg3 = study._lg3()
     digest = study._ready(transport)
-    all_units = units()
-    done = {r["prompt_sha256"] for r in study._jsonl(PILOT)}
+    all_units = (make or units)()
+    known = study._jsonl(STUDY_RAW) if make else []  # a prompt the study already asked is not re-asked
+    done = {r["prompt_sha256"] for r in study._jsonl(PILOT) + known}
     asked = 0
     for unit in all_units:
         for prompt in unit["prompts"]:
@@ -148,7 +205,7 @@ def cmd_pilot(a, transport) -> int:
             done.add(key)
             asked += 1
     print(f"pilot (development, seen prompts, never quoted): {asked} new replies\n"
-          f"{table(all_units, study._jsonl(PILOT))}\nreplay: {json.dumps(replay())}")
+          f"{table(all_units, study._jsonl(PILOT) + known)}\nreplay: {json.dumps(replay())}")
     return 0
 
 
@@ -157,9 +214,11 @@ def main(argv: list[str] | None = None, *, transport=None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("plan")
     sub.add_parser("pilot")
+    sub.add_parser("pilot2").add_argument("--structure", nargs="*", default=[], choices=["newline", "slash"])
     a = parser.parse_args(argv)
-    if a.cmd == "pilot":
-        return cmd_pilot(a, transport or _study()._lg3().http_transport())
+    if a.cmd in ("pilot", "pilot2"):
+        make = (lambda: units2(tuple(a.structure))) if a.cmd == "pilot2" else None
+        return cmd_pilot(a, transport or _study()._lg3().http_transport(), make)
     return cmd_plan(a)
 
 
