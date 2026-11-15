@@ -1260,6 +1260,68 @@ def _stage_hardening(root: pathlib.Path) -> list[str]:
     return out
 
 
+STAGE_OPTIONS_EVIDENCE = "evals/validation/v1/stage_options.json"
+_OPTION_ARMS = {"whole": "whole text only", "default": "shipped default", "sentences": "`sentences=True`",
+                "lines": "`lines=True`"}
+_OPTION_GROUPS = {"unsafe": "unsafe OR-Bench", "safe": "safe OR-Bench", "ordinary": "IFEval (ordinary, safe)"}
+_OPTION_PRIMARY = {("unsafe", "tag_hidden", "default"): "hidden", ("unsafe", "benign_suffix", "sentences"): "dilution",
+                   ("safe", "markup", "lines"): "markup"}
+
+
+def _options_doc(root: pathlib.Path) -> dict | None:
+    p = root / STAGE_OPTIONS_EVIDENCE
+    if not p.is_file():
+        return None
+    d = json.loads(p.read_text(encoding="utf-8"))
+    return d if d.get("kind") == "stage_options" and d.get("demonstration") is False else None
+
+
+def _stage_options(root: pathlib.Path) -> list[str]:
+    d = _options_doc(root)
+    if not d:
+        return []
+    dec, lg, groups = d["decision"], d["llama_guard"], d["groups"]
+    sizes = ", ".join(f"{next(iter(forms.values()))['n']} {_OPTION_GROUPS[g]}" for g, forms in groups.items() if forms)
+    out = ["## The stage's options on unseen prompts (pre-registered)", "",
+           ("The study above left three weaknesses. Three changes followed, built on its prompts: text hidden in tag "
+            "characters is judged on its own (default), `LlamaGuard(sentences=True)` also judges each sentence "
+            "(opt-in), and `LlamaGuard(lines=True)` keeps the prompt's line breaks (opt-in). This study asks each "
+            "against the stage without it, on prompts no study or pilot had seen. "
+            f"Classifier `{lg['model']}`, {lg['replies']:,} replies, {lg['unparseable']} without a verdict, median "
+            f"{lg['median_seconds']:.1f} s per call. Registered in `{d['preregistration']}`; evidence: "
+            f"`{STAGE_OPTIONS_EVIDENCE}`."), "",
+           f"Sample: {sizes}. The unsafe prompts are every unseen one left.", "",
+           ("| Prompts | Form | Reference: flagged | Compared: flagged | Flagged by one only (reference / compared) | "
+            "McNemar | Mean calls (reference / compared) | Registered verdict |"), "|---|---|---|---|---|---|---|---|"]
+    for group, forms in groups.items():
+        for form, block in forms.items():
+            reference = next(iter(block["systems"]))
+            ref = block["systems"][reference]
+            for arm, pair in block["paired"].items():
+                other, name = block["systems"][arm], _OPTION_PRIMARY.get((group, form, arm))
+                verdict = f"**{dec[name]['verdict']}**" if name in dec else "\u2013"
+                out.append(
+                    f"| {_OPTION_GROUPS[group]} | `{form}` | {_OPTION_ARMS[reference]}: {ref['k']} of {ref['n']}, "
+                    f"{_iv(ref)} | {_OPTION_ARMS[arm]}: {other['k']} of {other['n']}, {_iv(other)} | "
+                    f"{pair['reference_only']} / {pair['other_only']} | {_p(pair['mcnemar_p'])} | "
+                    f"{block['mean_calls'][reference]:.2f} / {block['mean_calls'][arm]:.2f} | {verdict} |")
+    out += ["", ("- Three registered tests (exact McNemar, Holm-corrected across the three at 0.05); every other row "
+                "is reported without a decision.")]
+    for name, label in (("hidden", "Hidden text judged on its own (default since the study above)"),
+                        ("dilution", "`sentences=True` against a harmless question appended to a request"),
+                        ("markup", "`lines=True` on safe prompts that carry markup")):
+        if name in dec:
+            out.append(f"- {label}: **{dec[name]['verdict']}** ({_p(dec[name]['mcnemar_p'])}).")
+    out += [("- `sentences` stays opt-in whatever it shows: it costs a call a sentence (the mean-calls column). "
+             "`lines` stays opt-in too: one line cannot open a turn, while kept lines only cannot hold a blank line."),
+            ("- Limits: the unsafe sample is small, so the rows for `lines` on the forged-structure forms cannot show "
+             "that it leaves them as well caught. The forms are this project's fixed wrappers, the same as above: "
+             "this tests the changes on fresh prompts, not on fresh forms. One classifier, one set of weights, "
+             "English. OR-Bench's safe prompts are chosen to look harmful, so its wrong-flag rates are far above "
+             "those on ordinary text; IFEval is the ordinary text here."), ""]
+    return out
+
+
 def _content_stage_site(root: pathlib.Path) -> dict | None:
     d = _load(root, CONTENT_STAGE_EVIDENCE)
     if not d:
@@ -2273,7 +2335,7 @@ def render(root: pathlib.Path | None = None) -> str:
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root), *_q6(root),
              *_q7(root),
              *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_detectors_study(root),
-             *_content_safety(root), *_content_stage(root), *_stage_hardening(root), *_guard(root),
+             *_content_safety(root), *_content_stage(root), *_stage_hardening(root), *_stage_options(root), *_guard(root),
              *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"
 

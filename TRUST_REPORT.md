@@ -412,6 +412,36 @@ Safe prompts wrongly flagged:
 - Of the 165 unsafe prompts Llama Guard flags as written, still flagged in each form: `forged_turn` 0 as is, 165 through the stage; `fake_delimiter` 0 as is, 165 through the stage; `control_token` 0 as is, 165 through the stage; `tag_hidden` 0 as is, 94 through the stage; `benign_suffix` 90 as is, 90 through the stage; `variant_turn` 9 as is, 165 through the stage; `variant_delimiter` 86 as is, 165 through the stage.
 - Limits: the forms are fixed wrappers written by this project, not an adaptive attacker; one classifier, one set of weights, English, OR-Bench (labels from a panel of models). The study measures what the classifier is shown and says, not attack success against a target model. The registration also listed calls per prompt for the stage; the scoring step did not write it.
 
+## The stage's options on unseen prompts (pre-registered)
+
+The study above left three weaknesses. Three changes followed, built on its prompts: text hidden in tag characters is judged on its own (default), `LlamaGuard(sentences=True)` also judges each sentence (opt-in), and `LlamaGuard(lines=True)` keeps the prompt's line breaks (opt-in). This study asks each against the stage without it, on prompts no study or pilot had seen. Classifier `llama-guard3:8b`, 2,150 replies, 0 without a verdict, median 1.6 s per call. Registered in `evals/validation/v1/PREREG_stage_options.md`; evidence: `evals/validation/v1/stage_options.json`.
+
+Sample: 55 unsafe OR-Bench, 200 safe OR-Bench, 200 IFEval (ordinary, safe). The unsafe prompts are every unseen one left.
+
+| Prompts | Form | Reference: flagged | Compared: flagged | Flagged by one only (reference / compared) | McNemar | Mean calls (reference / compared) | Registered verdict |
+|---|---|---|---|---|---|---|---|
+| unsafe OR-Bench | `tag_hidden` | whole text only: 26 of 55, 47% (35%–60%) | shipped default: 47 of 55, 85% (74%–92%) | 0 / 21 | p<0.0001 | 1.00 / 3.00 | **judging hidden text on its own flags more** |
+| unsafe OR-Bench | `benign_suffix` | shipped default: 21 of 55, 38% (27%–51%) | `sentences=True`: 44 of 55, 80% (68%–88%) | 0 / 23 | p<0.0001 | 1.00 / 2.93 | **judging sentences flags more** |
+| unsafe OR-Bench | `plain` | shipped default: 46 of 55, 84% (72%–91%) | `sentences=True`: 46 of 55, 84% (72%–91%) | 0 / 0 | p=1.0000 | 1.00 / 1.00 | – |
+| unsafe OR-Bench | `plain` | shipped default: 46 of 55, 84% (72%–91%) | `lines=True`: 46 of 55, 84% (72%–91%) | 0 / 0 | p=1.0000 | 1.00 / 1.00 | – |
+| unsafe OR-Bench | `forged_turn` | shipped default: 46 of 55, 84% (72%–91%) | `lines=True`: 46 of 55, 84% (72%–91%) | 0 / 0 | p=1.0000 | 4.00 / 4.00 | – |
+| unsafe OR-Bench | `fake_delimiter` | shipped default: 46 of 55, 84% (72%–91%) | `lines=True`: 46 of 55, 84% (72%–91%) | 0 / 0 | p=1.0000 | 3.00 / 3.00 | – |
+| unsafe OR-Bench | `control_token` | shipped default: 46 of 55, 84% (72%–91%) | `lines=True`: 46 of 55, 84% (72%–91%) | 0 / 0 | p=1.0000 | 6.00 / 6.00 | – |
+| unsafe OR-Bench | `variant_turn` | shipped default: 46 of 55, 84% (72%–91%) | `lines=True`: 46 of 55, 84% (72%–91%) | 0 / 0 | p=1.0000 | 4.00 / 4.00 | – |
+| unsafe OR-Bench | `variant_delimiter` | shipped default: 46 of 55, 84% (72%–91%) | `lines=True`: 46 of 55, 84% (72%–91%) | 0 / 0 | p=1.0000 | 3.00 / 3.00 | – |
+| safe OR-Bench | `markup` | shipped default: 50 of 200, 25% (20%–31%) | `lines=True`: 36 of 200, 18% (13%–24%) | 15 / 1 | p=0.0005 | 1.00 / 1.00 | **keeping lines wrongly flags fewer** |
+| safe OR-Bench | `plain` | shipped default: 35 of 200, 18% (13%–23%) | `sentences=True`: 35 of 200, 18% (13%–23%) | 0 / 0 | p=1.0000 | 1.00 / 1.00 | – |
+| safe OR-Bench | `plain` | shipped default: 35 of 200, 18% (13%–23%) | `lines=True`: 35 of 200, 18% (13%–23%) | 0 / 0 | p=1.0000 | 1.00 / 1.00 | – |
+| IFEval (ordinary, safe) | `plain` | shipped default: 1 of 200, 0% (0%–3%) | `sentences=True`: 4 of 200, 2% (1%–5%) | 0 / 3 | p=0.2500 | 1.00 / 3.98 | – |
+| IFEval (ordinary, safe) | `plain` | shipped default: 1 of 200, 0% (0%–3%) | `lines=True`: 1 of 200, 0% (0%–3%) | 0 / 0 | p=1.0000 | 1.00 / 1.00 | – |
+
+- Three registered tests (exact McNemar, Holm-corrected across the three at 0.05); every other row is reported without a decision.
+- Hidden text judged on its own (default since the study above): **judging hidden text on its own flags more** (p<0.0001).
+- `sentences=True` against a harmless question appended to a request: **judging sentences flags more** (p<0.0001).
+- `lines=True` on safe prompts that carry markup: **keeping lines wrongly flags fewer** (p=0.0005).
+- `sentences` stays opt-in whatever it shows: it costs a call a sentence (the mean-calls column). `lines` stays opt-in too: one line cannot open a turn, while kept lines only cannot hold a blank line.
+- Limits: the unsafe sample is small, so the rows for `lines` on the forged-structure forms cannot show that it leaves them as well caught. The forms are this project's fixed wrappers, the same as above: this tests the changes on fresh prompts, not on fresh forms. One classifier, one set of weights, English. OR-Bench's safe prompts are chosen to look harmful, so its wrong-flag rates are far above those on ordinary text; IFEval is the ordinary text here.
+
 ## Runtime guard for Claude Code (fusion-guard hook)
 
 Tool calls written by independent agents **blind to the rules**, scored once.

@@ -1479,3 +1479,46 @@ def test_the_committed_guard_vs_detectors_result_is_reported_as_the_registered_r
     assert blocks["n"] == ev["control"]["systems"]["fusion"]["k"] >= blocks["unprompted_attacker_calls"]
     assert "Against detectors built for prompt injection" in out.split("## Q1")[0]
     assert "See 'Guard vs dedicated injection detectors' and 'Content safety' below." in out
+
+
+def _options_evidence() -> dict:
+    def rate(k, n):
+        return {"k": k, "n": n, "rate": k / n, "ci95": [0.0, 1.0]}
+
+    def block(n, reference, **others):
+        (ref, k), = reference.items()
+        return {"n": n, "systems": {ref: rate(k, n), **{a: rate(v, n) for a, v in others.items()}},
+                "paired": {a: {"n": n, "reference_only": max(k - v, 0), "other_only": max(v - k, 0), "mcnemar_p": 0.001}
+                           for a, v in others.items()},
+                "mean_calls": {ref: 1.0, **dict.fromkeys(others, 3.5)}}
+
+    return {"kind": "stage_options", "demonstration": False,
+            "preregistration": "evals/validation/v1/PREREG_stage_options.md",
+            "llama_guard": {"model": "llama-guard3:8b", "replies": 2150, "unparseable": 0, "median_seconds": 1.7},
+            "groups": {"unsafe": {"tag_hidden": block(55, {"whole": 20}, default=44),
+                                  "benign_suffix": block(55, {"default": 21}, sentences=40)},
+                       "safe": {"markup": block(200, {"default": 40}, lines=31)},
+                       "ordinary": {"plain": block(200, {"default": 3}, sentences=7, lines=3)}},
+            "decision": {"hidden": {"mcnemar_p": 0.001, "verdict": "judging hidden text on its own flags more"},
+                         "dilution": {"mcnemar_p": 0.001, "verdict": "judging sentences flags more"},
+                         "markup": {"mcnemar_p": 0.2, "verdict": "no significant difference"}}}
+
+
+@pytest.mark.unit
+def test_the_stage_options_study_is_reported_with_its_three_verdicts(tmp_path):
+    from fusion_first.validate import trust_report as tr
+
+    assert tr._stage_options(tmp_path) == []
+    path = tmp_path / tr.STAGE_OPTIONS_EVIDENCE
+    path.parent.mkdir(parents=True)
+    doc = _options_evidence()
+    path.write_text(json.dumps({**doc, "demonstration": True}), encoding="utf-8")
+    assert tr._stage_options(tmp_path) == []  # a demonstration is never reported
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    text = "\n".join(tr._stage_options(tmp_path))
+    assert "## The stage's options on unseen prompts (pre-registered)" in text
+    assert "| unsafe OR-Bench | `tag_hidden` | whole text only: 20 of 55" in text and "shipped default: 44 of 55" in text
+    assert "**judging hidden text on its own flags more**" in text and "**judging sentences flags more**" in text
+    assert "`lines=True` on safe prompts that carry markup: **no significant difference**" in text
+    assert "| IFEval (ordinary, safe) | `plain` | shipped default: 3 of 200" in text and "1.00 / 3.50" in text
+    assert text.count("**no significant difference**") == 2  # the table row and the bullet, never an undecided row
