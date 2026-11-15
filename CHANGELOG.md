@@ -3,19 +3,23 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.7] - 2026-11-15
 
 ### Changed
 
 - The content-safety stage judges text hidden in tag characters on its own, and the visible text beside it, as well
-  as the whole prompt. Ordinary text takes the same calls as before.
+  as the whole prompt. Ordinary text takes the same calls as before. Registered result on unseen prompts: it flags
+  more hidden requests (Trust Report, "The stage's options on unseen prompts").
 
 ### Added
 
 - `LlamaGuard(sentences=True)`: the stage also judges each sentence (a call a sentence, grouped to fit the call
-  limit, never a reason to refuse a prompt). Off by default; its cost on ordinary text is not measured yet.
+  limit, never a reason to refuse a prompt). Off by default. Registered: it flags more requests that have a
+  harmless question appended, at about four calls a prompt on ordinary text.
 - `LlamaGuard(lines=True)`: the stage keeps the prompt's line breaks, one newline for each run, instead of putting
-  it on one line. Off by default: one line is the stronger guarantee; its effect is not measured yet.
+  it on one line. Off by default: one line is the stronger guarantee. Registered: it wrongly flags fewer safe
+  prompts that carry markup.
+- Trust Report: the stage-options study (pre-registered, three tests).
 
 ## [0.1.6] - 2026-11-14
 
