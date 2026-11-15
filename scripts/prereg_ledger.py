@@ -34,6 +34,7 @@ GOVERNS = {
     f"{V1}/PREREG_content_stage.md": [f"{V1}/content_stage.json", f"{V1}/content_stage/lg_raw.stage.jsonl",
                                       f"{V1}/content_stage/lg_raw.tuned.jsonl"],
     f"{V1}/PREREG_stage_hardening.md": [f"{V1}/stage_hardening.json", f"{V1}/stage_hardening/lg_raw.jsonl"],
+    f"{V1}/PREREG_stage_options.md": [],
     f"{V1}/PREREG_detector_v1.md": [f"{V1}/detector/detector_v1.json", f"{V1}/detector/scores.jsonl",
                                     f"{V1}/detector/lg3_raw.jsonl", f"{V1}/detector/lg3_subsample.json",
                                     f"{V1}/detector/dev_loso.json"],
