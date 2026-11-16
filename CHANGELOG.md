@@ -3,6 +3,14 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `Guardrail(binder=RequestBinder(model))`: an optional request binder, off by default. A local Ollama model is
+  asked whether the user's request covers a tool call the binding rule would block; only a clean yes clears that
+  one block, it never sees the tool results, and every other rule still runs. Not measured yet.
+
 ## [0.1.8] - 2026-11-16
 
 ### Added

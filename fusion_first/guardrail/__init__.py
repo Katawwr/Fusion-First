@@ -5,9 +5,12 @@ obfuscated attacks but not semantic evasions (paraphrase, translation, spelled-o
 it as sufficient on its own; pair it with the judge.
 
 Optional, off by default: a content-safety stage on the user's prompt (`Guardrail(content_safety=LlamaGuard())`,
-`guard_prompt`), which asks a classifier model and is not deterministic.
+`guard_prompt`), which asks a classifier model and is not deterministic; and a request binder
+(`Guardrail(binder=RequestBinder(model))`), a local model asked whether the user's request covers a tool call the
+rules would block as not covered.
 """
 
+from fusion_first.guardrail.binder import RequestBinder
 from fusion_first.guardrail.client import GuardedModelClient
 from fusion_first.guardrail.guard import Guardrail
 from fusion_first.guardrail.policy import Decision, GuardConfig, GuardEvent, GuardOutcome
@@ -21,5 +24,6 @@ __all__ = [
     "GuardEvent",
     "GuardOutcome",
     "LlamaGuard",
+    "RequestBinder",
     "SafetyVerdict",
 ]

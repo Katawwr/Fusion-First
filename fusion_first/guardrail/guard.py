@@ -679,13 +679,22 @@ def _provably_internal(text: str, allow: list[str]) -> bool:
 
 class Guardrail:
     def __init__(self, config: GuardConfig | None = None, *, detector: Callable[[str], float] | None = None,
-                 content_safety: ContentClassifier | None = None):
+                 content_safety: ContentClassifier | None = None,
+                 binder: Callable[[str, str, dict], bool] | None = None):
         """`detector(text) -> probability` scores untrusted input; it only adds an ALLOW event (observe-only).
+        `binder(user_request, name, arguments) -> bool` is asked about a tool call the request-binding rule would
+        block (`fusion_first.guardrail.binder.RequestBinder`, or any callable); only an answer that is exactly
+        True clears that one block. It never sees the tool results, and every other rule still runs.
         `content_safety(prompt) -> SafetyVerdict` switches on the content-safety stage of `guard_prompt`
         (`fusion_first.guardrail.stages.LlamaGuard`, or any callable); without it that stage does nothing."""
         self.config = config or GuardConfig()
         self.detector = detector
         self.content_safety = _checked_classifier(content_safety)
+        if binder is not None and (isinstance(binder, type) or not callable(binder)
+                                   or inspect.iscoroutinefunction(binder)
+                                   or inspect.iscoroutinefunction(type(binder).__call__)):
+            raise TypeError("binder must be a synchronous callable instance: (user_request, name, arguments) -> bool")
+        self.binder = binder
 
     def guard_prompt(self, prompt: str) -> GuardOutcome:
         """The content-safety stage on the user's own prompt. Off without a classifier: allows, records nothing.
@@ -922,15 +931,24 @@ class Guardrail:
         if bound and not readonly and not (
                 user_request and _authorizes(user_request, name, arguments, cfg.user_identities)):
             reason = "is not covered by the user's request" if user_request else "has no user request to check against"
-            out.add(
-                GuardEvent(
-                    stage="tool_call",
-                    check="excessive_agency",
-                    owasp=_OWASP["excessive_agency"],
-                    decision=Decision.BLOCK,
-                    detail=f"'{name}' {reason}{after}",
-                )
-            )
+            cleared = False
+            if user_request and self.binder is not None:
+                # The rules bind by the request's words. The binder model is asked about the request and the call
+                # only (never the tool results); anything but True, a failure included, leaves the block.
+                try:
+                    cleared = self.binder(user_request, name, arguments) is True
+                except Exception as exc:
+                    reason += f"; the binder gave no answer ({type(exc).__name__})"
+                else:
+                    if not cleared:
+                        reason += "; the binder agrees"
+            if cleared:
+                out.add(GuardEvent(stage="tool_call", check="excessive_agency", owasp=_OWASP["excessive_agency"],
+                                   decision=Decision.ALLOW,
+                                   detail=f"'{name}' is covered by the user's request according to the binder model"))
+            else:
+                out.add(GuardEvent(stage="tool_call", check="excessive_agency", owasp=_OWASP["excessive_agency"],
+                                   decision=Decision.BLOCK, detail=f"'{name}' {reason}{after}"))
         if (readonly and untrusted_context and cfg.gate_private_reads and _reads_private_data(name)
                 and not (user_request and _covers(user_request, name))):
             out.add(
