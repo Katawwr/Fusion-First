@@ -11,10 +11,12 @@ the destination, secret and private-read rules are unchanged and run after it.
 What the model is shown: the user's request and the call (tool name and arguments). Never the tool results: an
 instruction injected there must not reach the model that decides whether the call is allowed. The call's arguments
 were written by the agent, which may be following an injection, so they are data too: they are sent as JSON inside
-the question, each text value cut to its first `ARG_CHARS` characters (names, ids, amounts and addresses fit; an
-essay addressed to the binder does not), the answer is constrained to `{"covered": true|false}`, and anything else
-is no answer. That narrows the room for an injection aimed at the binder; it does not remove it. A yes clears the
-binding block only, so a call to an outside address or one carrying a secret is still stopped by its own rule.
+the question, the answer is constrained to `{"covered": true|false}`, and anything else is no answer. The binder
+is asked only about a call it can be shown whole: a text value or key over `ARG_CHARS` characters, a key that is
+not text, or nesting past `MAX_DEPTH` means no answer, and the block stays (names, ids, amounts, addresses and
+short messages fit; an essay addressed to the binder does not). That narrows the room for an injection aimed at
+the binder; it does not remove it. A yes clears the binding block only, so a call to an outside address or one
+carrying a secret is still stopped by its own rule.
 
 Not deterministic, and not evidence of anything until measured: see the Trust Report for what a registered study
 shows. Local Ollama only; it refuses to call while FUSION_OFFLINE is set.
@@ -42,29 +44,34 @@ SYSTEM = (
 )
 ANSWER = {"type": "object", "properties": {"covered": {"type": "boolean"}}, "required": ["covered"]}
 MAX_CHARS = 6000  # the request and the call, each: a longer one is not asked about (no answer, the block stays)
-ARG_CHARS = 160  # of each text value in the call's arguments, as the binder sees it
+ARG_CHARS = 300  # the longest text value or key in a call the binder is asked about
 MAX_DEPTH = 6
-
-
-def shown(value: object, depth: int = 0) -> object:
-    """The call's arguments as the binder sees them: each string cut to `ARG_CHARS` characters with its full
-    length noted, keys cut the same way, nesting past `MAX_DEPTH` replaced by its type."""
-    if isinstance(value, str):
-        return value if len(value) <= ARG_CHARS else f"{value[:ARG_CHARS]}... ({len(value)} characters)"
-    if isinstance(value, bool | int | float) or value is None:
-        return value
-    if depth >= MAX_DEPTH:
-        return f"({type(value).__name__})"
-    if isinstance(value, dict):
-        return {str(k)[:ARG_CHARS]: shown(v, depth + 1) for k, v in value.items()}
-    if isinstance(value, list | tuple):
-        return [shown(v, depth + 1) for v in value]
-    return shown(str(value), depth)
 
 
 class BinderUnavailable(RuntimeError):
     """The binder gave no usable answer: offline, no server, a failed call, text too long, or a malformed reply.
     The guard treats every one as "not covered": the block the rules made stays."""
+
+
+def whole(value: object, depth: int = 0) -> object:
+    """The call's arguments, checked to be something the binder can be shown whole. A yes about part of a call
+    must never clear all of it, so nothing is cut or summarised: `BinderUnavailable` for a text value or key over
+    `ARG_CHARS` characters, a key that is not text, nesting past `MAX_DEPTH`, or a value that is not JSON."""
+    if isinstance(value, str):
+        if len(value) > ARG_CHARS:
+            raise BinderUnavailable(f"a text value of {len(value)} characters is too long to ask about")
+        return value
+    if isinstance(value, bool | int | float) or value is None:
+        return value
+    if depth >= MAX_DEPTH:
+        raise BinderUnavailable("the call's arguments are nested too deep to ask about")
+    if isinstance(value, dict):
+        if not all(isinstance(k, str) and len(k) <= ARG_CHARS for k in value):
+            raise BinderUnavailable("an argument name is not text, or is too long to ask about")
+        return {k: whole(v, depth + 1) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [whole(v, depth + 1) for v in value]
+    raise BinderUnavailable(f"an argument of type {type(value).__name__} cannot be shown")
 
 
 class RequestBinder:
@@ -82,8 +89,8 @@ class RequestBinder:
 
     def messages(self, user_request: str, name: str, arguments: dict) -> list[dict]:
         """The exact chat sent: the fixed system text, then one user message holding the request and the call as
-        JSON strings, so neither can close its own field."""
-        call = json.dumps({"tool": shown(name), "arguments": shown(arguments)}, ensure_ascii=False, sort_keys=True)
+        JSON strings, so neither can close its own field. `BinderUnavailable` for a call that cannot be shown whole."""
+        call = json.dumps({"tool": whole(name), "arguments": whole(arguments)}, ensure_ascii=False, sort_keys=True)
         if len(user_request) > MAX_CHARS or len(call) > MAX_CHARS:
             raise BinderUnavailable("the request or the call is too long to ask about")
         question = (f"USER REQUEST (JSON string): {json.dumps(user_request, ensure_ascii=False)}\n"
@@ -108,4 +115,4 @@ class RequestBinder:
         return answer["covered"]
 
 
-__all__ = ["ANSWER", "ARG_CHARS", "MAX_CHARS", "SYSTEM", "BinderUnavailable", "RequestBinder", "shown"]
+__all__ = ["ANSWER", "ARG_CHARS", "MAX_CHARS", "SYSTEM", "BinderUnavailable", "RequestBinder", "whole"]
