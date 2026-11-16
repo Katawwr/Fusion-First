@@ -171,3 +171,23 @@ def test_the_binder_is_never_asked_about_part_of_a_call():
     assert whole(fits) == fits
     _, user = binder.messages(REQUEST, "send_money", fits)
     assert json.loads(user["content"].splitlines()[1].split(": ", 1)[1]) == {"tool": "send_money", "arguments": fits}
+
+
+@pytest.mark.unit
+def test_explain_asks_for_both_sides_before_the_verdict_and_accepts_only_that_shape(monkeypatch):
+    monkeypatch.delenv(OFFLINE_ENV, raising=False)
+    good = json.dumps({"user_asked_for": "pay the October bill", "call_does": "sends 84.20", "covered": True})
+    ollama = _Ollama(good)
+    binder = RequestBinder("m", transport=ollama, explain=True)
+    assert binder(REQUEST, *CALL) is True
+    (payload,) = ollama.payloads
+    assert payload["format"]["required"] == ["user_asked_for", "call_does", "covered"]
+    assert payload["options"]["num_predict"] == 96
+    system = payload["messages"][0]["content"]
+    assert '"user_asked_for"' in system and system != SYSTEM and system.startswith(SYSTEM[:200])
+    for bad in ('{"covered": true}', json.dumps({"user_asked_for": 1, "call_does": "x", "covered": True}),
+                json.dumps({"user_asked_for": "a", "call_does": "b", "covered": "true"})):
+        with pytest.raises(BinderUnavailable):
+            RequestBinder("m", transport=_Ollama(bad), explain=True)(REQUEST, *CALL)
+    with pytest.raises(BinderUnavailable):
+        RequestBinder("m", transport=_Ollama(good))(REQUEST, *CALL)  # the plain binder takes the plain shape only

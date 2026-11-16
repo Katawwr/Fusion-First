@@ -43,6 +43,12 @@ SYSTEM = (
     'Answer with JSON only: {"covered": true} or {"covered": false}.'
 )
 ANSWER = {"type": "object", "properties": {"covered": {"type": "boolean"}}, "required": ["covered"]}
+# With `explain=True` the model first writes, in a few words each, what the user asked for and what the call does,
+# then the verdict: the same question, answered after it has looked at both sides.
+EXPLAIN_FIELDS = ("user_asked_for", "call_does")
+EXPLAIN_SYSTEM_TAIL = ('Answer with JSON only: {"user_asked_for": "<a few words>", "call_does": "<a few words>", '
+                       '"covered": true or false}.')
+SYSTEM_TAIL = 'Answer with JSON only: {"covered": true} or {"covered": false}.'
 MAX_CHARS = 6000  # the request and the call, each: a longer one is not asked about (no answer, the block stays)
 ARG_CHARS = 300  # the longest text value or key in a call the binder is asked about
 MAX_DEPTH = 6
@@ -79,11 +85,16 @@ class RequestBinder:
     Raises `BinderUnavailable` when there is no answer. Synchronous; one call to local Ollama's `/api/chat`."""
 
     def __init__(self, model: str, base_url: str | None = None, *, timeout: float = 60.0,
-                 transport: Callable[[str, dict], dict] | None = None, system: str = SYSTEM):
+                 transport: Callable[[str, dict], dict] | None = None, system: str = SYSTEM,
+                 explain: bool = False):
         if not isinstance(model, str) or not model.strip():
             raise ValueError("RequestBinder needs the name of a local Ollama model")
         self.model = model
-        self.system = system
+        self.explain = explain
+        self.fields = (*EXPLAIN_FIELDS, "covered") if explain else ("covered",)
+        self.system = system.replace(SYSTEM_TAIL, EXPLAIN_SYSTEM_TAIL) if explain else system
+        self.answer = {"type": "object", "required": list(self.fields),
+                       "properties": {f: {"type": "boolean" if f == "covered" else "string"} for f in self.fields}}
         self.base_url = (base_url or OLLAMA_URL).rstrip("/")
         self._transport = transport or _http(self.base_url, timeout)
 
@@ -102,7 +113,8 @@ class RequestBinder:
         if offline():
             raise BinderUnavailable("FUSION_OFFLINE=1: real model calls are disabled")
         payload = {"model": self.model, "messages": self.messages(user_request, name, arguments), "stream": False,
-                   "format": ANSWER, "options": {"temperature": 0, "seed": 7, "num_predict": 16}}
+                   "format": self.answer,
+                   "options": {"temperature": 0, "seed": 7, "num_predict": 96 if self.explain else 16}}
         try:
             reply = self._transport("/api/chat", payload)
             answer = json.loads(reply["message"]["content"])
@@ -110,9 +122,10 @@ class RequestBinder:
             raise
         except Exception as exc:
             raise BinderUnavailable(f"no answer ({type(exc).__name__})") from exc
-        if not isinstance(answer, dict) or type(answer.get("covered")) is not bool or set(answer) != {"covered"}:
-            raise BinderUnavailable("the reply is not {\"covered\": true|false}")
+        if (not isinstance(answer, dict) or type(answer.get("covered")) is not bool or set(answer) != set(self.fields)
+                or not all(isinstance(answer[f], str) for f in self.fields[:-1])):
+            raise BinderUnavailable("the reply is not the JSON object asked for")
         return answer["covered"]
 
 
-__all__ = ["ANSWER", "ARG_CHARS", "MAX_CHARS", "SYSTEM", "BinderUnavailable", "RequestBinder", "whole"]
+__all__ = ["ANSWER", "ARG_CHARS", "EXPLAIN_FIELDS", "MAX_CHARS", "SYSTEM", "BinderUnavailable", "RequestBinder", "whole"]

@@ -32,6 +32,7 @@ from fusion_first.stats.paired import mcnemar_exact_p  # noqa: E402
 ROWS = ROOT / "datasets/guard_step5/rows.v1.jsonl"
 PILOT = ROOT / "evals/validation/v1/binder/dev/pilot.jsonl"
 MODELS = ("qwen2.5:7b", "llama3.1:8b", "qwen2.5:3b")
+VARIANT = "#"  # "<model>#explain" asks the same model with `RequestBinder(explain=True)`
 NO_ANSWER = "no_answer"
 
 
@@ -53,6 +54,14 @@ def key_of(model: str, messages: list[dict]) -> str:
     return hashlib.sha256(json.dumps([model, messages], ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
+def binder_for(name: str, transport=None) -> RequestBinder:
+    """The binder a pilot name stands for: an Ollama model, optionally followed by `#explain`."""
+    model, _, variant = name.partition(VARIANT)
+    if variant not in ("", "explain"):
+        raise SystemExit(f"unknown variant {variant!r} in {name!r}")
+    return RequestBinder(model, transport=transport, explain=variant == "explain")
+
+
 def decide(row: dict, binder=None) -> bool:
     """True when the guard blocks the row's call, configured as step 5 configured it."""
     guard = Guardrail(GuardConfig(require_authorization=True, allowlisted_domains=[row["org_domain"]]), binder=binder)
@@ -65,7 +74,7 @@ class Recorded:
 
     def __init__(self, model: str, answers: dict[str, object], live: RequestBinder | None = None, path=None):
         self.model, self.answers, self.live, self.path = model, answers, live, path
-        self.shape = RequestBinder(model, transport=lambda path, payload: {})
+        self.shape = binder_for(model, transport=lambda path, payload: {})
         self.asked: list[str] = []  # the keys this row needed
         self.missing = False  # the guard swallows a binder's exception, so a missing answer is flagged here
         self.new = 0
@@ -96,7 +105,7 @@ def run(model: str, rows: list[dict], *, live: bool, transport=None, path: pathl
     """Each row under the rules alone and with the binder: {id, label, binding_only, rules, binder, asked,
     answered}. `answered` is False for a row whose answer is not recorded (table only)."""
     answers = {r["key"]: r["answer"] for r in _jsonl(path) if r["model"] == model}
-    binder = Recorded(model, answers, RequestBinder(model, transport=transport) if live else None, path)
+    binder = Recorded(model, answers, binder_for(model, transport) if live else None, path)
     out = []
     for row in rows:
         binder.asked, binder.missing = [], False
