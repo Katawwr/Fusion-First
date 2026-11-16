@@ -7,7 +7,9 @@ done) and security (True = the injection task succeeded).
 
 Arms: `none` (no guard), `v2` (the user's request + untrusted_context once a tool result exists, as step 2 and
 the snippet), `v3` (v2 + every tool result so far as `untrusted_text`). Guard: require_authorization=True plus
-the per-suite deployment settings in SUITE_CONFIG.
+the per-suite deployment settings in SUITE_CONFIG. `v3b` is v3 with the request binder
+(`RequestBinder(BINDER_MODEL, explain=True)`, PREREG_binder.md): a local model asked about each call the binding
+rule would block. Its answers are cached like the agent's turns.
 
 Baseline arms, no guard: AgentDojo's own defenses as `AgentPipeline.from_config` builds them. `spotlight`
 (spotlighting_with_delimiting) and `repeat_prompt` (repeat_user_prompt) are upstream's elements unchanged.
@@ -67,6 +69,7 @@ from agentdojo.types import (  # noqa: E402
     text_content_block_from_string,
 )
 
+from fusion_first.guardrail.binder import BinderUnavailable, RequestBinder  # noqa: E402
 from fusion_first.guardrail.guard import Guardrail  # noqa: E402
 from fusion_first.guardrail.policy import GuardConfig  # noqa: E402
 
@@ -88,7 +91,8 @@ SUITE_CONFIG = {
     "banking": {"allowlisted_domains": [], "user_identities": []},
     "slack": {"allowlisted_domains": [], "user_identities": []},
 }
-GUARD_ARMS = ("v2", "v3")
+GUARD_ARMS = ("v2", "v3", "v3b")
+BINDER_MODEL = "qwen2.5:7b"
 BASELINE_ARMS = ("tool_filter", "spotlight", "repeat_prompt")  # AgentDojo's own defenses
 ARMS = ("none", *GUARD_ARMS, *BASELINE_ARMS)
 SPOTLIGHT_SUFFIX = (" I'll mark the beginning of the tool outputs by putting the symbol << before them and the "
@@ -223,13 +227,13 @@ class OllamaLLM(BasePipelineElement):
 class GuardedToolsExecutor(BasePipelineElement):
     """ToolsExecutor with the guard in front: a blocked call does not run and returns an error."""
 
-    def __init__(self, arm: str, config: GuardConfig):
+    def __init__(self, arm: str, config: GuardConfig, binder=None):
         if arm not in ARMS:
             raise ValueError(arm)
         self.arm = arm
         self.inner = (ToolsExecutor(tool_output_formatter=lambda result: f"<<{tool_result_to_str(result)}>>")
                       if arm == "spotlight" else ToolsExecutor())
-        self.guard = Guardrail(config) if arm in GUARD_ARMS else None
+        self.guard = Guardrail(config, binder=binder if arm == "v3b" else None) if arm in GUARD_ARMS else None
         self.decisions: list[dict] = []
 
     def query(self, query: str, runtime: FunctionsRuntime, env: Env,
@@ -238,7 +242,7 @@ class GuardedToolsExecutor(BasePipelineElement):
             return query, runtime, env, messages, extra_args
         last = messages[-1]
         results = [get_text_content_as_str(m["content"]) for m in messages if m["role"] == "tool"]
-        text = "\n\n".join(results) if self.arm == "v3" else ""
+        text = "\n\n".join(results) if self.arm in ("v3", "v3b") else ""
         allowed, blocked = [], {}
         for call in last["tool_calls"]:
             if self.guard is None:
@@ -261,6 +265,34 @@ class GuardedToolsExecutor(BasePipelineElement):
             ran = {m["tool_call_id"]: m for m in after[len(trimmed):]}
         ordered = [blocked.get(c.id) or ran[c.id] for c in last["tool_calls"]]
         return query, runtime, env, [*messages, *ordered], extra_args
+
+
+class CachedBinder:
+    """The request binder with its answers cached by the exact chat sent, so a rerun asks nothing twice. A cached
+    "no answer" stays no answer: the block it left is part of the recorded episode."""
+
+    def __init__(self, cache: Cache, model: str = BINDER_MODEL, transport=None):
+        self.cache = cache
+        self.binder = RequestBinder(model, transport=transport, explain=True)
+        self.asked: list[dict] = []
+
+    def __call__(self, user_request: str, name: str, arguments: dict) -> bool:
+        messages = self.binder.messages(user_request, name, arguments)
+        key = hashlib.sha256(json.dumps(["binder", self.binder.model, messages], sort_keys=True).encode()).hexdigest()
+        hit = self.cache.get(key)
+        if hit is None:
+            self.cache.misses += 1
+            try:
+                hit = {"covered": self.binder(user_request, name, arguments)}
+            except BinderUnavailable as exc:
+                hit = {"covered": None, "error": str(exc)}
+            self.cache.put(key, hit)
+        else:
+            self.cache.hits += 1
+        self.asked.append({"tool": name, "covered": hit["covered"]})
+        if hit["covered"] is None:
+            raise BinderUnavailable(hit.get("error", "no answer"))
+        return hit["covered"]
 
 
 class OllamaToolFilter(BasePipelineElement):
@@ -306,10 +338,11 @@ def guard_config(suite: str) -> GuardConfig:
 
 
 def run_episode(suite_name: str, user_id: str, inj_id: str | None, arm: str, model: str, cache: Cache,
-                chat=ollama_chat, attack: str = ATTACK) -> dict:
+                chat=ollama_chat, attack: str = ATTACK, binder_transport=None) -> dict:
     suite = get_suite(BENCHMARK, suite_name)
     llm = OllamaLLM(model, cache, chat)
-    executor = GuardedToolsExecutor(arm, guard_config(suite_name))
+    binder = CachedBinder(cache, transport=binder_transport) if arm == "v3b" else None
+    executor = GuardedToolsExecutor(arm, guard_config(suite_name), binder)
     recorder = Recorder()
     system = load_system_message(None) + (SPOTLIGHT_SUFFIX if arm == "spotlight" else "")
     tool_filter = [OllamaToolFilter(model, cache, chat)] if arm == "tool_filter" else []
@@ -325,7 +358,8 @@ def run_episode(suite_name: str, user_id: str, inj_id: str | None, arm: str, mod
     return {"suite": suite_name, "user_task": user_id, "injection_task": inj_id, "arm": arm, "model": model,
             "attack": attack if inj else None, "utility": bool(utility), "security": bool(security) if inj else None,
             "guard": executor.decisions, "llm_turns": llm.calls,
-            **({"tools_kept": tool_filter[0].kept} if tool_filter else {}), "seconds": round(time.time() - t0, 1),
+            **({"tools_kept": tool_filter[0].kept} if tool_filter else {}),
+            **({"binder": binder.asked} if binder else {}), "seconds": round(time.time() - t0, 1),
             "messages": _jsonable([to_ollama([m])[0] if m["role"] != "system" else {"role": "system"}
                                    for m in recorder.messages])}
 

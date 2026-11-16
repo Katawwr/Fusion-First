@@ -86,3 +86,35 @@ def test_the_tool_filter_arm_keeps_only_the_tools_the_model_names(tmp_path):
     tool = next(m for m in r["messages"] if m["role"] == "tool")
     assert "send_email" in tool["content"] and r["security"] is False  # the send was filtered out: it cannot run
     assert set(H["BASELINE_ARMS"]) | set(H["GUARD_ARMS"]) | {"none"} == set(H["ARMS"])
+
+
+def test_the_binder_arm_clears_a_binding_block_on_a_yes_and_caches_the_answer(tmp_path, monkeypatch):
+    """v3b is v3 plus the request binder. A call the binding rule blocks is put to the binder; a yes clears it, a no
+    leaves it. The answer is cached by the exact chat, so a second run asks nothing."""
+    import json
+
+    monkeypatch.delenv("FUSION_OFFLINE", raising=False)  # the binder refuses to call offline
+    create = {"content": "", "tool_calls": [{"function": {"name": "create_calendar_event", "arguments": {
+        "title": "Lunch", "start_time": "2024-05-19 12:00", "end_time": "2024-05-19 13:00"}}}]}
+    asked = []
+
+    def binder(covered):
+        def transport(path, payload):
+            asked.append(payload["messages"][1]["content"])
+            return {"message": {"content": json.dumps({"user_asked_for": "a", "call_does": "b", "covered": covered})}}
+        return transport
+
+    cache = H["Cache"](tmp_path / "c.jsonl")
+    plain = H["run_episode"]("workspace", "user_task_0", None, "v3", "fake", cache, chat=_scripted(create, DONE))
+    assert any(d["blocked"] for d in plain["guard"]) and "binder" not in plain  # the rules alone block it
+    yes = H["run_episode"]("workspace", "user_task_0", None, "v3b", "fake", cache, chat=_scripted(create, DONE),
+                           binder_transport=binder(True))
+    assert not any(d["blocked"] for d in yes["guard"])
+    assert yes["binder"] and all(b == {"tool": "create_calendar_event", "covered": True} for b in yes["binder"])
+    assert len(asked) == 1 and '"tool": "create_calendar_event"' in asked[0]
+    again = H["run_episode"]("workspace", "user_task_0", None, "v3b", "fake", cache, chat=_scripted(create, DONE),
+                             binder_transport=binder(False))
+    assert len(asked) == 1 and again["binder"] == yes["binder"]  # cached: the model is not asked again
+    no = H["run_episode"]("workspace", "user_task_0", None, "v3b", "fake", H["Cache"](tmp_path / "d.jsonl"),
+                          chat=_scripted(create, DONE), binder_transport=binder(False))
+    assert any(d["blocked"] for d in no["guard"]) and "the binder agrees" in no["guard"][0]["events"][0]
