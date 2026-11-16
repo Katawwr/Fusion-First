@@ -9,7 +9,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 - `Guardrail(binder=RequestBinder(model))`: an optional request binder, off by default. A local Ollama model is
   asked whether the user's request covers a tool call the binding rule would block; only a clean yes clears that
-  one block, it never sees the tool results, and every other rule still runs. Not measured yet.
+  one block, it never sees the tool results, and every other rule still runs. Registered result on fresh
+  blind-authored calls, with `RequestBinder("qwen2.5:7b", explain=True)`: supported (Trust Report, "A request
+  binder"). It adds about five seconds for each call the rules would block.
+- Trust Report: the request-binder study (pre-registered).
 
 ## [0.1.8] - 2026-11-16
 

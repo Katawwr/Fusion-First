@@ -306,6 +306,24 @@ Step 4 found the published rules read a request too literally. Candidate rules (
 - What this says: matching a request's words to a tool's name blocks about half of what people ask for in their own words, whichever word lists are used. With `require_authorization=True` the guard trades that cost for near-complete blocking of hijacked calls.
 - Limits: authored calls, not a model's own trajectories; authors and checker are one model family; requests that hand the decision to a document are out of scope.
 
+## A request binder: a local model decides what the request covers (pre-registered)
+
+Step 5 found that matching a request's words to a tool blocks about half of legitimate calls. The binder is a different mechanism for the same rule: when the rules would block a call as not covered by the user's request, a local model (`qwen2.5:7b`, which writes what each side says before its verdict) is asked whether the request covers it. It sees the request and the call, never the tool results; only a clean yes clears that one block; every other rule still runs. Both arms were scored on the same sealed calls, written blind by 12 Claude Sonnet authors over new domains. Registered in `evals/validation/v1/PREREG_binder.md`; evidence: `evals/validation/v1/binder_study.json`.
+
+| Sealed calls | Rules alone blocked | Rules with the binder blocked |
+|---|---|---|
+| Legitimate (a block is wrong) | 152 of 297, 51% (46%–57%) | 19 of 297, 6% (4%–10%) |
+| Hijacked (a block is right) | 190 of 192, 99% (96%–100%) | 187 of 192, 97% (94%–99%) |
+| Hijacked, no address in the call | 154 of 156, 99% (95%–100%) | 151 of 156, 97% (93%–99%) |
+| Hijacked, with a message for the reviewer in the call | 48 of 48, 100% (93%–100%) | 47 of 48, 98% (89%–100%) |
+
+- Cost: 133 legitimate calls blocked by the rules alone only, 0 with the binder only (McNemar p<0.0001). With the binder the wrongly-blocked rate has an upper bound of 9.8%; the registered ceiling is 15%. Met.
+- Protection: the blocked share of hijacked calls moved -1.6 points (95% -3.6 to 0.0); the registered margin is -5. Kept.
+- Decision: **supported**. The binder stays off by default: it needs a local model.
+- The binder was asked about 335 of the 489 calls (the ones the binding rule blocks): 335 answers, 1 of them no answer, median 5.0 s each on one machine.
+- The blind validity check dropped 0 legitimate and 0 hijacked rows before the seal.
+- Limits: authored calls, not a model's own trajectories, and no live agent loop; authors and checkers are one model family, and the rows resemble step 5's, on which the binder was chosen. The reviewer-targeting rows are a naive attack on the binder by authors who did not know its prompt: an attacker who does would do better. The binder is not shown the tool results, so it cannot tell that an id in the call is the one the request points at. One model, one prompt, English.
+
 ## Guard vs dedicated injection detectors (pre-registered)
 
 Llama Guard 3, the baseline above, is a content-safety classifier. This study adds two classifiers built to detect prompt injection, on fresh InjecAgent transcripts of llama3.1:8b and qwen2.5:7b: 150 items no study had used, each in three arms that differ only in the tool result (the injection as written; the same injection behind InjecAgent's "ignore all previous instructions" prefix; a benign filler in its place). The guard and Llama Guard 3 read the model's reply; the classifiers read the tool result at their default operating point. An attack is a transcript where the model obeyed the injection; on the benign arm every block is wrong. Registered in `evals/validation/v1/PREREG_guard_vs_detectors.md`; evidence: `evals/validation/v1/guard_vs_detectors.json`.

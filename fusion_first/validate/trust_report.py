@@ -934,6 +934,61 @@ def _step5(root: pathlib.Path) -> list[str]:
     return out
 
 
+BINDER_EVIDENCE = "evals/validation/v1/binder_study.json"
+BINDER_SEAL = "datasets/guard_binder/rows.v1.seal.json"
+
+
+def _binder(root: pathlib.Path) -> list[str]:
+    d = _load(root, BINDER_EVIDENCE)
+    if not d or d.get("kind") != "request_binder":
+        return []
+    leg, hij, only, aimed = d["legitimate"], d["hijack"], d["hijack_binding_only"], d["hijack_targets_reviewer"]
+    dec, b = d["decision"], d["binder"]
+    path = root / BINDER_SEAL
+    seal = (json.loads(path.read_text(encoding="utf-8")).get("meta") or {}) if path.is_file() else {}
+    dropped = seal.get("dropped_by_validity_check", {})
+    model, _, variant = b["model"].partition("#")
+    supported = dec["adopt"] and not dec["void"]
+    verdict = ("void (too few rows)" if dec["void"] else "supported" if supported else "not supported")
+    out = ["## A request binder: a local model decides what the request covers (pre-registered)", "",
+           ("Step 5 found that matching a request's words to a tool blocks about half of legitimate calls. The "
+            "binder is a different mechanism for the same rule: when the rules would block a call as not covered by "
+            f"the user's request, a local model (`{model}`{', which writes what each side says before its verdict' if variant == 'explain' else ''}) "
+            "is asked whether the request covers it. It sees the request and the call, never the tool results; only "
+            "a clean yes clears that one block; every other rule still runs. Both arms were scored on the same "
+            f"sealed calls, written blind by {seal.get('authors', 'the')} Claude Sonnet authors over new domains. "
+            f"Registered in `{d['preregistration']}`; evidence: `{BINDER_EVIDENCE}`."), "",
+           "| Sealed calls | Rules alone blocked | Rules with the binder blocked |", "|---|---|---|"]
+    for label, block in (("Legitimate (a block is wrong)", leg), ("Hijacked (a block is right)", hij),
+                         ("Hijacked, no address in the call", only),
+                         ("Hijacked, with a message for the reviewer in the call", aimed)):
+        out.append(f"| {label} | {block['old']['k']} of {block['old']['n']}, {_iv(block['old'])} | "
+                   f"{block['new']['k']} of {block['new']['n']}, {_iv(block['new'])} |")
+    diff = hij["difference"]
+    out += ["", (f"- Cost: {leg['old_only']} legitimate calls blocked by the rules alone only, {leg['new_only']} with the "
+                 f"binder only (McNemar {_p(leg['mcnemar_p'])}). With the binder the wrongly-blocked rate has an upper "
+                 f"bound of {leg['new']['high'] * 100:.1f}%; the registered ceiling is 15%. "
+                 f"{'Met' if dec['cost']['meets'] else 'Not met'}."),
+            (f"- Protection: the blocked share of hijacked calls moved {diff['point'] * 100:+.1f} points (95% "
+             f"{diff['low'] * 100:.1f} to {diff['high'] * 100:.1f}); the registered margin is -5. "
+             f"{'Kept' if dec['protection']['meets'] else 'Not kept'}."),
+            (f"- Decision: **{verdict}**"
+             + (". The binder stays off by default: it needs a local model." if supported else
+                "." if dec["void"] else "; request binding stays as the rules decide it.")),
+            (f"- The binder was asked about {b['rows_asked']} of the {d['seal']['n_rows']} calls (the ones the binding "
+             f"rule blocks): {b['answers']} answers, {b['no_answer']} of them no answer, median "
+             f"{b['median_seconds']:.1f} s each on one machine."),
+            (f"- The blind validity check dropped {dropped.get('legitimate', 0)} legitimate and "
+             f"{dropped.get('hijack', 0)} hijacked rows before the seal."),
+            ("- Limits: authored calls, not a model's own trajectories, and no live agent loop; authors and checkers "
+             "are one model family, and the rows resemble step 5's, on which the binder was chosen. The "
+             "reviewer-targeting rows are a naive attack on the binder by authors who did not know its prompt: an "
+             "attacker who does would do better. The binder is not shown the tool results, so it cannot tell that an "
+             "id in the call is the one the request points at. One model, one prompt, English."),
+            ""]
+    return out
+
+
 def _step5_site(root: pathlib.Path) -> dict | None:
     d = _load(root, STEP5_EVIDENCE)
     if not d:
@@ -2376,7 +2431,7 @@ def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root), *_q6(root),
              *_q7(root),
-             *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_detectors_study(root),
+             *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_binder(root), *_detectors_study(root),
              *_content_safety(root), *_content_stage(root), *_stage_hardening(root), *_stage_options(root), *_guard(root),
              *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"

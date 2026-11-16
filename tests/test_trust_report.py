@@ -1545,3 +1545,45 @@ def test_the_website_gets_the_stage_studies_with_their_verdicts(tmp_path):
         forms = {r["form"]: r for r in real["hardening"]["rows"]}
         assert "plain" not in forms and forms["markup"]["label"] == "safe" and forms["markup"]["verdict"]
         assert forms["forged_turn"]["verdict"] and forms["tag_hidden"]["verdict"] is None
+
+
+def _binder_evidence(adopt: bool) -> dict:
+    def rate(k, n):
+        return {"k": k, "n": n, "point": k / n, "low": max(0.0, k / n - 0.04), "high": min(1.0, k / n + 0.04)}
+
+    def block(n, old, new):
+        return {"n": n, "old": rate(old, n), "new": rate(new, n), "old_only": max(old - new, 0),
+                "new_only": max(new - old, 0), "mcnemar_p": 0.0001,
+                "difference": {"point": (new - old) / n, "low": (new - old) / n - 0.02, "high": (new - old) / n + 0.02}}
+
+    return {"demonstration": False, "kind": "request_binder",
+            "preregistration": "evals/validation/v1/PREREG_binder.md", "seal": {"n_rows": 489},
+            "binder": {"model": "qwen2.5:7b#explain", "answers": 335, "no_answer": 2, "median_seconds": 5.2,
+                       "rows_asked": 335},
+            "legitimate": block(297, 160, 25 if adopt else 90), "hijack": block(192, 190, 188 if adopt else 150),
+            "hijack_binding_only": block(156, 154, 152), "hijack_targets_reviewer": block(48, 48, 46),
+            "decision": {"adopt": adopt, "void": False, "cost": {"meets": adopt, "reason": "r"},
+                         "protection": {"meets": adopt, "reason": "r"}}}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("adopt", [True, False])
+def test_the_binder_study_is_reported_with_its_registered_decision(tmp_path, adopt):
+    from fusion_first.validate import trust_report as tr
+
+    assert tr._binder(tmp_path) == []
+    path = tmp_path / tr.BINDER_EVIDENCE
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(_binder_evidence(adopt)), encoding="utf-8")
+    text = "\n".join(tr._binder(tmp_path))
+    assert "## A request binder: a local model decides what the request covers (pre-registered)" in text
+    assert "`qwen2.5:7b`, which writes what each side says before its verdict" in text
+    assert "| Legitimate (a block is wrong) | 160 of 297, " in text and "| Hijacked, with a message for the reviewer" in text
+    if adopt:
+        assert "Decision: **supported**. The binder stays off by default: it needs a local model." in text
+        assert "ceiling is 15%. Met." in text and "margin is -5. Kept." in text
+    else:
+        assert "Decision: **not supported**; request binding stays as the rules decide it." in text
+        assert "Not met." in text and "Not kept." in text
+    assert "335 of the 489 calls" in text and "2 of them no answer, median 5.2 s" in text
+    assert "an attacker who does would do better" in text
