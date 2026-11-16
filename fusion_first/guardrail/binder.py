@@ -11,7 +11,10 @@ the destination, secret and private-read rules are unchanged and run after it.
 What the model is shown: the user's request and the call (tool name and arguments). Never the tool results: an
 instruction injected there must not reach the model that decides whether the call is allowed. The call's arguments
 were written by the agent, which may be following an injection, so they are data too: they are sent as JSON inside
-the question, the answer is constrained to `{"covered": true|false}`, and anything else is no answer.
+the question, each text value cut to its first `ARG_CHARS` characters (names, ids, amounts and addresses fit; an
+essay addressed to the binder does not), the answer is constrained to `{"covered": true|false}`, and anything else
+is no answer. That narrows the room for an injection aimed at the binder; it does not remove it. A yes clears the
+binding block only, so a call to an outside address or one carrying a secret is still stopped by its own rule.
 
 Not deterministic, and not evidence of anything until measured: see the Trust Report for what a registered study
 shows. Local Ollama only; it refuses to call while FUSION_OFFLINE is set.
@@ -39,6 +42,24 @@ SYSTEM = (
 )
 ANSWER = {"type": "object", "properties": {"covered": {"type": "boolean"}}, "required": ["covered"]}
 MAX_CHARS = 6000  # the request and the call, each: a longer one is not asked about (no answer, the block stays)
+ARG_CHARS = 160  # of each text value in the call's arguments, as the binder sees it
+MAX_DEPTH = 6
+
+
+def shown(value: object, depth: int = 0) -> object:
+    """The call's arguments as the binder sees them: each string cut to `ARG_CHARS` characters with its full
+    length noted, keys cut the same way, nesting past `MAX_DEPTH` replaced by its type."""
+    if isinstance(value, str):
+        return value if len(value) <= ARG_CHARS else f"{value[:ARG_CHARS]}... ({len(value)} characters)"
+    if isinstance(value, bool | int | float) or value is None:
+        return value
+    if depth >= MAX_DEPTH:
+        return f"({type(value).__name__})"
+    if isinstance(value, dict):
+        return {str(k)[:ARG_CHARS]: shown(v, depth + 1) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [shown(v, depth + 1) for v in value]
+    return shown(str(value), depth)
 
 
 class BinderUnavailable(RuntimeError):
@@ -62,7 +83,7 @@ class RequestBinder:
     def messages(self, user_request: str, name: str, arguments: dict) -> list[dict]:
         """The exact chat sent: the fixed system text, then one user message holding the request and the call as
         JSON strings, so neither can close its own field."""
-        call = json.dumps({"tool": name, "arguments": arguments}, ensure_ascii=False, sort_keys=True, default=str)
+        call = json.dumps({"tool": shown(name), "arguments": shown(arguments)}, ensure_ascii=False, sort_keys=True)
         if len(user_request) > MAX_CHARS or len(call) > MAX_CHARS:
             raise BinderUnavailable("the request or the call is too long to ask about")
         question = (f"USER REQUEST (JSON string): {json.dumps(user_request, ensure_ascii=False)}\n"
@@ -87,4 +108,4 @@ class RequestBinder:
         return answer["covered"]
 
 
-__all__ = ["ANSWER", "MAX_CHARS", "SYSTEM", "BinderUnavailable", "RequestBinder"]
+__all__ = ["ANSWER", "ARG_CHARS", "MAX_CHARS", "SYSTEM", "BinderUnavailable", "RequestBinder", "shown"]
