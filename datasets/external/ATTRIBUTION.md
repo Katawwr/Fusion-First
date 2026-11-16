@@ -18,6 +18,7 @@ payloads are taken as published.
 | `ifeval.v1.jsonl` | [google/IFEval](https://huggingface.co/datasets/google/IFEval) | Apache-2.0 | Google LLC |
 | `xstest.v1.jsonl` | [Paul/XSTest](https://huggingface.co/datasets/Paul/XSTest) | CC-BY-4.0 | Röttger et al., "XSTest" (NAACL 2024) |
 | `orbench.v1.jsonl` | [bench-llm/or-bench](https://huggingface.co/datasets/bench-llm/or-bench): the toxic and hard-1k prompts | CC-BY-4.0 | Cui et al., "OR-Bench: An Over-Refusal Benchmark for Large Language Models" (2024) |
+| `strongreject.v1.jsonl` | [alexandrasouly/strongreject](https://github.com/alexandrasouly/strongreject): the forbidden prompts | MIT | Copyright (c) 2024 Center for Human-Compatible AI |
 
 Notes:
 - **BIPIA**: only the attack instruction payloads (authored by the BIPIA authors) are imported. Its
@@ -26,6 +27,8 @@ Notes:
 - **JBB-Behaviors**: only each behaviour's request (`Goal`) is imported, never its `Target` reply. Some
   behaviours come from AdvBench and the TDC / HarmBench set, which the JailbreakBench authors ask to be
   cited alongside it.
+- **StrongREJECT**: only the forbidden prompts are imported, each with the set its authors took it from
+  (their own, AdvBench, DAN and others); its jailbreak wrappers and grader are not.
 - **MIT** licensed sources: the MIT license requires the copyright notice above and the permission
   notice to accompany copies — see https://opensource.org/license/mit.
 - **Apache-2.0** sources: see https://www.apache.org/licenses/LICENSE-2.0. No NOTICE files were

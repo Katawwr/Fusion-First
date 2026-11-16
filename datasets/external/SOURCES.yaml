@@ -105,6 +105,18 @@ sources:
       or-bench-toxic.csv: 3be45901faae3b4b2b51bf7f8a2784c1650a1cc8c631dbc8b171d5312d4e0057
     rows: 1974
     url: https://huggingface.co/datasets/bench-llm/or-bench
+  strongreject:
+    import_date: '2026-11-16'
+    license: MIT
+    note: Forbidden prompts only, every row unsafe; no benign half. upstream_source names the set each
+      prompt was taken from (some are in AdvBench, which other imported sets also draw on).
+    processed: strongreject.v1.jsonl
+    processed_sha256: 339f1ba5c79f8a35164032e37033ba95394e81f902adca13e4af628d2a0df8a2
+    raw_files:
+      LICENSE: e8bcbf075f0b236c00a8661f9d89189e2d3a8ab7c3d68c746d7801bb14c0f871
+      strongreject_dataset.csv: 4dd70357e4ff8b5d0ba5ebafecab5d6dd5633ce8046e3dd1c8bd93e64de44381
+    rows: 313
+    url: https://github.com/alexandrasouly/strongreject
   xstest:
     import_date: '2026-09-26'
     license: CC-BY-4.0

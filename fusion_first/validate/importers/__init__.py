@@ -25,6 +25,7 @@ from fusion_first.validate.importers import (
     injecagent_enhanced,
     jbb,
     orbench,
+    strongreject,
     xstest,
 )
 from fusion_first.validate.importers.bipia import load_bipia
@@ -35,6 +36,7 @@ from fusion_first.validate.importers.injecagent import load_injecagent
 from fusion_first.validate.importers.injecagent_enhanced import load_injecagent_enhanced
 from fusion_first.validate.importers.jbb import load_jbb
 from fusion_first.validate.importers.orbench import load_orbench
+from fusion_first.validate.importers.strongreject import load_strongreject
 from fusion_first.validate.importers.xstest import load_xstest
 
 __all__ = [
@@ -54,6 +56,7 @@ __all__ = [
     "load_injecagent_enhanced",
     "load_jbb",
     "load_orbench",
+    "load_strongreject",
     "load_xstest",
     "processed_filename",
     "read_parquet_records",
@@ -87,6 +90,7 @@ SOURCES: dict[str, dict] = {
         (injecagent_enhanced, load_injecagent_enhanced),
         (jbb, load_jbb),
         (orbench, load_orbench),
+        (strongreject, load_strongreject),
     )
 }
 
