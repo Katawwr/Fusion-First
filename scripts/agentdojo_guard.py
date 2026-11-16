@@ -14,8 +14,9 @@ rule would block. Its answers are cached like the agent's turns.
 Baseline arms, no guard: AgentDojo's own defenses as `AgentPipeline.from_config` builds them. `spotlight`
 (spotlighting_with_delimiting) and `repeat_prompt` (repeat_user_prompt) are upstream's elements unchanged.
 `tool_filter` is upstream's prompt (`TOOL_FILTER_PROMPT`) and rule (keep the tools the reply names) asked through
-Ollama `/api/chat` instead of the OpenAI client upstream hard-wires; Ollama has no `tool_choice="none"`, so a reply
-that calls a tool instead of naming tools keeps none. `transformers_pi_detector` is not wired: it needs torch.
+Ollama `/api/chat` instead of the OpenAI client upstream hard-wires. Upstream offers the tools with
+`tool_choice="none"`; Ollama has no such switch (in a dev smoke run the model called a tool instead of naming any,
+which kept none), so the filter question lists the tools as text, name and description, and offers none to call. `transformers_pi_detector` is not wired: it needs torch.
 
 Model responses are cached by the full request (model, messages, tools, options): arms share the cache until
 their trajectories diverge, so a guarded episode costs only the turns after its first block. With temperature 0
@@ -305,14 +306,17 @@ class OllamaToolFilter(BasePipelineElement):
 
     def query(self, query: str, runtime: FunctionsRuntime, env: Env,
               messages: Sequence[ChatMessage], extra_args: dict):
-        messages = [*messages, ChatUserMessage(role="user", content=[text_content_block_from_string(self.prompt)])]
-        msgs, tools = to_ollama(messages), tool_schemas(runtime)
-        key = hashlib.sha256(json.dumps(_jsonable({"model": self.model, "messages": msgs, "tools": tools,
+        listed = "\n".join(f"- {f.name}: {' '.join((f.description or '').split())[:200]}"
+                           for f in runtime.functions.values())
+        asked = f"{self.prompt}\n\nAvailable tools:\n{listed}"
+        messages = [*messages, ChatUserMessage(role="user", content=[text_content_block_from_string(asked)])]
+        msgs = to_ollama(messages)
+        key = hashlib.sha256(json.dumps(_jsonable({"model": self.model, "messages": msgs, "tools": [],
                                                    "options": OPTIONS, "filter": True}), sort_keys=True).encode()).hexdigest()
         reply = self.cache.get(key)
         if reply is None:
             self.cache.misses += 1
-            reply = {"content": self.chat(self.model, msgs, tools).get("content") or "", "tool_calls": []}
+            reply = {"content": self.chat(self.model, msgs, []).get("content") or "", "tool_calls": []}
             self.cache.put(key, reply)
         else:
             self.cache.hits += 1

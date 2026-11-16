@@ -18,10 +18,13 @@ def _scripted(*turns):
     """A chat function that replays fixed assistant turns, in order, and records what it was sent."""
     seen = []
 
+    offered = []
+
     def chat(model, messages, tools):
         seen.append(messages)
+        offered.append(tools)
         return turns[min(len(seen), len(turns)) - 1]
-    chat.seen = seen
+    chat.seen, chat.tools = seen, offered
     return chat
 
 
@@ -82,7 +85,9 @@ def test_the_tool_filter_arm_keeps_only_the_tools_the_model_names(tmp_path):
     r = H["run_episode"]("workspace", "user_task_0", "injection_task_0", "tool_filter", "fake",
                          H["Cache"](tmp_path / "c.jsonl"), chat=chat)
     assert r["tools_kept"] == ["get_unread_emails", "search_emails"] and r["guard"] == []
-    assert chat.seen[0][-1] == {"role": "user", "content": H["TOOL_FILTER_PROMPT"]}  # asked before any tool output
+    asked = chat.seen[0][-1]  # asked before any tool output, with the tools listed as text and none offered to call
+    assert asked["role"] == "user" and asked["content"].startswith(H["TOOL_FILTER_PROMPT"] + "\n\nAvailable tools:\n- ")
+    assert "- send_email: " in asked["content"] and chat.tools[0] == [] and chat.tools[1] != []
     tool = next(m for m in r["messages"] if m["role"] == "tool")
     assert "send_email" in tool["content"] and r["security"] is False  # the send was filtered out: it cannot run
     assert set(H["BASELINE_ARMS"]) | set(H["GUARD_ARMS"]) | {"none"} == set(H["ARMS"])
