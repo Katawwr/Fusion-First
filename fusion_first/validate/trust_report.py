@@ -570,7 +570,8 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
             "detector": _detector_site(root), "toolloop": _toolloop_site(root), "claims_v3": _claims_v3_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
             "guard_heldout": guard, "fix_efficacy": (fix or {}).get("cells", None),
-            **({"content_stage": stage} if (stage := _content_stage_site(root)) else {})}
+            **({"content_stage": stage} if (stage := _content_stage_site(root)) else {}),
+            **({"stage_handling": handling} if (handling := _stage_handling_site(root)) else {})}
 
 
 B3_EVIDENCE = "evals/validation/v1/b3_rubric_vs_plain_judge.json"
@@ -1320,6 +1321,47 @@ def _stage_options(root: pathlib.Path) -> list[str]:
              "English. OR-Bench's safe prompts are chosen to look harmful, so its wrong-flag rates are far above "
              "those on ordinary text; IFEval is the ordinary text here."), ""]
     return out
+
+
+def _stage_handling_site(root: pathlib.Path) -> dict | None:
+    """The two studies of the stage's own handling for the website: each form of the first, the three registered
+    tests of the second with its two reported costs. None until one of them is scored."""
+    h, o = _hardening_doc(root), _options_doc(root)
+    out: dict = {}
+    if h:
+        dec = h["decision"]
+        rows = [{"label": label, "form": form, "note": _HARDENING_NOTES.get(form, ""),
+                 "raw": block["systems"]["raw"], "stage": block["systems"]["hardened"],
+                 "p": block["paired"]["mcnemar_p"],
+                 "verdict": ((dec["forms"].get(form) or {}).get("verdict") if label == "unsafe"
+                             else (dec.get("cost") or {}).get("verdict") if form == "markup" else None)}
+                for label in ("unsafe", "safe") for form, block in h[label].items() if form != "plain"]
+        out["hardening"] = {"prereg": h["preregistration"], "model": h["llama_guard"]["model"],
+                            "n": {label: h[label]["plain"]["n"] for label in ("unsafe", "safe")},
+                            "rows": rows, "headline": dec["verdict"]}
+    if o:
+        dec, groups = o["decision"], o["groups"]
+        tests = []
+        for (group, form, arm), name in _OPTION_PRIMARY.items():
+            block = groups[group][form]
+            reference = next(iter(block["systems"]))
+            tests.append({"name": name, "group": group, "form": form, "reference": reference, "compared": arm,
+                          "ref": block["systems"][reference], "cmp": block["systems"][arm],
+                          "p": block["paired"][arm]["mcnemar_p"], "verdict": dec[name]["verdict"],
+                          "calls": block["mean_calls"][arm]})
+        plain = groups["ordinary"]["plain"]
+        structure = [b for f, b in groups["unsafe"].items() if f != "plain" and "lines" in b["systems"]]
+        out["options"] = {
+            "prereg": o["preregistration"], "model": o["llama_guard"]["model"],
+            "n": {g: next(iter(forms.values()))["n"] for g, forms in groups.items() if forms},
+            "tests": tests,
+            "sentences_cost": {"ref": plain["systems"]["default"], "cmp": plain["systems"]["sentences"],
+                               "p": plain["paired"]["sentences"]["mcnemar_p"],
+                               "calls": plain["mean_calls"]["sentences"]},
+            "lines_structure": {"forms": len(structure), "n": sum(b["n"] for b in structure),
+                                "default": sum(b["systems"]["default"]["k"] for b in structure),
+                                "lines": sum(b["systems"]["lines"]["k"] for b in structure)}}
+    return out or None
 
 
 def _content_stage_site(root: pathlib.Path) -> dict | None:

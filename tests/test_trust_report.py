@@ -1522,3 +1522,26 @@ def test_the_stage_options_study_is_reported_with_its_three_verdicts(tmp_path):
     assert "`lines=True` on safe prompts that carry markup: **no significant difference**" in text
     assert "| IFEval (ordinary, safe) | `plain` | shipped default: 3 of 200" in text and "1.00 / 3.50" in text
     assert text.count("**no significant difference**") == 2  # the table row and the bullet, never an undecided row
+
+
+@pytest.mark.unit
+def test_the_website_gets_the_stage_studies_with_their_verdicts(tmp_path):
+    from fusion_first.validate import trust_report as tr
+
+    assert tr._stage_handling_site(tmp_path) is None
+    path = tmp_path / tr.STAGE_OPTIONS_EVIDENCE
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(_options_evidence()), encoding="utf-8")
+    site = tr._stage_handling_site(tmp_path)
+    assert set(site) == {"options"} and site["options"]["n"] == {"unsafe": 55, "safe": 200, "ordinary": 200}
+    tests = {t["name"]: t for t in site["options"]["tests"]}
+    assert set(tests) == {"hidden", "dilution", "markup"}
+    assert tests["hidden"]["reference"] == "whole" and tests["hidden"]["cmp"]["k"] == 44
+    assert tests["markup"]["verdict"] == "no significant difference" and tests["dilution"]["calls"] == 3.5
+    assert site["options"]["sentences_cost"]["cmp"]["k"] == 7
+    assert site["options"]["lines_structure"] == {"forms": 0, "n": 0, "default": 0, "lines": 0}
+    real = tr._stage_handling_site(ROOT)
+    if real and "hardening" in real:
+        forms = {r["form"]: r for r in real["hardening"]["rows"]}
+        assert "plain" not in forms and forms["markup"]["label"] == "safe" and forms["markup"]["verdict"]
+        assert forms["forged_turn"]["verdict"] and forms["tag_hidden"]["verdict"] is None

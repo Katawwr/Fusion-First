@@ -9,6 +9,7 @@ import Trust, {
   ContentStageSection,
   DetectorSection,
   DetectorsStudySection,
+  StageHandlingSection,
   Step2Section,
   Step3Section,
   Step4Section,
@@ -351,6 +352,75 @@ describe("Trust page", () => {
       expect(titles.includes(TITLE)).toBe(Boolean(evidence.content_stage));
       if (evidence.content_stage && evidence.content_safety) {
         expect(titles.indexOf(TITLE)).toBe(titles.indexOf("Content safety: Llama Guard 3 on its own job") + 1);
+      }
+    });
+  });
+
+  describe("the stage's own handling", () => {
+    const rate = (k, n) => ({ k, n, point: k / n, low: Math.max(0, k / n - 0.1), high: Math.min(1, k / n + 0.1) });
+    const hardening = {
+      prereg: "evals/validation/v1/PREREG_stage_hardening.md",
+      model: "llama-guard3:8b",
+      n: { unsafe: 200, safe: 200 },
+      headline: "the hardening changes outcomes on 1 of 3 registered attack forms",
+      rows: [
+        { label: "unsafe", form: "forged_turn", raw: rate(0, 200), stage: rate(165, 200), p: 1e-9, verdict: "hardening flags more" },
+        { label: "unsafe", form: "tag_hidden", raw: rate(0, 200), stage: rate(96, 200), p: 1e-9, verdict: null },
+        { label: "safe", form: "markup", raw: rate(31, 200), stage: rate(42, 200), p: 0.0034, verdict: "hardening wrongly flags more" },
+      ],
+    };
+    const options = {
+      prereg: "evals/validation/v1/PREREG_stage_options.md",
+      model: "llama-guard3:8b",
+      n: { unsafe: 55, safe: 200, ordinary: 200 },
+      tests: [
+        { name: "hidden", reference: "whole", compared: "default", ref: rate(26, 55), cmp: rate(47, 55), p: 1e-6, verdict: "judging hidden text on its own flags more", calls: 3 },
+        { name: "markup", reference: "default", compared: "lines", ref: rate(50, 200), cmp: rate(36, 200), p: 0.2, verdict: "no significant difference", calls: 1 },
+      ],
+      sentences_cost: { ref: rate(1, 200), cmp: rate(4, 200), p: 0.25, calls: 3.975 },
+      lines_structure: { forms: 5, n: 275, default: 230, lines: 228 },
+    };
+
+    it("shows each form with the registered verdict, and an undecided form as reported only", () => {
+      render(<StageHandlingSection s={{ hardening, options }} />);
+      expect(screen.getByRole("heading", { name: "The stage's own handling" })).toBeInTheDocument();
+      const [first, second] = screen.getAllByRole("table");
+      const cells = (table) => [...table.querySelectorAll("tbody tr")].map((tr) => [...tr.children].map((c) => c.textContent));
+      const forms = cells(first);
+      expect(forms[0][0]).toBe("forged_turn");
+      expect(forms[0][3]).toMatch(/^hardening flags more \(/);
+      expect(forms[1]).toEqual(["tag_hidden", `0 of 200, ${interval(rate(0, 200))}`, `96 of 200, ${interval(rate(96, 200))}`, "reported, no decision"]);
+      expect(forms[2][0]).toBe("markup (safe: a flag is wrong)");
+      expect(forms[2][3]).toMatch(/^hardening wrongly flags more \(/);
+      const tests = cells(second);
+      expect(tests[0][0]).toBe("A request hidden in tag characters");
+      expect(tests[0][1]).toBe(`Whole text only: 26 of 55, ${interval(rate(26, 55))}`);
+      expect(tests[0][2]).toBe(`Default: 47 of 55, ${interval(rate(47, 55))}`);
+      expect(tests[1][2]).toMatch(/^lines=True: 36 of 200/);
+      expect(tests[1][3]).toMatch(/^no significant difference \(/);
+      expect(screen.getByText(/^200 unsafe and 200 safe prompts/)).toHaveTextContent(
+        "Headline: the hardening changes outcomes on 1 of 3 registered attack forms.",
+      );
+      const cost = screen.getByText(/^Hidden text is judged on its own by default/);
+      expect(cost).toHaveTextContent("4 of 200 wrongly flagged against 1");
+      expect(cost).toHaveTextContent("4.0 calls a prompt");
+      expect(cost).toHaveTextContent("lines=True on the 5 forged-structure forms: 228 of 275 flagged against 230 by default");
+      expect(cost).toHaveTextContent("so it stays opt-in");
+      expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
+    });
+
+    it("renders one study without the other", () => {
+      render(<StageHandlingSection s={{ options }} />);
+      expect(screen.getAllByRole("table")).toHaveLength(1);
+      expect(screen.queryByText(/Headline:/)).toBeNull();
+    });
+
+    it("mounts right after the content-safety stage once its evidence is committed, and not before", () => {
+      renderTrust();
+      const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+      expect(titles.includes("The stage's own handling")).toBe(Boolean(evidence.stage_handling));
+      if (evidence.stage_handling && evidence.content_stage) {
+        expect(titles.indexOf("The stage's own handling")).toBe(titles.indexOf("The guard's content-safety stage") + 1);
       }
     });
   });

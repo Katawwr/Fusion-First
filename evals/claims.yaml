@@ -128,6 +128,37 @@ claims:
       safe.systems.stage.k: {value: 101, n_path: safe.n, min_n: 50}
     demonstration_ok: false
 
+  # The stage's options (PREREG_stage_options.md), scored once on unseen prompts; docs/CASE_STUDY.md quotes these.
+  - id: stage_options_hidden
+    text: "the stage flagged 47 of 55 hidden requests, against 26 when only the whole text is judged"
+    qualifier: "the guard's content-safety stage (Llama Guard 3 8B) on unseen OR-Bench unsafe prompts written in tag characters behind a harmless question; a fixed form written by this project; pre-registered (PREREG_stage_options.md)"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/stage_options.json
+    metrics:
+      groups.unsafe.tag_hidden.systems.default.k: {value: 47, n_path: groups.unsafe.tag_hidden.n, min_n: 50}
+      groups.unsafe.tag_hidden.systems.whole.k: {value: 26, n_path: groups.unsafe.tag_hidden.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: stage_options_sentences
+    text: "the opt-in sentence mode flagged 44 of 55, against 21 by default"
+    qualifier: "same study; LlamaGuard(sentences=True) on unseen unsafe prompts with a fixed harmless question appended; off by default, about four calls a prompt on ordinary text"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/stage_options.json
+    metrics:
+      groups.unsafe.benign_suffix.systems.sentences.k: {value: 44, n_path: groups.unsafe.benign_suffix.n, min_n: 50}
+      groups.unsafe.benign_suffix.systems.default.k: {value: 21, n_path: groups.unsafe.benign_suffix.n, min_n: 50}
+    demonstration_ok: false
+
+  - id: stage_options_lines
+    text: "the opt-in line mode wrongly flagged 36 of 200, against 50 by default"
+    qualifier: "same study; LlamaGuard(lines=True) on unseen OR-Bench safe prompts (written to look unsafe) with a fixed request for HTML output appended; off by default"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/stage_options.json
+    metrics:
+      groups.safe.markup.systems.lines.k: {value: 36, n_path: groups.safe.markup.n, min_n: 50}
+      groups.safe.markup.systems.default.k: {value: 50, n_path: groups.safe.markup.n, min_n: 50}
+    demonstration_ok: false
+
   # Guard vs injection detectors (PREREG_guard_vs_detectors.md), scored once on fresh transcripts; docs/CASE_STUDY.md
   # quotes these.
   - id: guard_vs_detectors_plain_guard

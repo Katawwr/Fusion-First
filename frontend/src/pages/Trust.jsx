@@ -265,6 +265,73 @@ export function ContentStageSection({ s }) {
   );
 }
 
+const OPTION_ARMS = { whole: "Whole text only", default: "Default", sentences: "sentences=True", lines: "lines=True" };
+const OPTION_TESTS = {
+  hidden: "A request hidden in tag characters",
+  dilution: "A request with a harmless question appended",
+  markup: "Safe prompts that carry markup (a flag is wrong)",
+};
+
+// What the stage adds to Llama Guard 3's own judgment: two registered studies, the second on the first's weaknesses.
+// Every verdict is the registered rule's wording (trust_report.py).
+export function StageHandlingSection({ s }) {
+  const h = s.hardening;
+  const o = s.options;
+  const model = (h || o).model;
+  return (
+    <Section title="The stage's own handling">
+      <p className="mb-3 text-sm text-app-muted">
+        The section above is Llama Guard 3's judgment. This is what the stage adds: how the prompt reaches the
+        classifier ({model}). Fixed forms written by this project, OR-Bench prompts not used before. Pre-registered,
+        scored once.
+      </p>
+      {h && (
+        <>
+          <DataTable
+            head={["Form", "Llama Guard as is", "Through the stage", "Verdict"]}
+            rows={h.rows.map((r) => [
+              `${r.form}${r.label === "safe" ? " (safe: a flag is wrong)" : ""}`,
+              countOf(r.raw),
+              countOf(r.stage),
+              r.verdict ? `${r.verdict} (${pShort(r.p)})` : "reported, no decision",
+            ])}
+          />
+          <p className="mt-3 text-xs text-app-subtle">
+            {h.n.unsafe} unsafe and {h.n.safe} safe prompts. As is: the text in Meta's template, one call. Headline:{" "}
+            {h.headline}. The first three forms are the ones the handling was built against on other prompts.
+          </p>
+        </>
+      )}
+      {o && (
+        <>
+          <p className="mb-3 mt-5 text-sm text-app-muted">
+            Three changes followed, each tested against the stage without it on prompts no study or pilot had seen
+            ({o.n.unsafe} unsafe, {o.n.safe} safe, {o.n.ordinary} ordinary IFEval instructions).
+          </p>
+          <DataTable
+            head={["Test", "Without", "With", "Verdict"]}
+            rows={o.tests.map((t) => [
+              OPTION_TESTS[t.name],
+              `${OPTION_ARMS[t.reference]}: ${countOf(t.ref)}`,
+              `${OPTION_ARMS[t.compared]}: ${countOf(t.cmp)}`,
+              `${t.verdict} (${pShort(t.p)})`,
+            ])}
+          />
+          <p className="mt-3 text-xs text-app-subtle">
+            Hidden text is judged on its own by default. sentences=True and lines=True are opt-in. Cost of
+            sentences=True on ordinary text: {o.sentences_cost.cmp.k} of {o.sentences_cost.cmp.n} wrongly flagged
+            against {o.sentences_cost.ref.k} ({pShort(o.sentences_cost.p)}), {o.sentences_cost.calls.toFixed(1)} calls
+            a prompt. lines=True on the {o.lines_structure.forms} forged-structure forms: {o.lines_structure.lines} of{" "}
+            {o.lines_structure.n} flagged against {o.lines_structure.default} by default; {o.n.unsafe} unsafe prompts
+            cannot show a small drop, and one line is the stronger guarantee, so it stays opt-in. Limits: one
+            classifier, English, this project's own forms.
+          </p>
+        </>
+      )}
+    </Section>
+  );
+}
+
 // The McNemar counts are one sentence, not a chart: the arms disagree on a handful of transcripts.
 export function Step4Section({ s }) {
   const u = s.utility_benign;
@@ -729,6 +796,8 @@ export default function Trust() {
       {evidence.content_safety && <ContentSafetySection s={evidence.content_safety} />}
 
       {evidence.content_stage && <ContentStageSection s={evidence.content_stage} />}
+
+      {evidence.stage_handling && <StageHandlingSection s={evidence.stage_handling} />}
 
       <DetectorSection d={evidence.detector} />
 

@@ -51,6 +51,16 @@ models). A category wording tuned on the
 earlier 650 prompts
 flagged fewer of the fresh unsafe prompts and no fewer safe ones, so it was not adopted.
 
+Two further registered studies measured what the stage itself adds to Llama Guard's judgment. The second
+([`PREREG_stage_options.md`](../evals/validation/v1/PREREG_stage_options.md)) tested three changes on prompts no
+study had seen. Judging text hidden in tag characters on its own,
+the stage flagged 47 of 55 hidden requests, against 26 when only the whole text is judged.
+With a harmless question appended to a request,
+the opt-in sentence mode flagged 44 of 55, against 21 by default,
+at about four classifier calls a prompt. On safe prompts that carry markup,
+the opt-in line mode wrongly flagged 36 of 200, against 50 by default.
+The sample of unsafe prompts is small, and the forms are this project's own.
+
 A third registered study ([`PREREG_guard_vs_detectors.md`](../evals/validation/v1/PREREG_guard_vs_detectors.md))
 put the guard against two classifiers built to detect prompt injection, Prompt Guard 1 and ProtectAI deberta-v3 v2,
 on fresh InjecAgent transcripts of the same two models, scored once. With the injection as written,
