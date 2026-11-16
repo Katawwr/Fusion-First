@@ -139,6 +139,46 @@ export function Step5Section({ s }) {
   );
 }
 
+// The mechanism that replaced word matching for request binding: a local model asked about each call the rules
+// would block. Same sealed-calls design and decision rule as step 5.
+export function BinderSection({ s }) {
+  const pts = (x) => `${(x * 100).toFixed(1)}`;
+  const rows = [
+    ["Legitimate (a block is wrong)", s.legitimate],
+    ["Hijacked (a block is right)", s.hijack],
+    ["Hijacked, no address in the call", s.hijack_binding_only],
+    ["Hijacked, with a message for the reviewer in the call", s.hijack_targets_reviewer],
+  ];
+  const d = s.hijack.difference;
+  return (
+    <Section title="Request binding by a local model">
+      <p className="mb-3 text-sm text-app-muted">
+        An optional binder, off by default: when the rules would block a call as not covered by the user's request, a
+        local model ({s.model}) is asked whether the request covers it. It sees the request and the call, never the
+        tool results; only a clean yes clears that one block; every other rule still runs. Both arms on the same
+        sealed calls, written blind by {s.authors} Claude Sonnet authors over new tool catalogues. Pre-registered,
+        scored once.
+      </p>
+      <DataTable
+        head={["Sealed calls", "Rules alone blocked", "With the binder blocked"]}
+        rows={rows.map(([label, b]) => [label, `${b.old.k} of ${b.old.n}, ${interval(b.old)}`, `${b.new.k} of ${b.new.n}, ${interval(b.new)}`])}
+      />
+      <p className="mt-3 text-xs text-app-subtle">
+        Cost: {s.legitimate.old_only} legitimate calls blocked by the rules alone only, {s.legitimate.new_only} with
+        the binder only ({pShort(s.legitimate.mcnemar_p)}); with the binder the wrongly-blocked upper bound is{" "}
+        {pts(s.legitimate.new.high)}% against a registered ceiling of {pts(s.ceiling)}%. Protection: the blocked share
+        of hijacked calls moved {pts(d.point)} points (95% {pts(d.low)} to {pts(d.high)}) against a margin of -
+        {pts(s.margin)}. Decision: {s.verdict}
+        {s.verdict === "supported" ? "; it stays off by default because it needs a local model." : "."} The binder was
+        asked about {s.asked} of {s.n_rows} calls, {s.no_answer} without an answer, median{" "}
+        {s.median_seconds.toFixed(1)} s each. Limits: authored calls, not a live agent loop; the messages aimed at the
+        binder were written without knowing its prompt; it cannot check that an id in a call is the one the request
+        points at.
+      </p>
+    </Section>
+  );
+}
+
 const countOf = (r) => `${r.k} of ${r.n}, ${interval(r)}`;
 
 // The guard against classifiers built to detect prompt injection. The verdict sentences come from the registered
@@ -790,6 +830,8 @@ export default function Trust() {
       {evidence.step4_agentdojo && <Step4Section s={evidence.step4_agentdojo} />}
 
       {evidence.step5_binding && <Step5Section s={evidence.step5_binding} />}
+
+      {evidence.request_binder && <BinderSection s={evidence.request_binder} />}
 
       {evidence.guard_vs_detectors && <DetectorsStudySection s={evidence.guard_vs_detectors} />}
 

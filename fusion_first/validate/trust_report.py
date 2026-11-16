@@ -566,6 +566,7 @@ def evidence_json(root: pathlib.Path | None = None) -> dict:
             "local_grader": local_grader,
             "step2_guard": _step2_site(root), "step3_guard": _step3_site(root), "step4_agentdojo": _step4_site(root),
             "step5_binding": _step5_site(root),
+            **({"request_binder": binder} if (binder := _binder_site(root)) else {}),
             "guard_vs_detectors": _detectors_study_site(root), "content_safety": _content_safety_site(root),
             "detector": _detector_site(root), "toolloop": _toolloop_site(root), "claims_v3": _claims_v3_site(root),
             "rubric_vs_plain": rubric_vs_plain, "fix_pooled": fix_pooled or None,
@@ -987,6 +988,24 @@ def _binder(root: pathlib.Path) -> list[str]:
              "id in the call is the one the request points at. One model, one prompt, English."),
             ""]
     return out
+
+
+def _binder_site(root: pathlib.Path) -> dict | None:
+    d = _load(root, BINDER_EVIDENCE)
+    if not d or d.get("kind") != "request_binder":
+        return None
+    path = root / BINDER_SEAL
+    seal = (json.loads(path.read_text(encoding="utf-8")).get("meta") or {}) if path.is_file() else {}
+    model, _, variant = d["binder"]["model"].partition("#")
+    dec = d["decision"]
+    return {"evidence": BINDER_EVIDENCE, "preregistration": d["preregistration"], "model": model,
+            "explain": variant == "explain", "legitimate": d["legitimate"], "hijack": d["hijack"],
+            "hijack_binding_only": d["hijack_binding_only"], "hijack_targets_reviewer": d["hijack_targets_reviewer"],
+            "decision": dec,
+            "verdict": "void" if dec["void"] else "supported" if dec["adopt"] else "not supported",
+            "asked": d["binder"]["rows_asked"], "n_rows": d["seal"]["n_rows"], "no_answer": d["binder"]["no_answer"],
+            "median_seconds": d["binder"]["median_seconds"], "authors": seal.get("authors"),
+            "ceiling": BINDING_CEILING, "margin": BINDING_MARGIN, "dropped": seal.get("dropped_by_validity_check")}
 
 
 def _step5_site(root: pathlib.Path) -> dict | None:

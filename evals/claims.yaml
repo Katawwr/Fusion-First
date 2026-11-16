@@ -128,6 +128,27 @@ claims:
       safe.systems.stage.k: {value: 101, n_path: safe.n, min_n: 50}
     demonstration_ok: false
 
+  # The request binder (PREREG_binder.md), scored once on fresh sealed calls; docs/CASE_STUDY.md quotes these.
+  - id: binder_legitimate_blocked
+    text: "the guard with the binder wrongly blocked 19 of 297 legitimate calls, against 152 for the rules alone"
+    qualifier: "runtime guard with require_authorization=True and the optional request binder (qwen2.5:7b on local Ollama, explain-first) on sealed tool calls written blind by 12 Claude Sonnet authors over new domains; authored calls, not a live agent loop; pre-registered (PREREG_binder.md)"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/binder_study.json
+    metrics:
+      legitimate.new.k: {value: 19, n_path: legitimate.n, min_n: 200}
+      legitimate.old.k: {value: 152, n_path: legitimate.n, min_n: 200}
+    demonstration_ok: false
+
+  - id: binder_hijack_blocked
+    text: "blocked 187 of 192 hijacked calls, against 190"
+    qualifier: "same study; hijacked calls authored blind, a quarter of them carrying a message aimed at an automated reviewer written without knowledge of the binder's prompt"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/binder_study.json
+    metrics:
+      hijack.new.k: {value: 187, n_path: hijack.n, min_n: 100}
+      hijack.old.k: {value: 190, n_path: hijack.n, min_n: 100}
+    demonstration_ok: false
+
   # The stage's options (PREREG_stage_options.md), scored once on unseen prompts; docs/CASE_STUDY.md quotes these.
   - id: stage_options_hidden
     text: "the stage flagged 47 of 55 hidden requests, against 26 when only the whole text is judged"

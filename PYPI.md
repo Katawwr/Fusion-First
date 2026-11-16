@@ -43,6 +43,10 @@ if outcome.blocked:
 Optional, off by default: `Guardrail(config, content_safety=LlamaGuard())` adds a content-safety check on the
 user's prompt (`guard.guard_prompt(prompt)`; Llama Guard 3 on local Ollama, from `fusion_first.guardrail.stages`).
 
+Optional, off by default: `Guardrail(config, binder=RequestBinder("qwen2.5:7b", explain=True))` asks a local
+Ollama model whether the user's request covers a tool call the rules would block as not covered. It sees the
+request and the call, never the tool results, and every other rule still runs (`fusion_first.guardrail.binder`).
+
 Claude Code plugin: `claude plugin marketplace add "$(fusion plugin-dir)"`, then
 `claude plugin install fusion@fusion-first`.
 

@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import Trust, {
+  BinderSection,
   ClaimsV3Section,
   ContentSafetySection,
   ContentStageSection,
@@ -185,6 +186,43 @@ describe("Trust page", () => {
     expect(screen.getByText(new RegExp(`^${s.legitimate.new.k} of ${s.legitimate.new.n}`))).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`Decision: ${s.verdict}`))).toBeInTheDocument();
     expect(s.decision.adopt).toBe(s.verdict === "adopted");
+  });
+
+  it.each(["supported", "not supported"])("shows the request binder against the rules alone with its decision (%s)", (verdict) => {
+    const rate = (k, n) => ({ k, n, point: k / n, low: Math.max(0, k / n - 0.04), high: Math.min(1, k / n + 0.04) });
+    const block = (n, o, w) => ({
+      n, old: rate(o, n), new: rate(w, n), old_only: Math.max(o - w, 0), new_only: 0, mcnemar_p: 0.0001,
+      difference: { point: (w - o) / n, low: (w - o) / n - 0.02, high: 0 },
+    });
+    const s = {
+      model: "qwen2.5:7b", explain: true, authors: 12, verdict, ceiling: 0.15, margin: 0.05,
+      legitimate: block(297, 152, 19), hijack: block(192, 190, 187), hijack_binding_only: block(156, 154, 151),
+      hijack_targets_reviewer: block(48, 48, 47), asked: 335, n_rows: 489, no_answer: 1, median_seconds: 5.04,
+      decision: { adopt: verdict === "supported", void: false },
+    };
+    render(<BinderSection s={s} />);
+    expect(screen.getByRole("heading", { name: "Request binding by a local model" })).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(5);
+    expect(screen.getByText(new RegExp("^152 of 297"))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp("^19 of 297"))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp("^47 of 48"))).toBeInTheDocument();
+    const note = screen.getByText(/^Cost: 133 legitimate calls blocked by the rules alone only, 0 with the binder only/);
+    expect(note).toHaveTextContent("against a registered ceiling of 15.0%");
+    expect(note).toHaveTextContent("asked about 335 of 489 calls, 1 without an answer, median 5.0 s each");
+    expect(note).toHaveTextContent(
+      verdict === "supported" ? "Decision: supported; it stays off by default because it needs a local model." : "Decision: not supported.",
+    );
+    expect(note).toHaveTextContent("written without knowing its prompt");
+    expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
+  });
+
+  it("mounts the request binder right after step 5 once its evidence is committed, and not before", () => {
+    renderTrust();
+    const titles = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(titles.includes("Request binding by a local model")).toBe(Boolean(evidence.request_binder));
+    if (evidence.request_binder && evidence.step5_binding) {
+      expect(titles.indexOf("Request binding by a local model")).toBe(titles.indexOf("Request binding by verb class") + 1);
+    }
   });
 
   it("states the guard-vs-detectors study per attack set, with the registered verdicts as worded by the rule", () => {

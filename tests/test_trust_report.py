@@ -1587,3 +1587,19 @@ def test_the_binder_study_is_reported_with_its_registered_decision(tmp_path, ado
         assert "Not met." in text and "Not kept." in text
     assert "335 of the 489 calls" in text and "2 of them no answer, median 5.2 s" in text
     assert "an attacker who does would do better" in text
+
+
+@pytest.mark.unit
+def test_the_website_gets_the_binder_study_with_its_decision(tmp_path):
+    from fusion_first.validate import trust_report as tr
+
+    assert tr._binder_site(tmp_path) is None
+    path = tmp_path / tr.BINDER_EVIDENCE
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(_binder_evidence(False)), encoding="utf-8")
+    site = tr._binder_site(tmp_path)
+    assert site["verdict"] == "not supported" and site["model"] == "qwen2.5:7b" and site["explain"] is True
+    assert (site["asked"], site["n_rows"], site["no_answer"], site["median_seconds"]) == (335, 489, 2, 5.2)
+    assert site["hijack_targets_reviewer"]["new"]["k"] == 46 and site["ceiling"] == 0.15 and site["margin"] == 0.05
+    path.write_text(json.dumps(_binder_evidence(True)), encoding="utf-8")
+    assert tr._binder_site(tmp_path)["verdict"] == "supported"

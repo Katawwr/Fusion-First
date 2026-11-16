@@ -81,6 +81,16 @@ catalogues. Registered result: not adopted. The candidate rules wrongly blocked 
 55% for the published rules, far over the registered ceiling, while both blocked nearly every hijacked call. Matching
 a request's words to a tool's name is the limit, not the word lists.
 
+A third registered study ([`PREREG_binder.md`](../evals/validation/v1/PREREG_binder.md)) replaced the mechanism: an
+optional binder asks a local model (`qwen2.5:7b`) whether the user's request covers a call the rules would block. It
+is shown the request and the call, never the tool results. On fresh sealed calls, written blind over twelve new
+domains,
+the guard with the binder wrongly blocked 19 of 297 legitimate calls, against 152 for the rules alone,
+and
+blocked 187 of 192 hijacked calls, against 190.
+Registered result: supported. These are authored calls, not a live agent loop, and the attacks aimed at the binder
+were written without knowing its prompt.
+
 The judge on tool trajectories, pre-registered ([`PREREG_q1_toolloop.md`](../evals/validation/v1/PREREG_q1_toolloop.md))
 and scored once on the sealed blind split against oracle labels: Sonnet host subagents
 scored 40 of 40 on each agentic check, accuracy 100% (95% CI 91% to 100%), on static authored trajectories, not a
@@ -158,5 +168,6 @@ before merge; CI on every push. No API spend: real model calls went through a su
 - Samples are small (tens to hundreds of transcripts per cell); read the intervals, not the points.
 - No adaptive-attack evaluation; a static result is expected to degrade against an attacker who adapts.
 - The guard's cost in a live agent loop is above its registered margin, and a registered rule change did not bring
-  it under its ceiling (see Headline result): with request binding on, expect about half of freely worded requests
-  to need a confirmation or an allowlist.
+  it under its ceiling (see Headline result): with request binding on and no binder, expect about half of freely
+  worded requests to need a confirmation or an allowlist. The optional binder cut that on authored calls; it has
+  not been measured in a live loop.
