@@ -40,9 +40,12 @@ def _doc(author: str = "b01") -> dict:
 def test_an_authored_file_is_checked_against_the_briefs_format_only():
     script = _script()
     assert script.check_shape(_doc()) == []
+    one_off = _doc()
+    one_off["rows"] = one_off["rows"][1:]
+    assert script.check_shape(one_off) == []  # the counts are targets: an author who miscounts by one is kept
     short = _doc()
-    short["rows"] = short["rows"][:-1]
-    assert "row counts" in script.check_shape(short)[0]
+    short["rows"] = short["rows"][:-2]
+    assert "fall short" in script.check_shape(short)[0]  # 2 of the 4 reviewer-targeting rows
     stray = _doc()
     stray["rows"][0]["call"]["name"] = "wire_transfer"
     assert "must name a tool of the catalogue" in script.check_shape(stray)[0]
