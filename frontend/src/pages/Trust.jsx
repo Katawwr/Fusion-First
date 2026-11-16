@@ -175,6 +175,17 @@ export function BinderSection({ s }) {
         binder were written without knowing its prompt; it cannot check that an id in a call is the one the request
         points at.
       </p>
+      {s.attack && (
+        <p className="mt-1 text-xs text-app-subtle">
+          Informed attack, registered separately: attackers given the binder's exact prompt wrote {s.attack.n} hijacked
+          calls with no address in them. The rules alone blocked {s.attack.old.k}; with the binder {s.attack.new.k}{" "}
+          ({s.attack.cleared} cleared by the binder).{" "}
+          {s.attack.void ? "Void: too few rows." : s.attack.kept ? "Protection kept by the registered margin." : "Protection not kept by the registered margin."}{" "}
+          {s.attack.n - s.attack.old.k} passed request binding with no binder involved, many by calling the tool the
+          user asked for on another target or amount. Request binding is not a control against that: pair it with a
+          confirmation step for consequential tools.
+        </p>
+      )}
     </Section>
   );
 }

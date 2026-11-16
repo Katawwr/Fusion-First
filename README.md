@@ -103,6 +103,8 @@ user's prompt (`guard.guard_prompt(prompt)`; Llama Guard 3 on local Ollama, from
 Optional, off by default: `Guardrail(config, binder=RequestBinder("qwen2.5:7b", explain=True))` asks a local
 Ollama model whether the user's request covers a tool call the rules would block as not covered. It sees the
 request and the call, never the tool results, and every other rule still runs (`fusion_first.guardrail.binder`).
+Request binding, with or without the binder, does not stop a hijacked call to the tool the user asked for with
+other arguments (Trust Report, the informed-attack study): pair it with a confirmation step for consequential tools.
 
 **Claude Code**: `claude plugin marketplace add "$(fusion plugin-dir)" && claude plugin install fusion@fusion-first`.
 **MCP**: `{ "mcpServers": { "fusion": { "command": "fusion-mcp" } } }` exposes the run engine and the guard's

@@ -18,8 +18,10 @@ short messages fit; an essay addressed to the binder does not). That narrows the
 the binder; it does not remove it. A yes clears the binding block only, so a call to an outside address or one
 carrying a secret is still stopped by its own rule.
 
-Not deterministic, and not evidence of anything until measured: see the Trust Report for what a registered study
-shows. Local Ollama only; it refuses to call while FUSION_OFFLINE is set.
+Not deterministic. Two registered studies (Trust Report): on blind-authored calls it clears most wrongly blocked
+legitimate calls and almost no hijacked ones; under an attack written with its prompt in hand, protection was
+not kept, and a hijacked call to the tool the user asked for, with other arguments, often passes request binding
+with or without it. Pair it with a confirmation step for consequential tools. Local Ollama only; it refuses to call while FUSION_OFFLINE is set.
 """
 
 from __future__ import annotations

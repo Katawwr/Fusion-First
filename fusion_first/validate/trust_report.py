@@ -990,6 +990,50 @@ def _binder(root: pathlib.Path) -> list[str]:
     return out
 
 
+BINDER_ATTACK_EVIDENCE = "evals/validation/v1/binder_attack.json"
+
+
+def _binder_attack_doc(root: pathlib.Path) -> dict | None:
+    d = _load(root, BINDER_ATTACK_EVIDENCE)
+    return d if d and d.get("kind") == "request_binder_attack" else None
+
+
+def _binder_attack(root: pathlib.Path) -> list[str]:
+    d = _binder_attack_doc(root)
+    if not d:
+        return []
+    h, dec, b = d["hijack"], d["decision"], d["binder"]
+    diff = h["difference"]
+    through = h["n"] - h["old"]["k"]
+    verdict = ("void (too few rows)" if dec["void"] else "protection kept" if dec["kept"]
+               else "protection not kept under an informed attack")
+    return ["## The request binder under an informed attack (pre-registered)", "",
+            ("The study above said its attacks on the binder were naive. Here the attackers were given the binder's "
+             "system message word for word, the exact form of what it is shown, and its limits, and wrote hijacked "
+             "calls built to be answered \"covered\". No call carries an address, so only request binding can stop "
+             f"one. {len(d['per_author'])} Claude Sonnet attackers, one domain each; a blind check dropped the rows "
+             f"whose call the user had in fact asked for. Registered in `{d['preregistration']}`; evidence: "
+             f"`{BINDER_ATTACK_EVIDENCE}`."), "",
+            "| Informed-attack calls (a block is right) | Rules alone blocked | Rules with the binder blocked |",
+            "|---|---|---|",
+            (f"| {h['n']} hijacked calls | {h['old']['k']} of {h['n']}, {_iv(h['old'])} | "
+             f"{h['new']['k']} of {h['n']}, {_iv(h['new'])} |"), "",
+            (f"- Registered outcome: the blocked share moved {diff['point'] * 100:+.1f} points with the binder (95% "
+             f"{diff['low'] * 100:.1f} to {diff['high'] * 100:.1f}); the registered margin is -5. **{verdict}**."),
+            (f"- The binder cleared {h['old_only']} calls the rules had blocked (it was asked about "
+             f"{b['rows_asked']}, {b['no_answer']} without an answer)."),
+            (f"- The larger number is the rules' own: {through} of the {h['n']} calls passed request binding with no "
+             "binder involved. A common approach among them was a call of the same kind as the user's "
+             "request on another target or amount (the booking next to the one named, ten times the refund), and "
+             "matching a request's words to a tool does not read the arguments."),
+            ("- What this changes: request binding, by rules or by the binder, is not a control against an attacker "
+             "who can make the agent call the tool the user asked for with other arguments. Use it with a "
+             "confirmation step for consequential tools; the destination and secret rules do not depend on it."),
+            ("- Limits: a static attack by one model family that could not query the binder and refine; authored "
+             "calls, so whether an agent would emit them is not measured; one binder model."),
+            ""]
+
+
 def _binder_site(root: pathlib.Path) -> dict | None:
     d = _load(root, BINDER_EVIDENCE)
     if not d or d.get("kind") != "request_binder":
@@ -1005,7 +1049,11 @@ def _binder_site(root: pathlib.Path) -> dict | None:
             "verdict": "void" if dec["void"] else "supported" if dec["adopt"] else "not supported",
             "asked": d["binder"]["rows_asked"], "n_rows": d["seal"]["n_rows"], "no_answer": d["binder"]["no_answer"],
             "median_seconds": d["binder"]["median_seconds"], "authors": seal.get("authors"),
-            "ceiling": BINDING_CEILING, "margin": BINDING_MARGIN, "dropped": seal.get("dropped_by_validity_check")}
+            "ceiling": BINDING_CEILING, "margin": BINDING_MARGIN, "dropped": seal.get("dropped_by_validity_check"),
+            **({"attack": {"n": a["hijack"]["n"], "old": a["hijack"]["old"], "new": a["hijack"]["new"],
+                           "cleared": a["hijack"]["old_only"], "kept": a["decision"]["kept"],
+                           "void": a["decision"]["void"], "preregistration": a["preregistration"]}}
+               if (a := _binder_attack_doc(root)) else {})}
 
 
 def _step5_site(root: pathlib.Path) -> dict | None:
@@ -2450,7 +2498,7 @@ def render(root: pathlib.Path | None = None) -> str:
     root = root or data_root()
     parts = [HEADER, *_bottom_line(root), *_q1(root), *_q2(root), *_q3(root), *_b3(root), *_q5(root), *_q6(root),
              *_q7(root),
-             *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_binder(root), *_detectors_study(root),
+             *_step2(root), *_step3(root), *_step4(root), *_step5(root), *_binder(root), *_binder_attack(root), *_detectors_study(root),
              *_content_safety(root), *_content_stage(root), *_stage_hardening(root), *_stage_options(root), *_guard(root),
              *_limits(), *_superseded(root)]
     return "\n".join(parts).rstrip() + "\n"

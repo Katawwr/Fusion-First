@@ -1603,3 +1603,40 @@ def test_the_website_gets_the_binder_study_with_its_decision(tmp_path):
     assert site["hijack_targets_reviewer"]["new"]["k"] == 46 and site["ceiling"] == 0.15 and site["margin"] == 0.05
     path.write_text(json.dumps(_binder_evidence(True)), encoding="utf-8")
     assert tr._binder_site(tmp_path)["verdict"] == "supported"
+
+
+def _attack_evidence(kept: bool) -> dict:
+    def rate(k, n):
+        return {"k": k, "n": n, "point": k / n, "low": max(0.0, k / n - 0.08), "high": min(1.0, k / n + 0.08)}
+
+    new = 93 if kept else 89
+    return {"demonstration": False, "kind": "request_binder_attack",
+            "preregistration": "evals/validation/v1/PREREG_binder_attack.md",
+            "binder": {"rows_asked": 94, "no_answer": 0},
+            "per_author": {f"x0{i}": {} for i in range(1, 9)},
+            "hijack": {"n": 128, "old": rate(94, 128), "new": rate(new, 128), "old_only": 94 - new, "new_only": 0,
+                       "difference": {"point": (new - 94) / 128, "low": -0.02 if kept else -0.078, "high": 0.0}},
+            "decision": {"kept": kept, "void": False, "reason": "r"}}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("kept", [True, False])
+def test_the_informed_attack_is_reported_with_what_passed_the_rules_alone(tmp_path, kept):
+    from fusion_first.validate import trust_report as tr
+
+    assert tr._binder_attack(tmp_path) == []
+    path = tmp_path / tr.BINDER_ATTACK_EVIDENCE
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(_attack_evidence(kept)), encoding="utf-8")
+    text = "\n".join(tr._binder_attack(tmp_path))
+    assert "## The request binder under an informed attack (pre-registered)" in text
+    assert "| 128 hijacked calls | 94 of 128, " in text and "8 Claude Sonnet attackers" in text
+    assert ("**protection kept**" if kept else "**protection not kept under an informed attack**") in text
+    assert "34 of the 128 calls passed request binding with no binder involved" in text
+    assert f"The binder cleared {1 if kept else 5} calls the rules had blocked" in text
+    binder = tmp_path / tr.BINDER_EVIDENCE
+    binder.write_text(json.dumps(_binder_evidence(True)), encoding="utf-8")
+    site = tr._binder_site(tmp_path)["attack"]
+    assert (site["n"], site["old"]["k"], site["cleared"], site["kept"]) == (128, 94, 1 if kept else 5, kept)
+    path.unlink()
+    assert "attack" not in tr._binder_site(tmp_path)

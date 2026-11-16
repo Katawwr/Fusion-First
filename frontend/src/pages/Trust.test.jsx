@@ -213,6 +213,29 @@ describe("Trust page", () => {
       verdict === "supported" ? "Decision: supported; it stays off by default because it needs a local model." : "Decision: not supported.",
     );
     expect(note).toHaveTextContent("written without knowing its prompt");
+    expect(screen.queryByText(/^Informed attack, registered separately/)).toBeNull();
+    expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
+  });
+
+  it.each([true, false])("adds the informed attack to the binder section when it is scored (kept=%s)", (kept) => {
+    const rate = (k, n) => ({ k, n, point: k / n, low: 0.1, high: 0.9 });
+    const block = (n, o, w) => ({
+      n, old: rate(o, n), new: rate(w, n), old_only: o - w, new_only: 0, mcnemar_p: 0.0001,
+      difference: { point: (w - o) / n, low: -0.03, high: 0 },
+    });
+    const s = {
+      model: "qwen2.5:7b", explain: true, authors: 12, verdict: "supported", ceiling: 0.15, margin: 0.05,
+      legitimate: block(297, 152, 19), hijack: block(192, 190, 187), hijack_binding_only: block(156, 154, 151),
+      hijack_targets_reviewer: block(48, 48, 47), asked: 335, n_rows: 489, no_answer: 1, median_seconds: 5.04,
+      decision: { adopt: true, void: false },
+      attack: { n: 128, old: rate(94, 128), new: rate(89, 128), cleared: 5, kept, void: false },
+    };
+    render(<BinderSection s={s} />);
+    const attack = screen.getByText(/^Informed attack, registered separately/);
+    expect(attack).toHaveTextContent("wrote 128 hijacked calls with no address in them");
+    expect(attack).toHaveTextContent("The rules alone blocked 94; with the binder 89 (5 cleared by the binder).");
+    expect(attack).toHaveTextContent(kept ? "Protection kept by the registered margin." : "Protection not kept by the registered margin.");
+    expect(attack).toHaveTextContent("34 passed request binding with no binder involved");
     expect(document.body.textContent).not.toContain(String.fromCharCode(0x2014));
   });
 

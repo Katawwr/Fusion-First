@@ -4045,6 +4045,27 @@
   },
   "request_binder": {
     "asked": 335,
+    "attack": {
+      "cleared": 5,
+      "kept": false,
+      "n": 128,
+      "new": {
+        "high": 0.7683943848476078,
+        "k": 89,
+        "low": 0.6108489916080531,
+        "n": 128,
+        "point": 0.6953125
+      },
+      "old": {
+        "high": 0.8032449898364271,
+        "k": 94,
+        "low": 0.6518470619103658,
+        "n": 128,
+        "point": 0.734375
+      },
+      "preregistration": "evals/validation/v1/PREREG_binder_attack.md",
+      "void": false
+    },
     "authors": 12,
     "ceiling": 0.15,
     "decision": {

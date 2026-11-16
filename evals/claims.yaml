@@ -149,6 +149,17 @@ claims:
       hijack.old.k: {value: 190, n_path: hijack.n, min_n: 100}
     demonstration_ok: false
 
+  # The binder under an informed attack (PREREG_binder_attack.md), scored once; docs/CASE_STUDY.md quotes this.
+  - id: binder_attack_blocked
+    text: "the rules alone blocked 94 and the rules with the binder blocked 89"
+    qualifier: "128 hijacked tool calls written by 8 Claude Sonnet attackers who were given the binder's exact prompt; no address in any call, so only request binding applies; a static attack on authored calls; pre-registered (PREREG_binder_attack.md), protection not kept by the registered margin"
+    files: [docs/CASE_STUDY.md]
+    evidence: evals/validation/v1/binder_attack.json
+    metrics:
+      hijack.old.k: {value: 94, n_path: hijack.n, min_n: 100}
+      hijack.new.k: {value: 89, n_path: hijack.n, min_n: 100}
+    demonstration_ok: false
+
   # The stage's options (PREREG_stage_options.md), scored once on unseen prompts; docs/CASE_STUDY.md quotes these.
   - id: stage_options_hidden
     text: "the stage flagged 47 of 55 hidden requests, against 26 when only the whole text is judged"

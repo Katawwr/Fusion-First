@@ -3,6 +3,15 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Docs: request binding, by the rules or by the optional binder, does not stop a hijacked call to the tool the user
+  asked for with other arguments. A registered informed-attack study measured it (Trust Report, "The request binder
+  under an informed attack": protection not kept). Pair request binding with a confirmation step for consequential
+  tools.
+
 ## [0.1.9] - 2026-11-16
 
 ### Added

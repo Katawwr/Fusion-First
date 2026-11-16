@@ -91,6 +91,13 @@ blocked 187 of 192 hijacked calls, against 190.
 Registered result: supported. These are authored calls, not a live agent loop, and the attacks aimed at the binder
 were written without knowing its prompt.
 
+A fourth ([`PREREG_binder_attack.md`](../evals/validation/v1/PREREG_binder_attack.md)) gave attackers the binder's
+exact prompt. Of their 128 hijacked calls,
+the rules alone blocked 94 and the rules with the binder blocked 89,
+outside the registered margin: protection was not kept. Many of the calls that got through used the tool the user
+had asked for on another target or amount, which matching a request to a tool does not catch, with or without the
+binder.
+
 The judge on tool trajectories, pre-registered ([`PREREG_q1_toolloop.md`](../evals/validation/v1/PREREG_q1_toolloop.md))
 and scored once on the sealed blind split against oracle labels: Sonnet host subagents
 scored 40 of 40 on each agentic check, accuracy 100% (95% CI 91% to 100%), on static authored trajectories, not a
