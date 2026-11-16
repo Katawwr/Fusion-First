@@ -29,7 +29,7 @@ registration, not evidence.
 | `evals/validation/v1/PREREG_stage_hardening.md` | `e3f9a3845f832f436225cadcd61f087c1ea2af733b719a2b178e81dce99167da` | `e151c4a` 2026-11-14 14:23:08 +0000 | none | `evals/validation/v1/stage_hardening.json`: `46a8de5` 2026-11-14 16:05:29 +0000<br>`evals/validation/v1/stage_hardening/lg_raw.jsonl`: `f5162a9` 2026-11-14 16:05:08 +0000 |
 | `evals/validation/v1/PREREG_stage_options.md` | `6a9d0ebd19bd64048e998ad159903ca570b0558cbce418e8a34dbc9c10a4e042` | `e9cbdb6` 2026-11-15 16:44:45 +0000 | none | `evals/validation/v1/stage_options.json`: `f86c172` 2026-11-15 17:50:06 +0000<br>`evals/validation/v1/stage_options/lg_raw.jsonl`: `7fb387d` 2026-11-15 17:46:39 +0000 |
 | `evals/validation/v1/PREREG_binder.md` | `634091f05d0b8df6a1064a4143ba3453c60308a84219b5c65b24bdb9ff6a56e9` | `803754a` 2026-11-16 13:12:35 +0000 | none | `evals/validation/v1/binder_study.json`: `dc14784` 2026-11-16 13:43:48 +0000<br>`evals/validation/v1/binder/answers.jsonl`: `648fa57` 2026-11-16 13:43:34 +0000 |
-| `evals/validation/v1/PREREG_binder_attack.md` | `211682702eec4bc53faa7b3f39aa319badaaa74775132ac5bc1af73b515743e9` | `edaffe4` 2026-11-16 14:28:19 +0000 | none | none yet |
+| `evals/validation/v1/PREREG_binder_attack.md` | `211682702eec4bc53faa7b3f39aa319badaaa74775132ac5bc1af73b515743e9` | `edaffe4` 2026-11-16 14:28:19 +0000 | none | `evals/validation/v1/binder_attack.json`: `cde2471` 2026-11-16 14:44:40 +0000<br>`evals/validation/v1/binder_attack/answers.jsonl`: `be99296` 2026-11-16 14:44:25 +0000 |
 
 Re-derive a row: `git log --diff-filter=A --format=%h%x09%ad --date=iso -- <file>` prints the commit that added the
 file and its author date (the last line is the first add); `git log --format=%h%x09%ad --date=iso -- <file>` lists

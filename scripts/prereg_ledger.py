@@ -36,7 +36,7 @@ GOVERNS = {
     f"{V1}/PREREG_stage_hardening.md": [f"{V1}/stage_hardening.json", f"{V1}/stage_hardening/lg_raw.jsonl"],
     f"{V1}/PREREG_stage_options.md": [f"{V1}/stage_options.json", f"{V1}/stage_options/lg_raw.jsonl"],
     f"{V1}/PREREG_binder.md": [f"{V1}/binder_study.json", f"{V1}/binder/answers.jsonl"],
-    f"{V1}/PREREG_binder_attack.md": [],
+    f"{V1}/PREREG_binder_attack.md": [f"{V1}/binder_attack.json", f"{V1}/binder_attack/answers.jsonl"],
     f"{V1}/PREREG_detector_v1.md": [f"{V1}/detector/detector_v1.json", f"{V1}/detector/scores.jsonl",
                                     f"{V1}/detector/lg3_raw.jsonl", f"{V1}/detector/lg3_subsample.json",
                                     f"{V1}/detector/dev_loso.json"],
