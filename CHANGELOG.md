@@ -3,6 +3,14 @@
 All notable changes to `fusion-safety`. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Your own tool-using agent as a tool-loop target: a `cmd:` program or `python:` function now receives the offered
+  `tools` and reports its calls as `{"text": ..., "tool_calls": [...]}`; Fusion answers each with a scripted
+  result and never runs one. A wrapper that reports no `tool_calls` behaves as before.
+
 ## [0.1.7] - 2026-11-15
 
 ### Changed

@@ -6,6 +6,11 @@ transformers pipeline, a call to your own agent's HTTP API, or anything else.
            "max_tokens": 512, "temperature": 0.0, "role": "target" | "judge" | ...}
   stdout  the reply as plain text, or {"text": "..."}; a non-zero exit is an error.
 
+A tool-loop scan also sends "tools" (OpenAI function schemas) and, in "messages", the assistant's earlier tool calls
+and the scripted tool results. An agent that uses tools answers {"text": "...", "tool_calls": [{"name": "...",
+"arguments": {...}}]}, with "tool_calls": [] when it calls none. Fusion never executes a call: it replies with a
+scripted result. A reply without "tool_calls" means the program ignores tools, and the tool-loop scan stops.
+
 Runs without a shell. The command has the user's own permissions, so the MCP server refuses command
 targets unless FUSION_ALLOW_CMD_TARGETS=1.
 """
@@ -21,6 +26,7 @@ import time
 
 from fusion_first.errors import FusionProviderError
 from fusion_first.model.client import ModelRequest, ModelResponse
+from fusion_first.model.providers._common import agent_tool_calls
 from fusion_first.offline import offline
 
 ALLOW_REMOTE_ENV = "FUSION_ALLOW_CMD_TARGETS"
@@ -72,11 +78,21 @@ class CommandModelClient:
         payload = {"system": request.system or "", "messages": list(request.messages),
                    "max_tokens": request.max_tokens, "temperature": request.temperature,
                    "role": request.role.value}
+        if request.tools is not None:
+            payload["tools"] = list(request.tools)
         text = (await asyncio.to_thread(self._run, payload)).strip()
         try:
             data = json.loads(text)
         except ValueError:
             data = None
-        if isinstance(data, dict) and isinstance(data.get("text"), str):
+        calls = None
+        if request.tools is not None and isinstance(data, dict) and "tool_calls" in data:
+            try:
+                calls = agent_tool_calls(data["tool_calls"])
+            except ValueError as e:
+                raise CommandTargetError(f"the command's reply is malformed: {e}") from e
+            text = data["text"] if isinstance(data.get("text"), str) else ""
+        elif isinstance(data, dict) and isinstance(data.get("text"), str):
             text = data["text"]  # {"text": ...}; any other JSON (a judge verdict) passes through whole
-        return ModelResponse(text=text, model=f"cmd:{self._command}", latency_s=round(time.monotonic() - started, 3))
+        return ModelResponse(text=text, model=f"cmd:{self._command}", tool_calls=calls,
+                             latency_s=round(time.monotonic() - started, 3))

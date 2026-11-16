@@ -72,7 +72,8 @@ class ModelResponse(BaseModel):
     # Native tool calls the model asked for: [{"name": str, "arguments": dict}], plus "arguments_raw"
     # (the provider's text) when its string arguments did not decode to a JSON object. A tool-capable
     # provider (Ollama, OpenAI-compatible) returns [] when tools were offered and none was called;
-    # None = tools were not offered, or the backend ignores them (claude-cli, cmd:, python:, host).
+    # None = tools were not offered, or the backend ignores them (claude-cli, host, a cmd: or python: wrapper
+    # that reports no tool calls).
     tool_calls: list[dict] | None = None
 
 

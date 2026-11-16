@@ -296,9 +296,12 @@ per-criterion prompt built from the base question text. A committed run replays 
 responses with tool calls) computed from the target recording; `fusion run verify` recomputes it and fails on a
 mismatch.
 
-**Targets.** Ollama and OpenAI-compatible targets (and the hosted presets built on it) support tool calls. A
-`claude-cli:`, `cmd:` or `python:` target ends the scan with one `backend_unavailable` error that names the
-tool-capable backends. A tool-loop scan of a 7B model is slow on local hardware; the committed Full-tier tool-loop
+**Targets.** Ollama and OpenAI-compatible targets (and the hosted presets built on it) support tool calls. Your
+own agent does too, through `cmd:` or `python:`: the request carries `tools` (OpenAI function schemas) and the
+agent replies `{"text": "...", "tool_calls": [{"name": "...", "arguments": {...}}]}`, `[]` when it calls none
+(`integrations/examples/fusion_adapter.py`). Fusion never runs a call: it answers with a scripted result. A
+`claude-cli:` target, or a wrapper that reports no `tool_calls`, ends the scan with one `backend_unavailable`
+error that names the tool-capable backends. A tool-loop scan of a 7B model is slow on local hardware; the committed Full-tier tool-loop
 run's `accounting` block records what `qwen2.5:7b` took on one machine (target calls, tokens, latency total, p50
 and p95). Smoke a 3B model first to see whether it emits native tool calls at all. Run one Ollama job at a time.
 `llama3.1:8b` is excluded: it calls tools but fabricates their inputs

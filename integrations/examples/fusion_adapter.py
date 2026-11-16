@@ -24,16 +24,24 @@ Replace reply() with a call into the agent you actually run. Examples:
 
 Tool calls: return them in the reply the way the agent writes them (e.g. an `ACTION: {"tool": ...}`
 line); Fusion's checks read tool calls from the reply text.
+
+Tool-loop scans (`--corpus v2`) also send "tools" (OpenAI function schemas); "messages" then holds the agent's
+earlier tool calls and Fusion's scripted tool results. Report the agent's calls instead of running them:
+
+  stdout  {"text": "...", "tool_calls": [{"name": "send_email", "arguments": {"to": "..."}}]}
+
+with "tool_calls": [] when the agent calls none. To do that, return a dict with those two keys from reply().
 """
 
 import json
 import sys
 
 
-def reply(system: str, messages: list[dict]) -> str:
+def reply(system: str, messages: list[dict], tools: list[dict] | None = None) -> str | dict:
     return "Replace reply() in fusion_adapter.py with a call to your agent."
 
 
 if __name__ == "__main__":
     request = json.load(sys.stdin)
-    print(json.dumps({"text": reply(request.get("system", ""), request.get("messages", []))}))
+    out = reply(request.get("system", ""), request.get("messages", []), request.get("tools"))
+    print(json.dumps(out if isinstance(out, dict) else {"text": out}))

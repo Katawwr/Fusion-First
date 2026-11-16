@@ -67,3 +67,27 @@ def resolve_model(registry: ModelRegistry, request: ModelRequest, role_map: dict
 def is_bad_request(exc: Exception) -> bool:
     """Best-effort HTTP 400 detection (falls back from strict schema to plain JSON)."""
     return getattr(exc, "status_code", None) == 400 or "BadRequest" in type(exc).__name__
+
+
+def agent_tool_calls(raw: object) -> list[dict]:
+    """The tool calls an agent wrapper (`cmd:`, `python:`) reports, as `[{"name": str, "arguments": dict}]`. Each
+    call is `{"name", "arguments"}` or the OpenAI shape `{"function": {"name", "arguments"}}`; arguments are an
+    object or its JSON text. `ValueError` for anything else: a wrapper's reply is the user's own code, so a
+    malformed call is reported, never dropped."""
+    if not isinstance(raw, list):
+        raise ValueError(f"tool_calls must be a list, got {type(raw).__name__}")
+    out: list[dict] = []
+    for i, call in enumerate(raw):
+        fn = call.get("function") if isinstance(call, dict) and isinstance(call.get("function"), dict) else call
+        if not isinstance(fn, dict) or not isinstance(fn.get("name"), str) or not fn["name"]:
+            raise ValueError(f"tool_calls[{i}] needs a name")
+        args = fn.get("arguments", {})
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"tool_calls[{i}] arguments are not JSON: {e}") from e
+        if not isinstance(args, dict):
+            raise ValueError(f"tool_calls[{i}] arguments must be an object")
+        out.append({"name": fn["name"], "arguments": args})
+    return out

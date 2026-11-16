@@ -3,7 +3,8 @@
 
 Contract with the providers (`ModelResponse.tool_calls`): when tools are offered, a tool-capable backend
 (Ollama, OpenAI-compatible) returns a list, `[]` when the model made no call; the loop treats `[]` as the
-final turn (`stop="final"`). `None` means the backend ignores tools (claude-cli, cmd:, python:, host): the
+final turn (`stop="final"`). A `cmd:` program or `python:` function that reports its tool calls counts as
+tool-capable. `None` means the backend ignores tools (claude-cli, host, a wrapper that reports none): the
 loop raises `ToolsUnsupported`, which is not isolatable, since every case of the run would fail the same way.
 
 Messages use one provider-agnostic shape, built deterministically so record/replay keys are stable:
@@ -74,7 +75,8 @@ async def run_tool_loop(
         if resp.tool_calls is None:
             raise ToolsUnsupported(
                 f"the target backend returned no tool_calls field for a request that offered tools "
-                f"(model {model_id or resp.model!r}); use a tool-capable backend (ollama:, openai-compat:)")
+                f"(model {model_id or resp.model!r}); use a tool-capable backend (ollama:, openai-compat:), or have a cmd: or python: agent report its "
+                f"tool calls ({{\"text\": ..., \"tool_calls\": [...]}})")
         calls = [(c["name"], _arguments(c)) for c in resp.tool_calls]
         for name, args in calls:
             steps.append(Step(role=Role.ASSISTANT, tool_call=ToolCall(name=name, arguments=args)))
